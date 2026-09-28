@@ -6,6 +6,7 @@ import { buildAiCoachContextText } from '../src/lib/aiCoachSystemContext';
 import { normalizeAiCoachTrainingContext } from '../src/lib/aiTrainingContext';
 import { AI_COACH_DEBUG_TRANSCRIPTS } from '../src/lib/aiCoachDebug';
 import { LOG_ID_PATTERN } from '../src/lib/aiCoachLogId';
+import { formatCoachReportForSlack, readCoachReport } from '../src/lib/coachAnswerReport';
 import { AI_COACH_DEFAULT_MODEL } from '../src/lib/aiCoachModel';
 import { appUpdateRefusalBody, isAppVersionRefused } from '../src/lib/appUpdateGate';
 import {
@@ -1150,6 +1151,23 @@ function refusedBeforeModel(result: { ok: true } | AICoachAdviceError): boolean 
   return result.ok !== true && REFUSED_BEFORE_MODEL.has(result.error.code);
 }
 
+/** One note to a Slack incoming webhook; the status, or null when it never answered. */
+async function postToSlack(webhook: string, text: string): Promise<number | null> {
+  try {
+    const response = await fetch(webhook, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+      // Well inside the phone's own 40 s wait, so a stuck Slack still answers
+      // the reader with a failure they can retry rather than a hang.
+      signal: AbortSignal.timeout(10000),
+    });
+    return response.status;
+  } catch {
+    return null;
+  }
+}
+
 /** The label to forget, or null when this is not a forget request. */
 function readForgetLogId(body: unknown): string | null {
   try {
@@ -1242,6 +1260,39 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       // The switch stays off on the phone either way, so nothing more is
       // written; this only means the copies already there survived the call.
       res.status(502).json({ ok: false, error: 'FORGET_FAILED' });
+    }
+    return;
+  }
+
+  /**
+   * A reader flagging one answer (Play's AI-generated content policy: from
+   * inside the app, about that answer). Before the version gate for the same
+   * reason as the withdrawal above: a report has to land from whatever build
+   * the reader has. It carries the answer and a reason, never the question
+   * (lib/coachAnswerReport), and goes to the team's #bugs channel.
+   *
+   * The reply says whether it arrived — the app shows "sent" only on `ok`.
+   */
+  const report = readCoachReport(req.body);
+  if (report) {
+    // Its own count: a reader who has used up their questions can still flag
+    // the answer that made them want to, and a report spends no question.
+    if (checkRateLimit(`report:${getIpAddress(req)}`).limited) {
+      res.status(429).json({ ok: false, error: 'RATE_LIMIT' });
+      return;
+    }
+    const webhook = process.env.SLACK_WEBHOOK_BUGS?.trim();
+    if (!webhook) {
+      console.error('ai-coach REPORT_UNROUTED: SLACK_WEBHOOK_BUGS is not set, so a reported answer had nowhere to go');
+      res.status(503).json({ ok: false, error: 'REPORT_UNROUTED' });
+      return;
+    }
+    const status = await postToSlack(webhook, formatCoachReportForSlack(report));
+    if (status !== null && status >= 200 && status < 300) {
+      res.status(200).json({ ok: true });
+    } else {
+      console.error(`ai-coach REPORT_FAILED: Slack answered ${status ?? 'nothing'}`);
+      res.status(502).json({ ok: false, error: 'REPORT_FAILED' });
     }
     return;
   }

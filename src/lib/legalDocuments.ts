@@ -143,6 +143,7 @@ const PRIVACY_EN: LegalSection[] = [
       'You can take it back at any time in Settings, and taking it back deletes what was already kept. Turning any one line off removes every copy kept for you from our server — including those made under the lines you leave on — rather than only stopping new ones.',
       'The programme composer works the same way: when you ask the app to build a programme from a written brief, the brief and the same summary are sent along the same route.',
       'Importing a programme from a photo also uses this route. The photo you picked is scaled down and sent so the table in it can be read; it is used for that one import and is not kept — unless you ticked the photos line above, in which case the photo and the table read from it are kept like any other allowed copy.',
+      'Under each answer the online coach writes there is a Report link. If you use it, the answer you reported and the reason you picked are sent to us so that a person can review it — not your question, and nothing that identifies you. The report reaches us through Slack, the messaging service we review reports in, and is deleted once it has been dealt with, at the latest after 24 months.',
     ],
   },
   {
@@ -167,18 +168,19 @@ const PRIVACY_EN: LegalSection[] = [
   {
     heading: 'Who helps us run this',
     body: [
-      'We run no servers of our own. Three companies process data for us, under contracts that bind them to handle it only on our instructions and only for the purposes described here.',
+      'We run no servers of our own. Four companies process data for us, under contracts that bind them to handle it only on our instructions and only for the purposes described here.',
     ],
     bullets: [
       'Vercel (United States): runs our server and stores the cloud backups and the usage events. The storage is in the European Union.',
       'Anthropic (United States): answers coach questions, composes programmes and reads programme photos, as described above.',
       'Google (United States): verifies your Google sign-in and handles Google Play payments. Your relationship with Google is covered by Google’s own privacy policy.',
+      'Slack (United States): delivers the coach answers you report to us for review, as described above.',
     ],
   },
   {
     heading: 'Data outside the European Union',
     body: [
-      'Where data goes outside the European Union — the coach traffic to Anthropic, and possibly Vercel’s processing — the transfer rests on the European Commission’s standard contractual clauses, which are part of each provider’s data processing agreement with us.',
+      'Where data goes outside the European Union — the coach traffic to Anthropic, the answers you report to Slack, and possibly Vercel’s processing — the transfer rests on the European Commission’s standard contractual clauses, which are part of each provider’s data processing agreement with us.',
     ],
   },
   {
@@ -188,7 +190,7 @@ const PRIVACY_EN: LegalSection[] = [
     ],
     bullets: [
       'Providing the app you asked for (contract): keeping your data on your phone, running Pro, and showing you your own history.',
-      'Your consent: the cloud backup (you sign in), the coach’s online mode (you read the notice and send a question), the programme composer and the photo import (you ask for them). Training and body data count as health data, so whenever they leave your phone we rely on your explicit consent. You can withdraw it at any time: delete the backup and sign out, and simply stop sending questions.',
+      'Your consent: the cloud backup (you sign in), the coach’s online mode (you read the notice and send a question), the programme composer and the photo import (you ask for them), and reporting an answer (you send the report). Training and body data count as health data, so whenever they leave your phone we rely on your explicit consent. You can withdraw it at any time: delete the backup and sign out, and simply stop sending questions.',
       'Our legitimate interest: the anonymous usage statistics, so we can see where the app fails people, the brief rate limiting that protects the server from abuse, and the app version on each request, so the server can ask an outdated app to update. You can object by switching the statistics off in Settings, or by writing to us.',
       'Legal obligations: none of ours involve your personal data today. Google Play is the seller of record for Pro and keeps the purchase records; the sales reports we receive from Google contain no personal data.',
     ],
@@ -350,6 +352,7 @@ const PRIVACY_FI: LegalSection[] = [
       'Voit peruuttaa luvan milloin tahansa asetuksista, ja peruutus poistaa myös jo säilytetyn. Kun kytket yhdenkin rivin pois, jokainen sinulle säilytetty kopio poistetaan palvelimeltamme — myös päälle jätettyjen rivien nojalla tehdyt — eikä vain uusien kertyminen lopu.',
       'Ohjelmakoostaja toimii samalla tavalla: kun pyydät sovellusta rakentamaan ohjelman kirjoittamasi kuvauksen pohjalta, kuvaus ja sama yhteenveto lähetetään samaa reittiä.',
       'Myös ohjelman tuonti valokuvasta käyttää tätä reittiä. Valitsemasi kuva pienennetään ja lähetetään, jotta siinä oleva taulukko voidaan lukea; sitä käytetään siihen yhteen tuontiin, eikä sitä säilytetä — paitsi jos rastitit yllä valokuvien rivin, jolloin kuva ja siitä luettu taulukko säilytetään kuten muutkin sallimasi kopiot.',
+      'Jokaisen verkkotilan valmentajan kirjoittaman vastauksen alla on Ilmoita-linkki. Jos käytät sitä, ilmoittamasi vastaus ja valitsemasi syy lähetetään meille, jotta ihminen voi tarkistaa sen — ei kysymystäsi eikä mitään, mikä yksilöisi sinut. Ilmoitus tulee meille Slackin kautta, viestipalvelun jossa käsittelemme ilmoitukset, ja se poistetaan, kun asia on käsitelty, viimeistään 24 kuukauden kuluttua.',
     ],
   },
   {
@@ -374,18 +377,19 @@ const PRIVACY_FI: LegalSection[] = [
   {
     heading: 'Ketkä auttavat meitä',
     body: [
-      'Meillä ei ole omia palvelimia. Kolme yritystä käsittelee tietoja puolestamme sopimuksilla, jotka velvoittavat ne käsittelemään tietoja vain meidän ohjeidemme mukaan ja vain tässä kuvattuihin tarkoituksiin.',
+      'Meillä ei ole omia palvelimia. Neljä yritystä käsittelee tietoja puolestamme sopimuksilla, jotka velvoittavat ne käsittelemään tietoja vain meidän ohjeidemme mukaan ja vain tässä kuvattuihin tarkoituksiin.',
     ],
     bullets: [
       'Vercel (Yhdysvallat): ajaa palvelimemme ja säilyttää pilvivarmuuskopiot ja käyttötapahtumat. Tallennustila on Euroopan unionin alueella.',
       'Anthropic (Yhdysvallat): vastaa valmentajan kysymyksiin, koostaa ohjelmia ja lukee ohjelmakuvia, kuten yllä kuvattiin.',
       'Google (Yhdysvallat): vahvistaa Google-kirjautumisesi ja hoitaa Google Playn maksut. Suhdettasi Googleen koskee Googlen oma tietosuojakäytäntö.',
+      'Slack (Yhdysvallat): toimittaa meille tarkistettaviksi valmentajan vastaukset, joista ilmoitat, kuten yllä kuvattiin.',
     ],
   },
   {
     heading: 'Tiedot Euroopan unionin ulkopuolella',
     body: [
-      'Siltä osin kuin tietoja siirtyy Euroopan unionin ulkopuolelle — valmentajan liikenne Anthropicille ja mahdollisesti Vercelin käsittely — siirto perustuu Euroopan komission vakiosopimuslausekkeisiin, jotka ovat osa kunkin palveluntarjoajan kanssamme tekemää tietojenkäsittelysopimusta.',
+      'Siltä osin kuin tietoja siirtyy Euroopan unionin ulkopuolelle — valmentajan liikenne Anthropicille, ilmoittamasi vastaukset Slackiin ja mahdollisesti Vercelin käsittely — siirto perustuu Euroopan komission vakiosopimuslausekkeisiin, jotka ovat osa kunkin palveluntarjoajan kanssamme tekemää tietojenkäsittelysopimusta.',
     ],
   },
   {
@@ -395,7 +399,7 @@ const PRIVACY_FI: LegalSection[] = [
     ],
     bullets: [
       'Sovelluksen tarjoaminen sinulle (sopimus): tietojesi säilyttäminen puhelimessasi, Pron toimittaminen ja oman historiasi näyttäminen.',
-      'Suostumuksesi: pilvivarmuuskopio (kirjaudut sisään), valmentajan verkkotila (luet ilmoituksen ja lähetät kysymyksen), ohjelmakoostaja ja kuvatuonti (pyydät niitä). Treeni- ja kehontiedot ovat terveystietoja, joten aina kun niitä lähtee puhelimestasi, nojaamme nimenomaiseen suostumukseesi. Voit peruuttaa sen milloin tahansa: poista varmuuskopio ja kirjaudu ulos, ja lakkaa lähettämästä kysymyksiä.',
+      'Suostumuksesi: pilvivarmuuskopio (kirjaudut sisään), valmentajan verkkotila (luet ilmoituksen ja lähetät kysymyksen), ohjelmakoostaja ja kuvatuonti (pyydät niitä) sekä vastauksesta ilmoittaminen (lähetät ilmoituksen). Treeni- ja kehontiedot ovat terveystietoja, joten aina kun niitä lähtee puhelimestasi, nojaamme nimenomaiseen suostumukseesi. Voit peruuttaa sen milloin tahansa: poista varmuuskopio ja kirjaudu ulos, ja lakkaa lähettämästä kysymyksiä.',
       'Oikeutettu etumme: nimettömät käyttötilastot, jotta näemme, missä sovellus pettää käyttäjät, lyhytaikainen pyyntöjen rajoitus, joka suojaa palvelinta väärinkäytöltä, sekä sovelluksen versio jokaisessa pyynnössä, jotta palvelin voi pyytää vanhentunutta sovellusta päivittymään. Voit vastustaa tätä kytkemällä tilastot pois asetuksista tai kirjoittamalla meille.',
       'Lakisääteiset velvoitteet: mikään meidän velvoitteistamme ei tänään koske henkilötietojasi. Google Play on Pron myyjä ja säilyttää ostotiedot; Googlelta saamamme myyntiraportit eivät sisällä henkilötietoja.',
     ],

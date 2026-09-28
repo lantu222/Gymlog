@@ -25,7 +25,7 @@ const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
  */
 const LEGAL_TEXT_VERSIONS = [
   { date: '2026-09-16', fingerprint: 'c52c7814c8a7ba76' },
-  { date: '2026-09-28', fingerprint: '522d320d1760d203' },
+  { date: '2026-09-28', fingerprint: 'd36885d3285f4a31' },
 ];
 
 const IDS = ['privacy', 'terms'];
@@ -537,13 +537,13 @@ module.exports = [
   {
     name: 'the policy names its processors in both languages',
     run() {
-      // Three companies touch data on our behalf. A policy that loses one of
+      // Four companies touch data on our behalf. A policy that loses one of
       // them by accident is the kind of omission a regulator reads as hiding.
       // Checked on the rendered document per language, not the source: the
       // file's header comment names the same companies and must not count.
       for (const language of LANGUAGES) {
         const text = renderLegalDocumentMarkdown(buildLegalDocument('privacy', language));
-        for (const processor of ['Anthropic', 'Vercel', 'Google']) {
+        for (const processor of ['Anthropic', 'Vercel', 'Google', 'Slack']) {
           assert.ok(text.includes(processor), `${processor} is missing from the ${language} privacy policy`);
         }
       }

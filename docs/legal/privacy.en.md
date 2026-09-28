@@ -70,6 +70,8 @@ The programme composer works the same way: when you ask the app to build a progr
 
 Importing a programme from a photo also uses this route. The photo you picked is scaled down and sent so the table in it can be read; it is used for that one import and is not kept — unless you ticked the photos line above, in which case the photo and the table read from it are kept like any other allowed copy.
 
+Under each answer the online coach writes there is a Report link. If you use it, the answer you reported and the reason you picked are sent to us so that a person can review it — not your question, and nothing that identifies you. The report reaches us through Slack, the messaging service we review reports in, and is deleted once it has been dealt with, at the latest after 24 months.
+
 ## Usage statistics
 
 To see whether the app works — for example whether some step of the setup is so hard that people give up there — the app sends anonymous usage events to our own server.
@@ -91,22 +93,23 @@ The events go to our own server and nowhere else. They are kept for up to 24 mon
 
 ## Who helps us run this
 
-We run no servers of our own. Three companies process data for us, under contracts that bind them to handle it only on our instructions and only for the purposes described here.
+We run no servers of our own. Four companies process data for us, under contracts that bind them to handle it only on our instructions and only for the purposes described here.
 
 - Vercel (United States): runs our server and stores the cloud backups and the usage events. The storage is in the European Union.
 - Anthropic (United States): answers coach questions, composes programmes and reads programme photos, as described above.
 - Google (United States): verifies your Google sign-in and handles Google Play payments. Your relationship with Google is covered by Google’s own privacy policy.
+- Slack (United States): delivers the coach answers you report to us for review, as described above.
 
 ## Data outside the European Union
 
-Where data goes outside the European Union — the coach traffic to Anthropic, and possibly Vercel’s processing — the transfer rests on the European Commission’s standard contractual clauses, which are part of each provider’s data processing agreement with us.
+Where data goes outside the European Union — the coach traffic to Anthropic, the answers you report to Slack, and possibly Vercel’s processing — the transfer rests on the European Commission’s standard contractual clauses, which are part of each provider’s data processing agreement with us.
 
 ## Why we may process your data
 
 The GDPR requires a lawful basis for each kind of processing. These are ours.
 
 - Providing the app you asked for (contract): keeping your data on your phone, running Pro, and showing you your own history.
-- Your consent: the cloud backup (you sign in), the coach’s online mode (you read the notice and send a question), the programme composer and the photo import (you ask for them). Training and body data count as health data, so whenever they leave your phone we rely on your explicit consent. You can withdraw it at any time: delete the backup and sign out, and simply stop sending questions.
+- Your consent: the cloud backup (you sign in), the coach’s online mode (you read the notice and send a question), the programme composer and the photo import (you ask for them), and reporting an answer (you send the report). Training and body data count as health data, so whenever they leave your phone we rely on your explicit consent. You can withdraw it at any time: delete the backup and sign out, and simply stop sending questions.
 - Our legitimate interest: the anonymous usage statistics, so we can see where the app fails people, the brief rate limiting that protects the server from abuse, and the app version on each request, so the server can ask an outdated app to update. You can object by switching the statistics off in Settings, or by writing to us.
 - Legal obligations: none of ours involve your personal data today. Google Play is the seller of record for Pro and keeps the purchase records; the sales reports we receive from Google contain no personal data.
 

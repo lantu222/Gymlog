@@ -4,6 +4,7 @@ import { resolveLiveAiCoachUrl } from './aiCoachLiveGate';
 import { ProgramImageMediaType, ProgramTableRow, validateProgramTable } from './programImageImport';
 import { AICoachAdvice, AICoachAdviceError, AICoachAdviceRequest, AICoachAdviceSuccess } from '../types/aiCoach';
 import { appVersionHeaders, noteServerAnswer } from '../features/appUpdate/appUpdateSignal';
+import { buildCoachReportBody, CoachReportReason } from './coachAnswerReport';
 
 // The key the endpoint asks for on every call (api/ai-coach.ts, hasAppKey).
 // Without it the server refuses, so a build that lacks it is a preview build
@@ -99,6 +100,33 @@ function isSuccessResponse(value: unknown): value is AICoachAdviceSuccess {
 
 function isErrorResponse(value: unknown): value is AICoachAdviceError {
   return Boolean(value) && typeof value === 'object' && (value as AICoachAdviceError).ok === false;
+}
+
+/**
+ * Flags one coach answer for the team to review (lib/coachAnswerReport).
+ * `true` only when the server says it arrived: the sheet shows "sent" on
+ * that and on nothing else.
+ */
+export async function reportAiCoachAnswer(reason: CoachReportReason, advice: AICoachAdvice): Promise<boolean> {
+  if (!AI_COACH_API_URL) {
+    return false;
+  }
+  const { signal, cleanup } = getAbortSignal(REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(AI_COACH_API_URL, {
+      method: 'POST',
+      headers: coachHeaders(),
+      body: JSON.stringify(buildCoachReportBody(reason, advice)),
+      signal,
+    });
+    const payload = (await response.json()) as { ok?: boolean };
+    noteServerAnswer(response.status, payload);
+    return response.ok && payload.ok === true;
+  } catch {
+    return false;
+  } finally {
+    cleanup();
+  }
 }
 
 /**
