@@ -546,12 +546,37 @@ export function EmptyWorkoutScreen({
   draftSinkRef.current = { onSaveDraft, onClearDraft };
   /** The write that has not happened yet, so a discard can take it with it. */
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** What that write would save, so leaving can write it now instead. */
+  const pendingDraftRef = useRef<{ exercises: typeof exercises; startedAtMs: typeof startedAtMs; rest: typeof rest } | null>(null);
+  /*
+   * Leaving without a discard writes the pending edit rather than dropping it.
+   *
+   * A notification or a widget tile routes straight off this screen, and an
+   * edit made less than 400 ms before it was cancelled with the timer: back
+   * on the board, the last weight typed was gone (break round, 2026-09-28).
+   * Declared before the debounce below so its cleanup runs first, while the
+   * timer is still pending. Not while Finish is saving: the sets are on their
+   * way to disk, and a draft written now would bring the board back after it.
+   */
+  useEffect(
+    () => () => {
+      const pending = pendingDraftRef.current;
+      if (draftTimerRef.current === null || pending === null || finishingRef.current) {
+        return;
+      }
+      clearTimeout(draftTimerRef.current);
+      draftTimerRef.current = null;
+      draftSinkRef.current.onSaveDraft?.({ ...pending, savedAtMs: Date.now() });
+    },
+    [],
+  );
   useEffect(() => {
     const sink = draftSinkRef.current;
     if (exercises.length === 0) {
       sink.onClearDraft?.();
       return undefined;
     }
+    pendingDraftRef.current = { exercises, startedAtMs, rest };
     const timer = setTimeout(() => {
       draftTimerRef.current = null;
       sink.onSaveDraft?.({ exercises, startedAtMs, rest, savedAtMs: Date.now() });

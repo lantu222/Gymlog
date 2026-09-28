@@ -1641,6 +1641,13 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
       block.forEach((position) => {
         const member = session.exercises[position];
         member.sets = member.sets.slice(0, -1);
+        // The round taken back was the only set left to do: the lift is done.
+        // Left at 'active', it was saved as one and History badged a finished
+        // lift "Partial" (break round, 2026-09-28). Only then — a lift not yet
+        // started keeps 'pending', which finalizing would turn 'active'.
+        if (!member.sets.some((set) => set.status === 'pending')) {
+          member.status = finalizeExerciseStatus(member);
+        }
       });
       const exercise = session.exercises[exerciseIndex];
       const nextIndex = exercise.sets[exercise.sets.length - 1]?.setIndex ?? 0;

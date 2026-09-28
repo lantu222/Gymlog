@@ -31,6 +31,21 @@ const query = (over = {}) => ({ ...EMPTY_CATALOG_QUERY, ...over });
 
 module.exports = [
   {
+    // Break round, 2026-09-28: the exercise search folds ä/ö and this one did
+    // not, so "yla" found "ylä" among the lifts and nothing among programmes.
+    name: 'catalog filter: a keyboard without ä or ö still finds a Finnish word, and a dash is a space',
+    run() {
+      const finnish = row('upper', 'Yläkroppa Pro', 'beginner', ['muscle'], 'Kohautusliikkeillä ja yläselän treeniä koko keholle.');
+      assert.equal(matchesCatalogQuery(finnish, query({ search: 'yla' })), true);
+      assert.equal(matchesCatalogQuery(finnish, query({ search: 'ylaselan' })), true);
+      assert.equal(matchesCatalogQuery(finnish, query({ search: 'yläselän' })), true);
+      assert.equal(
+        matchesCatalogQuery(row('ppl', 'Push-Pull-Legs', 'beginner', ['muscle']), query({ search: 'push pull' })),
+        true,
+      );
+    },
+  },
+  {
     name: 'catalog filter: an empty query is the whole catalog',
     run() {
       assert.equal(filterProgramCatalog(CATALOG, EMPTY_CATALOG_QUERY).length, CATALOG.length);

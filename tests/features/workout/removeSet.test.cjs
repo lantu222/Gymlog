@@ -46,6 +46,23 @@ const remove = (state) => workoutReducer(state, { type: 'exercise/removeSet', pa
 
 module.exports = [
   {
+    // Break round, 2026-09-28: every set left was logged, the lift stayed
+    // 'active', and History badged a finished lift "Partial".
+    name: 'taking back the only set left to do finishes the lift',
+    run() {
+      const next = remove(sessionWith(['completed', 'completed', 'pending']));
+      assert.equal(next.activeSession.exercises[0].sets.length, 2);
+      assert.equal(next.activeSession.exercises[0].status, 'completed');
+
+      // Sets still to do: the lift is as it was.
+      assert.equal(remove(sessionWith(['completed', 'pending', 'pending'])).activeSession.exercises[0].status, 'active');
+      // And a lift not started is not started by removing a set from it.
+      const untouched = sessionWith(['pending', 'pending']);
+      untouched.activeSession.exercises[0].status = 'pending';
+      assert.equal(remove(untouched).activeSession.exercises[0].status, 'pending');
+    },
+  },
+  {
     name: 'the last pending set can be taken back',
     run() {
       const next = remove(sessionWith(['completed', 'pending', 'pending']));

@@ -1,3 +1,4 @@
+import { normalizeSearchText } from './exerciseSearch';
 import { ProgramCategoryKey } from './programCategories';
 import { WorkoutLevel } from '../features/workout/workoutTypes';
 
@@ -36,9 +37,13 @@ export const EMPTY_CATALOG_QUERY: ProgramCatalogQuery = { level: null, goal: nul
  * foundations"; someone hunting the first types "huge pro". Case and the gaps
  * between words are the two things that must not matter, so both sides are
  * lowercased and their runs of whitespace collapsed.
+ *
+ * Folded the way the exercise search folds (ä/ö to a/o, dashes to spaces): a
+ * keyboard without ä typed "yla" and found "ylä" among the lifts but not
+ * among the programmes (break round, 2026-09-28).
  */
 function normalize(value: string): string {
-  return value.toLowerCase().replace(/\s+/g, ' ').trim();
+  return normalizeSearchText(value);
 }
 
 /**
