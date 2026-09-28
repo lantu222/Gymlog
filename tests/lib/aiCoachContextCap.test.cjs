@@ -140,4 +140,32 @@ module.exports = [
       assert.ok(turns * 2 * perSide <= DEFAULT_BUDGET_LIMITS.maxHistoryChars, 'a trimmed conversation can still be refused');
     },
   },
+  {
+    name: 'a history row without its shape is dropped, and the context is still written (break round 2026-09-28)',
+    run() {
+      const context = heavyCoachContext();
+      const goodLift = context.history.lifts[0];
+      const goodSession = context.history.sessions[0];
+      const goodWeek = context.history.weeks[0];
+      assert.ok(goodLift && goodSession && goodWeek, 'the fixture carries a row of each');
+      const broken = {
+        ...context,
+        history: {
+          ...context.history,
+          lifts: [{ name: 'Bench Press', stalledSessions: 1 }, null, 'x', { ...goodLift, weightSeriesKg: [80, 'x'] }, goodLift],
+          sessions: [{ name: 'Upper' }, goodSession],
+          weeks: [{ weekStart: 1 }, goodWeek],
+        },
+      };
+      const normalized = normalizeAiCoachTrainingContext(broken);
+      assert.deepEqual(normalized.history.lifts, [goodLift]);
+      assert.deepEqual(normalized.history.sessions, [goodSession]);
+      assert.deepEqual(normalized.history.weeks, [goodWeek]);
+      // What threw "Cannot read properties of undefined (reading 'map')".
+      assert.doesNotThrow(() => buildAiCoachContextText(normalized, 'fi'));
+      assert.ok(buildAiCoachContextText(normalized).includes(goodLift.name), 'the good row is still in the text');
+      // A well-formed history comes through whole.
+      assert.deepEqual(normalizeAiCoachTrainingContext(context).history.lifts, context.history.lifts);
+    },
+  },
 ];

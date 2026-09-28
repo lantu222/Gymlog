@@ -29,9 +29,31 @@ export function readAnswerExtras(
   };
 }
 
-/** The figures a line carries, as written: "155", "6", "82,5". */
+/** What a figure counts, when the word after it says: kilos, seconds or minutes. */
+function unitOf(word: string | undefined): string {
+  const unit = (word ?? '').toLowerCase();
+  if (/^(?:kg|kilo)/.test(unit)) {
+    return 'kg';
+  }
+  if (unit === 's' || /^(?:sek|sec)/.test(unit)) {
+    return 's';
+  }
+  if (/^min(?:$|uut|ute)/.test(unit)) {
+    return 'min';
+  }
+  return '';
+}
+
+/**
+ * The figures a line carries, each with its unit: "155 kg" is 155:kg, "30 s"
+ * is 30:s, and the reps in "6/6/6" are 6. Decimal commas read as points.
+ */
 function figuresOf(text: string): Set<string> {
-  return new Set((text.match(/\d+(?:[.,]\d+)?/g) ?? []).map((figure) => figure.replace(',', '.')));
+  const figures = new Set<string>();
+  for (const match of text.matchAll(/(\d+(?:[.,]\d+)?)\s*([a-zäö]+)?/gi)) {
+    figures.add(`${match[1].replace(',', '.')}:${unitOf(match[2])}`);
+  }
+  return figures;
 }
 
 /**
@@ -41,8 +63,13 @@ function figuresOf(text: string): Set<string> {
  * same lift, and the model kept writing the example twice — "Pidä 155 kg ja
  * tavoittele 6/6/6" under both headings (live, 2026-09-28) — although the
  * rules and the schema both said not to (#204 learnt the same: prose alone
- * does not stop it). A step that carries every figure of the example is that
- * repeat, and is dropped; a step with other figures, or none, stays.
+ * does not stop it).
+ *
+ * A step is that repeat when it carries the example's figures and no others,
+ * unit for unit. Carrying them among others was not enough: "Lepää 50 s ja tee
+ * 7 lämmittelytoistoa" holds a 50 and a 7 like "50 kg, 7/7/7" does, and was
+ * dropped as a copy of it (break round 2026-09-28). A step with other figures,
+ * or none, stays.
  */
 export function withoutExampleRepeats(nextSteps: string[], example: string | undefined): string[] {
   const figures = example ? figuresOf(example) : new Set<string>();
@@ -51,6 +78,7 @@ export function withoutExampleRepeats(nextSteps: string[], example: string | und
   }
   return nextSteps.filter((step) => {
     const stepFigures = figuresOf(step);
-    return ![...figures].every((figure) => stepFigures.has(figure));
+    const same = stepFigures.size === figures.size && [...figures].every((figure) => stepFigures.has(figure));
+    return !same;
   });
 }

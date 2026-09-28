@@ -19,6 +19,9 @@ import {
   AICoachGoal,
   AICoachHistory,
   AICoachHistoryConfidence,
+  AICoachHistoryLift,
+  AICoachHistorySession,
+  AICoachHistoryWeek,
   AICoachHomeState,
   AICoachLastSession,
   AICoachProfile,
@@ -835,13 +838,70 @@ export function fitAiCoachContextToCap(
  * history without one of them used to throw on the way to the model — an
  * error where the honest outcome is a thinner answer.
  */
+const isFiniteNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+const isNumberOrNull = (value: unknown): value is number | null => value === null || isFiniteNumber(value);
+const isText = (value: unknown): value is string => typeof value === 'string';
+
+/**
+ * One history row, as far as the context text reads it. The endpoint builds
+ * its text from these without a guard of its own — `lift.weightSeriesKg.map`
+ * — so a row missing a field threw outside every fallback and the reader got
+ * no answer at all, not even the preview (break round 2026-09-28). A row that
+ * does not have its shape is dropped, like the last session's and the reps
+ * lifts' rows already are.
+ */
+function isHistoryLift(value: unknown): value is AICoachHistoryLift {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const lift = value as Record<string, unknown>;
+  return (
+    isText(lift.name) &&
+    ['sessions', 'firstWeightKg', 'latestWeightKg', 'latestReps', 'bestWeightKg', 'changeKg', 'spanDays', 'stalledSessions'].every(
+      (key) => isFiniteNumber(lift[key]),
+    ) &&
+    Array.isArray(lift.weightSeriesKg) &&
+    lift.weightSeriesKg.every(isFiniteNumber)
+  );
+}
+
+function isHistorySession(value: unknown): value is AICoachHistorySession {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const session = value as Record<string, unknown>;
+  return (
+    isText(session.sessionId) &&
+    isText(session.name) &&
+    isText(session.performedAt) &&
+    (session.day === undefined || isText(session.day)) &&
+    isNumberOrNull(session.durationMinutes) &&
+    isNumberOrNull(session.volumeKg) &&
+    isFiniteNumber(session.setCount) &&
+    isFiniteNumber(session.exerciseCount)
+  );
+}
+
+function isHistoryWeek(value: unknown): value is AICoachHistoryWeek {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const week = value as Record<string, unknown>;
+  return (
+    isText(week.weekStart) &&
+    isFiniteNumber(week.sessions) &&
+    isFiniteNumber(week.volumeKg) &&
+    isNumberOrNull(week.plannedSessions)
+  );
+}
+
 function normalizeHistory(input: Partial<AICoachHistory> | null | undefined): AICoachHistory {
   if (!input || typeof input !== 'object') {
     return emptyAiCoachHistory();
   }
   const empty = emptyAiCoachHistory();
   const list = <T,>(value: unknown, fallback: T[]): T[] => (Array.isArray(value) ? (value as T[]) : fallback);
-  const sessions = list(input.sessions, empty.sessions);
+  const sessions = list<unknown>(input.sessions, empty.sessions).filter(isHistorySession);
   return {
     windowDays:
       typeof input.windowDays === 'number' && Number.isFinite(input.windowDays) ? input.windowDays : empty.windowDays,
@@ -852,11 +912,11 @@ function normalizeHistory(input: Partial<AICoachHistory> | null | undefined): AI
     totalVolumeKg:
       typeof input.totalVolumeKg === 'number' && Number.isFinite(input.totalVolumeKg) ? input.totalVolumeKg : 0,
     sessions,
-    lifts: list(input.lifts, empty.lifts),
+    lifts: list<unknown>(input.lifts, empty.lifts).filter(isHistoryLift),
     // Shape-checked entry by entry where it is rendered (readRepsLifts); an
     // older app sends none.
     repsLifts: list(input.repsLifts, []),
-    weeks: list(input.weeks, empty.weeks),
+    weeks: list<unknown>(input.weeks, empty.weeks).filter(isHistoryWeek),
     schedule: input.schedule ?? null,
     truncated: input.truncated === true,
     // An older app sends a history with no confidence in it. Falling back to

@@ -257,13 +257,16 @@ module.exports = [
       assert.ok(budgetAt !== -1 && budgetAt < fetchAt, 'budget must be checked before the upstream call');
 
       // The composer: one build of the context, measured and sent.
-      assert.match(source, /const contextText = buildAiCoachContextText\(input\.context\);/);
+      assert.match(source, /const contextText = contextTextOrNull\(input\.context\);\s*if \(contextText === null\) \{\s*return createError\(UNREADABLE_CONTEXT\);/);
+      // Written through the net, which answers a context that cannot be
+      // written with an error instead of a request that dies without one.
+      assert.match(source, /function contextTextOrNull\([^)]*\) \{\s*try \{\s*return buildAiCoachContextText\(context, language\);\s*\} catch/);
       assert.match(source, /text: contextText, cache_control/);
       // Advice sends the reader's language and measures the ids the phone fits
       // itself against (fitAiCoachContextToCap) — the same context, built
       // twice, differing only in names (2026-09-27).
-      assert.match(source, /const contextText = buildAiCoachContextText\(input\.context, input\.language \?\? null\);/);
-      assert.match(source, /const measuredContextText = input\.language \? buildAiCoachContextText\(input\.context\) : contextText;/);
+      assert.match(source, /const contextText = contextTextOrNull\(input\.context, input\.language \?\? null\);/);
+      assert.match(source, /const measuredContextText = input\.language \? contextTextOrNull\(input\.context\) : contextText;\s*if \(contextText === null \|\| measuredContextText === null\) \{\s*return createError\(UNREADABLE_CONTEXT\);/);
       // The reader's context is what the cap measures; the rules are this
       // file's own and are charged, not refused. Counted together they left a
       // heavy reader half the cap, and offline (server audit, 2026-09-21).
