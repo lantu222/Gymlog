@@ -399,6 +399,8 @@ export interface WorkoutProgressionOptions {
    * mid-session would only let a load move for a reason the user never sees.
    */
   fatigueSignal?: ProgressionFatigueSignal;
+  /** When the session starts; the clock when absent. Tests pin it. */
+  nowMs?: number;
 }
 
 export interface WorkoutSessionMaterializeOptions {
@@ -415,4 +417,6 @@ export interface WorkoutSessionMaterializeOptions {
   setupLevel?: SetupLevel | null;
   /** Recovery at session start; holds an earned progression when high. */
   fatigueSignal?: ProgressionFatigueSignal;
+  /** When the session is being built; defaults to the clock. Tests pin it. */
+  nowMs?: number;
 }

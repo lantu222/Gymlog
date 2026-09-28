@@ -148,7 +148,15 @@ module.exports = [
       assert.match(goTo, /\bunpause\(\);/);
       assert.doesNotMatch(goTo, /activeSession\?\.pausedAt/);
       const confirm = player.slice(player.indexOf('const confirmSet = ('), player.indexOf('expireRef.current = () =>'));
-      assert.match(confirm, /if \(isSetCompleted\(slotId, setIndex\)\) \{\s*advance\(\);\s*return;\s*\}\s*workout\.updateSetDraft/);
+      assert.match(confirm, /if \(isSetCompleted\(slotId, setIndex\)\) \{\s*advance\(\);\s*return;\s*\}\s*const draft = \{/);
+      // And a set the store would refuse is not cheered on and walked past:
+      // the same rule the reducer applies is asked first, and the draft is
+      // written, the set completed and "done" played only after it says yes
+      // (break round 2026-09-28: a bar tap past 500 kg lost the set).
+      assert.match(
+        confirm,
+        /!canCompleteSet\([\s\S]*?\)\s*\) \{\s*void haptics\.error\(\);\s*return;\s*\}\s*workout\.updateSetDraft\(slotId, setIndex, draft\);\s*workout\.completeSet\(slotId, setIndex, unitPreference\);\s*cue\('done'\);/,
+      );
       assert.match(player, /goToRef\.current\(rollPastLoggedWork\(steps, Math\.min\(target, steps\.length - 1\), isSetCompletedRef\.current\)\);/);
 
       // The editor's Save follows the reducer's own ceiling, interval and

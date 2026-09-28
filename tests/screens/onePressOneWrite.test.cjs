@@ -103,4 +103,17 @@ module.exports = [
       );
     },
   },
+  {
+    name: 'one press: a coach answer is reported to the team once, however fast Send is tapped',
+    run() {
+      const sheet = strip(read('src', 'components', 'CoachReportSheet.tsx'));
+      assert.match(
+        sheet,
+        /const send = async \(\) => \{\s*if \(!reason \|\| sendingRef\.current\) \{\s*return;\s*\}\s*sendingRef\.current = true;/,
+      );
+      // Set before the await, released only after it settles.
+      assert.ok(sheet.indexOf('sendingRef.current = true') < sheet.indexOf('await onSend('));
+      assert.match(sheet, /\} finally \{\s*sendingRef\.current = false;\s*setSending\(false\);\s*\}/);
+    },
+  },
 ];

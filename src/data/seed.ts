@@ -147,6 +147,7 @@ const DEFAULT_PREFERENCES = {
   strengthGoals: [],
   seasonEnrolments: [],
   routineDrillOverrides: {} as Record<string, string>,
+  readerSessionNames: {} as Record<string, string>,
 };
 
 /*

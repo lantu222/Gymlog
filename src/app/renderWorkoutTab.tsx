@@ -34,6 +34,7 @@ import { catalogLevelForSetup } from '../lib/goalProgramme';
 import { getReadyProgramContent } from '../lib/readyProgramContent';
 import { programmeSwitchedFrom, programmeToSwitchTo } from '../lib/runningProgrammes';
 import { AdaptedSessionRef, SessionAdaptation, withSessionSwap } from '../lib/sessionAdaptation';
+import { isReaderNamedSession } from '../lib/sessionNameLabel';
 import { nextSeasonWindow, resolveSeasonWindow } from '../lib/season';
 import { isEnrolled } from '../lib/seasonEnrolment';
 import { computeSeasonProgress, countSeasonRecords, resolveSeasonBadges } from '../lib/seasonScoring';
@@ -689,6 +690,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         // Custom only, like every other edit here: a ready programme's name
         // is catalog data, and a reader who wants their own version of one
         // gets a custom copy the moment they change a lift in it.
+        readerSessionNames={preferences.readerSessionNames}
         onRenameProgram={
           route.programType === 'custom'
             ? (name) => void handleRenameCustomProgram(route.workoutTemplateId, name)
@@ -870,6 +872,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         // A catalog day's roles are the catalog's decision; a custom day's
         // are derived, and would tag every row the same.
         showRoles={route.programType === 'ready'}
+        readerNamed={isReaderNamedSession(preferences.readerSessionNames, daySession)}
         // Custom only, like the programme's own name.
         onRenameSession={
           route.programType === 'custom'

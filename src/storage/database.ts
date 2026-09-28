@@ -317,13 +317,14 @@ function boolOr(value: unknown, fallbackValue: boolean): boolean {
 }
 
 /**
- * A stored map of drill choices, kept only where both halves are strings.
+ * A stored map of strings, kept only where both halves are non-empty strings:
+ * the drill choices and the reader's own day names.
  *
- * The values are i18n keys for drills this build may no longer ship; that is
- * resolved where the block is built (homeSessionHero falls back to the slot's
- * default), so the loader's job here is only to guarantee the SHAPE.
+ * The drill values are i18n keys for drills this build may no longer ship;
+ * that is resolved where the block is built (homeSessionHero falls back to the
+ * slot's default), so the loader's job here is only to guarantee the SHAPE.
  */
-function normalizeRoutineDrillOverrides(input: unknown): Record<string, string> {
+function normalizeStringRecord(input: unknown): Record<string, string> {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
     return {};
   }
@@ -1148,7 +1149,8 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
             )
           : fallback.preferences.setupAvailableDays,
       trainingCycle: normalizeTrainingCycle(input?.preferences?.trainingCycle, fallback.preferences.trainingCycle),
-      routineDrillOverrides: normalizeRoutineDrillOverrides(input?.preferences?.routineDrillOverrides),
+      routineDrillOverrides: normalizeStringRecord(input?.preferences?.routineDrillOverrides),
+      readerSessionNames: normalizeStringRecord(input?.preferences?.readerSessionNames),
       ratingPrompt: normalizeRatingPrompt(input?.preferences?.ratingPrompt),
       todaySession: normalizeTodaySession(input?.preferences?.todaySession),
       setupTrainingFeel:

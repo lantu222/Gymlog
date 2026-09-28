@@ -1,4 +1,5 @@
 import type { ExerciseLibraryItem } from '../types/models';
+import { WEIGHT_DIAL_MAX_KG } from './weightLimits';
 
 /**
  * Which bar a barbell lift is loaded on (#bugs 2026-09-28: "pitäskö olla myös
@@ -18,13 +19,15 @@ export function isBarWeightKg(value: unknown): value is BarWeightKg {
 
 /**
  * The total after swapping one bar for another — or putting one on or taking
- * it off (null). Never below zero, and kept to the hundredth so 27.5 − 7.5 is
- * 20, not 19.999999999999996.
+ * it off (null). Kept inside the dial's own range, zero to its ceiling, like
+ * every other way the dial is moved: 500 kg plus a 20 kg bar was 520, a number
+ * the store refuses to log. Kept to the hundredth so 27.5 − 7.5 is 20, not
+ * 19.999999999999996.
  */
 export function switchBar(totalKg: number, from: BarWeightKg | null, to: BarWeightKg | null): number {
   const base = Number.isFinite(totalKg) ? totalKg : 0;
   const next = base - (from ?? 0) + (to ?? 0);
-  return Math.max(0, Math.round(next * 100) / 100);
+  return Math.min(WEIGHT_DIAL_MAX_KG, Math.max(0, Math.round(next * 100) / 100));
 }
 
 /** The row is for lifts done with a bar: the library's barbell equipment, which includes the EZ bar. */

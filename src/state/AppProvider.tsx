@@ -322,6 +322,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       setupAvailableDays: [],
       trainingCycle: null,
       routineDrillOverrides: {},
+      readerSessionNames: {},
       todaySession: null,
       setupTrainingFeel: 'challenging',
       setupWorkoutVariety: 'balanced',

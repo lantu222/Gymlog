@@ -414,7 +414,7 @@ module.exports = [
       // What the hero was carrying, still carried — except that the title is
       // now the DAY the reader tapped rather than the programme's name with
       // the session under it, which named the same day twice, differently.
-      assert.match(day, /formatPlanSessionTitle\(session, dayNumber - 1, programTitle, language\)/);
+      assert.match(day, /formatPlanSessionTitle\(session, dayNumber - 1, programTitle, language, readerNamed\)/);
       assert.doesNotMatch(day, /styles\.pageSession/);
       // The stat pair went too (design frame 05: title only at the top) —
       // both counts already sit on the section headers the rows live under.

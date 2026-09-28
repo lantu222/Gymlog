@@ -123,6 +123,7 @@ import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import { useKeepScreenAwake } from '../utils/keepAwake';
 import { queryReduceMotion } from '../utils/reduceMotion';
 import {
+  canCompleteSet,
   getHistoryEntriesForExercise,
   repsCeilingFor,
   resolveInstanceBorrowRepWindow,
@@ -1916,10 +1917,28 @@ function GuidedPlayer({
       advance();
       return;
     }
-    workout.updateSetDraft(slotId, setIndex, {
+    const draft = {
       repsText: String(reps),
       loadText: loadKg === null ? '' : removeTrailingZeros(loadKg),
-    });
+    };
+    // Asked before the cue, with the same rule the store applies: the store
+    // refuses silently, and "done" and the next step after a refused set told
+    // the reader it was kept when it was gone.
+    const exerciseOfSet = session?.exercises.find((exercise) => exercise.slotId === slotId);
+    const target = exerciseOfSet?.sets.find((set) => set.setIndex === setIndex);
+    if (
+      !exerciseOfSet ||
+      !target ||
+      !canCompleteSet(
+        exerciseOfSet,
+        { ...target, draftRepsText: draft.repsText, draftLoadText: draft.loadText },
+        unitPreference,
+      )
+    ) {
+      void haptics.error();
+      return;
+    }
+    workout.updateSetDraft(slotId, setIndex, draft);
     workout.completeSet(slotId, setIndex, unitPreference);
     cue('done');
     // The beat the finished lift is owed (user 2026-08-23) is on the walk-up

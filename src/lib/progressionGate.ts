@@ -410,7 +410,23 @@ export interface MissedRepsInput {
   targetSets: number;
   trackingMode?: string;
   automatedProgressionEnabled: boolean;
+  /**
+   * The moment the target is for. Without it the history's age is not asked,
+   * which is how the pure tests read a history with no clock.
+   */
+  nowMs?: number;
 }
+
+/**
+ * Older than this, a short session says nothing about today (the gating
+ * spec's S8: "all sessions for this exercise are older than 90 days").
+ *
+ * Not the spec's 7-day gap (S7): that is measured between the last two
+ * sessions, and a lift trained once a week is 7 days apart every time — the
+ * rule would have silenced this target on exactly the weekly programmes it was
+ * written for (break round 2026-09-28).
+ */
+export const MISSED_REPS_STALE_DAYS = 90;
 
 export interface MissedRepsResolution {
   /** What every set's reps dial opens on, below the programme's floor. */
@@ -456,6 +472,14 @@ export function resolveMissedRepsTarget(input: MissedRepsInput): MissedRepsResol
   const latest = history.find((entry) => entry.sets.length > 0);
   if (!latest || latest.skipped) {
     return null;
+  }
+  // Seven months after one short session the reader is not the one who did
+  // 7/6/4/4, and lowering today's target on it is a guess dressed as a plan.
+  if (typeof input.nowMs === 'number' && Number.isFinite(input.nowMs)) {
+    const performedMs = Date.parse(latest.performedAt);
+    if (!Number.isFinite(performedMs) || input.nowMs - performedMs > MISSED_REPS_STALE_DAYS * 86_400_000) {
+      return null;
+    }
   }
   // The sets the programme asks for — the first ones, as the entry is written
   // in the order they were done. A set added past them is extra work: a tired

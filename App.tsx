@@ -2720,7 +2720,7 @@ function VinhaApp() {
     // Caught here, not by each caller: Home's sheet voided this and a failed
     // write left the old name standing with nothing said.
     try {
-      await editWorkoutTemplateSessions(templateId, (sessions) => ({
+      const result = await editWorkoutTemplateSessions(templateId, (sessions) => ({
         kind: 'save',
         sessions: sessions.map((session) => ({
           id: session.id,
@@ -2730,10 +2730,25 @@ function VinhaApp() {
           exercises: session.exercises.map(toDraftExercise),
         })),
       }));
+      if (!result.saved) {
+        return;
+      }
     } catch (error) {
       console.error('Failed to rename a day of the programme', error);
       void haptics.error();
       showToast(t(preferences.appLanguage, 'toast.planSaveFailed'));
+      return;
+    }
+    // Remembered once the name is stored, so the display rule shows it as
+    // typed rather than reading "Päivä 2" as a placeholder of its own. Its own
+    // write: the name is saved by now, and a failure here must not be told as
+    // a failed rename — the day would only read by the usual rule.
+    try {
+      await updatePreferences((current) => ({
+        readerSessionNames: { ...current.readerSessionNames, [sessionId]: trimmed },
+      }));
+    } catch (error) {
+      console.error('Failed to remember a typed day name', error);
     }
   }
 
