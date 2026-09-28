@@ -178,7 +178,7 @@ const AI_COACH_RESPONSE_SCHEMA = {
       type: 'array',
       items: { type: 'string' },
       description:
-        'What to do at the next session. One or two concrete actions, with numbers. When `example` is filled, leave its lift out of these: the example already says it, and a rule in prose alone did not stop the repeat (live, 2026-09-28).',
+        'What to do at the next session. One or two concrete actions, with numbers. For last_session: one action for the one lift the answer is about, in words — its numbers are in `example`, and a rule in prose alone did not stop the repeat (live, 2026-09-28).',
     },
     plan: {
       type: 'array',
@@ -199,7 +199,7 @@ const AI_COACH_RESPONSE_SCHEMA = {
     attention: {
       type: 'string',
       description:
-        'For last_session only, and only when something needs a warning: a set that dropped clearly more than the others or than the time before, a lift that went backwards. One sentence naming it and one thing that could fix it ("the third set fell to 4 — 30 s more rest could hold it"). Empty when there is nothing to warn about.',
+        'For last_session only, and only when a set is at least 2 reps below the set before it or at least 2 reps below the same set the time before. One rep lower is ordinary fatigue: leave this empty. One sentence naming the lift and the set and one thing that could fix it ("the third set fell to 4 — 30 s more rest could hold it").',
     },
     example: {
       type: 'string',
@@ -300,11 +300,13 @@ const COACH_SYSTEM_RULES = [
   '- Do not describe yourself, your context, or how you reasoned.',
   '',
   '# Answering about the last workout (topic `last_session`)',
-  '- `takeaway` is the observation: what happened in that session compared with the time before — which lifts went up, held or fell. Not the total volume, and not a comparison with a different day.',
-  '- `why`: at most three short facts behind it, each from the Last session lines.',
-  '- `nextSteps`: what you would do next, one or two actions.',
-  '- `attention`: only when something needs a warning — a set that fell clearly more than the others or than the time before. Name the lift and the set, and give one thing that could fix it (for example 30 s more rest). Otherwise empty; most answers have none.',
-  '- `example`: one line for the next session of the lift that matters most, with the numbers from that lift\'s "next time" in the context, written the way a coach says it ("Pidä 50 kg ja tavoittele 7/7/7"). Empty when the context gives no "next time" for it. Do not repeat the example in `nextSteps`: the steps say what else to do.',
+  '- One topic: the lift that matters most in that session — a new top weight, the clearest drop, or else the session\'s first lift. The whole answer is about that lift; do not walk through the others (user, 2026-09-28: "ainoastaan se tärkein").',
+  '- `takeaway` is the observation: what that lift did compared with the time before — went up, held or fell. Not the total volume, and not a comparison with a different day.',
+  '- `why`: at most three short facts about that lift, each from its Last session line.',
+  '- A line compares this session with the time before, once. "N of this session in a row at X kg" counts sessions at that weight, not drops: never write that a lift fell again, twice or N times in a row — the context shows one comparison, not a run of them.',
+  '- `nextSteps`: one action for that lift, in words; its numbers belong to `example`.',
+  '- `attention`: only when something needs a warning — a set at least 2 reps below the set before it, or at least 2 reps below the same set the time before. One rep lower is ordinary fatigue, not a warning. The one place another lift may appear. Name the lift and the set, and give one thing that could fix it (for example 30 s more rest). Otherwise empty; most answers have none.',
+  '- `example`: one line for that lift\'s next session, with the numbers from its "next time" in the context, written the way a coach says it ("Pidä 50 kg ja tavoittele 7/7/7"). Empty when the context gives no "next time" for it. Do not repeat the example in `nextSteps`.',
   '',
   '# When you cannot answer',
   '- A coach asks before advising. When the context does not hold what an accurate answer needs, do not guess and do not fall back on a generic answer: ask exactly one short follow-up question, put that question in `takeaway`, leave `why`, `nextSteps`, `plan` and `assumptions` empty, and set `unanswered` to true.',
