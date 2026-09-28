@@ -119,9 +119,12 @@ module.exports = [
       assert.match(rules, /answered from the absolute load in the log/);
       assert.match(rules, /never answer those questions from them alone/);
       assert.match(rules, /Never write "ACWR", the ratio or the recovery score to the reader/);
+      // The Recovery sheet shows ACWR, so a reader can ask what it is.
+      assert.match(rules, /unless the reader asks about them by name \(the Recovery sheet shows ACWR\)/);
       // "How many calories" was answered with advice about the lifts.
       assert.match(rules, /A calorie question gets a calorie figure/);
       assert.match(rules, /Mifflin-St Jeor/);
+      assert.match(rules, /Missing height, age or sex, estimate from bodyweight alone/);
       assert.match(rules, /read the direction from the bodyweight trend and say which one you assumed/);
       // "Takakyykky flat 80 kg" in a Finnish answer.
       assert.match(rules, /The context\\'s labels are English data/);
