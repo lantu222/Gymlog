@@ -126,7 +126,9 @@ module.exports = [
       // after #215); the context no longer carries them. The Recovery sheet
       // shows ACWR, so a reader can still ask what it is.
       assert.match(rules, /neither number is in your context/);
-      assert.match(rules, /Asked about them by name, explain what they measure/);
+      assert.match(rules, /Only when the reader asks about them by name, explain what they measure/);
+      // "Tarkista Recovery-näkymän ACWR-luku" was offered unasked (#216 rerun).
+      assert.match(rules, /Otherwise never mention them or send the reader to that sheet/);
       // "How many calories" was answered with advice about the lifts.
       assert.match(rules, /A calorie question gets a calorie figure/);
       assert.match(rules, /Mifflin-St Jeor/);
