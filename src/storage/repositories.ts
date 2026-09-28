@@ -143,11 +143,27 @@ export const workoutSessionRepository = {
    * numbers are to agree.
    */
   remove(database: AppDatabase, sessionId: string): AppDatabase {
-    return {
+    const removed = database.workoutSessions.find((session) => session.id === sessionId);
+    const next: AppDatabase = {
       ...database,
       workoutSessions: database.workoutSessions.filter((session) => session.id !== sessionId),
       exerciseLogs: database.exerciseLogs.filter((log) => log.sessionId !== sessionId),
     };
+    // A free workout is saved against a programme made only to hold it
+    // (origin 'freestyle'), which no list shows and no one can delete. Left
+    // behind here it stayed in the database for good, one per deleted free
+    // workout, in the same row that has a size ceiling (break round,
+    // 2026-09-28). It goes when the last workout hanging on it does.
+    const templateId = removed?.workoutTemplateId;
+    const holder = templateId ? next.workoutTemplates?.find((template) => template.id === templateId) : undefined;
+    if (
+      templateId &&
+      holder?.origin === 'freestyle' &&
+      !next.workoutSessions.some((session) => session.workoutTemplateId === templateId)
+    ) {
+      return workoutTemplateRepository.remove(next, templateId);
+    }
+    return next;
   },
 };
 

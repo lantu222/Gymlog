@@ -117,7 +117,8 @@ module.exports = [
       assert.doesNotMatch(resolve.slice(resolve.lastIndexOf('[')), /\baccount\b/);
 
       const backup = hook.slice(hook.indexOf('const runBackup = useCallback('), hook.indexOf('const signOut = useCallback('));
-      assert.match(backup, /if \(pendingRestoreRef\.current\) \{\s*return \{ kind: 'failed' \};/);
+      // Nor while the switch question (confirm_upload) is open.
+      assert.match(backup, /if \(pendingRestoreRef\.current \|\| pendingUploadRef\.current\) \{\s*return \{ kind: 'failed' \};/);
       // What a backup may do — look first when the copy is unseen, of unknown
       // size, or about to shrink; ask the reader, or hold when unattended — is
       // decided in lib/accountBackup (planBackup, decideAfterLook; pinned in

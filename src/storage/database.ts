@@ -1442,7 +1442,13 @@ export async function savePreferences(preferences: AppPreferences) {
   await AsyncStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(preferences));
 }
 
-export async function saveDatabase(database: AppDatabase) {
+/**
+ * `withPreferences` writes the preferences key in the same transaction as the
+ * blob. A commit that changed a preference must, because the load lays that
+ * key over the blob's copy: written one after the other, a kill in between
+ * kept the new blob under the old preferences.
+ */
+export async function saveDatabase(database: AppDatabase, options: { withPreferences?: boolean } = {}) {
   // Through the splitting writer: the blob grows with every logged session and
   // Android cannot read back a row past 2 MB (see lib/storageChunks).
   await setLargeItem(
@@ -1451,6 +1457,7 @@ export async function saveDatabase(database: AppDatabase) {
       ...database,
       exerciseLibrary: [],
     }),
+    options.withPreferences ? [[PREFERENCES_STORAGE_KEY, JSON.stringify(database.preferences)]] : [],
   );
 }
 

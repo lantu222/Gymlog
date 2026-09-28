@@ -1698,6 +1698,15 @@ const EN = {
   'account.restore.replace.confirm': 'Replace backup',
   'account.restore.restored': 'Backup restored',
   'account.restore.failed': 'Could not restore the backup. Nothing on this phone changed.',
+  // The phone was last signed in to another account and still holds its data
+  // (break round, 2026-09-28; user decision: ask before sending it).
+  'account.confirmUpload.title': 'Back up this phone’s data?',
+  'account.confirmUpload.body':
+    'This phone was signed in to another account, and its data ({localContents}) is still here. Back it up to {account}?',
+  'account.confirmUpload.thisAccount': 'this account',
+  'account.confirmUpload.namedAccount': '{email}',
+  'account.confirmUpload.upload': 'Back it up',
+  'account.confirmUpload.skip': 'Not now',
   'account.prompt.title': 'Keep your training safe',
   'account.prompt.body':
     'Sign in with Google and your workouts survive a lost or new phone. Optional — everything works without it.',
@@ -4794,6 +4803,13 @@ const FI: Record<I18nKey, string> = {
   'account.restore.replace.confirm': 'Korvaa varmuuskopio',
   'account.restore.restored': 'Varmuuskopio palautettu',
   'account.restore.failed': 'Varmuuskopiota ei voitu palauttaa. Puhelimen tiedot eivät muuttuneet.',
+  'account.confirmUpload.title': 'Varmuuskopioidaanko puhelimen tiedot?',
+  'account.confirmUpload.body':
+    'Puhelimessa oli kirjauduttuna toinen tili, ja sen tiedot ({localContents}) ovat yhä täällä. Varmuuskopioidaanko ne {account}?',
+  'account.confirmUpload.thisAccount': 'tälle tilille',
+  'account.confirmUpload.namedAccount': 'tilille {email}',
+  'account.confirmUpload.upload': 'Varmuuskopioi',
+  'account.confirmUpload.skip': 'Ei nyt',
   'account.prompt.title': 'Pidä treenisi tallessa',
   'account.prompt.body':
     'Kirjaudu Googlella, niin treenisi säilyvät vaikka puhelin katoaisi tai vaihtuisi. Vapaaehtoinen — kaikki toimii ilmankin.',

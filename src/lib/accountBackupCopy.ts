@@ -50,6 +50,34 @@ function contentsList(contents: BackupContents & { workoutInProgress?: boolean }
   return parts.length > 0 ? parts.join(', ') : t(language, 'account.count.workouts', { count: 0 });
 }
 
+export interface ConfirmUploadCopy {
+  title: string;
+  body: string;
+  upload: string;
+  skip: string;
+}
+
+/**
+ * The question asked before a phone last signed in to another account sends
+ * its data as this account's first backup (break round, 2026-09-28).
+ */
+export function confirmUploadCopy(
+  input: { email: string | null; local: BackupContents & { workoutInProgress?: boolean } },
+  language: AppLanguage,
+): ConfirmUploadCopy {
+  return {
+    title: t(language, 'account.confirmUpload.title'),
+    body: t(language, 'account.confirmUpload.body', {
+      localContents: contentsList(input.local, language),
+      account: input.email
+        ? t(language, 'account.confirmUpload.namedAccount', { email: input.email })
+        : t(language, 'account.confirmUpload.thisAccount'),
+    }),
+    upload: t(language, 'account.confirmUpload.upload'),
+    skip: t(language, 'account.confirmUpload.skip'),
+  };
+}
+
 export function restoreQuestionCopy(summary: RestoreChoiceSummary, language: AppLanguage): RestoreQuestionCopy {
   const contents = {
     cloudContents: contentsList(summary.cloud, language),

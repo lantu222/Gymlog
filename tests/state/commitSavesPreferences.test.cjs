@@ -48,14 +48,15 @@ module.exports = [
       const previousAt = commit.indexOf('const previous = databaseRef.current;');
       const swapAt = commit.indexOf('databaseRef.current = nextDatabase;');
       assert.ok(previousAt >= 0 && previousAt < swapAt, 'the previous preferences are read before the swap');
+      // The key goes in the blob's own transaction (storage/database.ts
+      // saveDatabase withPreferences, behaviour in tests/storage/
+      // preferencesWithBlob): written after it, a kill between the two kept
+      // the new blob under the old key (break round, 2026-09-28).
       assert.match(
         commit,
-        /if \(nextDatabase\.preferences !== previous\.preferences\) \{\s*await savePreferences\(nextDatabase\.preferences\);/,
+        /await saveDatabase\(nextDatabase, \{ withPreferences: nextDatabase\.preferences !== previous\.preferences \}\);/,
       );
-      assert.ok(
-        commit.indexOf('await saveDatabase(nextDatabase);') < commit.indexOf('await savePreferences('),
-        'the blob first, then the key that overrides it',
-      );
+      assert.doesNotMatch(commit, /await savePreferences\(/, 'the key is written apart from the blob again');
 
       // Onboarding's result goes through commit with its preferences — the case that was lost.
       const onboarding = provider.slice(provider.indexOf('await commit({\n        ...withPlan,'));

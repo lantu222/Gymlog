@@ -33,9 +33,11 @@ import {
   AccountBackupPayload,
   AccountBackupSummary,
   accountBackupFingerprint,
+  BackupContents,
   BackupLookResult,
   buildAccountBackupPayload,
   countBackup,
+  countBackupContents,
   decideAfterLook,
   describeAccountBackup,
   describeRestoreChoice,
@@ -44,6 +46,7 @@ import {
   planBackup,
   RestoreChoiceSummary,
   syncCounts,
+  uploadNeedsConsent,
 } from '../../lib/accountBackup';
 import {
   BACKUP_CHANGED,
@@ -54,7 +57,15 @@ import {
   uploadBackup,
 } from './backupApi';
 import { getFreshIdToken, isGoogleSignInConfigured, signInWithGoogle, signOutGoogle } from './googleAuth';
-import { clearStoredAccount, loadStoredAccount, saveStoredAccount, StoredAccount } from './accountStore';
+import {
+  clearStoredAccount,
+  forgetSignedOutAccount,
+  loadSignedOutAccount,
+  loadStoredAccount,
+  rememberSignedOutAccount,
+  saveStoredAccount,
+  StoredAccount,
+} from './accountStore';
 
 export type AccountBackupPhase = 'idle' | 'signing_in' | 'backing_up' | 'restoring' | 'deleting';
 
@@ -84,7 +95,12 @@ export type SignInOutcome =
   /** Signed in, and the phone refused to write the backup it downloaded. */
   | { kind: 'restore_failed' }
   /** Both sides matter. Call resolveRestoreChoice with the reader's answer. */
-  | { kind: 'choice'; summary: RestoreChoiceSummary };
+  | { kind: 'choice'; summary: RestoreChoiceSummary }
+  /**
+   * A new account with no cloud copy, on a phone last signed in to another
+   * one: its data is not uploaded unasked. Call resolveUploadChoice.
+   */
+  | { kind: 'confirm_upload'; email: string | null; local: BackupContents & { workoutInProgress: boolean } };
 
 /** How an operation the reader started ended. 'cancelled': sign-out or Reset overtook it. */
 export type AccountOperationResult = 'done' | 'failed' | 'cancelled';
@@ -95,6 +111,11 @@ export interface AccountBackupApi {
   phase: AccountBackupPhase;
   signIn: () => Promise<SignInOutcome>;
   resolveRestoreChoice: (choice: 'restore' | 'keep_local') => Promise<AccountOperationResult>;
+  /**
+   * The answer to 'confirm_upload'. 'skip' stays signed in with nothing
+   * uploaded and the automatic backup held, until the reader backs up.
+   */
+  resolveUploadChoice: (choice: 'upload' | 'skip') => Promise<AccountOperationResult>;
   /** The automatic backup: never asks, and never writes over an unseen copy. */
   backupNow: () => Promise<boolean>;
   /**
@@ -154,6 +175,9 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
     idToken: string;
     account: StoredAccount;
   } | null>(null);
+  // The first backup waiting on the reader's yes (confirm_upload), with the
+  // account it would go to — held for the same reason as the restore above.
+  const pendingUploadRef = useRef<{ idToken: string; account: StoredAccount } | null>(null);
   const latestRef = useRef(input);
   latestRef.current = input;
   // Operations read the account from here, not from the render that started
@@ -221,6 +245,23 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
     } else {
       await clearStoredAccount();
     }
+  }, []);
+
+  /**
+   * Remembers whose data stays on the phone as an account signs out.
+   *
+   * A mark still standing means the account now leaving never settled that:
+   * its switch question was never answered (a relaunch drops it) or the
+   * server was never reached. The data is still the earlier account's, and
+   * overwriting the mark with the leaving one let that account sign back in
+   * "as itself" and send the earlier account's log unasked (review of the
+   * break-round fix, 2026-09-28).
+   */
+  const markSignedOut = useCallback(async (sub: string) => {
+    if ((await loadSignedOutAccount()) !== null) {
+      return;
+    }
+    await rememberSignedOutAccount(sub);
   }, []);
 
   /**
@@ -330,6 +371,10 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
   const settleWithRemote = useCallback(
     async (idToken: string, base: StoredAccount, remote: BackupDownloadResult, generation: number): Promise<SignInOutcome> => {
       if (remote.ok) {
+        // Both sides are shown and asked about below, or the phone is empty:
+        // either way the account signed out of earlier has nothing left to
+        // protect here.
+        await forgetSignedOutAccount();
         if (hasLocalDataWorthKeeping(latestRef.current.database, latestRef.current.liveSession)) {
           // Both sides have data — nobody's copy dies without a decision.
           return await askRestoreOrKeep(idToken, base, remote.payload, remote.version);
@@ -376,6 +421,34 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         await persistAccount(base);
         return { kind: 'not_backed_up' };
       }
+
+      // The phone was last signed in to another account and still holds its
+      // data. Uploaded here, that account's whole log became this one's first
+      // backup with "backed up" on screen (break round, 2026-09-28). Asked
+      // instead; until answered, signed in and nothing sent — the automatic
+      // backup held too, or it would send it a few seconds later anyway.
+      const signedOutSub = await loadSignedOutAccount();
+      ensureCurrent(generation);
+      if (
+        uploadNeedsConsent({
+          signedOutSub,
+          sub: base.sub,
+          localWorthKeeping: hasLocalDataWorthKeeping(latestRef.current.database, latestRef.current.liveSession),
+        })
+      ) {
+        const held = { ...base, autoBackupPaused: true };
+        pendingUploadRef.current = { idToken, account: held };
+        await persistAccount(held);
+        return {
+          kind: 'confirm_upload',
+          email: base.email,
+          local: {
+            ...countBackupContents(latestRef.current.database),
+            workoutInProgress: latestRef.current.liveSession,
+          },
+        };
+      }
+      await forgetSignedOutAccount();
 
       enterPhase('backing_up');
       // Onto no copy: if another phone's first backup landed since the look,
@@ -487,6 +560,39 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
     [applyRestore, persistAccount, uploadCurrent],
   );
 
+  const resolveUploadChoice = useCallback(
+    async (choice: 'upload' | 'skip'): Promise<AccountOperationResult> => {
+      const pending = pendingUploadRef.current;
+      if (!pending) {
+        return 'failed';
+      }
+      pendingUploadRef.current = null;
+      const generation = generationRef.current;
+      try {
+        await forgetSignedOutAccount();
+        ensureCurrent(generation);
+        if (choice === 'skip') {
+          // Signed in, nothing sent, the automatic backup still held: the
+          // reader's own "Back up now" is what sends this phone's data.
+          await persistAccount(pending.account);
+          return 'done';
+        }
+        enterPhase('backing_up');
+        // uploadCurrent lifts the hold when the upload lands.
+        return (await uploadCurrent(pending.idToken, pending.account, generation, null)) === 'done' ? 'done' : 'failed';
+      } catch (error) {
+        if (error instanceof Superseded) {
+          return 'cancelled';
+        }
+        throw error;
+      } finally {
+        endPhase(generation);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [persistAccount, uploadCurrent],
+  );
+
   /**
    * One backup. `interactive` is the reader pressing "Back up now"; the
    * automatic backup is not. What it may do is decided by planBackup and
@@ -498,9 +604,9 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       if (!available || !current) {
         return { kind: 'failed' };
       }
-      if (pendingRestoreRef.current) {
-        // The reader has not answered restore-or-keep yet. An upload now would
-        // answer it for them, by overwriting the copy they may be about to pick.
+      if (pendingRestoreRef.current || pendingUploadRef.current) {
+        // The reader has not answered restore-or-keep, or whether this phone's
+        // data goes to this account, yet. An upload now would answer for them.
         return { kind: 'failed' };
       }
       if (!interactive && unseenCopyFoundRef.current) {
@@ -521,8 +627,10 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         ensureCurrent(generation);
         if (token.status === 'signed_out') {
           // Google has no session for this app any more; saying "signed in"
-          // would promise backups that cannot happen.
+          // would promise backups that cannot happen. Signed out all the
+          // same, so the next account to sign in is asked about this data.
           pendingRestoreRef.current = null;
+          await markSignedOut(current.sub);
           await persistAccount(null);
           return { kind: 'failed' };
         }
@@ -575,6 +683,25 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
             return { kind: 'failed' };
           }
           expectedVersion = remote.ok ? remote.version : null;
+        }
+        // This account's first backup, onto no copy, from a phone last signed
+        // in to another account: not sent unattended. Sign-in could not ask
+        // when the server was unreachable, and this retry used to send the
+        // other account's log once the network came back (CI review of #221).
+        // Held until the reader's own "Back up now", which asks.
+        if (!interactive && !current.lastBackupAt && expectedVersion === null) {
+          const signedOutSub = await loadSignedOutAccount();
+          ensureCurrent(generation);
+          if (
+            uploadNeedsConsent({
+              signedOutSub,
+              sub: current.sub,
+              localWorthKeeping: hasLocalDataWorthKeeping(latestRef.current.database, latestRef.current.liveSession),
+            })
+          ) {
+            await persistAccount({ ...current, autoBackupPaused: true });
+            return { kind: 'failed' };
+          }
         }
         const uploaded = await uploadCurrent(idToken, current, generation, expectedVersion);
         if (uploaded !== 'changed') {
@@ -637,11 +764,18 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
     // account being left, and must not write it back.
     generationRef.current += 1;
     pendingRestoreRef.current = null;
+    pendingUploadRef.current = null;
     unseenCopyFoundRef.current = false;
     enterPhase('idle');
+    // The data stays on the phone, and so does whose it was: the next sign-in
+    // to a different account asks before sending it there.
+    const leaving = accountRef.current;
+    if (leaving) {
+      await markSignedOut(leaving.sub);
+    }
     await persistAccount(null);
     await signOutGoogle();
-  }, [persistAccount]);
+  }, [markSignedOut, persistAccount]);
 
   const deleteRemoteBackup = useCallback(async (): Promise<AccountOperationResult> => {
     if (!available || !accountRef.current) {
@@ -671,6 +805,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       ensureCurrent(generation);
       if (token.status === 'signed_out') {
         pendingRestoreRef.current = null;
+        await markSignedOut(current.sub);
         await persistAccount(null);
         return 'failed';
       }
@@ -803,6 +938,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
     phase,
     signIn,
     resolveRestoreChoice,
+    resolveUploadChoice,
     backupNow,
     backUpOrAsk,
     signOut,

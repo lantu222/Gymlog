@@ -71,7 +71,7 @@ import {
 } from './src/lib/firstRunTour';
 import { SignInOutcome, useAccountBackup } from './src/features/account/useAccountBackup';
 import { hasWorkoutInProgress } from './src/lib/accountBackup';
-import { restoreQuestionCopy } from './src/lib/accountBackupCopy';
+import { confirmUploadCopy, restoreQuestionCopy } from './src/lib/accountBackupCopy';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { getReadyTemplatePresentation } from './src/lib/templatePresentation';
 import {
@@ -5494,6 +5494,32 @@ function VinhaApp() {
       showToast(t(language, 'account.signInUnavailable'));
       return outcome.kind;
     }
+    if (outcome.kind === 'confirm_upload') {
+      // Another account's data on this phone: asked before it becomes this
+      // account's backup (break round, 2026-09-28). Not dismissable — the
+      // pending question would dangle with the automatic backup held.
+      const copy = confirmUploadCopy(outcome, language);
+      Alert.alert(
+        copy.title,
+        copy.body,
+        [
+          { text: copy.skip, style: 'cancel', onPress: () => void accountBackup.resolveUploadChoice('skip') },
+          {
+            text: copy.upload,
+            onPress: () => {
+              void accountBackup.resolveUploadChoice('upload').then((result) => {
+                // Only the failure speaks. Success is the row's green timestamp.
+                if (result === 'failed') {
+                  showToast(t(language, 'account.backupFailed'));
+                }
+              });
+            },
+          },
+        ],
+        { cancelable: false },
+      );
+      return outcome.kind;
+    }
     if (outcome.kind !== 'choice') {
       // Cancelled: the reader changed their mind, or signed out meanwhile,
       // and neither is an error.
@@ -7698,7 +7724,7 @@ function VinhaApp() {
                   void handleAccountSignIn().then((kind) => {
                     // An answered offer never returns; a cancelled sheet or a
                     // failure leaves it up for another try or a real dismissal.
-                    if (kind === 'backed_up' || kind === 'restored' || kind === 'choice') {
+                    if (kind === 'backed_up' || kind === 'restored' || kind === 'choice' || kind === 'confirm_upload') {
                       void updatePreferences({ accountBackupPromptDismissed: true });
                     }
                   });

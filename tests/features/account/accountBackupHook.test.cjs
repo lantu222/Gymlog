@@ -167,6 +167,13 @@ async function withHook({ local, stored = null, cloud = null }, scenario) {
       clearStoredAccount: async () => {
         store.account = null;
       },
+      rememberSignedOutAccount: async (sub) => {
+        store.signedOut = sub;
+      },
+      loadSignedOutAccount: async () => store.signedOut ?? null,
+      forgetSignedOutAccount: async () => {
+        store.signedOut = null;
+      },
     },
   });
 
@@ -241,7 +248,108 @@ async function withHook({ local, stored = null, cloud = null }, scenario) {
   }
 }
 
+/** Signs in as A, backs up, signs out, and hands Google account B with no copy. */
+async function switchToNewAccount(env) {
+  assert.equal((await env.api.signIn()).kind, 'backed_up');
+  await env.api.signOut();
+  assert.equal(env.store.signedOut, 'sub-1', 'sign-out forgot whose data stayed on the phone');
+  env.server.blob = null; // B's storage: never backed up
+  env.google.signIn = { status: 'signed_in', account: { sub: 'sub-2', email: 'other@example.com', name: 'Other', idToken: 'token-b' } };
+  return env.calls.upload;
+}
+
 module.exports = [
+  {
+    // Break round, 2026-09-28 (user decision: ask). Sign-out keeps the data;
+    // the next account used to get all of it as its first backup, unasked.
+    name: 'account hook: another account signing in is asked before this phone\'s data becomes its backup, and "not now" sends nothing',
+    async run() {
+      await withHook({ local: database({ workoutSessions: workouts(50) }) }, async (env) => {
+        const uploadsBefore = await switchToNewAccount(env);
+        const outcome = await env.api.signIn();
+        assert.equal(outcome.kind, 'confirm_upload');
+        assert.equal(outcome.email, 'other@example.com');
+        assert.equal(outcome.local.workoutCount, 50);
+        assert.equal(env.calls.upload, uploadsBefore, 'uploaded before the reader answered');
+        assert.equal(env.store.account.sub, 'sub-2', 'not signed in while asked');
+        assert.equal(env.store.account.autoBackupPaused, true);
+
+        // The automatic backup does not answer for the reader.
+        await env.edit((db) => ({ ...db, workoutSessions: [...db.workoutSessions, workout('new')] }));
+        await env.advance(QUIET_MS);
+        assert.equal(env.calls.upload, uploadsBefore, 'the automatic backup sent it while the question was open');
+
+        assert.equal(await env.api.resolveUploadChoice('skip'), 'done');
+        await env.advance(QUIET_MS);
+        assert.equal(env.calls.upload, uploadsBefore, '"not now" still sent it');
+        assert.equal(env.server.blob, null);
+        assert.equal(env.store.account.autoBackupPaused, true);
+        assert.equal(env.store.signedOut, null, 'asked again on every sign-in after an answer');
+      });
+    },
+  },
+  {
+    // Review of the fix: B signed out before answering (a relaunch drops the
+    // question), the mark became B, and B signing back in sent A's log unasked.
+    name: 'account hook: signing out with the switch question unanswered keeps whose data it is, and B is asked again',
+    async run() {
+      await withHook({ local: database({ workoutSessions: workouts(5) }) }, async (env) => {
+        const uploadsBefore = await switchToNewAccount(env);
+        assert.equal((await env.api.signIn()).kind, 'confirm_upload');
+        await env.api.signOut();
+        assert.equal(env.store.signedOut, 'sub-1', 'the unanswered account took over the mark');
+        assert.equal((await env.api.signIn()).kind, 'confirm_upload', 'B signed back in and was not asked');
+        assert.equal(env.calls.upload, uploadsBefore);
+      });
+    },
+  },
+  {
+    // CI review of #221: sign-in could not reach the server, so it could not
+    // ask; the automatic retry found no copy and uploaded A's log to B.
+    name: 'account hook: a switch signed in offline is not backed up unattended once the network returns, and "Back up now" asks',
+    async run() {
+      await withHook({ local: database({ workoutSessions: workouts(4) }) }, async (env) => {
+        const uploadsBefore = await switchToNewAccount(env);
+        env.server.downloadError = 'NETWORK';
+        assert.equal((await env.api.signIn()).kind, 'not_backed_up');
+        env.server.downloadError = null;
+
+        await env.edit((db) => ({ ...db, workoutSessions: [...db.workoutSessions, workout('later')] }));
+        await env.advance(QUIET_MS);
+        await env.foreground();
+        await env.advance(QUIET_MS);
+        assert.equal(env.calls.upload, uploadsBefore, "the automatic backup sent the other account's log");
+        assert.equal(env.store.account.autoBackupPaused, true);
+
+        assert.equal((await env.api.backUpOrAsk()).kind, 'confirm_upload');
+        assert.equal(env.calls.upload, uploadsBefore);
+      });
+    },
+  },
+  {
+    name: 'account hook: "back it up" on the switch question uploads to the new account and lifts the hold',
+    async run() {
+      await withHook({ local: database({ workoutSessions: workouts(3) }) }, async (env) => {
+        const uploadsBefore = await switchToNewAccount(env);
+        assert.equal((await env.api.signIn()).kind, 'confirm_upload');
+        assert.equal(await env.api.resolveUploadChoice('upload'), 'done');
+        assert.equal(env.calls.upload, uploadsBefore + 1);
+        assert.equal(env.server.blob.database.workoutSessions.length, 3);
+        assert.equal(env.store.account.autoBackupPaused, false);
+      });
+    },
+  },
+  {
+    name: 'account hook: the same account signing back in is not asked, nor is a phone never signed in before',
+    async run() {
+      await withHook({ local: database({ workoutSessions: workouts(3) }) }, async (env) => {
+        assert.equal((await env.api.signIn()).kind, 'backed_up', 'a first-ever sign-in was asked');
+        await env.api.signOut();
+        env.server.blob = null;
+        assert.equal((await env.api.signIn()).kind, 'backed_up', 'the same account was asked about its own data');
+      });
+    },
+  },
   {
     name: 'account hook: a phone holding only what setup wrote restores the cloud copy without asking',
     async run() {

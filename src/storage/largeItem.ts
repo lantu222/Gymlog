@@ -94,11 +94,26 @@ async function readLargeItem(key: string): Promise<string | null> {
   return joined;
 }
 
-export function setLargeItem(key: string, value: string): Promise<void> {
+/**
+ * `alongside` are small rows that must land in the same transaction as this
+ * value — the preferences key beside the database blob, which the load lays
+ * over the blob's own copy. Written as a second call, a kill between the two
+ * left a new programme in the blob and the old preferences over it: back to
+ * onboarding, the programme stranded (break round, 2026-09-28).
+ */
+export function setLargeItem(
+  key: string,
+  value: string,
+  alongside: ReadonlyArray<readonly [string, string]> = [],
+): Promise<void> {
   return inTurn(key, async () => {
     const parts = splitStoredText(value);
     if (parts.length === 1) {
-      await AsyncStorage.setItem(key, value);
+      if (alongside.length === 0) {
+        await AsyncStorage.setItem(key, value);
+      } else {
+        await AsyncStorage.multiSet([[key, value], ...alongside]);
+      }
     } else {
       // One multiSet is one SQLite transaction on Android, so the manifest and
       // every part it names land together or not at all. A crash mid-write
@@ -107,6 +122,7 @@ export function setLargeItem(key: string, value: string): Promise<void> {
       await AsyncStorage.multiSet([
         [key, encodeChunkManifest({ count: parts.length, length: value.length })],
         ...parts.map((part, index) => [chunkKey(key, index), part] as const),
+        ...alongside,
       ]);
     }
 

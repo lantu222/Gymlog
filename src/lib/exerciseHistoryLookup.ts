@@ -208,7 +208,9 @@ export function entriesForLift(
   entries: readonly WorkoutSlotHistoryEntry[] | null | undefined,
   exerciseName: string | null | undefined,
 ): WorkoutSlotHistoryEntry[] {
-  const list = (entries ?? []).filter(Boolean);
+  // The loader checks the store; this is also reached from state built in
+  // memory, and a slot that is not a list must read as no history, not throw.
+  const list = (Array.isArray(entries) ? entries : []).filter(Boolean);
   const target = normalizeExerciseName(exerciseName ?? '');
   if (!target) {
     return [...list];
