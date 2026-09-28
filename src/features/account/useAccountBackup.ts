@@ -248,6 +248,23 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
   }, []);
 
   /**
+   * Remembers whose data stays on the phone as an account signs out.
+   *
+   * A mark still standing means the account now leaving never settled that:
+   * its switch question was never answered (a relaunch drops it) or the
+   * server was never reached. The data is still the earlier account's, and
+   * overwriting the mark with the leaving one let that account sign back in
+   * "as itself" and send the earlier account's log unasked (review of the
+   * break-round fix, 2026-09-28).
+   */
+  const markSignedOut = useCallback(async (sub: string) => {
+    if ((await loadSignedOutAccount()) !== null) {
+      return;
+    }
+    await rememberSignedOutAccount(sub);
+  }, []);
+
+  /**
    * Uploads this phone's data over the copy `expectedVersion` names — null:
    * the first backup, onto no copy at all. 'changed' is the server refusing
    * because the cloud holds a copy this phone has not seen; nothing was
@@ -613,7 +630,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
           // would promise backups that cannot happen. Signed out all the
           // same, so the next account to sign in is asked about this data.
           pendingRestoreRef.current = null;
-          await rememberSignedOutAccount(current.sub);
+          await markSignedOut(current.sub);
           await persistAccount(null);
           return { kind: 'failed' };
         }
@@ -735,11 +752,11 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
     // to a different account asks before sending it there.
     const leaving = accountRef.current;
     if (leaving) {
-      await rememberSignedOutAccount(leaving.sub);
+      await markSignedOut(leaving.sub);
     }
     await persistAccount(null);
     await signOutGoogle();
-  }, [persistAccount]);
+  }, [markSignedOut, persistAccount]);
 
   const deleteRemoteBackup = useCallback(async (): Promise<AccountOperationResult> => {
     if (!available || !accountRef.current) {
@@ -769,7 +786,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       ensureCurrent(generation);
       if (token.status === 'signed_out') {
         pendingRestoreRef.current = null;
-        await rememberSignedOutAccount(current.sub);
+        await markSignedOut(current.sub);
         await persistAccount(null);
         return 'failed';
       }

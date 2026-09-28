@@ -289,6 +289,21 @@ module.exports = [
     },
   },
   {
+    // Review of the fix: B signed out before answering (a relaunch drops the
+    // question), the mark became B, and B signing back in sent A's log unasked.
+    name: 'account hook: signing out with the switch question unanswered keeps whose data it is, and B is asked again',
+    async run() {
+      await withHook({ local: database({ workoutSessions: workouts(5) }) }, async (env) => {
+        const uploadsBefore = await switchToNewAccount(env);
+        assert.equal((await env.api.signIn()).kind, 'confirm_upload');
+        await env.api.signOut();
+        assert.equal(env.store.signedOut, 'sub-1', 'the unanswered account took over the mark');
+        assert.equal((await env.api.signIn()).kind, 'confirm_upload', 'B signed back in and was not asked');
+        assert.equal(env.calls.upload, uploadsBefore);
+      });
+    },
+  },
+  {
     name: 'account hook: "back it up" on the switch question uploads to the new account and lifts the hold',
     async run() {
       await withHook({ local: database({ workoutSessions: workouts(3) }) }, async (env) => {
