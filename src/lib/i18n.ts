@@ -58,7 +58,7 @@ const EN = {
   'home.complete.restart': 'New round',
   'home.complete.browse': 'Browse programs',
   'home.complete.hide': 'Hide',
-  'home.section.warmup': 'Warmup',
+  'home.section.warmup': 'Warm-up',
   'home.section.workout': 'Workout',
   'home.section.cooldown': 'Recovery',
   'home.section.warmupMeta': '{count} drills · {min} min',
@@ -693,7 +693,7 @@ const EN = {
   'prog.custom.badge': 'Own program',
   'prog.custom.detail.startFirst': 'Start first session',
   'prog.custom.detail.editTemplate': 'Edit template',
-  'prog.custom.detail.startSession': 'Start session',
+  'prog.custom.detail.startSession': 'Start workout',
   'prog.custom.detail.openSession': 'Open session',
   'common.copySuffix': 'copy',
   'common.customWorkout': 'Custom workout',
@@ -1344,7 +1344,7 @@ const EN = {
   'guided.count.stretchMany': '{count} stretches',
   'guided.entry.duration': '~{min} min',
   'guided.entry.resume': 'Resume session',
-  'guided.entry.start': 'Start session',
+  'guided.entry.start': 'Start workout',
   'guided.entry.startOver': 'Start from the beginning',
   // -- Session overview, screen 1 of the session flow (2026-09-04). What the
   // app changed since last time, and which lifts touch a flagged body part.

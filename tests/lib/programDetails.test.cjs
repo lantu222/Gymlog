@@ -149,7 +149,8 @@ module.exports = [
       // running has to be adoptable, or the only way onto Home is the catalog
       // and onboarding — neither of which knows about an imported program.
       assert.equal(detail.primaryActionLabel, 'Start this programme');
-      assert.equal(detail.sessionActionLabel, 'Start session');
+      // The same words as Home's button (tests/lib/i18n, 2026-09-28).
+      assert.equal(detail.sessionActionLabel, 'Start workout');
       assert.equal(detail.sessions.length, 1);
       assert.equal(detail.sessions[0].guidance, null);
       assert.equal(detail.infoSections.length, 0);
