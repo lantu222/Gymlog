@@ -2720,7 +2720,7 @@ function VinhaApp() {
     // Caught here, not by each caller: Home's sheet voided this and a failed
     // write left the old name standing with nothing said.
     try {
-      await editWorkoutTemplateSessions(templateId, (sessions) => ({
+      const result = await editWorkoutTemplateSessions(templateId, (sessions) => ({
         kind: 'save',
         sessions: sessions.map((session) => ({
           id: session.id,
@@ -2730,6 +2730,13 @@ function VinhaApp() {
           exercises: session.exercises.map(toDraftExercise),
         })),
       }));
+      // Remembered once the name is stored, so the display rule shows it as
+      // typed rather than reading "Päivä 2" as a placeholder of its own.
+      if (result.saved) {
+        await updatePreferences((current) => ({
+          readerSessionNames: { ...current.readerSessionNames, [sessionId]: trimmed },
+        }));
+      }
     } catch (error) {
       console.error('Failed to rename a day of the programme', error);
       void haptics.error();

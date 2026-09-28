@@ -323,6 +323,7 @@ function boolOr(value: unknown, fallbackValue: boolean): boolean {
  * resolved where the block is built (homeSessionHero falls back to the slot's
  * default), so the loader's job here is only to guarantee the SHAPE.
  */
+/** A map of non-empty strings under non-empty keys; anything else is dropped. */
 function normalizeRoutineDrillOverrides(input: unknown): Record<string, string> {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
     return {};
@@ -1149,6 +1150,7 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
           : fallback.preferences.setupAvailableDays,
       trainingCycle: normalizeTrainingCycle(input?.preferences?.trainingCycle, fallback.preferences.trainingCycle),
       routineDrillOverrides: normalizeRoutineDrillOverrides(input?.preferences?.routineDrillOverrides),
+      readerSessionNames: normalizeRoutineDrillOverrides(input?.preferences?.readerSessionNames),
       ratingPrompt: normalizeRatingPrompt(input?.preferences?.ratingPrompt),
       todaySession: normalizeTodaySession(input?.preferences?.todaySession),
       setupTrainingFeel:

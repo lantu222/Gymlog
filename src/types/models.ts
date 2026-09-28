@@ -675,6 +675,18 @@ export interface AppPreferences {
    */
   routineDrillOverrides: Record<string, string>;
   /**
+   * Programme days the reader named with the pen, by session id, holding the
+   * name exactly as it was saved.
+   *
+   * The display rule rewrites names the app wrote itself — "Workout B" and
+   * "Päivä 2" become a positional "Treeni N", "Day 3: Legs" drops its number —
+   * and could not tell those from a reader who typed the same words (break
+   * round 2026-09-28). A day whose stored name still equals the entry here is
+   * shown as typed; once anything else renames it, the entry no longer matches
+   * and the usual rule applies again.
+   */
+  readerSessionNames: Record<string, string>;
+  /**
    * Today's session, when the reader has picked one by hand.
    *
    * The rotation decides which session comes next, and it is right nearly

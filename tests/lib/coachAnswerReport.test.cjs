@@ -142,7 +142,9 @@ module.exports = [
       );
       assert.doesNotMatch(screen, /reportedIds/);
       const sheet = read(path.join(root, 'src', 'components', 'CoachReportSheet.tsx'));
-      assert.match(sheet, /const arrived = await onSend\(reason\);\s*setSending\(false\);\s*if \(!arrived\) \{\s*setFailed\(true\);/);
+      // Reported (or failed) only once the send has settled.
+      assert.match(sheet, /arrived = await onSend\(reason\);/);
+      assert.match(sheet, /\} finally \{[^}]*?sendingRef\.current = false;\s*setSending\(false\);\s*\}\s*if \(!arrived\) \{\s*setFailed\(true\);/);
       const client = read(path.join(root, 'src', 'lib', 'aiCoachClient.ts'));
       assert.match(client, /return response\.ok && payload\.ok === true;\s*\} catch \{\s*return false;/);
     },

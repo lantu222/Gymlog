@@ -31,6 +31,7 @@ import { EMPHASIS_RAMP } from '../lib/programVisualIdentity';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import {
   formatPlanSessionTitle,
+  isReaderNamedSession,
   localizeSessionName,
   localizeWorkoutFocus,
 } from '../lib/sessionNameLabel';
@@ -160,6 +161,8 @@ interface ProgramDetailScreenProps {
    * naming rules ever cleans one up (user 2026-09-08).
    */
   onRenameProgram?: (name: string) => void;
+  /** Days the reader named with the pen — see isReaderNamedSession. */
+  readerSessionNames?: Record<string, string>;
   /** The day row's destination — the day view (design screen 2). */
   onOpenSession?: (sessionId: string) => void;
   /**
@@ -280,6 +283,7 @@ export function ProgramDetailScreen({
   onBack,
   onStartSession,
   onRenameProgram,
+  readerSessionNames,
   onPrimaryAction,
   active = false,
   held = false,
@@ -466,6 +470,9 @@ export function ProgramDetailScreen({
     [availableEquipment, equipment],
   );
   const displayTitle = formatWorkoutDisplayLabel(program.title, 'Workout plan');
+  // A day's row name: the shared rule, or the reader's own words if they typed them.
+  const dayTitleOf = (session: { id: string; name: string }, index: number) =>
+    formatPlanSessionTitle(session, index, displayTitle, language, isReaderNamedSession(readerSessionNames, session));
   // The name being typed, or null when the title is just a title. Seeded from
   // what is on screen rather than the raw stored string, so a reader editing
   // an unnamed programme starts from the words they can see.
@@ -1254,7 +1261,7 @@ export function ProgramDetailScreen({
                   <View
                     accessibilityRole="button"
                     accessibilityLabel={t(language, 'detail.day.dragHandle', {
-                      name: formatPlanSessionTitle(session, index, displayTitle, language),
+                      name: dayTitleOf(session, index),
                     })}
                     onStartShouldSetResponder={() => true}
                     onResponderTerminationRequest={() => false}
@@ -1300,7 +1307,7 @@ export function ProgramDetailScreen({
                       2026-09-05). A name too long for the row is truncated
                       here exactly as it is in Historia and on Progress. */}
                   <Text style={styles.workoutName} numberOfLines={1}>
-                    {formatPlanSessionTitle(session, index, displayTitle, language)}
+                    {dayTitleOf(session, index)}
                   </Text>
                   <Text style={styles.workoutMeta}>
                     {t(

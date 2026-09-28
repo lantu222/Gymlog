@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { KitRow, KitSheet } from './sheetKit';
@@ -35,6 +35,11 @@ export function CoachReportSheet({ visible, language, bottomInset, onSend, onClo
   const [reason, setReason] = useState<CoachReportReason | null>(null);
   const [sending, setSending] = useState(false);
   const [failed, setFailed] = useState(false);
+  // The guard itself. `sending` only disables the button once a render has
+  // happened, and a second tap can land before that: two taps posted the same
+  // answer to the team twice (break round 2026-09-28). The ref is set before
+  // the await, as every one-shot write here does (onePressOneWrite).
+  const sendingRef = useRef(false);
 
   // Each opening starts clean: the sheet is reused for every answer.
   useEffect(() => {
@@ -42,17 +47,28 @@ export function CoachReportSheet({ visible, language, bottomInset, onSend, onClo
       setReason(null);
       setSending(false);
       setFailed(false);
+      sendingRef.current = false;
     }
   }, [visible]);
 
   const send = async () => {
-    if (!reason || sending) {
+    if (!reason || sendingRef.current) {
       return;
     }
+    sendingRef.current = true;
     setSending(true);
     setFailed(false);
-    const arrived = await onSend(reason);
-    setSending(false);
+    let arrived = false;
+    try {
+      arrived = await onSend(reason);
+    } catch {
+      // A throw is a report that did not arrive, said as one below.
+      arrived = false;
+    } finally {
+      // Released only once the send settles, so a failed one can be retried.
+      sendingRef.current = false;
+      setSending(false);
+    }
     if (!arrived) {
       setFailed(true);
     }

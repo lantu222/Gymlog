@@ -476,6 +476,7 @@ function resolveHistoricalSetDraft(
         targetSets: exercise.sets,
         trackingMode: exercise.trackingMode,
         automatedProgressionEnabled: options.automatedProgressionEnabled ?? false,
+        nowMs: options.nowMs ?? Date.now(),
       });
 
   // Prefill the weight so the user usually just adjusts it with the console
@@ -946,6 +947,40 @@ function resolveDraftReps(set: WorkoutSetInstance) {
   return parseInputNumber(set.draftRepsText);
 }
 
+/**
+ * Whether `set/complete` would keep this set as its draft stands — the one
+ * rule, so a caller can ask before it tells the reader the set is logged.
+ *
+ * The player used to dispatch the completion and play its "done" cue and move
+ * on regardless; when the store refused the set (a bar tap had pushed the
+ * total past the dial's ceiling) the set was gone and the screen had said it
+ * was kept (break round 2026-09-28).
+ */
+export function canCompleteSet(
+  exercise: Pick<WorkoutExerciseInstance, 'trackingMode' | 'exerciseName'>,
+  set: WorkoutSetInstance,
+  unitPreference: 'kg' | 'lb',
+): boolean {
+  const reps = resolveDraftReps(set);
+  if (!reps || reps <= 0 || reps > repsCeilingFor(exercise, set)) {
+    return false;
+  }
+  const loadKg = resolveDraftLoadKg(set, unitPreference);
+  // An interval work bout is logged by the player with no load: a treadmill
+  // speed is not a weight. Its catalog rows are `reps_first`, so the load
+  // rule refused every bout — eight sprints ran, and none of them was kept.
+  const unloaded = isUnloadedTrackingMode(exercise.trackingMode) || parseIntervalScheme(exercise.exerciseName) !== null;
+  if (!unloaded && (loadKg === null || loadKg === undefined)) {
+    return false;
+  }
+  // Nothing above the dial's ceiling is a set anybody lifted, and the
+  // loader drops it on the next launch anyway.
+  if (typeof loadKg === 'number' && !isLiftableWeight(loadKg)) {
+    return false;
+  }
+  return true;
+}
+
 export const workoutInitialState: WorkoutFeatureState = {
   hydrated: false,
   isRestoring: true,
@@ -997,6 +1032,7 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
         automatedProgressionEnabled: action.payload.progression?.automatedProgressionEnabled ?? false,
         fatigueSignal: action.payload.progression?.fatigueSignal,
         setupLevel: action.payload.progression?.setupLevel ?? null,
+        nowMs: action.payload.progression?.nowMs,
       });
 
       return {
@@ -1018,6 +1054,7 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
         automatedProgressionEnabled: action.payload.progression?.automatedProgressionEnabled ?? false,
         fatigueSignal: action.payload.progression?.fatigueSignal,
         setupLevel: action.payload.progression?.setupLevel ?? null,
+        nowMs: action.payload.progression?.nowMs,
       });
 
       return {
@@ -1209,23 +1246,10 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
       }
 
       const actualReps = resolveDraftReps(set);
-      if (!actualReps || actualReps <= 0 || actualReps > repsCeilingFor(exercise, set)) {
+      if (actualReps === null || !canCompleteSet(exercise, set, action.payload.unitPreference)) {
         return state;
       }
-
       const actualLoadKg = resolveDraftLoadKg(set, action.payload.unitPreference);
-      // An interval work bout is logged by the player with no load: a treadmill
-      // speed is not a weight. Its catalog rows are `reps_first`, so the load
-      // rule refused every bout — eight sprints ran, and none of them was kept.
-      const unloaded = isUnloadedTrackingMode(exercise.trackingMode) || parseIntervalScheme(exercise.exerciseName) !== null;
-      if (!unloaded && (actualLoadKg === null || actualLoadKg === undefined)) {
-        return state;
-      }
-      // Nothing above the dial's ceiling is a set anybody lifted, and the
-      // loader drops it on the next launch anyway.
-      if (typeof actualLoadKg === 'number' && !isLiftableWeight(actualLoadKg)) {
-        return state;
-      }
 
       set.status = 'completed';
       set.actualReps = actualReps;

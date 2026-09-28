@@ -20,6 +20,7 @@ const strip = (source) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.
 const KEYS = [
   'notificationPrefs',
   'routineDrillOverrides',
+  'readerSessionNames',
   'dismissedCardSuggestionKeys',
   'coachSuggestionState',
   'strengthGoals',

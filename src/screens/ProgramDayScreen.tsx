@@ -247,6 +247,8 @@ interface ProgramDayScreenProps {
    * (#bugs 2026-09-28). A tag on every row says nothing, so it is not drawn.
    */
   showRoles?: boolean;
+  /** The reader typed this day's name with the pen: shown exactly as typed. */
+  readerNamed?: boolean;
   onBack: () => void;
 }
 
@@ -273,6 +275,7 @@ export function ProgramDayScreen({
   onRemoveSession,
   onRenameSession,
   showRoles = true,
+  readerNamed = false,
   onBack,
 }: ProgramDayScreenProps) {
   const theme = useTheme();
@@ -563,16 +566,14 @@ export function ProgramDayScreen({
     return ['primary', 'secondary', 'accessory'].filter((role) => seen.has(role));
   }, [session.exercises, showRoles]);
 
-  const dayTitle = formatPlanSessionTitle(session, dayNumber - 1, programTitle, language);
+  const dayTitle = formatPlanSessionTitle(session, dayNumber - 1, programTitle, language, readerNamed);
   const commitRename = () => {
     if (nameDraft === null) {
       return;
     }
     const trimmed = nameDraft.trim();
-    // Blank is a cancel, and so is Save on the untouched field: it was seeded
-    // with the title as shown, which for an unnamed day is a placeholder
-    // ("Treeni 2") that nobody typed — writing it back would make it the name.
-    if (trimmed && trimmed !== dayTitle) {
+    // Blank is a cancel, and so is Save on the untouched field.
+    if (trimmed && trimmed !== session.name.trim()) {
       onRenameSession?.(trimmed);
     }
     setNameDraft(null);
@@ -978,7 +979,12 @@ export function ProgramDayScreen({
                 accessibilityRole="button"
                 accessibilityLabel={t(language, 'home.today.rename')}
                 hitSlop={12}
-                onPress={() => setNameDraft(dayTitle)}
+                // The STORED name, as Home's pen does (audit round 4), not
+                // the title as shown: that is a translation ("Pull Day" reads
+                // "Vetopäivä") or a placeholder ("Treeni 2"), and saving it
+                // made the translation the name — in English too, for good
+                // (break round 2026-09-28).
+                onPress={() => setNameDraft(session.name)}
                 style={({ pressed }) => [styles.titlePen, pressed && { opacity: 0.6 }]}
               >
                 <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
@@ -1198,7 +1204,7 @@ export function ProgramDayScreen({
           visible={confirmRemoveSession}
           title={t(language, 'day.removeWorkout.title')}
           message={t(language, 'day.removeWorkout.message', {
-            name: formatPlanSessionTitle(session, dayNumber - 1, programTitle, language),
+            name: dayTitle,
           })}
           confirmLabel={t(language, 'day.removeWorkout.confirm')}
           destructive

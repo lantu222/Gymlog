@@ -71,7 +71,9 @@ function session(state, reps, day, pro = true, template = TEMPLATE, beforeSet = 
       template,
       sessionOrderIndex: 0,
       unitPreference: 'kg',
-      progression: { automatedProgressionEnabled: pro, setupLevel: 'beginner' },
+      // The clock pinned to the session's own day: the target ignores a
+      // history older than 90 days, and these fixtures are dated.
+      progression: { automatedProgressionEnabled: pro, setupLevel: 'beginner', nowMs: Date.UTC(2026, 8, day, 8) },
     },
   });
   const opened = next.activeSession.exercises[0];
@@ -176,7 +178,7 @@ module.exports = [
       assert.equal(stored.targetReps, 6, 'the lowered target is kept for the next session');
       const next = workoutReducer(result.state, {
         type: 'session/startFromRuntimeTemplate',
-        payload: { template: TEMPLATE, sessionOrderIndex: 0, unitPreference: 'kg', progression: { automatedProgressionEnabled: true, setupLevel: 'beginner' } },
+        payload: { template: TEMPLATE, sessionOrderIndex: 0, unitPreference: 'kg', progression: { automatedProgressionEnabled: true, setupLevel: 'beginner', nowMs: Date.UTC(2026, 8, 24, 8) } },
       });
       const bench = next.activeSession.exercises[0];
       assert.equal(resolveGuidedSetTarget(bench.sets, 0, bench.trackingMode).reps, 7);
@@ -257,6 +259,35 @@ module.exports = [
       assert.deepEqual([incline.exerciseName, bench.exerciseName], ['Incline Bench Press', 'Bench Press']);
       assert.equal(bench.targetReps, 6);
       assert.equal('targetReps' in incline, false, 'the incline sets were asked for the programme, not the bench target');
+    },
+  },
+  {
+    name: 'a short session over 90 days old lowers nothing today (break round 2026-09-28)',
+    run() {
+      const performed = Date.parse('2026-09-20T09:00:00.000Z');
+      const day = 86_400_000;
+      // A week later — a lift trained once a week — the target still stands:
+      // the spec's 7-day gap is not this rule.
+      assert.deepEqual(rule([entry([7, 6, 4, 4])], { nowMs: performed + 7 * day }), { targetReps: 6, fromAverage: 5.25 });
+      assert.deepEqual(rule([entry([7, 6, 4, 4])], { nowMs: performed + 90 * day }), { targetReps: 6, fromAverage: 5.25 });
+      // Past 90 days the programme's own reps are asked for again.
+      assert.equal(rule([entry([7, 6, 4, 4])], { nowMs: performed + 91 * day }), null);
+      assert.equal(rule([entry([7, 6, 4, 4])], { nowMs: performed + 210 * day }), null);
+      // An entry whose date cannot be read is not trusted to be recent.
+      assert.equal(rule([entry([7, 6, 4, 4], { performedAt: 'not a date' })], { nowMs: performed }), null);
+      // Through the reducer: a session opened seven months later opens on the programme.
+      const { state } = session(EMPTY, [7, 6, 4, 4], 20);
+      const later = workoutReducer(state, {
+        type: 'session/startFromRuntimeTemplate',
+        payload: {
+          template: TEMPLATE,
+          sessionOrderIndex: 0,
+          unitPreference: 'kg',
+          progression: { automatedProgressionEnabled: true, setupLevel: 'beginner', nowMs: Date.UTC(2027, 3, 20, 8) },
+        },
+      });
+      const bench = later.activeSession.exercises[0];
+      assert.equal(bench.sets[0].plannedTargetReps, undefined);
     },
   },
 ];

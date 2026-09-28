@@ -342,10 +342,18 @@ export function formatPlanSessionTitle(
   index: number,
   programTitle: string,
   language: AppLanguage,
+  /** The reader typed this name with the pen — see isReaderNamedSession. */
+  readerNamed = false,
 ): string {
   // The English name is what is stored and matched on; localizeSessionName only
   // rewrites the parts it recognises.
   const sessionName = formatWorkoutDisplayLabel(session.name, 'Workout');
+  // Every rule below is for names the app wrote. One the reader typed is
+  // theirs, placeholder-shaped or not: "Päivä 2" came back as "Treeni 2", and
+  // "Workout B" as a number unrelated to it (break round 2026-09-28).
+  if (readerNamed) {
+    return sessionName;
+  }
   const normalizedProgram = programTitle.toLowerCase();
   const normalizedSession = sessionName.toLowerCase();
 
@@ -377,4 +385,23 @@ export function formatPlanSessionTitle(
   }
 
   return localizeSessionName(sessionName, language);
+}
+
+/** Whitespace-insensitive, so a name the store trimmed still matches. */
+function sameName(left: string, right: string): boolean {
+  return left.trim().replace(/\s+/g, ' ') === right.trim().replace(/\s+/g, ' ');
+}
+
+/**
+ * Whether this day's stored name is still the one the reader typed with the
+ * pen. A rename from anywhere else — a programme rebuilt, a CSV import —
+ * changes the stored name, the entry stops matching, and the day is read by
+ * the usual rules again.
+ */
+export function isReaderNamedSession(
+  readerSessionNames: Record<string, string> | null | undefined,
+  session: { id: string; name: string },
+): boolean {
+  const typed = readerSessionNames?.[session.id];
+  return typeof typed === 'string' && sameName(typed, session.name);
 }
