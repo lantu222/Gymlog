@@ -130,6 +130,10 @@ module.exports = [
       assert.match(section, /counts sessions at that weight, not drops/);
       assert.match(section, /never write that a lift fell again, twice or N times in a row/);
       assert.doesNotMatch(section, /one or two actions/);
+      // The example's model line in both languages: given only in Finnish, an
+      // English answer ended "Pidä 155 kg ja tavoittele 6/6/6" (live, 2026-09-28).
+      assert.match(section, /`nextSteps`:[^\n]*in the reader\\'s language \("let the new weight settle before the next jump"; in Finnish/);
+      assert.match(section, /`example`:[^\n]*in the reader\\'s language \("Hold 50 kg and aim for 7\/7\/7"; in Finnish "Pidä 50 kg ja tavoittele 7\/7\/7"\)/);
 
       // The tool schema's field descriptions say the same — the model reads
       // them as closely as the rules, and a contradiction there wins.
@@ -141,6 +145,7 @@ module.exports = [
       assert.match(field('attention'), /at least 2 reps below the set before it or at least 2 reps below the same set the time before/);
       assert.match(field('attention'), /One rep lower is ordinary fatigue/);
       assert.doesNotMatch(field('attention'), /went backwards/);
+      assert.match(field('example'), /in the reader\\'s language \("Hold 50 kg and aim for 7\/7\/7"; in Finnish/);
     },
   },
   {
