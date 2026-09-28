@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { KitRow, KitSheet } from './sheetKit';
 import { COACH_REPORT_REASONS, CoachReportReason } from '../lib/coachAnswerReport';
@@ -67,42 +67,52 @@ export function CoachReportSheet({ visible, language, bottomInset, onSend, onClo
       bottomInset={bottomInset}
       closeLabel={t(language, 'common.close')}
     >
-      {COACH_REPORT_REASONS.map((key) => (
-        <KitRow
-          key={key}
-          title={t(language, REASON_KEYS[key])}
-          state={reason === key ? 'sel' : 'idle'}
-          onPress={() => {
-            setReason(key);
-            setFailed(false);
-          }}
-        />
-      ))}
-      {failed ? (
-        <Text accessibilityLiveRegion="polite" style={styles.failed}>
-          {t(language, 'coachChat.report.failed')}
-        </Text>
-      ) : null}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ disabled: !reason || sending, busy: sending }}
-        disabled={!reason || sending}
-        onPress={send}
-        style={({ pressed }) => [styles.cta, (!reason || sending) && styles.ctaIdle, pressed && styles.pressed]}
-      >
-        {sending ? (
-          <ActivityIndicator size="small" color="#FFFFFF" />
-        ) : (
-          <Text style={styles.ctaText}>{t(language, 'coachChat.report.send')}</Text>
-        )}
-      </Pressable>
+      {/* Inset like the head above it — KitSheet leaves its body to the caller. */}
+      <View style={styles.body}>
+        {COACH_REPORT_REASONS.map((key) => (
+          <KitRow
+            key={key}
+            title={t(language, REASON_KEYS[key])}
+            state={reason === key ? 'sel' : 'idle'}
+            onPress={() => {
+              setReason(key);
+              setFailed(false);
+            }}
+          />
+        ))}
+        {failed ? (
+          <Text accessibilityLiveRegion="polite" style={styles.failed}>
+            {t(language, 'coachChat.report.failed')}
+          </Text>
+        ) : null}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !reason || sending, busy: sending }}
+          disabled={!reason || sending}
+          onPress={send}
+          style={({ pressed }) => [styles.cta, (!reason || sending) && styles.ctaIdle, pressed && styles.pressed]}
+        >
+          {sending ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text style={styles.ctaText}>{t(language, 'coachChat.report.send')}</Text>
+          )}
+        </Pressable>
+      </View>
     </KitSheet>
   );
 }
 
 const makeStyles = (theme: Theme) =>
   StyleSheet.create({
-    failed: { fontSize: 14, fontWeight: '700', color: theme.amberInk, marginTop: 12, lineHeight: 20 },
+    body: { paddingHorizontal: 18 },
+    failed: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: theme.amberInk,
+      marginTop: 12,
+      lineHeight: 20,
+    },
     cta: {
       height: 52,
       borderRadius: 16,
