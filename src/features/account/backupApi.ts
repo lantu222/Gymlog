@@ -6,6 +6,7 @@
  */
 import type { AccountBackupPayload } from '../../lib/accountBackup';
 import { decodeAccountBackupBody, encodeAccountBackupBody, parseAccountBackupPayload } from '../../lib/accountBackup';
+import { appVersionHeaders, noteServerAnswer } from '../appUpdate/appUpdateSignal';
 
 const BACKUP_API_URL = (process.env.EXPO_PUBLIC_BACKUP_API_URL ?? '').trim();
 const REQUEST_TIMEOUT_MS = 20000;
@@ -61,12 +62,14 @@ export async function uploadBackup(
         'content-type': 'application/json',
         authorization: `Bearer ${idToken}`,
         'x-backup-expected-version': expectedVersion ?? 'none',
+        ...appVersionHeaders(),
       },
       // Compressed once the history is large; see ACCOUNT_BACKUP_COMPRESS_ABOVE_CHARS.
       body: encodeAccountBackupBody(payload),
       signal,
     });
     const body = (await response.json()) as { ok?: boolean; savedAt?: string; error?: string; version?: unknown };
+    noteServerAnswer(response.status, body);
     if (response.ok && body.ok && typeof body.savedAt === 'string') {
       return { ok: true, savedAt: body.savedAt, version: versionOf(body) };
     }
@@ -91,10 +94,11 @@ export async function downloadBackup(idToken: string): Promise<BackupDownloadRes
   try {
     const response = await fetch(BACKUP_API_URL, {
       method: 'GET',
-      headers: { authorization: `Bearer ${idToken}` },
+      headers: { authorization: `Bearer ${idToken}`, ...appVersionHeaders() },
       signal,
     });
     const body = (await response.json()) as { ok?: boolean; payload?: unknown; error?: string; version?: unknown };
+    noteServerAnswer(response.status, body);
     // Only the server's own answer, never any 404: "no backup" makes the app
     // upload this phone's data as the first one, over whatever is really there.
     if (response.status === 404 && body.error === 'NO_BACKUP') {
@@ -123,11 +127,12 @@ export async function deleteBackup(idToken: string): Promise<{ ok: boolean }> {
   try {
     const response = await fetch(BACKUP_API_URL, {
       method: 'DELETE',
-      headers: { authorization: `Bearer ${idToken}` },
+      headers: { authorization: `Bearer ${idToken}`, ...appVersionHeaders() },
       signal,
     });
     // The server's own yes, not just a 2xx from whatever answered.
     const body = (await response.json().catch(() => null)) as { ok?: boolean } | null;
+    noteServerAnswer(response.status, body);
     return { ok: response.ok && body?.ok === true };
   } catch {
     return { ok: false };

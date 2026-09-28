@@ -165,10 +165,12 @@ module.exports = [
       assert.match(yours[0], /No feed, no followers/);
       assert.match(yours[0], /CSV/);
       assert.match(yours[1], /Ei syötettä, ei seuraajia/);
-      // The offline claim names its own exception rather than overclaiming.
+      // The offline claim names its exceptions rather than overclaiming: both
+      // server features, not only the coach (2026-09-28 — the backup needs a
+      // connection too, and the row said only the coach did).
       const offline = i18n.split(String.fromCharCode(10)).filter((l) => l.includes("'pro.v6.free.offline.b':"));
-      assert.match(offline[0], /only the AI coach needs a connection/);
-      assert.match(offline[1], /AI-valmentaja tarvitsee/);
+      assert.match(offline[0], /Backup and the AI coach need a connection/);
+      assert.match(offline[1], /Varmuuskopio ja AI-valmentaja tarvitsevat yhteyden/);
     },
   },
 ];

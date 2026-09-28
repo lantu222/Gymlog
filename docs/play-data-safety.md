@@ -18,6 +18,14 @@ fails if a fourth appears. The policy names all three.
 | AI coach online mode, programme composer, photo import | `src/lib/aiCoachClient.ts` → `api/ai-coach.ts` | Question + conversation history + training summary **including latest weight, measurements, height, age, gender, goals and setup answers**; the composer brief; the downscaled photo | **Nothing by default. With consent, three separate lines each starting at no** (`aiLogChatConsent` / `aiLogComposerConsent` / `aiLogPhotoConsent`): `keepTranscript()` files the question and its answer, the brief and the proposal it produced, or the photo itself plus the rows read out of it, as `transcripts/<day>/<aiLogId>--…`. **Never the training summary** — that is sent, answered from, and dropped. Swept at 24 months by `api/prune-events.ts`; turning any one line off calls a forget route that deletes every copy under the label, whichever line made it. The same prefix also holds entries a development log wrote **before #92**, without consent, and chat copies written before #128 carry the signed-in email — both cleaned by hand before release, §3 | Vercel (function and storage in Stockholm, `arn1`), Anthropic (model, United States; deletes within 30 days, no training) |
 | Anonymous usage events | `src/features/analytics/analyticsClient.ts` → `api/events.ts` | Random install id + event names, timestamps, `step` / `path` | Batches as private blobs (Vercel, EU); deleted after 24 months by the daily cron (`api/prune-events.ts`, `docs/usage-events.md`) | Vercel (function and storage in Stockholm, `arn1`) |
 
+**App version on every request (since 2026-09-28).** All three clients also send
+`x-vinha-app-version` (e.g. `1.1.0`) and `x-vinha-platform` (`android` / `ios`), so
+the server can refuse a build too old for it (`src/lib/appUpdateGate.ts`,
+`docs/app-updates.md`). Neither is stored, and neither identifies a person or a
+device. The policy names it (the short version, and the legitimate-interest basis).
+When filling the form, check whether Play wants it under *App info and
+performance*; it is used for app functionality only and never shared.
+
 **Regions verified 2026-09-16**, on the production deployment of that day.
 *Storage:* `vercel blob list-stores --scope vinha-fit` shows the one store,
 `vinha-backups`, in `arn1` — backups, usage events and coach copies all live there.

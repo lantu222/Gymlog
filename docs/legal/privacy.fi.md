@@ -1,14 +1,14 @@
 # Tietosuojaseloste
 
-*Päivitetty 16.9.2026*
+*Päivitetty 28.9.2026*
 
 Mitä Vinha tallentaa, mikä lähtee puhelimestasi ja mitä voit sille tehdä.
 
 ## Lyhyesti
 
-Vinha pitää treenitietosi puhelimessasi. Oletuksena treeneistäsi ei lähde puhelimesta mitään: ei treenejä, ei painoa, ei ohjelmia.
+Vinha tallentaa treenitietosi puhelimeesi. Tämä seloste kertoo, mitä sovellus lähettää palvelimellemme, milloin ja miksi.
 
-Kaksi asiaa lähtee puhelimestasi vain, jos itse valitset ne: vapaaehtoinen pilvivarmuuskopio (kirjaudut Googlella) ja AI-valmentajan verkkotila (luet ilmoituksen ja lähetät sen jälkeen kysymyksen, pyydät ohjelman tai tuot sellaisen valokuvasta). Kolmannen asian, nimettömät käyttötilastot, sovellus lähettää itse, ellet kytke sitä pois asetuksista — niissä ei ole sisältöä eikä henkilöllisyyttä, ja ne kuvataan kokonaan alla.
+Tällä hetkellä asioita on kolme. Vapaaehtoinen pilvivarmuuskopio lähtee, kun kirjaudut Googlella, ja AI-valmentajan verkkotila, kun luet ilmoituksen ja lähetät sen jälkeen kysymyksen, pyydät ohjelman tai tuot sellaisen valokuvasta. Nimettömät käyttötilastot sovellus lähettää itse, ellet kytke niitä pois asetuksista — niissä ei ole sisältöä eikä henkilöllisyyttä, ja ne kuvataan kokonaan alla. Jokaisessa näistä pyynnöistä kulkee lisäksi sovelluksen versionumero ja tieto siitä, onko puhelin Android vai iOS, jotta palvelimemme tunnistaa liian vanhan sovelluksen ja voi pyytää sinua päivittämään sen.
 
 Ei mainoksia, ei seurantaa, ei tietojen myyntiä. Jos jokin tässä selosteessa on epäselvää, kirjoita meille — osoite on seuraavassa kohdassa.
 
@@ -106,8 +106,8 @@ Siltä osin kuin tietoja siirtyy Euroopan unionin ulkopuolelle — valmentajan l
 Tietosuoja-asetus (GDPR) vaatii jokaiselle käsittelylle laillisen perusteen. Meidän perusteemme ovat nämä.
 
 - Sovelluksen tarjoaminen sinulle (sopimus): tietojesi säilyttäminen puhelimessasi, Pron toimittaminen ja oman historiasi näyttäminen.
-- Suostumuksesi: pilvivarmuuskopio (kirjaudut sisään), valmentajan verkkotila (luet ilmoituksen ja lähetät kysymyksen), ohjelmakoostaja ja kuvatuonti (pyydät niitä). Treeni- ja kehontiedot ovat terveystietoja, joten kaikkeen puhelimestasi lähtevään nojaamme nimenomaiseen suostumukseesi. Voit peruuttaa sen milloin tahansa: poista varmuuskopio ja kirjaudu ulos, ja lakkaa lähettämästä kysymyksiä.
-- Oikeutettu etumme: nimettömät käyttötilastot, jotta näemme, missä sovellus pettää käyttäjät, sekä lyhytaikainen pyyntöjen rajoitus, joka suojaa palvelinta väärinkäytöltä. Voit vastustaa tätä kytkemällä tilastot pois asetuksista tai kirjoittamalla meille.
+- Suostumuksesi: pilvivarmuuskopio (kirjaudut sisään), valmentajan verkkotila (luet ilmoituksen ja lähetät kysymyksen), ohjelmakoostaja ja kuvatuonti (pyydät niitä). Treeni- ja kehontiedot ovat terveystietoja, joten aina kun niitä lähtee puhelimestasi, nojaamme nimenomaiseen suostumukseesi. Voit peruuttaa sen milloin tahansa: poista varmuuskopio ja kirjaudu ulos, ja lakkaa lähettämästä kysymyksiä.
+- Oikeutettu etumme: nimettömät käyttötilastot, jotta näemme, missä sovellus pettää käyttäjät, lyhytaikainen pyyntöjen rajoitus, joka suojaa palvelinta väärinkäytöltä, sekä sovelluksen versio jokaisessa pyynnössä, jotta palvelin voi pyytää vanhentunutta sovellusta päivittymään. Voit vastustaa tätä kytkemällä tilastot pois asetuksista tai kirjoittamalla meille.
 - Lakisääteiset velvoitteet: mikään meidän velvoitteistamme ei tänään koske henkilötietojasi. Google Play on Pron myyjä ja säilyttää ostotiedot; Googlelta saamamme myyntiraportit eivät sisällä henkilötietoja.
 
 ## Mitä sovellus ei tee
@@ -127,7 +127,7 @@ Sovellus pyytää puhelimeltasi hyvin vähän. Tätä se käyttää:
 
 - Ilmoitukset: kysytään, kun lepoajastin ensimmäisen kerran tarvitsee hälyttää, tai kun kytket ilmoitukset päälle asetuksista. Kieltäydy, ja kaikki muu toimii silti.
 - Kuvat: puhelimen oma valitsin antaa sovellukselle sen yhden kuvan, jonka valitsit. Lupaa kuvakirjastoosi ei pyydetä.
-- Internet: vain kolmea yllä kuvattua asiaa varten — varmuuskopio, valmentaja, tilastot. Treenin kirjaaminen ei koskaan tarvitse yhteyttä.
+- Internet: tässä selosteessa kuvattuja palvelintoimintoja varten — tällä hetkellä varmuuskopio, valmentaja ja tilastot. Treenin kirjaaminen ei koskaan tarvitse yhteyttä.
 - Näytön pitäminen päällä treenin aikana, jos kytket sen päälle asetuksista.
 - Värinä, haptisia napsautuksia varten — ne voi kytkeä pois.
 

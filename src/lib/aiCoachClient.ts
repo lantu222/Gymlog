@@ -3,6 +3,7 @@ import { classifyCoachScope } from './aiCoachScope';
 import { resolveLiveAiCoachUrl } from './aiCoachLiveGate';
 import { ProgramImageMediaType, ProgramTableRow, validateProgramTable } from './programImageImport';
 import { AICoachAdvice, AICoachAdviceError, AICoachAdviceRequest, AICoachAdviceSuccess } from '../types/aiCoach';
+import { appVersionHeaders, noteServerAnswer } from '../features/appUpdate/appUpdateSignal';
 
 // The key the endpoint asks for on every call (api/ai-coach.ts, hasAppKey).
 // Without it the server refuses, so a build that lacks it is a preview build
@@ -18,9 +19,12 @@ const AI_COACH_SERVER_URL = resolveLiveAiCoachUrl(
 // be refused on every call, so it never makes the round trip.
 const AI_COACH_API_URL = AI_COACH_APP_KEY ? AI_COACH_SERVER_URL : '';
 
-/** Every request's headers: JSON, and the key that opens the endpoint. */
+/**
+ * Every request's headers: JSON, the key that opens the endpoint, and which
+ * build is asking (lib/appUpdateGate).
+ */
 function coachHeaders(): Record<string, string> {
-  return { 'Content-Type': 'application/json', 'x-vinha-app-key': AI_COACH_APP_KEY };
+  return { 'Content-Type': 'application/json', 'x-vinha-app-key': AI_COACH_APP_KEY, ...appVersionHeaders() };
 }
 // Outer bound over the endpoint's 30 s Claude timeout plus the round trip.
 // Also how long after a request its kept copy may still be written
@@ -125,6 +129,7 @@ export async function forgetAiCoachLog(logId: string): Promise<{ ok: boolean; re
       signal,
     });
     const payload = (await response.json()) as { ok?: boolean; removed?: number };
+    noteServerAnswer(response.status, payload);
     return {
       ok: response.ok && payload.ok === true,
       removed: typeof payload.removed === 'number' ? payload.removed : 0,
@@ -174,6 +179,7 @@ export async function requestAiCoachAdvice(input: AICoachAdviceRequest, upstream
     });
 
     const payload = (await response.json()) as unknown;
+    noteServerAnswer(response.status, payload);
 
     if (response.ok && isSuccessResponse(payload)) {
       return {
@@ -284,10 +290,11 @@ export async function requestProgramTableFromImage(
       }),
       signal,
     });
-    if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { ok?: unknown; rows?: unknown } | null;
+    noteServerAnswer(response.status, payload);
+    if (!response.ok || !payload) {
       return null;
     }
-    const payload = (await response.json()) as { ok?: unknown; rows?: unknown };
     // Validated again on the way in, with the same function the server used
     // on the way out: this side cannot assume the server it reached is the
     // one this build was written against.
@@ -331,6 +338,7 @@ export async function requestProgrammeComposition(
       signal,
     });
     const payload = (await response.json()) as unknown;
+    noteServerAnswer(response.status, payload);
     return response.ok && isProposalPayload(payload) ? payload.proposal : null;
   } catch {
     return null;

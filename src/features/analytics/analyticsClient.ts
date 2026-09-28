@@ -26,6 +26,7 @@ import {
   appendToQueue,
   isValidEvent,
 } from '../../lib/analytics';
+import { appVersionHeaders, noteServerAnswer } from '../appUpdate/appUpdateSignal';
 
 const ANALYTICS_URL = (process.env.EXPO_PUBLIC_ANALYTICS_URL ?? '').trim();
 const STORAGE_KEY = '@vinha/analytics/v1';
@@ -128,10 +129,12 @@ async function flush(): Promise<void> {
   try {
     const response = await fetch(ANALYTICS_URL, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...appVersionHeaders() },
       body: JSON.stringify({ installId: state.installId, sentAt: new Date().toISOString(), events: batch }),
     });
-    if (response.ok) {
+    if (!response.ok) {
+      noteServerAnswer(response.status, await response.json().catch(() => null));
+    } else {
       state.queue = state.queue.slice(batch.length);
       await persist();
       if (state.queue.length > 0) {
