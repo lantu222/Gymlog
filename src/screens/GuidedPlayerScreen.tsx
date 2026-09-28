@@ -2552,6 +2552,13 @@ function GuidedPlayer({
     }
     // The lift being walked TO, asked for by its own slot.
     const last = resolveSlotHistory(step.slotId, step.exerciseName);
+    // The reps were lowered after a short session: the card says so, with the
+    // programme's own number beside it (2026-09-09 rule, lib/progressionGate).
+    const firstSet = instance.sets[0];
+    const loweredTarget =
+      firstSet?.plannedTargetReps !== undefined &&
+      firstSet.plannedTargetReps < firstSet.plannedRepsMin &&
+      target.reps === firstSet.plannedTargetReps;
     const lastHeaviest = heaviestOf(last);
     return {
       todayValue:
@@ -2570,7 +2577,14 @@ function GuidedPlayer({
             reps: target.reps,
             name: exerciseNameLabel(language, supersetNextBySlot.get(step.slotId) ?? ''),
           })
-        : t(language, 'guided.walk.plan', {
+        : loweredTarget
+          ? t(language, 'guided.walk.planLowered', {
+              sets: instance.sets.length,
+              reps: target.reps,
+              programme: instance.sets[0]?.plannedRepsMax ?? target.reps,
+              rest: instance.restSecondsMin,
+            })
+          : t(language, 'guided.walk.plan', {
             sets: instance.sets.length,
             reps: target.reps,
             /*

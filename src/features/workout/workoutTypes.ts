@@ -325,6 +325,13 @@ export interface WorkoutSlotHistoryEntry {
   sets: WorkoutSlotHistorySet[];
   skipped: boolean;
   swappedFrom?: string;
+  /**
+   * The reps every set was asked for, when the app lowered them below the
+   * programme's floor after a short session (lib/progressionGate
+   * resolveMissedRepsTarget). Kept so the next session can ask one more.
+   * Absent on every ordinary entry and on entries saved before 2026-09-28.
+   */
+  targetReps?: number;
 }
 
 export interface WorkoutSessionSummary {

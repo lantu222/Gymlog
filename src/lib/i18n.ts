@@ -1421,6 +1421,8 @@ const EN = {
   'guided.walk.last': 'LAST',
   'guided.walk.lastBorrowed': 'LAST\nANOTHER DAY',
   'guided.walk.plan': '{sets} × {reps} · {rest} s rest',
+  // A target lowered after a short session names the programme's own reps beside it.
+  'guided.walk.planLowered': '{sets} × {reps} · programme {programme} · {rest} s rest',
   // The walk-up card for the first lift of a superset. It must not quote a
   // rest: what follows this lift is the next one, and the rest comes after
   // the round.
@@ -4543,6 +4545,7 @@ const FI: Record<I18nKey, string> = {
   'guided.walk.last': 'VIIMEKSI',
   'guided.walk.lastBorrowed': 'VIIMEKSI\nERI PÄIVÄ',
   'guided.walk.plan': '{sets} × {reps} · lepo {rest} s',
+  'guided.walk.planLowered': '{sets} × {reps} · ohjelmassa {programme} · lepo {rest} s',
   'guided.walk.planSuperset': '{sets} × {reps} · suoraan: {name}',
   'guided.walk.startFirst': 'Aloita sarja 1',
   'guided.walk.swap': 'Vaihda liike',
