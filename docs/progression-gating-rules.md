@@ -308,7 +308,7 @@ In both cases, recommending progression during fatigue produces unreliable data 
 
 | Level | `MIN_SESSIONS_REQUIRED` | Rationale |
 |---|---|---|
-| `beginner` | **3** | Need a baseline for the exercise |
+| `beginner` | **2** | Novices adapt fast; two sessions is baseline enough (user decision 2026-09-28). **Early jump:** a single session in which every target set passes the rep ceiling by 2 or more reps moves the load at once — the weight was plainly too light. The holds (fatigue, skipped sets, a break) still apply to it. |
 | `intermediate` | **3** | Same baseline requirement |
 | `advanced` | **3** | Same baseline requirement |
 
@@ -319,8 +319,10 @@ Increments are conservative. It is always better to under-increment than to over
 | Level | Compound increment (kg) | Isolation increment (kg) | Unit: lb equivalent |
 |---|---|---|---|
 | `beginner` | **2.5 kg** | **1.25 kg** | 5 lb / 2.5 lb |
-| `intermediate` | **1.25 kg** | **0.5 kg** | 2.5 lb / 1 lb |
-| `advanced` | **1.25 kg** | **0.5 kg** | 2.5 lb / 1 lb |
+| `intermediate` | **2.5 kg** | **1.25 kg** | 5 lb / 2.5 lb |
+| `advanced` | **2.5 kg** | **1.25 kg** | 5 lb / 2.5 lb |
+
+**Why 2.5 kg for every level (user decision 2026-09-28):** a 1.25 kg barbell increment is 0.625 kg a side, which standard plate sets cannot build. The increment here is only what the *next session* opens on; the weight dial inside a session still steps 1.25 kg, so a lifter can always choose a finer load.
 
 **MVP simplification:** The function does not distinguish compound from isolation exercises — the exercise template does not carry this classification in the current data model. In MVP, use the **compound increment for all exercises**. Document this as a known limitation.
 
@@ -346,7 +348,7 @@ BEGINNER
 
 INTERMEDIATE  
   Slower progression (2 sessions to confirm)
-  Smaller increments (1.25 kg)
+  Same 2.5 kg increment — slower confirmation, not a smaller step
   Hit the ceiling twice before committing to new load
   Correct: progresses every 1–2 weeks on compound lifts
 
@@ -449,11 +451,11 @@ Evaluation:
 
 Result:
   recommendation: 'progress'
-  suggestedWeightKg: 81.25
+  suggestedWeightKg: 82.5
   confidence: 0.90
 
 Display:
-  "Try 81.25 kg next session."
+  "Try 82.5 kg next session."
 ```
 
 ---
@@ -538,7 +540,7 @@ Exercise: Romanian Deadlift
 Template: 3 sets × 8–12 reps
 Level: beginner
 
-Session history: 2 sessions (below MIN_SESSIONS_REQUIRED = 3)
+Session history: 1 session (below MIN_SESSIONS_REQUIRED = 2), not past the ceiling by 2+ reps on every set
 
 Evaluation:
   S1 fires: fewer than MIN_SESSIONS_REQUIRED sessions

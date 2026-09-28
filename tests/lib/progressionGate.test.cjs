@@ -85,9 +85,10 @@ module.exports = [
         level: 'advanced',
       });
       assert.equal(twice.recommendation, 'increase');
-      // Smaller step for the slower progression rate.
-      assert.equal(twice.incrementKg, 1.25);
-      assert.equal(twice.loadKg, 61.25);
+      // Slower to move, but the same step: 1.25 kg is 0.625 kg a side, which
+      // standard plates cannot build (user decision 2026-09-28).
+      assert.equal(twice.incrementKg, 2.5);
+      assert.equal(twice.loadKg, 62.5);
     },
   },
   {
@@ -195,9 +196,62 @@ module.exports = [
       assert.equal(getProgressionTier(null), 'beginner');
 
       assert.equal(PROGRESSION_LEVEL_PARAMS.beginner.loadIncrementKg, 2.5);
-      assert.equal(PROGRESSION_LEVEL_PARAMS.intermediate.loadIncrementKg, 1.25);
+      assert.equal(PROGRESSION_LEVEL_PARAMS.intermediate.loadIncrementKg, 2.5);
       assert.equal(PROGRESSION_LEVEL_PARAMS.beginner.requiredConsecutive, 1);
       assert.equal(PROGRESSION_LEVEL_PARAMS.intermediate.requiredConsecutive, 2);
+      // Two sessions for a beginner, as the code has always done and the doc
+      // now says (user decision 2026-09-28); three for everyone else.
+      assert.equal(PROGRESSION_LEVEL_PARAMS.beginner.minSessions, 2);
+      assert.equal(PROGRESSION_LEVEL_PARAMS.intermediate.minSessions, 3);
+    },
+  },
+  {
+    // User decision 2026-09-28: a beginner who beats the reps straight away
+    // is offered more without waiting for a second session.
+    name: 'progression: a beginner whose first session cleared the ceiling by two reps on every set moves now',
+    run() {
+      // The gate's ceiling here is 12.
+      const clear = gate({ history: [entry(40, [14, 14, 14], 0)], level: 'beginner' });
+      assert.equal(clear.recommendation, 'increase');
+      assert.equal(clear.loadKg, 42.5);
+
+      // At the ceiling, or past it on only some sets: the baseline still waits.
+      assert.equal(gate({ history: [entry(40, [12, 12, 12], 0)], level: 'beginner' }).recommendation, 'silent');
+      assert.equal(gate({ history: [entry(40, [14, 14, 13], 0)], level: 'beginner' }).recommendation, 'silent');
+      // Fewer sets than the programme asks: not proof the weight is light.
+      assert.equal(gate({ history: [entry(40, [15, 15], 0)], level: 'beginner' }).recommendation, 'silent');
+      // Only beginners.
+      assert.equal(gate({ history: [entry(40, [16, 16, 16], 0)], level: 'advanced' }).recommendation, 'silent');
+      // And the holds still come first: a fatigue signal wins.
+      const tired = gate({ history: [entry(40, [14, 14, 14], 0)], level: 'beginner', fatigueSignal: 'high' });
+      assert.equal(tired.recommendation, 'hold');
+    },
+  },
+  {
+    // Break round, 2026-09-28: a week off across the spring clock change is
+    // 6.96 days of elapsed time and was not read as a break.
+    name: 'progression: a week off across the spring clock change is a break',
+    run() {
+      const { withHelsinkiClocks } = require('../helpers/clockChange.cjs');
+      withHelsinkiClocks(() => {
+        // At the ceiling both times, so the break is the only reason to hold.
+        const at = (iso) => ({ ...entry(40, 12, 0), performedAt: new Date(iso).toISOString() });
+        const decision = gate({
+          history: [at('2026-03-29T10:00:00'), at('2026-03-22T10:00:00')],
+          level: 'beginner',
+        });
+        assert.equal(decision.recommendation, 'hold');
+        assert.equal(decision.holdReason, 'gap_return');
+
+        // CI review of #223: counting midnights made 23:00 to 01:00 six days
+        // later a week. It is barely six days, and not a break.
+        const late = gate({
+          history: [at('2026-05-08T01:00:00'), at('2026-05-01T23:00:00')],
+          level: 'beginner',
+        });
+        assert.notEqual(late.holdReason, 'gap_return');
+        assert.equal(late.recommendation, 'increase');
+      });
     },
   },
   {
