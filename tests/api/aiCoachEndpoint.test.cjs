@@ -115,7 +115,14 @@ module.exports = [
       // Three lifts walked through read as three topics (user, 2026-09-28).
       assert.match(section, /One topic: the lift that matters most in that session/);
       assert.match(section, /do not walk through the others/);
-      assert.match(section, /`nextSteps`: one action for that lift/);
+      assert.match(section, /`nextSteps`: one sentence on how to approach that lift next time/);
+      assert.match(section, /with no kg or rep figure; the figures belong to `example`/);
+      // And enforced, not only asked: the validator drops a step that repeats
+      // the example (lib/aiCoachAnswerExtras withoutExampleRepeats).
+      assert.match(
+        source,
+        /nextSteps: extras\.topic === 'last_session' \? withoutExampleRepeats\(nextSteps, extras\.example\) : nextSteps,/,
+      );
       // 14/13 → 13/12 was raised as a warning, and "2 of this session in a
       // row at 20 kg" was read as "fell a second time in a row" (live, 2026-09-28).
       assert.match(section, /at least 2 reps below the set before it, or at least 2 reps below the same set the time before/);
