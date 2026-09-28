@@ -242,6 +242,15 @@ module.exports = [
         });
         assert.equal(decision.recommendation, 'hold');
         assert.equal(decision.holdReason, 'gap_return');
+
+        // CI review of #223: counting midnights made 23:00 to 01:00 six days
+        // later a week. It is barely six days, and not a break.
+        const late = gate({
+          history: [at('2026-05-08T01:00:00'), at('2026-05-01T23:00:00')],
+          level: 'beginner',
+        });
+        assert.notEqual(late.holdReason, 'gap_return');
+        assert.equal(late.recommendation, 'increase');
       });
     },
   },

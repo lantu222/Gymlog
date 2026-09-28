@@ -1,6 +1,6 @@
 import type { WorkoutSlotHistoryEntry } from '../features/workout/workoutTypes';
 import { SetupLevel } from '../types/models';
-import { calendarDaysBetween } from './completedSessions';
+import { getRollingWindowStart } from './completedSessions';
 
 /**
  * Double progression, as specified (ADR-004 + progression-gating-rules.md).
@@ -145,17 +145,23 @@ export function isProgressionReadySession(
 }
 
 /**
- * Calendar days, not elapsed milliseconds. A week off across the spring clock
- * change is 6.96 days of time, which read as no break and added load on the
- * first session back (break round, 2026-09-28).
+ * Whether `earlierIso` is at least `days` calendar days before `laterIso`,
+ * at the same time of day.
+ *
+ * Elapsed milliseconds read a week off across the spring clock change as 6.96
+ * days — no break — and added load on the first session back (break round,
+ * 2026-09-28). A count of calendar days would fix that and break the other
+ * edge: 23:00 one day to 01:00 six days later is seven midnights and barely
+ * six days (CI review of #223). The window start keeps the time of day, so
+ * both hold; completedSessions says to gate this way.
  */
-function daysBetween(laterIso: string, earlierIso: string): number {
+function isAtLeastDaysBefore(earlierIso: string, laterIso: string, days: number): boolean {
   const later = Date.parse(laterIso);
   const earlier = Date.parse(earlierIso);
   if (!Number.isFinite(later) || !Number.isFinite(earlier)) {
-    return 0;
+    return false;
   }
-  return Math.abs(calendarDaysBetween(earlier, later));
+  return earlier <= getRollingWindowStart(later, days);
 }
 
 /** Every target set past the ceiling by `margin` reps: the load was too light. */
@@ -224,7 +230,7 @@ export function evaluateProgression(input: ProgressionGateInput): ProgressionDec
 
   // A session that follows a long break is not the moment to add load.
   const previous = history[1];
-  if (previous && daysBetween(latest.performedAt, previous.performedAt) >= GAP_DAYS) {
+  if (previous && isAtLeastDaysBefore(previous.performedAt, latest.performedAt, GAP_DAYS)) {
     return { recommendation: 'hold', holdReason: 'gap_return', loadKg: currentLoadKg };
   }
 
@@ -379,7 +385,7 @@ function evaluateRepsProgression(input: ProgressedRepsInput): RepsRecommendation
   }
 
   const previous = history[1];
-  if (previous && daysBetween(latest.performedAt, previous.performedAt) >= GAP_DAYS) {
+  if (previous && isAtLeastDaysBefore(previous.performedAt, latest.performedAt, GAP_DAYS)) {
     return 'hold';
   }
 
