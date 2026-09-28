@@ -164,6 +164,12 @@ module.exports = [
       // What threw "Cannot read properties of undefined (reading 'map')".
       assert.doesNotThrow(() => buildAiCoachContextText(normalized, 'fi'));
       assert.ok(buildAiCoachContextText(normalized).includes(goodLift.name), 'the good row is still in the text');
+      // A thinner row from an older app is not a broken one: kept.
+      const older = normalizeAiCoachTrainingContext({
+        history: { sessionCount: 1, sessions: [{ sessionId: 's0', performedAt: '2026-09-01T09:00:00.000Z' }] },
+      });
+      assert.equal(older.history.sessions.length, 1);
+      assert.doesNotThrow(() => buildAiCoachContextText(older, 'fi'));
       // A well-formed history comes through whole.
       assert.deepEqual(normalizeAiCoachTrainingContext(context).history.lifts, context.history.lifts);
     },

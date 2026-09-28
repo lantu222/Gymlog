@@ -839,60 +839,32 @@ export function fitAiCoachContextToCap(
  * error where the honest outcome is a thinner answer.
  */
 const isFiniteNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
-const isNumberOrNull = (value: unknown): value is number | null => value === null || isFiniteNumber(value);
-const isText = (value: unknown): value is string => typeof value === 'string';
 
 /**
- * One history row, as far as the context text reads it. The endpoint builds
- * its text from these without a guard of its own — `lift.weightSeriesKg.map`
- * — so a row missing a field threw outside every fallback and the reader got
- * no answer at all, not even the preview (break round 2026-09-28). A row that
- * does not have its shape is dropped, like the last session's and the reps
- * lifts' rows already are.
+ * One history row, as far as writing it needs. The context text reads these
+ * without a guard of its own — `lift.weightSeriesKg.map`,
+ * `entry.performedAt.slice`, `day.match` — so a row missing one of those threw
+ * outside every fallback and the reader got no answer at all, not even the
+ * preview (break round 2026-09-28). Such a row is dropped.
+ *
+ * Only what would throw is required. An older app sends sessions with fewer
+ * fields than today's, and a missing count reads as a thinner line, not an
+ * error; dropping those rows would have taken the reader's history with them.
  */
 function isHistoryLift(value: unknown): value is AICoachHistoryLift {
   if (!value || typeof value !== 'object') {
     return false;
   }
   const lift = value as Record<string, unknown>;
-  return (
-    isText(lift.name) &&
-    ['sessions', 'firstWeightKg', 'latestWeightKg', 'latestReps', 'bestWeightKg', 'changeKg', 'spanDays', 'stalledSessions'].every(
-      (key) => isFiniteNumber(lift[key]),
-    ) &&
-    Array.isArray(lift.weightSeriesKg) &&
-    lift.weightSeriesKg.every(isFiniteNumber)
-  );
+  return typeof lift.name === 'string' && Array.isArray(lift.weightSeriesKg) && lift.weightSeriesKg.every(isFiniteNumber);
 }
 
 function isHistorySession(value: unknown): value is AICoachHistorySession {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-  const session = value as Record<string, unknown>;
-  return (
-    isText(session.sessionId) &&
-    isText(session.name) &&
-    isText(session.performedAt) &&
-    (session.day === undefined || isText(session.day)) &&
-    isNumberOrNull(session.durationMinutes) &&
-    isNumberOrNull(session.volumeKg) &&
-    isFiniteNumber(session.setCount) &&
-    isFiniteNumber(session.exerciseCount)
-  );
+  return !!value && typeof value === 'object' && typeof (value as Record<string, unknown>).performedAt === 'string';
 }
 
 function isHistoryWeek(value: unknown): value is AICoachHistoryWeek {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-  const week = value as Record<string, unknown>;
-  return (
-    isText(week.weekStart) &&
-    isFiniteNumber(week.sessions) &&
-    isFiniteNumber(week.volumeKg) &&
-    isNumberOrNull(week.plannedSessions)
-  );
+  return !!value && typeof value === 'object' && typeof (value as Record<string, unknown>).weekStart === 'string';
 }
 
 function normalizeHistory(input: Partial<AICoachHistory> | null | undefined): AICoachHistory {
