@@ -43,6 +43,11 @@ module.exports = [
         matchesCatalogQuery(row('ppl', 'Push-Pull-Legs', 'beginner', ['muscle']), query({ search: 'push pull' })),
         true,
       );
+      // Review of the fold: punctuation alone folds to nothing, and read as
+      // "no search" it showed the whole catalog under a box with text in it.
+      assert.equal(filterProgramCatalog(CATALOG, query({ search: '-' })).length, 0);
+      assert.equal(isCatalogQueryEmpty(query({ search: '...' })), false);
+      assert.equal(isCatalogQueryEmpty(query({ search: '   ' })), true);
     },
   },
   {

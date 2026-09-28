@@ -57,9 +57,16 @@ export function matchesCatalogQuery(row: ProgramCatalogRow, query: ProgramCatalo
   if (query.goal && !row.categories.includes(query.goal)) {
     return false;
   }
+  // Empty is decided on what was typed, not on the fold: "-" folds to nothing,
+  // and read as no search it showed the whole catalog under a box with text
+  // in it (review of the fold, 2026-09-28). Typed but folded away, it names
+  // nothing.
+  if (!query.search.trim()) {
+    return true;
+  }
   const needle = normalize(query.search);
   if (!needle) {
-    return true;
+    return false;
   }
   // Name first, then the sentence under it: someone typing "beginner" is
   // describing a programme, not naming one, and the blurbs say so.
@@ -74,5 +81,5 @@ export function filterProgramCatalog<T extends ProgramCatalogRow>(
 }
 
 export function isCatalogQueryEmpty(query: ProgramCatalogQuery): boolean {
-  return !query.level && !query.goal && !normalize(query.search);
+  return !query.level && !query.goal && !query.search.trim();
 }
