@@ -214,6 +214,8 @@ interface HomePlanCard {
   };
   /** Where the rotation stands, so the week strip names days as Home will offer them. */
   sessionForecast?: SessionForecast;
+  /** The reader's own answer for today, which the hero offers over the rotation. */
+  todayPickSessionId?: string | null;
 
   /**
    * Present only when the plan's block is finished and unanswered. The card
@@ -625,9 +627,20 @@ export function HomeScreen({
   const programWeek = Array.from({ length: 7 }, (_, offset) => {
     const now = new Date();
     const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7) + offset);
+    // Today, the reader's own pick is what the hero offers, so it is what
+    // today's chip says (review of the forecast, 2026-09-28) — the widget
+    // already read it this way.
+    const isToday =
+      date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate();
+    const picked =
+      isToday && activePlan?.todayPickSessionId
+        ? planSessions.find((session) => session.id === activePlan.todayPickSessionId) ?? null
+        : null;
     return {
       date,
-      session: sessionForSlot(planSessions, forecastSlotOn(trainingSchedule, date, activePlan?.sessionForecast ?? null)),
+      session:
+        picked ??
+        sessionForSlot(planSessions, forecastSlotOn(trainingSchedule, date, activePlan?.sessionForecast ?? null)),
     };
   });
   useEffect(() => {

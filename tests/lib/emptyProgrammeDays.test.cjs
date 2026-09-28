@@ -5,7 +5,7 @@ const path = require('node:path');
 const { getHomeDayView, sessionForSlot } = require('../../.test-dist/lib/homeCalendar.js');
 const { hasOnlyEmptyDays, nextStartableSessionIndex } = require('../../.test-dist/lib/programSessionList.js');
 const { weekdaySchedule } = require('../../.test-dist/lib/trainingSchedule.js');
-const { findHomeWidgetNextSession } = require('../../.test-dist/lib/widgetPayload.js');
+const { findHomeWidgetNextSession, resolveHomeWidgetSessionTap } = require('../../.test-dist/lib/widgetPayload.js');
 
 const root = path.join(__dirname, '..', '..');
 const read = (...segments) => fs.readFileSync(path.join(root, ...segments), 'utf8').replace(/\r\n/g, '\n');
@@ -67,7 +67,13 @@ module.exports = [
       // From today on it names days by the rotation Home offers (forecastSlotOn).
       assert.match(
         home,
-        /session: sessionForSlot\(planSessions, forecastSlotOn\(trainingSchedule, date, activePlan\?\.sessionForecast \?\? null\)\),/,
+        /session:\s*picked \?\?\s*sessionForSlot\(planSessions, forecastSlotOn\(trainingSchedule, date, activePlan\?\.sessionForecast \?\? null\)\),/,
+      );
+      // Today the reader's own pick names the chip, as it names the hero
+      // (review of the forecast, 2026-09-28).
+      assert.match(
+        home,
+        /isToday && activePlan\?\.todayPickSessionId\s*\?\s*planSessions\.find\(\(session\) => session\.id === activePlan\.todayPickSessionId\) \?\? null\s*:\s*null;/,
       );
 
       // Break round, 2026-09-28: Monday missed, Home still offers Push on
@@ -81,6 +87,29 @@ module.exports = [
       });
       assert.equal(forecastWidget.session.id, 's0');
       assert.equal(forecastWidget.offset, 0);
+
+      // The tap opens what the tile shows on a later day too (review of the
+      // forecast): Monday missed, A done today, so Friday is B — the
+      // calendar's Friday slot is C.
+      const ABC = [
+        { id: 'a', title: 'A', duration: '~40 min', exercises: [{ name: 'Bench' }] },
+        { id: 'b', title: 'B', duration: '~40 min', exercises: [{ name: 'Row' }] },
+        { id: 'c', title: 'C', duration: '~40 min', exercises: [{ name: 'Squat' }] },
+      ];
+      const tap = resolveHomeWidgetSessionTap({
+        hasActiveSession: false,
+        hasActivePlan: true,
+        nowMs: WEDNESDAY.getTime() + 18 * 3600 * 1000,
+        schedule: SCHEDULE,
+        sessions: ABC,
+        completedWorkoutDayStarts: [WEDNESDAY.getTime()],
+        homeSessionId: 'b',
+        todayPicked: false,
+        sessionForecast: { fromDayStart: WEDNESDAY.getTime(), nextSlot: 1, trainedToday: true },
+      });
+      assert.equal(tap.kind, 'open');
+      assert.equal(tap.next.offset, 2, 'the tap did not go to Friday');
+      assert.equal(tap.next.session.id, 'b', 'the tap opened the calendar\'s Friday, not the one the tile showed');
       // The chips and what a screen reader hears come from the same walk: the
       // label was built from each session's next date and kept announcing
       // the empty day (CI review, 2026-09-26).

@@ -451,6 +451,12 @@ export function resolveHomeWidgetSessionTap(input: {
   homeSessionId?: string | null;
   /** Whether `homeSessionId` is a pick the reader made for today. */
   todayPicked?: boolean;
+  /**
+   * Where the rotation stands. Without it a tap on a later day opened the
+   * calendar's session while the tile, drawn with it, showed the rotation's
+   * (review of the forecast, 2026-09-28).
+   */
+  sessionForecast?: SessionForecast | null;
 }): HomeWidgetSessionTap {
   if (input.hasActiveSession) {
     return { kind: 'resume' };
@@ -474,7 +480,7 @@ export function resolveHomeWidgetSessionTap(input: {
   // Today, the tile means "the workout Home is offering me". The calendar maps
   // a date to a slot, the rotation knows which session comes next, and on any
   // day the two disagree the tap opened a workout Home was not showing. Later
-  // days keep the calendar's answer: Home has none for them.
+  // days follow the rotation forecast the tile was drawn with.
   if (next.offset === 0 && homeSession) {
     return { kind: 'open', next: { ...next, session: homeSession } };
   }

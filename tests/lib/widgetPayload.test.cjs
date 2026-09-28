@@ -692,7 +692,10 @@ module.exports = [
       assert.match(app, /todayPickSessionId: pickedToday\?\.id \?\? null,/);
       assert.match(
         app,
-        /resolveHomeWidgetSessionTap\(\{[\s\S]*?homeSessionId: homeActivePlanCard\?\.nextSession\.id \?\? null,\s*todayPicked: Boolean\(homeActivePlanCard\?\.todayPickSessionId\),\s*\}\)/,
+        // And the rotation forecast the tile was drawn with (review of the
+        // forecast, 2026-09-28): without it a later day's tap opened the
+        // calendar's session.
+        /resolveHomeWidgetSessionTap\(\{[\s\S]*?homeSessionId: homeActivePlanCard\?\.nextSession\.id \?\? null,\s*todayPicked: Boolean\(homeActivePlanCard\?\.todayPickSessionId\),[\s\S]*?sessionForecast: homeActivePlanCard\?\.sessionForecast \?\? null,\s*\}\)/,
       );
       assert.match(
         app,

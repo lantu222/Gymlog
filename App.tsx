@@ -5847,6 +5847,9 @@ function VinhaApp() {
       // and the tap opened the one Home was not showing.
       homeSessionId: homeActivePlanCard?.nextSession.id ?? null,
       todayPicked: Boolean(homeActivePlanCard?.todayPickSessionId),
+      // The same rotation the tile was drawn with, so a later day opens the
+      // session it showed.
+      sessionForecast: homeActivePlanCard?.sessionForecast ?? null,
     });
 
     // A running workout wins. The tile means "my training", and a reader who
