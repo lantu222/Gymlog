@@ -266,7 +266,7 @@ module.exports = [
       // itself against (fitAiCoachContextToCap) — the same context, built
       // twice, differing only in names (2026-09-27).
       assert.match(source, /const contextText = contextTextOrNull\(input\.context, input\.language \?\? null\);/);
-      assert.match(source, /const measuredContextText = input\.language \? contextTextOrNull\(input\.context\) : contextText;\s*if \(contextText === null \|\| measuredContextText === null\) \{\s*return createError\(UNREADABLE_CONTEXT\);/);
+      assert.match(source, /const measuredContextText = input\.language \? contextTextOrNull\(input\.context\) : contextText;\s*if \(contextText === null \|\| measuredContextText === null\) \{\s*\/\/[^\n]*\n\s*return createError\(UNREADABLE_CONTEXT, previewOrUndefined\(input\)\);/);
       // The reader's context is what the cap measures; the rules are this
       // file's own and are charged, not refused. Counted together they left a
       // heavy reader half the cap, and offline (server audit, 2026-09-21).

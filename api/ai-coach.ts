@@ -733,6 +733,15 @@ function contextTextOrNull(context: AICoachAdviceRequest['context'], language?: 
 
 const UNREADABLE_CONTEXT = { code: 'BAD_REQUEST' as const, message: 'The training context could not be read.' };
 
+/** The offline answer, if even that can be built from this context. */
+function previewOrUndefined(input: AICoachAdviceRequest) {
+  try {
+    return buildAiCoachPreviewAnswer(input.prompt, input.context, input.language);
+  } catch {
+    return undefined;
+  }
+}
+
 async function requestClaude(input: AICoachAdviceRequest) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -752,7 +761,8 @@ async function requestClaude(input: AICoachAdviceRequest) {
   const contextText = contextTextOrNull(input.context, input.language ?? null);
   const measuredContextText = input.language ? contextTextOrNull(input.context) : contextText;
   if (contextText === null || measuredContextText === null) {
-    return createError(UNREADABLE_CONTEXT);
+    // The offline answer, as every other failure here gives one.
+    return createError(UNREADABLE_CONTEXT, previewOrUndefined(input));
   }
   const now = Date.now();
   // Each part against its own limit (server audit, 2026-09-21). Counted

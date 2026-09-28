@@ -164,6 +164,15 @@ module.exports = [
       // What threw "Cannot read properties of undefined (reading 'map')".
       assert.doesNotThrow(() => buildAiCoachContextText(normalized, 'fi'));
       assert.ok(buildAiCoachContextText(normalized).includes(goodLift.name), 'the good row is still in the text');
+      // A schedule without its day list is repaired, not thrown on.
+      const scheduled = normalizeAiCoachTrainingContext({
+        ...context,
+        history: { ...context.history, schedule: { plannedPerWeek: 3, nextTrainingDate: 7 } },
+      });
+      assert.deepEqual(scheduled.history.schedule.trainingDays, []);
+      assert.equal(scheduled.history.schedule.nextTrainingDate, null);
+      assert.doesNotThrow(() => buildAiCoachContextText(scheduled, 'fi'));
+      assert.equal(normalizeAiCoachTrainingContext({ history: { schedule: 'x' } }).history.schedule, null);
       // A thinner row from an older app is not a broken one: kept.
       const older = normalizeAiCoachTrainingContext({
         history: { sessionCount: 1, sessions: [{ sessionId: 's0', performedAt: '2026-09-01T09:00:00.000Z' }] },

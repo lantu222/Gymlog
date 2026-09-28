@@ -20,6 +20,7 @@ import {
   AICoachHistory,
   AICoachHistoryConfidence,
   AICoachHistoryLift,
+  AICoachHistorySchedule,
   AICoachHistorySession,
   AICoachHistoryWeek,
   AICoachHomeState,
@@ -867,6 +868,29 @@ function isHistoryWeek(value: unknown): value is AICoachHistoryWeek {
   return !!value && typeof value === 'object' && typeof (value as Record<string, unknown>).weekStart === 'string';
 }
 
+/**
+ * The schedule, repaired rather than dropped: the fields the context text
+ * calls methods on (`trainingDays.join`, the next date's `match`) are made
+ * safe, and the counts are left as sent. A schedule sent without its day list
+ * threw like a lift without its series did (review of the break round,
+ * 2026-09-28).
+ */
+function normalizeHistorySchedule(input: unknown): AICoachHistory['schedule'] {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return null;
+  }
+  const schedule = input as Record<string, unknown> & AICoachHistorySchedule;
+  const cycle = schedule.cycle as unknown;
+  return {
+    ...schedule,
+    trainingDays: Array.isArray(schedule.trainingDays)
+      ? (schedule.trainingDays as unknown[]).filter((day): day is SetupWeekday => typeof day === 'string')
+      : [],
+    cycle: cycle && typeof cycle === 'object' && !Array.isArray(cycle) ? (cycle as AICoachHistorySchedule['cycle']) : null,
+    nextTrainingDate: typeof schedule.nextTrainingDate === 'string' ? schedule.nextTrainingDate : null,
+  };
+}
+
 function normalizeHistory(input: Partial<AICoachHistory> | null | undefined): AICoachHistory {
   if (!input || typeof input !== 'object') {
     return emptyAiCoachHistory();
@@ -889,7 +913,7 @@ function normalizeHistory(input: Partial<AICoachHistory> | null | undefined): AI
     // older app sends none.
     repsLifts: list(input.repsLifts, []),
     weeks: list<unknown>(input.weeks, empty.weeks).filter(isHistoryWeek),
-    schedule: input.schedule ?? null,
+    schedule: normalizeHistorySchedule(input.schedule),
     truncated: input.truncated === true,
     // An older app sends a history with no confidence in it. Falling back to
     // 'low' would tell a reader with a year of training that their record is
