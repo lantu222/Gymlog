@@ -75,9 +75,15 @@ export function filterBrowsableExercises<T extends BrowsableExercise>(
  */
 export type BodyPartFilter = 'all' | ExerciseBodyPart | LegMuscleFilter;
 
-type LegMuscleFilter = 'quadriceps' | 'hamstrings' | 'calves';
+// One list, and the type read off it, so a muscle cannot be a chip without
+// being answered by its muscles.
+const LEG_MUSCLE_FILTERS = ['quadriceps', 'hamstrings', 'calves'] as const;
 
-const LEG_MUSCLE_FILTERS: readonly string[] = ['quadriceps', 'hamstrings', 'calves'];
+type LegMuscleFilter = (typeof LEG_MUSCLE_FILTERS)[number];
+
+function isLegMuscleFilter(filter: BodyPartFilter): filter is LegMuscleFilter {
+  return (LEG_MUSCLE_FILTERS as readonly string[]).includes(filter);
+}
 
 /** In reading order: the big groups, the arms after the shoulders, the legs split after "legs". */
 export const BODY_PART_FILTERS: BodyPartFilter[] = [
@@ -103,7 +109,7 @@ export function matchesBodyPartFilter(
   if (filter === 'all') {
     return true;
   }
-  if (LEG_MUSCLE_FILTERS.includes(filter)) {
+  if (isLegMuscleFilter(filter)) {
     return (item.primaryMuscles ?? []).includes(filter);
   }
   return item.bodyPart === filter;

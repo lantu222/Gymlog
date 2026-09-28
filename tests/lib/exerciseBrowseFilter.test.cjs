@@ -126,7 +126,11 @@ module.exports = [
         'utf8',
       );
       // Two lists is how the quick row lost biceps and triceps.
-      assert.equal((sheet.match(/BODY_PART_FILTERS/g) ?? []).length, 3, 'import + both chip rows');
+      // Both rows map the shared list, and no hand-written body-part list
+      // ('all' followed by a body part) sits beside it.
+      assert.match(sheet, /BODY_PART_FILTERS\.map\(/, 'the quick row');
+      assert.match(sheet, /options=\{BODY_PART_FILTERS\}/, 'the full filter');
+      assert.doesNotMatch(sheet, /'all',\s*'(?:chest|back|shoulders|legs|biceps|triceps)'/);
       assert.match(sheet, /matchesBodyPartFilter\(item, bodyPart\)/);
       for (const muscle of ['quadriceps', 'hamstrings', 'calves']) {
         assert.ok(sheet.includes(`${muscle}: 'lib.muscle.${muscle}'`), `no label for ${muscle}`);

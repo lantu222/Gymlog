@@ -872,12 +872,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         // Custom only, like the programme's own name.
         onRenameSession={
           route.programType === 'custom'
-            ? (name) =>
-                void handleRenameProgramSession(route.workoutTemplateId, daySession.id, name).catch((error) => {
-                  console.error('Failed to rename a day of the programme', error);
-                  void haptics.error();
-                  showToast(t(preferences.appLanguage, 'toast.planSaveFailed'));
-                })
+            ? (name) => void handleRenameProgramSession(route.workoutTemplateId, daySession.id, name)
             : undefined
         }
         // Back to the programme page first, then the write. The route names

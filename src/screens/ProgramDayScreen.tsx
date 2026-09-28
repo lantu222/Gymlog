@@ -282,6 +282,11 @@ export function ProgramDayScreen({
   const [confirmRemoveSession, setConfirmRemoveSession] = useState(false);
   // Null while the title reads; the draft while it is being typed over.
   const [nameDraft, setNameDraft] = useState<string | null>(null);
+  // A draft belongs to the day it was opened on, not to whichever day the
+  // screen is drawing when Save is pressed.
+  useEffect(() => {
+    setNameDraft(null);
+  }, [session.id]);
 
   // Warm-up and recovery closed by default: they are the same generated
   // blocks on every session of this focus, and the lifts are what the reader

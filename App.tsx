@@ -2713,16 +2713,24 @@ function VinhaApp() {
     if (!trimmed) {
       return;
     }
-    await editWorkoutTemplateSessions(templateId, (sessions) => ({
-      kind: 'save',
-      sessions: sessions.map((session) => ({
-        id: session.id,
-        // Every other field is copied because upsert replaces the record; only
-        // the one session the reader named changes.
-        name: session.id === sessionId ? trimmed : session.name,
-        exercises: session.exercises.map(toDraftExercise),
-      })),
-    }));
+    // Caught here, not by each caller: Home's sheet voided this and a failed
+    // write left the old name standing with nothing said.
+    try {
+      await editWorkoutTemplateSessions(templateId, (sessions) => ({
+        kind: 'save',
+        sessions: sessions.map((session) => ({
+          id: session.id,
+          // Every other field is copied because upsert replaces the record; only
+          // the one session the reader named changes.
+          name: session.id === sessionId ? trimmed : session.name,
+          exercises: session.exercises.map(toDraftExercise),
+        })),
+      }));
+    } catch (error) {
+      console.error('Failed to rename a day of the programme', error);
+      void haptics.error();
+      showToast(t(preferences.appLanguage, 'toast.planSaveFailed'));
+    }
   }
 
   /**
