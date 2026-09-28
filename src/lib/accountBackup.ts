@@ -314,8 +314,16 @@ function isUntouchedOnboardingTemplate(
  * whose the rows are, and the rows answer that better when there is a copy
  * to compare with.
  */
-export function phoneDataIsInCopy(local: AppDatabase, copy: Partial<AppDatabase> | null | undefined): boolean {
-  if (!copy) {
+export function phoneDataIsInCopy(
+  local: AppDatabase,
+  copy: Partial<AppDatabase> | null | undefined,
+  liveSession = false,
+): boolean {
+  // A workout in progress is in no copy, and programmes and plans are what
+  // "worth keeping" also counts: compared on the logged rows alone, a phone
+  // whose only foreign data was another account's programme passed as the
+  // reader's own (review of the third-round fix, 2026-09-28).
+  if (!copy || liveSession) {
     return false;
   }
   const idsOf = (rows: ReadonlyArray<{ id?: unknown }> | undefined) =>
@@ -325,6 +333,8 @@ export function phoneDataIsInCopy(local: AppDatabase, copy: Partial<AppDatabase>
     [local.cardioSessions, copy.cardioSessions],
     [local.bodyweightEntries, copy.bodyweightEntries],
     [local.measurementEntries, copy.measurementEntries],
+    [local.workoutTemplates, copy.workoutTemplates],
+    [local.workoutPlans, copy.workoutPlans],
   ];
   return pairs.every(([mine, theirs]) => {
     const inCopy = idsOf(theirs);

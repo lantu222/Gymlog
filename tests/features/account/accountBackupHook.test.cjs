@@ -401,6 +401,12 @@ module.exports = [
         assert.equal(phoneDataIsInCopy(database({ workoutSessions: workouts(2) }), aCopy.database), true);
         assert.equal(phoneDataIsInCopy(database({ workoutSessions: [workout('b-new')] }), aCopy.database), false);
         assert.equal(phoneDataIsInCopy(database({ workoutSessions: workouts(1) }), null), false);
+        // Review of the fix: a programme or a workout in progress is data
+        // too — no logged rows is not "all in the copy".
+        const ownProgramme = { id: 'tpl-mine', name: 'Mine', exerciseIds: [], sessions: [], createdAt: 't', updatedAt: 't', origin: 'authored' };
+        assert.equal(phoneDataIsInCopy(database({ workoutTemplates: [ownProgramme] }), aCopy.database), false);
+        assert.equal(phoneDataIsInCopy(database({ workoutPlans: [{ id: 'plan-mine', name: 'Mine', entries: [] }] }), aCopy.database), false);
+        assert.equal(phoneDataIsInCopy(database(), aCopy.database, true), false, 'a workout in progress passed as the copy\'s');
       });
     },
   },

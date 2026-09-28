@@ -384,7 +384,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
           // copy: then nothing here is anyone else's, whoever signed out last.
           const fromOtherAccount =
             uploadNeedsConsent({ signedOutSubs, sub: base.sub, localWorthKeeping: true }) &&
-            !phoneDataIsInCopy(latestRef.current.database, remote.payload.database);
+            !phoneDataIsInCopy(latestRef.current.database, remote.payload.database, latestRef.current.liveSession);
           return await askRestoreOrKeep(idToken, base, remote.payload, remote.version, fromOtherAccount);
         }
         // The phone is empty: the account signed out of earlier has nothing
