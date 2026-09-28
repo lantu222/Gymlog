@@ -464,17 +464,23 @@ export function resolveMissedRepsTarget(input: MissedRepsInput): MissedRepsResol
   const average = reps.reduce((sum, count) => sum + count, 0) / reps.length;
   const given = givenTarget(latest, repsMin);
 
-  // A target was given last time and every set reached it: one rep more, two
-  // when every set went past it — the programme's reps are the ceiling.
-  // "Every set" means every set the programme asks for, not every set logged.
-  if (given !== null && reps.length >= targetSets && reps.every((count) => count >= given)) {
-    const next = given + (reps.every((count) => count > given) ? 2 : 1);
-    return next >= repsMin ? null : { targetReps: next, fromAverage: null };
-  }
-
+  // The floor met — whatever target was given — and the ordinary progression
+  // takes over. Checked first: a stored 6 under a 12/12/12/12 session asked
+  // for 8 (PR review, 2026-09-28).
   if (average >= repsMin) {
     return null;
   }
-  const target = Math.max(1, Math.ceil(average - 1e-9));
+  const averageTarget = Math.max(1, Math.ceil(average - 1e-9));
+
+  // A target was given last time and every set reached it: one rep more, two
+  // when every set went past it — never below what the sets just averaged, so
+  // 10/10/10/10 on a target of 6 does not come back as 8.
+  // "Every set" means every set the programme asks for, not every set logged.
+  if (given !== null && reps.length >= targetSets && reps.every((count) => count >= given)) {
+    const next = Math.max(given + (reps.every((count) => count > given) ? 2 : 1), averageTarget);
+    return next >= repsMin ? null : { targetReps: next, fromAverage: null };
+  }
+
+  const target = averageTarget;
   return target >= repsMin ? null : { targetReps: target, fromAverage: Math.round(average * 100) / 100 };
 }

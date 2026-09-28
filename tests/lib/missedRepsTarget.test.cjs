@@ -107,6 +107,10 @@ module.exports = [
       assert.equal(rule([entry([6, 6, 6, 6], { targetReps: 6 })]).targetReps, 7);
       assert.equal(rule([entry([6, 7, 8, 7], { targetReps: 6 })]).targetReps, 7);
       assert.equal(rule([entry([7, 7, 7, 7], { targetReps: 6 })]).targetReps, 8);
+      // Never below what the sets just did, and never once the floor is met
+      // (PR review, 2026-09-28): a stale 6 under 10s asks 10, under 12s nothing.
+      assert.equal(rule([entry([10, 10, 10, 10], { targetReps: 6 })]).targetReps, 10);
+      assert.equal(rule([entry([12, 12, 12, 12], { targetReps: 6 })]), null);
       // Past the programme's floor, the rule lets go.
       assert.equal(rule([entry([11, 11, 11, 11], { targetReps: 11 })]), null);
       assert.equal(rule([entry([11, 12, 12, 12], { targetReps: 10 })]), null);
