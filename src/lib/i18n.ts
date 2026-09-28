@@ -1697,6 +1697,15 @@ const EN = {
   'account.restore.replace.body':
     'The backup holds {cloudContents}. It is replaced by the data on this phone ({localContents}), and everything only the backup has is lost.',
   'account.restore.replace.confirm': 'Replace backup',
+  // The phone's data is another Google account's (user decision 2026-09-28).
+  'account.restore.other.title': 'This phone holds another account’s data',
+  'account.restore.other.body':
+    'The data on this phone ({localContents}) was logged while another Google account was signed in. Your account has its own backup from {date}: {cloudContents}. Which one do you keep? The other is replaced.',
+  'account.restore.other.useBackup': 'Restore my own backup',
+  'account.restore.other.keepLocal': 'Use the phone’s data',
+  'account.restore.other.replace.title': 'Replace your own backup?',
+  'account.restore.other.replace.body':
+    'Your backup ({cloudContents}) is replaced by the other account’s data ({localContents}), and everything only your backup has is lost.',
   'account.restore.restored': 'Backup restored',
   'account.restore.failed': 'Could not restore the backup. Nothing on this phone changed.',
   // The phone was last signed in to another account and still holds its data
@@ -4803,6 +4812,14 @@ const FI: Record<I18nKey, string> = {
   'account.restore.replace.body':
     'Varmuuskopiossa on {cloudContents}. Se korvataan tämän puhelimen tiedoilla ({localContents}), ja kaikki, mikä on vain varmuuskopiossa, menetetään.',
   'account.restore.replace.confirm': 'Korvaa varmuuskopio',
+  'account.restore.other.title': 'Puhelimessa on toisen tilin tiedot',
+  'account.restore.other.body':
+    'Puhelimen tiedot ({localContents}) kirjattiin, kun puhelimessa oli kirjautuneena toinen Google-tili. Tililläsi on oma varmuuskopio {date}: {cloudContents}. Kumman pidät? Toinen korvataan.',
+  'account.restore.other.useBackup': 'Palauta oma varmuuskopioni',
+  'account.restore.other.keepLocal': 'Käytä puhelimen tietoja',
+  'account.restore.other.replace.title': 'Korvataanko oma varmuuskopiosi?',
+  'account.restore.other.replace.body':
+    'Varmuuskopiosi ({cloudContents}) korvataan toisen tilin tiedoilla ({localContents}), ja kaikki mikä on vain varmuuskopiossasi katoaa.',
   'account.restore.restored': 'Varmuuskopio palautettu',
   'account.restore.failed': 'Varmuuskopiota ei voitu palauttaa. Puhelimen tiedot eivät muuttuneet.',
   'account.confirmUpload.title': 'Varmuuskopioidaanko puhelimen tiedot?',

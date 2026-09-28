@@ -346,6 +346,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       base: StoredAccount,
       payload: AccountBackupPayload,
       version: string | null,
+      localFromOtherAccount = false,
     ): Promise<SignInOutcome> => {
       const pendingAccount = { ...base, ...syncCounts(countBackup(payload.database, payload.workoutHistory)) };
       pendingRestoreRef.current = { payload, version, idToken, account: pendingAccount };
@@ -354,6 +355,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         latestRef.current.database,
         latestRef.current.liveSession,
         latestRef.current.workoutHistory,
+        localFromOtherAccount,
       );
       await persistAccount(pendingAccount);
       return { kind: 'choice', summary };
@@ -371,14 +373,20 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
   const settleWithRemote = useCallback(
     async (idToken: string, base: StoredAccount, remote: BackupDownloadResult, generation: number): Promise<SignInOutcome> => {
       if (remote.ok) {
-        // Both sides are shown and asked about below, or the phone is empty:
-        // either way the account signed out of earlier has nothing left to
-        // protect here.
-        await forgetSignedOutAccount();
         if (hasLocalDataWorthKeeping(latestRef.current.database, latestRef.current.liveSession)) {
-          // Both sides have data — nobody's copy dies without a decision.
-          return await askRestoreOrKeep(idToken, base, remote.payload, remote.version);
+          // Both sides have data — nobody's copy dies without a decision. When
+          // the phone's is another account's, the question says so: shown
+          // bare counts, "use the phone's data" replaced the reader's own
+          // backup with someone else's log (recheck of #221; user decision
+          // 2026-09-28). The mark stays until the answer lands.
+          const signedOutSub = await loadSignedOutAccount();
+          ensureCurrent(generation);
+          const fromOtherAccount = uploadNeedsConsent({ signedOutSub, sub: base.sub, localWorthKeeping: true });
+          return await askRestoreOrKeep(idToken, base, remote.payload, remote.version, fromOtherAccount);
         }
+        // The phone is empty: the account signed out of earlier has nothing
+        // left here to protect.
+        await forgetSignedOutAccount();
         const summary = describeAccountBackup(remote.payload);
         const remoteCounts = syncCounts(countBackup(remote.payload.database, remote.payload.workoutHistory));
         enterPhase('restoring');
@@ -540,13 +548,21 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
             cloudVersion: pending.version,
           });
           unseenCopyFoundRef.current = false;
+          // The phone now holds this account's own backup: whose data it was
+          // is settled.
+          await forgetSignedOutAccount();
           return 'done';
         }
-        // The reader chose this phone, and was asked twice if it holds less.
-        // Over the copy they were shown and no other: one written since then
-        // is refused, and the next "Back up now" asks about that one.
+        // The reader chose this phone, and was asked twice if it holds less
+        // or is another account's. Over the copy they were shown and no
+        // other: one written since then is refused, and the next "Back up
+        // now" asks about that one.
         enterPhase('backing_up');
-        return (await uploadCurrent(pending.idToken, current, generation, pending.version)) === 'done' ? 'done' : 'failed';
+        const kept = await uploadCurrent(pending.idToken, current, generation, pending.version);
+        if (kept === 'done') {
+          await forgetSignedOutAccount();
+        }
+        return kept === 'done' ? 'done' : 'failed';
       } catch (error) {
         if (error instanceof Superseded) {
           return 'cancelled';

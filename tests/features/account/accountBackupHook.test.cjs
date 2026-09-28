@@ -335,6 +335,42 @@ module.exports = [
     },
   },
   {
+    // Recheck of #221 (user decision 2026-09-28): B already had its own
+    // backup, the restore-or-keep question showed bare counts, and "use the
+    // phone's data" replaced B's own copy with A's log.
+    name: 'account hook: restore-or-keep says the phone\'s data is another account\'s, and the mark stays until the answer lands',
+    async run() {
+      const { restoreQuestionCopy } = require(path.join(DIST, 'lib', 'accountBackupCopy.js'));
+      await withHook({ local: database({ workoutSessions: workouts(50) }) }, async (env) => {
+        await switchToNewAccount(env);
+        env.server.blob = cloudCopy(database({ workoutSessions: workouts(2) }));
+        const outcome = await env.api.signIn();
+        assert.equal(outcome.kind, 'choice');
+        assert.equal(outcome.summary.localFromOtherAccount, true);
+        assert.equal(env.store.signedOut, 'sub-1', 'the mark went before the answer');
+
+        const copy = restoreQuestionCopy(outcome.summary, 'fi');
+        assert.equal(copy.title, 'Puhelimessa on toisen tilin tiedot');
+        assert.match(copy.body, /kirjattiin, kun puhelimessa oli kirjautuneena toinen Google-tili/);
+        assert.equal(copy.useBackup, 'Palauta oma varmuuskopioni');
+        // Always asked twice, however the counts compare.
+        assert.ok(copy.replace, 'keeping another account\'s data over your own backup was asked once');
+        assert.equal(copy.replace.title, 'Korvataanko oma varmuuskopiosi?');
+
+        assert.equal(await env.api.resolveRestoreChoice('restore'), 'done');
+        assert.equal(env.store.signedOut, null, 'a landed restore did not settle it');
+      });
+
+      // The same account's own data on both sides is the ordinary question.
+      await withHook({ local: database({ workoutSessions: workouts(3) }), cloud: cloudCopy(database({ workoutSessions: workouts(2) })) }, async (env) => {
+        const outcome = await env.api.signIn();
+        assert.equal(outcome.kind, 'choice');
+        assert.equal(outcome.summary.localFromOtherAccount, false);
+        assert.equal(restoreQuestionCopy(outcome.summary, 'fi').title, 'Varmuuskopio löytyi');
+      });
+    },
+  },
+  {
     name: 'account hook: "back it up" on the switch question uploads to the new account and lifts the hold',
     async run() {
       await withHook({ local: database({ workoutSessions: workouts(3) }) }, async (env) => {
