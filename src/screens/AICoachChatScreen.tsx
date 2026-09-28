@@ -2007,7 +2007,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 4,
   },
   answerSectionLabel: {
-    color: theme.faint,
+    // Muted, not faint: the headings read as washed out on the emulator
+    // (user, 2026-09-28: "fonttia tummemmaksi, on aika haalea").
+    color: theme.muted,
     fontSize: 10.5,
     fontWeight: '800',
     letterSpacing: 1.1,
@@ -2021,16 +2023,19 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   answerMark: {
     color: theme.highlight,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 15,
+    lineHeight: 21.5,
     fontWeight: '800',
     minWidth: 16,
   },
   answerLineText: {
     flex: 1,
     color: theme.ink,
-    fontSize: 14,
-    lineHeight: 20,
+    // The takeaway's weight: at the default 400 the lines under it read as
+    // grey beside it, though both are ink (user, 2026-09-28).
+    fontWeight: '500',
+    fontSize: 15,
+    lineHeight: 21.5,
   },
   headerTitleRow: {
     flexDirection: 'row',
