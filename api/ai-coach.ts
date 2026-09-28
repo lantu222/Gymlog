@@ -1,6 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import { del, list, put } from '@vercel/blob';
-import { readAnswerExtras } from '../src/lib/aiCoachAnswerExtras';
+import { readAnswerExtras, withoutExampleRepeats } from '../src/lib/aiCoachAnswerExtras';
 import { buildAiCoachPreviewAnswer } from '../src/lib/aiCoachPreview';
 import { buildAiCoachContextText } from '../src/lib/aiCoachSystemContext';
 import { normalizeAiCoachTrainingContext } from '../src/lib/aiTrainingContext';
@@ -179,7 +179,7 @@ const AI_COACH_RESPONSE_SCHEMA = {
       type: 'array',
       items: { type: 'string' },
       description:
-        'What to do at the next session. One or two concrete actions, with numbers. For last_session: one action for the one lift the answer is about, in words — its numbers are in `example`, and a rule in prose alone did not stop the repeat (live, 2026-09-28).',
+        'What to do at the next session. One or two concrete actions, with numbers. For last_session: one action for the one lift the answer is about, in words and with no kg or rep figure — its numbers are in `example`, and a rule in prose alone did not stop the repeat (live, 2026-09-28).',
     },
     plan: {
       type: 'array',
@@ -305,7 +305,7 @@ const COACH_SYSTEM_RULES = [
   '- `takeaway` is the observation: what that lift did compared with the time before — went up, held or fell. Not the total volume, and not a comparison with a different day.',
   '- `why`: at most three short facts about that lift, each from its Last session line.',
   '- A line compares this session with the time before, once. "N of this session in a row at X kg" counts sessions at that weight, not drops: never write that a lift fell again, twice or N times in a row — the context shows one comparison, not a run of them.',
-  '- `nextSteps`: one action for that lift, in words; its numbers belong to `example`.',
+  '- `nextSteps`: one sentence on how to approach that lift next time — the focus or the reason ("anna uuden painon vakiintua ennen seuraavaa nostoa"), with no kg or rep figure; the figures belong to `example`. A step that repeats the example is removed before the reader sees it.',
   '- `attention`: only when something needs a warning — a set at least 2 reps below the set before it, or at least 2 reps below the same set the time before. One rep lower is ordinary fatigue, not a warning. The one place another lift may appear. Name the lift and the set, and give one thing that could fix it (for example 30 s more rest). Otherwise empty; most answers have none.',
   '- `example`: one line for that lift\'s next session, with the numbers from its "next time" in the context, written the way a coach says it ("Pidä 50 kg ja tavoittele 7/7/7"). Empty when the context gives no "next time" for it. Do not repeat the example in `nextSteps`.',
   '',
@@ -580,6 +580,8 @@ function validateAnswer(payload: unknown): AICoachAdvice | null {
   if (why === null || nextSteps === null || plan === null || assumptions === null) {
     return null;
   }
+  // The last-workout shape's topic and two optional lines (lib/aiCoachAnswerExtras).
+  const extras = readAnswerExtras(candidate);
 
   // A follow-up question is not a billable answer. The client already reads
   // this flag and skips the free-tier charge; until now only the offline
@@ -589,11 +591,11 @@ function validateAnswer(payload: unknown): AICoachAdvice | null {
   return {
     takeaway,
     why,
-    nextSteps,
+    // Never the example a second time, under the heading above it.
+    nextSteps: extras.topic === 'last_session' ? withoutExampleRepeats(nextSteps, extras.example) : nextSteps,
     plan,
     assumptions,
-    // The last-workout shape's topic and two optional lines (lib/aiCoachAnswerExtras).
-    ...readAnswerExtras(candidate),
+    ...extras,
     ...(candidate.unanswered === true ? { unanswered: true } : {}),
     ...(suggestion ? { suggestion } : {}),
   };
