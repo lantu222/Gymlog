@@ -60,7 +60,7 @@ import { getFreshIdToken, isGoogleSignInConfigured, signInWithGoogle, signOutGoo
 import {
   clearStoredAccount,
   forgetSignedOutAccount,
-  loadSignedOutAccount,
+  loadSignedOutAccounts,
   loadStoredAccount,
   rememberSignedOutAccount,
   saveStoredAccount,
@@ -248,19 +248,17 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
   }, []);
 
   /**
-   * Remembers whose data stays on the phone as an account signs out.
+   * Remembers whose data stays on the phone as an account signs out — added
+   * to the accounts already remembered, never in their place.
    *
-   * A mark still standing means the account now leaving never settled that:
-   * its switch question was never answered (a relaunch drops it) or the
-   * server was never reached. The data is still the earlier account's, and
-   * overwriting the mark with the leaving one let that account sign back in
-   * "as itself" and send the earlier account's log unasked (review of the
-   * break-round fix, 2026-09-28).
+   * Replacing the mark let an unanswered account sign back in "as itself"
+   * and send the earlier account's log (review of the break-round fix); only
+   * keeping the first let the first sign back in and send a later one's
+   * (the account-switch invariant test). Both are the same fact: until a
+   * sign-in settles it, every account that left data here is still on the
+   * phone.
    */
   const markSignedOut = useCallback(async (sub: string) => {
-    if ((await loadSignedOutAccount()) !== null) {
-      return;
-    }
     await rememberSignedOutAccount(sub);
   }, []);
 
@@ -379,9 +377,9 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
           // bare counts, "use the phone's data" replaced the reader's own
           // backup with someone else's log (recheck of #221; user decision
           // 2026-09-28). The mark stays until the answer lands.
-          const signedOutSub = await loadSignedOutAccount();
+          const signedOutSubs = await loadSignedOutAccounts();
           ensureCurrent(generation);
-          const fromOtherAccount = uploadNeedsConsent({ signedOutSub, sub: base.sub, localWorthKeeping: true });
+          const fromOtherAccount = uploadNeedsConsent({ signedOutSubs, sub: base.sub, localWorthKeeping: true });
           return await askRestoreOrKeep(idToken, base, remote.payload, remote.version, fromOtherAccount);
         }
         // The phone is empty: the account signed out of earlier has nothing
@@ -435,11 +433,11 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       // backup with "backed up" on screen (break round, 2026-09-28). Asked
       // instead; until answered, signed in and nothing sent — the automatic
       // backup held too, or it would send it a few seconds later anyway.
-      const signedOutSub = await loadSignedOutAccount();
+      const signedOutSubs = await loadSignedOutAccounts();
       ensureCurrent(generation);
       if (
         uploadNeedsConsent({
-          signedOutSub,
+          signedOutSubs,
           sub: base.sub,
           localWorthKeeping: hasLocalDataWorthKeeping(latestRef.current.database, latestRef.current.liveSession),
         })
@@ -711,11 +709,11 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         // other account's log once the network came back (CI review of #221).
         // Held until the reader's own "Back up now", which asks.
         if (!interactive && !current.lastBackupAt && expectedVersion === null) {
-          const signedOutSub = await loadSignedOutAccount();
+          const signedOutSubs = await loadSignedOutAccounts();
           ensureCurrent(generation);
           if (
             uploadNeedsConsent({
-              signedOutSub,
+              signedOutSubs,
               sub: current.sub,
               localWorthKeeping: hasLocalDataWorthKeeping(latestRef.current.database, latestRef.current.liveSession),
             })

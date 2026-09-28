@@ -298,13 +298,17 @@ function isUntouchedOnboardingTemplate(
  * log went to the new one with "backed up" on screen (break round,
  * 2026-09-28; user decision: ask). The same account signing back in, or a
  * phone never signed in before, is not asked.
+ *
+ * `signedOutSubs` is every account signed out of since the data was last
+ * settled: one of them other than this one is enough to ask, because the
+ * phone may hold that account's workouts beside this one's.
  */
 export function uploadNeedsConsent(input: {
-  signedOutSub: string | null;
+  signedOutSubs: readonly string[];
   sub: string;
   localWorthKeeping: boolean;
 }): boolean {
-  return input.localWorthKeeping && input.signedOutSub !== null && input.signedOutSub !== input.sub;
+  return input.localWorthKeeping && input.signedOutSubs.some((signedOut) => signedOut !== input.sub);
 }
 
 export function hasLocalDataWorthKeeping(database: AppDatabase, liveSession = false): boolean {

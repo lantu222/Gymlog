@@ -96,24 +96,40 @@ export async function clearStoredAccount(): Promise<void> {
 }
 
 /**
- * The account this phone was last signed out of. Sign-out keeps the local
- * data, so the next sign-in may be someone else — a second Google account, a
- * shared phone — and that data is not theirs to have backed up unasked
- * (lib/accountBackup uploadNeedsConsent). Kept until the next sign-in has
- * settled, then forgotten.
+ * The accounts this phone has been signed out of since its data was last
+ * settled. Sign-out keeps the local data, so the next sign-in may be someone
+ * else — a second Google account, a shared phone — and that data is not
+ * theirs to have backed up unasked (lib/accountBackup uploadNeedsConsent).
+ * Forgotten once a sign-in has settled whose the data is.
+ *
+ * Every account, not the last one. One mark could say only one owner, and the
+ * phone can hold several: A signed out, B logged a workout offline and signed
+ * out, and A coming back counted as "the same account" and sent B's workout
+ * to A's cloud (the account-switch invariant test, 2026-09-28).
  */
 const SIGNED_OUT_KEY = '@vinha/account/signedout/v1';
 
 export async function rememberSignedOutAccount(sub: string): Promise<void> {
-  await AsyncStorage.setItem(SIGNED_OUT_KEY, sub);
+  const known = await loadSignedOutAccounts();
+  if (!known.includes(sub)) {
+    await AsyncStorage.setItem(SIGNED_OUT_KEY, JSON.stringify([...known, sub]));
+  }
 }
 
-export async function loadSignedOutAccount(): Promise<string | null> {
+export async function loadSignedOutAccounts(): Promise<string[]> {
   try {
-    const sub = await AsyncStorage.getItem(SIGNED_OUT_KEY);
-    return typeof sub === 'string' && sub.length > 0 ? sub : null;
+    const raw = await AsyncStorage.getItem(SIGNED_OUT_KEY);
+    if (typeof raw !== 'string' || raw.length === 0) {
+      return [];
+    }
+    // A build from earlier the same day stored one bare identifier.
+    if (!raw.startsWith('[')) {
+      return [raw];
+    }
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((sub): sub is string => typeof sub === 'string' && sub.length > 0) : [];
   } catch {
-    return null;
+    return [];
   }
 }
 

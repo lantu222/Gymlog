@@ -25,7 +25,7 @@ const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
  */
 const LEGAL_TEXT_VERSIONS = [
   { date: '2026-09-16', fingerprint: 'c52c7814c8a7ba76' },
-  { date: '2026-09-28', fingerprint: '9632d9ac09b709c1' },
+  { date: '2026-09-28', fingerprint: '7019c14a32fca330' },
 ];
 
 const IDS = ['privacy', 'terms'];
@@ -184,8 +184,8 @@ module.exports = [
       );
       // And the line itself, in both languages (break round, 2026-09-28).
       const policy = (language) => renderLegalDocumentMarkdown(buildLegalDocument('privacy', language));
-      assert.match(policy('en'), /the phone keeps only the identifier of the account you left/);
-      assert.match(policy('fi'), /puhelin säilyttää vain sen tilin tunnisteen, josta kirjauduit ulos/);
+      assert.match(policy('en'), /the phone keeps only the identifiers of the accounts that signed out of it/);
+      assert.match(policy('fi'), /puhelin säilyttää vain niiden tilien tunnisteet, jotka ovat kirjautuneet siitä ulos/);
       const legacy = new Set(allSource.match(/@gymlog\/[a-z0-9/]+/g) ?? []);
       assert.deepEqual(
         [...legacy].sort(),

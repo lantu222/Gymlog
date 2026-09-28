@@ -42,7 +42,7 @@ That means a new phone starts empty unless you use the cloud backup below, or ex
 
 If you sign in with Google, a copy of everything listed under “What the app stores on your phone” — except a workout still in progress — is sent over an encrypted connection to our server and kept there, so a new phone can restore it after you sign in again. Signing in is never required; every feature works without it.
 
-From Google we receive your Google account’s identifier, your email address and your name. These stay on your phone, so the app can show which account is signed in. On the server the backup is filed under a scrambled version of the identifier; your email and name are not stored there. When you sign out, the phone keeps only the identifier of the account you left, so that if a different Google account signs in next, the app asks before backing up the data already on the phone to it; it is removed once that sign-in is settled.
+From Google we receive your Google account’s identifier, your email address and your name. These stay on your phone, so the app can show which account is signed in. On the server the backup is filed under a scrambled version of the identifier; your email and name are not stored there. When you sign out, the phone keeps only the identifiers of the accounts that signed out of it, so that if a different Google account signs in next, the app asks before backing up the data already on the phone to it; they are removed once that sign-in is settled.
 
 A backup is sent shortly after you log training, and whenever you press Back up now. The server checks your sign-in with Google on every request, stores the file, and hands it back only to the same Google account. It does not read, analyse or log the contents.
 
