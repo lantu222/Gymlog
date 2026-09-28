@@ -553,7 +553,7 @@ const FINNISH_MARKERS = /[äö]|\b(ja|ei|että|sinun|olet|kun|mutta|kannattaa|no
 const ISO_DATE = /\b20\d\d-\d\d-\d\d\b/g;
 
 /** Context labels that turned up word for word in Finnish answers. */
-const ENGLISH_LABELS = /\b(flat|top set|latest|time before|first time|best set|no added load|trajektori)\b/gi;
+const ENGLISH_LABELS = /\b(flat|top set|latest|time before|first time|best set|no added load|trajector(?:y|ies))\b/gi;
 
 /** "82,5 kg × 5, 5, 4"-style listings. Two can be evidence; more is a dump. */
 const SET_LISTING = /\d+(?:[.,]\d+)?\s*kg\s*[x×]\s*\d+(?:\s*[,/]\s*\d+){1,}/gi;
