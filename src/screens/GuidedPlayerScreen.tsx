@@ -2384,7 +2384,7 @@ function GuidedPlayer({
           exerciseName: exercise.exerciseName,
           bodyPart: libraryFor(exercise.exerciseName)?.bodyPart ?? null,
           setCount: exercise.sets.length,
-          repsLabel: formatRepRangeLabel(exercise.sets[0]),
+          repsLabel: formatRepRangeLabel(planSetOf(exercise.sets)),
           timed: isTimedTrackingMode(exercise.trackingMode),
           loadKg: resolveTarget(exercise.slotId, 0)?.loadKg ?? null,
         })),
@@ -2552,6 +2552,10 @@ function GuidedPlayer({
     }
     // The lift being walked TO, asked for by its own slot.
     const last = resolveSlotHistory(step.slotId, step.exerciseName);
+    // The reps were lowered after a short session: the card says so, with the
+    // programme's own number beside it (2026-09-09 rule, lib/progressionGate).
+    const firstSet = planSetOf(instance.sets);
+    const loweredTarget = firstSet !== undefined && isLoweredTarget(firstSet) && target.reps === firstSet.plannedTargetReps;
     const lastHeaviest = heaviestOf(last);
     return {
       todayValue:
@@ -2570,7 +2574,15 @@ function GuidedPlayer({
             reps: target.reps,
             name: exerciseNameLabel(language, supersetNextBySlot.get(step.slotId) ?? ''),
           })
-        : t(language, 'guided.walk.plan', {
+        : loweredTarget
+          ? t(language, 'guided.walk.planLowered', {
+              sets: instance.sets.length,
+              reps: target.reps,
+              // The programme's own reps — a range reads as one ("8–12").
+              programme: formatProgrammeReps(firstSet!),
+              rest: instance.restSecondsMin,
+            })
+          : t(language, 'guided.walk.plan', {
             sets: instance.sets.length,
             reps: target.reps,
             /*
@@ -2761,7 +2773,7 @@ function GuidedPlayer({
                               {
                                 exerciseName: exercise.exerciseName,
                                 setCount: exercise.sets.length,
-                                repsLabel: formatRepRangeLabel(exercise.sets[0]),
+                                repsLabel: formatRepRangeLabel(planSetOf(exercise.sets)),
                                 timed: isTimedTrackingMode(exercise.trackingMode),
                                 loadKg: resolveTarget(exercise.slotId, 0)?.loadKg ?? null,
                               },
@@ -3911,12 +3923,15 @@ function GuidedPlayer({
                     // already says, once, on the right (user 2026-09-11: "ehkä
                     // poistetaan sittenkin molemmat tilastot supersetistä ja se on
                     // vain 4 kierrosta").
+                    const planSet = lift ? planSetOf(lift.sets) : undefined;
                     const memberPlan =
-                      !isSuperset && lift?.sets[0]
+                      !isSuperset && lift && planSet
                         ? formatSetScheme(
                             lift.sets.length,
-                            lift.sets[0].plannedRepsMin,
-                            lift.sets[0].plannedRepsMax,
+                            // The lowered target, when there is one — the
+                            // plan says what the dial will open on.
+                            isLoweredTarget(planSet) ? planSet.plannedTargetReps! : planSet.plannedRepsMin,
+                            isLoweredTarget(planSet) ? planSet.plannedTargetReps! : planSet.plannedRepsMax,
                             lift.trackingMode,
                           )
                         : '';
@@ -4205,15 +4220,43 @@ function formatDrillLength(seconds: number): string {
   return `${seconds}s`;
 }
 
-/** "3–5" from the planned rep range, collapsing equal bounds to "5". */
-function formatRepRangeLabel(set: { plannedRepsMin: number; plannedRepsMax: number } | undefined): string {
+/**
+ * "3–5" from the planned rep range, collapsing equal bounds to "5" — or the
+ * lowered target when a short session brought one (lib/progressionGate
+ * resolveMissedRepsTarget): the overview says what the dial will open on.
+ */
+function formatRepRangeLabel(
+  set: { plannedRepsMin: number; plannedRepsMax: number; plannedTargetReps?: number } | undefined,
+): string {
   if (!set) {
     return '';
   }
+  if (isLoweredTarget(set)) {
+    return `${set.plannedTargetReps}`;
+  }
+  return formatProgrammeReps(set);
+}
+
+/** The programme's own reps for a set, "8–12" or "8". */
+function formatProgrammeReps(set: { plannedRepsMin: number; plannedRepsMax: number }): string {
   if (set.plannedRepsMin === set.plannedRepsMax) {
     return `${set.plannedRepsMax}`;
   }
   return `${set.plannedRepsMin}–${set.plannedRepsMax}`;
+}
+
+/** A target lowered below the programme's floor after a short session. */
+/**
+ * The set a plan line describes: the next one still to do. A swap rewrites
+ * only the sets ahead, so a set logged before it keeps the old lift's
+ * prescription — `sets[0]` described a lift no longer in the slot.
+ */
+function planSetOf<T extends { status: string }>(sets: T[]): T | undefined {
+  return sets.find((set) => set.status === 'pending') ?? sets[sets.length - 1];
+}
+
+function isLoweredTarget(set: { plannedRepsMin: number; plannedTargetReps?: number }): boolean {
+  return typeof set.plannedTargetReps === 'number' && set.plannedTargetReps < set.plannedRepsMin;
 }
 
 /**

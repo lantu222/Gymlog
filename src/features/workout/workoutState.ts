@@ -17,7 +17,7 @@ import { buildSupersetPlayOrder, supersetGroupIndexes } from '../../lib/superset
 import { elapsedSecondsOf, restSecondsLeft, restTimerHasEnded, settleSessionClock, workoutSecondsUntil } from '../../lib/sessionClock';
 import { GuidedResumeAnchor, WorkoutTrackingMode, WorkoutTemplateExercise, WorkoutExerciseInsertInput, WorkoutExerciseInstance, WorkoutHistoryStore, WorkoutLiftIdentity, WorkoutPersistenceBundle, WorkoutProgressionOptions, WorkoutRestTimerState, WorkoutRuntimeTemplate, WorkoutSessionMaterializeOptions, WorkoutSessionRuntime, WorkoutSessionSummary, WorkoutSetDraftInput, WorkoutSetEffort, WorkoutSetInstance, WorkoutSlotHistoryEntry, WorkoutSlotHistorySet, WorkoutStatus, WorkoutUiState, WorkoutExerciseStatus } from './workoutTypes';
 import { getWorkoutTemplateById } from './workoutCatalog';
-import { resolveProgressedLoadKg, resolveProgressedReps } from '../../lib/progressionGate';
+import { resolveMissedRepsTarget, resolveProgressedLoadKg, resolveProgressedReps } from '../../lib/progressionGate';
 import { prescriptionAfterSwap, trackingModeAfterSwap } from '../../lib/catalogExercisePools';
 import {
   liftBeforeSwap,
@@ -465,6 +465,19 @@ function resolveHistoricalSetDraft(
     fatigueSignal: options.fatigueSignal,
   });
 
+  // Reps short of the programme last time: the same weight, a target the
+  // reader can meet (2026-09-09). Scoped history only — `entries` — never the
+  // name-borrowed draft below, which does not feed the gate either.
+  const missedReps = repsResolution.progressed
+    ? null
+    : resolveMissedRepsTarget({
+        history: entries,
+        repsMin: exercise.repsMin,
+        targetSets: exercise.sets,
+        trackingMode: exercise.trackingMode,
+        automatedProgressionEnabled: options.automatedProgressionEnabled ?? false,
+      });
+
   // Prefill the weight so the user usually just adjusts it with the console
   // and types reps; reps stay empty so entering them is the signal that logs
   // the set (handoff §5).
@@ -476,7 +489,11 @@ function resolveHistoricalSetDraft(
     heldForFatigue: (heldForFatigue || repsResolution.heldForFatigue) || undefined,
     // This slot's own history — the ordinary case, nothing to explain.
     prefilledFromPerformedAt: undefined,
-    plannedTargetReps: repsResolution.progressed ? repsResolution.targetReps : undefined,
+    plannedTargetReps: repsResolution.progressed
+      ? repsResolution.targetReps
+      : missedReps
+        ? missedReps.targetReps
+        : undefined,
     autoProgressedFromReps: repsResolution.fromReps ?? undefined,
   };
 }
@@ -1977,6 +1994,27 @@ function cloneSession(session: WorkoutSessionRuntime) {
   };
 }
 
+/**
+ * The reps a lift's sets were asked for when the app lowered them below the
+ * programme's floor, read off the first set logged as that lift. Nothing for
+ * an ordinary session or a bodyweight lift.
+ *
+ * Read off the sets, not off whether the lift was swapped in: a lift swapped
+ * on Home is materialized from its own history and can be given a lowered
+ * target, while a swap mid-session clears the target on every set still ahead
+ * (`exercise/swap`) — so the sets already say which lift was given one
+ * (review of #202). Logged, because a set skipped before a mid-session swap
+ * falls to the new lift still carrying the old one's number.
+ */
+function loweredTargetOf(segment: { sets: WorkoutSetInstance[] }) {
+  const first = segment.sets.find((set) => set.status === 'completed');
+  const target = first?.plannedTargetReps;
+  if (!first || typeof target !== 'number' || !(target < first.plannedRepsMin)) {
+    return {};
+  }
+  return { targetReps: target };
+}
+
 export function completeWorkoutSession(state: WorkoutFeatureState, performedAt = new Date().toISOString()) {
   if (!state.activeSession) {
     return state;
@@ -2022,6 +2060,9 @@ export function completeWorkoutSession(state: WorkoutFeatureState, performedAt =
         })),
       skipped: segment.current && exercise.status === 'skipped',
       swappedFrom: segment.swappedFrom ?? undefined,
+      // The lowered target this session asked for, if it asked for one, so
+      // the next can ask one more (lib/progressionGate resolveMissedRepsTarget).
+      ...loweredTargetOf(segment),
     }));
 
     // Newest first, like the list it joins: the lift the slot ended on leads.

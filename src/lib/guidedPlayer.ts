@@ -795,7 +795,10 @@ export function resolveGuidedSetTarget(
     };
   }
 
-  const reps = previous?.actualReps ?? set.plannedRepsMax;
+  // A lowered target (the reps fell short of the programme last time) opens
+  // the dial where the reader can meet it; the programme's reps otherwise.
+  // The previous set still wins mid-session, as for bodyweight.
+  const reps = previous?.actualReps ?? set.plannedTargetReps ?? set.plannedRepsMax;
   const draftLoad = parseNumberInput(set.draftLoadText);
   // Lift what was planned and the plan stands for the next set — a ramp
   // prefilled set by set (60/70/80) stays a ramp. Change the weight and the

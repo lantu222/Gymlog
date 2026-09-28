@@ -212,6 +212,7 @@ const suites = [
   ...require('./lib/libraryEquipment.test.cjs'),
   ...require('./lib/onboardingPlanSweep.test.cjs'),
   ...require('./lib/progressionGate.test.cjs'),
+  ...require('./lib/missedRepsTarget.test.cjs'),
   ...require('./lib/coachChatMemory.test.cjs'),
   ...require('./lib/coachAdviceMemory.test.cjs'),
   ...require('./lib/entryDeletion.test.cjs'),

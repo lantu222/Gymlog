@@ -402,3 +402,93 @@ export function resolveProgressedReps(input: ProgressedRepsInput): ProgressedRep
 
   return { ...base, heldForFatigue };
 }
+
+export interface MissedRepsInput {
+  /** Newest first, this slot's own scoped history — never a borrowed one. */
+  history: WorkoutSlotHistoryEntry[];
+  repsMin: number;
+  targetSets: number;
+  trackingMode?: string;
+  automatedProgressionEnabled: boolean;
+}
+
+export interface MissedRepsResolution {
+  /** What every set's reps dial opens on, below the programme's floor. */
+  targetReps: number;
+  /** Last time's average over its sets, when that is where the target came from. */
+  fromAverage: number | null;
+}
+
+/** A target the app gave last time, read defensively: slot history is stored as written. */
+function givenTarget(entry: WorkoutSlotHistoryEntry, repsMin: number): number | null {
+  const target = (entry as { targetReps?: unknown }).targetReps;
+  return typeof target === 'number' && Number.isInteger(target) && target > 0 && target < repsMin ? target : null;
+}
+
+/**
+ * When the reps fell short of the programme, a target the reader can meet.
+ *
+ * Seen at the gym (2026-09-09): 7 · 6 · 4 · 4 last time and the app asked for
+ * 4 × 12 at the same weight — not possible. The user's rule: "tee samalla
+ * painolla mutta yritä tehdä 6 6 6 6". So when last time's average falls
+ * below the programme's floor, the weight stays (the load gate already holds
+ * it — the ceiling was not reached) and every set aims for the average,
+ * rounded up. Once every set reaches that target, the next session asks one
+ * rep more — two when every set went past it — until the programme's own
+ * reps are back and the ordinary progression takes over.
+ *
+ * The target the app gave is read back from the history entry, because "one
+ * more than last time's target" cannot be worked out from the reps alone.
+ * Bodyweight work progresses by reps already, and a hold is seconds: both are
+ * left alone. Pro, like the rest of automated progression (user, 2026-09-28).
+ */
+export function resolveMissedRepsTarget(input: MissedRepsInput): MissedRepsResolution | null {
+  const { history, repsMin, targetSets, trackingMode } = input;
+  if (!input.automatedProgressionEnabled || !(repsMin > 0) || !(targetSets > 0)) {
+    return null;
+  }
+  if (trackingMode === 'bodyweight' || trackingMode === 'hold') {
+    return null;
+  }
+  // The newest entry that logged something — the same reading the set
+  // screen's prefill takes (selectLatestUsableEntry); an opened-and-abandoned
+  // lift must not hide the short session before it.
+  const latest = history.find((entry) => entry.sets.length > 0);
+  if (!latest || latest.skipped) {
+    return null;
+  }
+  // The sets the programme asks for — the first ones, as the entry is written
+  // in the order they were done. A set added past them is extra work: a tired
+  // fifth set at 3 reps is not a reason to lower a 12/12/12/12 session, nor to
+  // hold back a target every programmed set met (review of #202).
+  const reps = latest.sets
+    .map((set) => set.reps)
+    .filter((count) => Number.isFinite(count) && count > 0)
+    .slice(0, targetSets);
+  if (reps.length === 0) {
+    return null;
+  }
+  const average = reps.reduce((sum, count) => sum + count, 0) / reps.length;
+  const given = givenTarget(latest, repsMin);
+
+  // The floor met — whatever target was given — and the ordinary progression
+  // takes over. Checked first: a stored 6 under a 12/12/12/12 session asked
+  // for 8 (PR review, 2026-09-28).
+  if (average >= repsMin) {
+    return null;
+  }
+  const averageTarget = Math.max(1, Math.ceil(average - 1e-9));
+
+  // A target was given last time and every set reached it: one rep more, two
+  // when every set went past it — never below what the sets just averaged, so
+  // 10/10/10/10 on a target of 6 does not come back as 8.
+  // "Every set" means every set the programme asks for, and fewer than that
+  // did not meet it.
+  if (given !== null && reps.length >= targetSets && reps.every((count) => count >= given)) {
+    const next = Math.max(given + (reps.every((count) => count > given) ? 2 : 1), averageTarget);
+    return next >= repsMin ? null : { targetReps: next, fromAverage: null };
+  }
+
+  const target = averageTarget;
+  return target >= repsMin ? null : { targetReps: target, fromAverage: Math.round(average * 100) / 100 };
+}

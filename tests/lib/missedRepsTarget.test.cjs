@@ -1,0 +1,262 @@
+const assert = require('node:assert/strict');
+
+const { resolveMissedRepsTarget } = require('../../.test-dist/lib/progressionGate.js');
+const { workoutReducer } = require('../../.test-dist/features/workout/workoutState');
+const { resolveGuidedSetTarget } = require('../../.test-dist/lib/guidedPlayer');
+
+// At the gym, 2026-09-09: 7 · 6 · 4 · 4 last time, and the app asked for
+// 4 × 12 at the same weight. The rule (user): "tee samalla painolla mutta yritä
+// tehdä 6 6 6 6" — the average rounded up, then +1 (+2 when every set went
+// past it) until the programme's reps are back. Pro, like the rest of
+// automated progression (user, 2026-09-28).
+
+function entry(reps, extra = {}) {
+  return {
+    slotId: 'slot',
+    templateId: 'tpl',
+    templateName: 'Upper',
+    exerciseName: 'Bench Press',
+    substitutionGroup: 'press',
+    performedAt: '2026-09-20T09:00:00.000Z',
+    sessionId: 's',
+    sets: reps.map((count, setIndex) => ({ setIndex, loadKg: 60, reps: count, completedAt: '2026-09-20T09:00:00.000Z' })),
+    skipped: false,
+    ...extra,
+  };
+}
+
+const rule = (history, extra = {}) =>
+  resolveMissedRepsTarget({ history, repsMin: 12, targetSets: 4, trackingMode: 'load_and_reps', automatedProgressionEnabled: true, ...extra });
+
+const EMPTY = {
+  activeSession: null,
+  completionSummary: null,
+  history: { sessions: [], slotHistory: {}, lastSelectedTemplateId: null },
+  nowMs: 0,
+};
+
+const TEMPLATE = {
+  id: 'tpl_missed',
+  name: 'Missed reps',
+  defaultScheduleMode: 'weekly',
+  sessions: [
+    {
+      id: 'day',
+      name: 'Upper',
+      orderIndex: 0,
+      exercises: [
+        {
+          id: 'e_bench',
+          exerciseName: 'Bench Press',
+          slotId: 'bench',
+          role: 'primary',
+          progressionPriority: 'high',
+          trackingMode: 'load_and_reps',
+          sets: 4,
+          repsMin: 12,
+          repsMax: 12,
+          restSecondsMin: 120,
+          restSecondsMax: 180,
+          substitutionGroup: 'bench_press',
+        },
+      ],
+    },
+  ],
+};
+
+function session(state, reps, day, pro = true, template = TEMPLATE, beforeSet = () => {}) {
+  let next = workoutReducer(state, {
+    type: 'session/startFromRuntimeTemplate',
+    payload: {
+      template,
+      sessionOrderIndex: 0,
+      unitPreference: 'kg',
+      progression: { automatedProgressionEnabled: pro, setupLevel: 'beginner' },
+    },
+  });
+  const opened = next.activeSession.exercises[0];
+  const openedOn = opened.sets.map((_, index) => resolveGuidedSetTarget(opened.sets, index, opened.trackingMode).reps);
+  const at = new Date(Date.UTC(2026, 8, day, 9)).toISOString();
+  reps.forEach((count, index) => {
+    next = beforeSet(next, index) ?? next;
+    next = workoutReducer(next, {
+      type: 'set/updateDraft',
+      payload: { slotId: opened.slotId, setIndex: index, patch: { loadText: '60', repsText: String(count) } },
+    });
+    next = workoutReducer(next, {
+      type: 'set/complete',
+      payload: { slotId: opened.slotId, setIndex: index, nowMs: Date.parse(at), unitPreference: 'kg' },
+    });
+  });
+  next = workoutReducer(next, { type: 'session/finishWorkout', payload: { performedAt: at } });
+  return { state: workoutReducer(next, { type: 'session/clearCompletedSession' }), openedOn };
+}
+
+module.exports = [
+  {
+    name: 'reps short of the programme: every set aims for the average, rounded up',
+    run() {
+      assert.deepEqual(rule([entry([7, 6, 4, 4])]), { targetReps: 6, fromAverage: 5.25 });
+      // Within the programme's reps, the ordinary rules stand.
+      assert.equal(rule([entry([12, 12, 11, 12])]), null);
+      assert.equal(rule([entry([12, 12, 12, 12])]), null);
+    },
+  },
+  {
+    name: 'the target climbs one rep, two when every set beat it, back to the programme',
+    run() {
+      assert.equal(rule([entry([6, 6, 6, 6], { targetReps: 6 })]).targetReps, 7);
+      assert.equal(rule([entry([6, 7, 8, 7], { targetReps: 6 })]).targetReps, 7);
+      assert.equal(rule([entry([7, 7, 7, 7], { targetReps: 6 })]).targetReps, 8);
+      // Never below what the sets just did, and never once the floor is met
+      // (PR review, 2026-09-28): a stale 6 under 10s asks 10, under 12s nothing.
+      assert.equal(rule([entry([10, 10, 10, 10], { targetReps: 6 })]).targetReps, 10);
+      assert.equal(rule([entry([12, 12, 12, 12], { targetReps: 6 })]), null);
+      // Past the programme's floor, the rule lets go.
+      assert.equal(rule([entry([11, 11, 11, 11], { targetReps: 11 })]), null);
+      assert.equal(rule([entry([11, 12, 12, 12], { targetReps: 10 })]), null);
+    },
+  },
+  {
+    name: 'a lowered target missed again goes back to the average; fewer sets than asked do not count as met',
+    run() {
+      assert.equal(rule([entry([6, 6, 5, 4], { targetReps: 6 })]).targetReps, 6);
+      assert.equal(rule([entry([6, 6, 6], { targetReps: 6 })]).targetReps, 6);
+    },
+  },
+  {
+    name: 'a set added past the programme is extra work: it neither lowers the target nor holds one back',
+    run() {
+      // 4 × 12 asked; a fifth set added at the end (exercise/addSet appends).
+      assert.equal(rule([entry([12, 12, 12, 12, 5])]), null);
+      assert.equal(rule([entry([6, 6, 6, 6, 3], { targetReps: 6 })]).targetReps, 7);
+      assert.equal(rule([entry([7, 7, 7, 7, 6], { targetReps: 6 })]).targetReps, 8);
+      // Short of the programme, the average is the programmed sets' own.
+      assert.deepEqual(rule([entry([7, 6, 4, 4, 2])]), { targetReps: 6, fromAverage: 5.25 });
+    },
+  },
+  {
+    name: 'a lift opened and left without a set does not hide the short session before it',
+    run() {
+      assert.equal(rule([entry([]), entry([7, 6, 4, 4])]).targetReps, 6);
+    },
+  },
+  {
+    name: 'the player\'s overview and plan list say the lowered target, and the walk-up card the programme\'s range',
+    run() {
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const player = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'screens', 'GuidedPlayerScreen.tsx'), 'utf8');
+      // One number for one set across the player (review, 2026-09-28).
+      assert.match(player, /if \(isLoweredTarget\(set\)\) \{\s*return `\$\{set\.plannedTargetReps\}`;/);
+      assert.match(player, /isLoweredTarget\(planSet\) \? planSet\.plannedTargetReps! : planSet\.plannedRepsMin/);
+      assert.match(player, /programme: formatProgrammeReps\(firstSet!\)/);
+    },
+  },
+  {
+    name: 'bodyweight, holds, a skipped lift, Pro off and a malformed stored target are left alone',
+    run() {
+      assert.equal(rule([entry([7, 6, 4, 4])], { trackingMode: 'bodyweight' }), null);
+      assert.equal(rule([entry([7, 6, 4, 4])], { trackingMode: 'hold' }), null);
+      assert.equal(rule([entry([7, 6, 4, 4], { skipped: true })]), null);
+      assert.equal(rule([entry([7, 6, 4, 4])], { automatedProgressionEnabled: false }), null);
+      assert.equal(rule([]), null);
+      // A stored target that is not a whole number below the floor is not one.
+      assert.equal(rule([entry([6, 6, 6, 6], { targetReps: '6' })]).targetReps, 6);
+      assert.equal(rule([entry([6, 6, 6, 6], { targetReps: 13 })]).targetReps, 6);
+    },
+  },
+  {
+    name: 'end to end: the dial opens on 6, then 7, then the programme — at the same weight',
+    run() {
+      let { state } = session(EMPTY, [7, 6, 4, 4], 20);
+      let result = session(state, [6, 6, 6, 6], 22);
+      assert.deepEqual(result.openedOn, [6, 6, 6, 6]);
+      const stored = result.state.history.slotHistory[Object.keys(result.state.history.slotHistory)[0]][0];
+      assert.equal(stored.targetReps, 6, 'the lowered target is kept for the next session');
+      const next = workoutReducer(result.state, {
+        type: 'session/startFromRuntimeTemplate',
+        payload: { template: TEMPLATE, sessionOrderIndex: 0, unitPreference: 'kg', progression: { automatedProgressionEnabled: true, setupLevel: 'beginner' } },
+      });
+      const bench = next.activeSession.exercises[0];
+      assert.equal(resolveGuidedSetTarget(bench.sets, 0, bench.trackingMode).reps, 7);
+      assert.equal(resolveGuidedSetTarget(bench.sets, 0, bench.trackingMode).loadKg, 60);
+
+      // Up to 11 with every set met, then 12 is the programme's own.
+      ({ state } = session(result.state, [7, 7, 7, 7], 24));
+      for (let reps = 8, day = 26; reps <= 11; reps += 1, day += 2) {
+        result = session(state, [reps, reps, reps, reps], day);
+        assert.deepEqual(result.openedOn, [reps, reps, reps, reps], `day ${day}`);
+        state = result.state;
+      }
+      assert.deepEqual(session(state, [12, 12, 12, 12], 40).openedOn, [12, 12, 12, 12]);
+    },
+  },
+  {
+    name: 'the coach\'s example sees the lowered target: it previews the same start',
+    run() {
+      const { previewNextSession } = require('../../.test-dist/features/workout/workoutState');
+      const { state } = session(EMPTY, [7, 6, 4, 4], 20);
+      const preview = previewNextSession(TEMPLATE, {
+        unitPreference: 'kg',
+        history: state.history,
+        sessionOrderIndex: 0,
+        automatedProgressionEnabled: true,
+        setupLevel: 'beginner',
+      });
+      assert.deepEqual(preview[0].sets, [
+        { loadKg: 60, reps: 6 },
+        { loadKg: 60, reps: 6 },
+        { loadKg: 60, reps: 6 },
+        { loadKg: 60, reps: 6 },
+      ]);
+    },
+  },
+  {
+    name: 'without Pro the dial opens on the programme\'s reps, as before',
+    run() {
+      const { state } = session(EMPTY, [7, 6, 4, 4], 20, false);
+      assert.deepEqual(session(state, [6, 6, 6, 6], 22, false).openedOn, [12, 12, 12, 12]);
+    },
+  },
+  {
+    name: 'a lift swapped in on Home keeps the lowered target it was given, and climbs back from it',
+    run() {
+      // Home's swap (lib/sessionAdaptation applySwap) hands the session a
+      // template whose lift is the new one, marked with the lift it replaced.
+      // The session is built from the new lift's own history, so a short run
+      // of it is lowered like any other — and has to be remembered, or the
+      // next session re-derives the average instead of asking one more rep
+      // (review of #202, 2026-09-28).
+      const swapped = {
+        ...TEMPLATE,
+        sessions: [{ ...TEMPLATE.sessions[0], exercises: [{ ...TEMPLATE.sessions[0].exercises[0], sourceExerciseName: 'Dumbbell Bench Press' }] }],
+      };
+      const { state } = session(EMPTY, [7, 6, 4, 4], 20, true, swapped);
+      const result = session(state, [6, 6, 6, 6], 22, true, swapped);
+      assert.deepEqual(result.openedOn, [6, 6, 6, 6]);
+      const stored = Object.values(result.state.history.slotHistory)[0][0];
+      assert.equal(stored.swappedFrom, 'Dumbbell Bench Press');
+      assert.equal(stored.targetReps, 6);
+      assert.deepEqual(session(result.state, [7, 7, 7, 7], 24, true, swapped).openedOn, [7, 7, 7, 7]);
+    },
+  },
+  {
+    name: 'a swap mid-session keeps the target on the lift that was given it, and gives the new lift none',
+    run() {
+      const { state } = session(EMPTY, [7, 6, 4, 4], 20);
+      const swapAfterTwo = (current, index) =>
+        index === 2
+          ? workoutReducer(current, {
+              type: 'exercise/swap',
+              payload: { slotId: current.activeSession.exercises[0].slotId, exerciseName: 'Incline Bench Press', substitutionGroup: 'bench_press', unitPreference: 'kg' },
+            })
+          : undefined;
+      const result = session(state, [6, 6, 12, 12], 22, true, TEMPLATE, swapAfterTwo);
+      const [incline, bench] = Object.values(result.state.history.slotHistory)[0];
+      assert.deepEqual([incline.exerciseName, bench.exerciseName], ['Incline Bench Press', 'Bench Press']);
+      assert.equal(bench.targetReps, 6);
+      assert.equal('targetReps' in incline, false, 'the incline sets were asked for the programme, not the bench target');
+    },
+  },
+];

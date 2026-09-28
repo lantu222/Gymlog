@@ -401,7 +401,15 @@ module.exports = [
       // Not inside a superset: a set count per lift there asks the reader to
       // reconcile "4 × 8" with "3 × 10" inside one box whose real unit is
       // rounds (user 2026-09-11).
-      assert.match(playerSource, /const memberPlan =\s*!isSuperset && lift\?\.sets\[0\]/);
+      assert.match(playerSource, /const memberPlan =\s*!isSuperset && lift && planSet\s/);
+      // Read off the next set still to do. A swap rewrites only the sets
+      // ahead, so the first set of a slot swapped mid-way still carries the
+      // old lift's reps and lowered target (review of #202, 2026-09-28).
+      assert.match(playerSource, /const planSet = lift \? planSetOf\(lift\.sets\) : undefined;/);
+      assert.match(playerSource, /return sets\.find\(\(set\) => set\.status === 'pending'\) \?\? sets\[sets\.length - 1\];/);
+      assert.doesNotMatch(playerSource, /formatRepRangeLabel\(exercise\.sets\[0\]\)/);
+      assert.equal((playerSource.match(/formatRepRangeLabel\(planSetOf\(exercise\.sets\)\)/g) ?? []).length, 2);
+      assert.match(playerSource, /const firstSet = planSetOf\(instance\.sets\);/);
       // Through the shared formatter, so a hold's numbers keep their unit —
       // "45" beside "60 × 8" reads as forty-five reps.
       assert.match(playerSource, /\? formatSetScheme\(\s*lift\.sets\.length,/);
