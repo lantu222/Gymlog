@@ -66,6 +66,31 @@ export interface LiftHistory {
   stalledSessions: number;
 }
 
+export interface RepsLiftPoint {
+  sessionId: string;
+  time: number;
+  /** Completed reps per set, in set order. */
+  reps: number[];
+  /** The most reps in one set this session. */
+  bestSetReps: number;
+}
+
+/**
+ * A lift logged with no added load — pull-ups, push-ups, dips. Its progress is
+ * reps, and LiftHistory cannot carry it: a top set needs a weight above zero.
+ */
+export interface RepsLiftHistory {
+  key: string;
+  name: string;
+  /** Oldest first. */
+  points: RepsLiftPoint[];
+  first: RepsLiftPoint;
+  latest: RepsLiftPoint;
+  spanDays: number;
+  /** How many of the most recent sessions share the latest best-set reps. */
+  unchangedSessions: number;
+}
+
 export interface WeekSummary {
   /** Monday of the week, as a local YYYY-MM-DD date. */
   weekStart: string;
@@ -95,6 +120,8 @@ export interface TrainingHistory {
   sessions: SessionSummary[];
   /** Most-trained lift first. */
   lifts: LiftHistory[];
+  /** Lifts logged with no added load, most-trained first. */
+  repsLifts: RepsLiftHistory[];
   /** Oldest first, including weeks with no training. */
   weeks: WeekSummary[];
   /** Null when the plan places the week itself, so nothing was promised. */
@@ -298,6 +325,69 @@ export function buildLiftHistories(
   );
 }
 
+/**
+ * Per-lift rep trajectories for the lifts buildLiftHistories cannot see: every
+ * set logged with no added load. A log with any weighted set belongs to the
+ * weighted history instead, so no lift is counted in both.
+ */
+export function buildRepsLiftHistories(
+  sessions: WorkoutSession[],
+  logs: ExerciseLog[],
+): RepsLiftHistory[] {
+  const timeById = new Map(sessions.map((session) => [session.id, sessionTime(session)] as const));
+  const buckets = new Map<string, { name: string; nameTime: number; points: RepsLiftPoint[] }>();
+
+  for (const log of logs) {
+    const time = timeById.get(log.sessionId);
+    if (log.skipped || time === undefined || topSetOf(log) !== null) {
+      continue;
+    }
+    const sets = getComparableLogSets(log).filter((set) => set.reps > 0);
+    if (sets.length === 0 || sets.some((set) => set.weight > 0)) {
+      continue;
+    }
+
+    const reps = sets.map((set) => set.reps);
+    const key = normalizedName(log.exerciseNameSnapshot);
+    const bucket = buckets.get(key) ?? { name: '', nameTime: -1, points: [] };
+    if (time >= bucket.nameTime) {
+      bucket.name = log.exerciseNameSnapshot.trim();
+      bucket.nameTime = time;
+    }
+    bucket.points.push({ sessionId: log.sessionId, time, reps, bestSetReps: Math.max(...reps) });
+    buckets.set(key, bucket);
+  }
+
+  const histories: RepsLiftHistory[] = [];
+  for (const [key, bucket] of buckets) {
+    const points = [...bucket.points].sort((left, right) => left.time - right.time);
+    const first = points[0];
+    const latest = points[points.length - 1];
+
+    let unchangedSessions = 1;
+    for (let index = points.length - 2; index >= 0; index -= 1) {
+      if (points[index].bestSetReps !== latest.bestSetReps) {
+        break;
+      }
+      unchangedSessions += 1;
+    }
+
+    histories.push({
+      key,
+      name: bucket.name,
+      points,
+      first,
+      latest,
+      spanDays: Math.max(0, Math.round((latest.time - first.time) / DAY_MS)),
+      unchangedSessions,
+    });
+  }
+
+  return histories.sort(
+    (left, right) => right.points.length - left.points.length || right.latest.time - left.latest.time,
+  );
+}
+
 function buildWeeks(
   sessions: SessionSummary[],
   trainingDays: SetupWeekday[],
@@ -397,6 +487,7 @@ export function buildTrainingHistory({
     windowDays,
     sessions: summaries,
     lifts: buildLiftHistories(inWindow, windowLogs),
+    repsLifts: buildRepsLiftHistories(inWindow, windowLogs),
     weeks,
     adherence,
     totalVolumeKg: Math.round(summaries.reduce((sum, entry) => sum + (entry.volumeKg ?? 0), 0)),

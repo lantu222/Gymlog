@@ -507,4 +507,60 @@ module.exports = [
       });
     },
   },
+  {
+    // Eval matrix, 2026-09-28: back after six weeks at 60 kg instead of 70,
+    // the context said "first time at 60 kg" and it read as a new level.
+    name: 'a session lighter than the time before says so instead of calling it a first',
+    run() {
+      const out = buildAiCoachSystemContext(
+        baseContext({
+          lastSession: {
+            day: '2026-09-26',
+            name: 'Upper',
+            previousSameName: { day: '2026-08-13', volumeKg: null },
+            exercises: [
+              {
+                name: 'Bench Press',
+                sets: [{ weightKg: 60, reps: 8 }],
+                previous: { day: '2026-08-13', sets: [{ weightKg: 70, reps: 8 }] },
+                sessionsAtThisWeight: 1,
+              },
+            ],
+            truncated: false,
+          },
+        }),
+        'en',
+      );
+      assert.ok(out.includes('lighter than the time before (70 kg)'), out);
+      assert.ok(!out.includes('first time at 60 kg'), out);
+    },
+  },
+  {
+    // Review, 2026-09-28: "the time before" is the lift's last log on any day;
+    // the streak is this day's. A light day moving up is not a drop.
+    name: 'a light day moving up is a first, even when the heavier day came in between',
+    run() {
+      const out = buildAiCoachSystemContext(
+        baseContext({
+          lastSession: {
+            day: '2026-09-26',
+            name: 'Day B',
+            previousSameName: { day: '2026-09-19', volumeKg: null },
+            exercises: [
+              {
+                name: 'Bench Press',
+                sets: [{ weightKg: 80, reps: 8 }],
+                previous: { day: '2026-09-23', sets: [{ weightKg: 100, reps: 5 }] },
+                sessionsAtThisWeight: 1,
+              },
+            ],
+            truncated: false,
+          },
+        }),
+        'en',
+      );
+      assert.ok(out.includes('first time at 80 kg in this session'), out);
+      assert.ok(!out.includes('lighter than the time before'), out);
+    },
+  },
 ];

@@ -158,6 +158,20 @@ export interface AICoachHistoryLift {
   weightSeriesKg: number[];
 }
 
+export interface AICoachHistoryRepsLift {
+  name: string;
+  sessions: number;
+  spanDays: number;
+  /** Reps per set in the first session of the window. */
+  firstReps: number[];
+  /** Reps per set in the latest session. */
+  latestReps: number[];
+  /** Most reps in one set per session, oldest first. */
+  bestSetRepsSeries: number[];
+  /** Consecutive most-recent sessions at the latest best-set reps. */
+  unchangedSessions: number;
+}
+
 export interface AICoachHistoryWeek {
   /** Monday of the week, local YYYY-MM-DD. */
   weekStart: string;
@@ -197,6 +211,11 @@ export interface AICoachHistory {
   sessions: AICoachHistorySession[];
   /** Most-trained lift first. Capped. */
   lifts: AICoachHistoryLift[];
+  /**
+   * Lifts logged with no added load, whose progress is reps. Absent from
+   * clients older than 2026-09-28, so the endpoint reads it as optional.
+   */
+  repsLifts?: AICoachHistoryRepsLift[];
   weeks: AICoachHistoryWeek[];
   schedule: AICoachHistorySchedule | null;
   /** True when older sessions were dropped to keep the payload small. */

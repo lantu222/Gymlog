@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 
 const { buildAiCoachSystemContext } = require('../../.test-dist/lib/aiCoachSystemContext.js');
+const { normalizeAiCoachTrainingContext } = require('../../.test-dist/lib/aiTrainingContext.js');
 
 function history(overrides = {}) {
   return {
@@ -372,6 +373,79 @@ module.exports = [
       assert.ok(out.includes('## Schedule'));
       assert.ok(out.includes('2x/week on mon, thu'));
       assert.ok(out.includes('5 done of 8 planned'));
+    },
+  },
+  {
+    // Eval matrix, 2026-09-28: the coach quoted a 58.75 kg record as 58.8.
+    name: 'a 1.25 kg plate step keeps both decimals in the lift trajectory',
+    run() {
+      const out = buildAiCoachSystemContext(
+        baseContext({
+          history: history({
+            lifts: [{
+              name: 'Bench Press', sessions: 3, firstWeightKg: 56.25, latestWeightKg: 58.75, latestReps: 5,
+              bestWeightKg: 58.75, changeKg: 2.5, spanDays: 4, stalledSessions: 1, weightSeriesKg: [56.25, 57.5, 58.75],
+            }],
+          }),
+        }),
+      );
+      assert.ok(out.includes('top sets 56.25 → 57.5 → 58.75 | latest 58.75 kg x 5'), out);
+      assert.ok(!out.includes('58.8'), out);
+    },
+  },
+  {
+    name: 'a bodyweight lift reads as reps, survives the endpoint re-parse, and a week of it is not "0 kg"',
+    run() {
+      const posted = {
+        ...baseContext(),
+        history: history({
+          repsLifts: [{
+            name: 'Pull Up', sessions: 4, spanDays: 9, firstReps: [5, 5, 4], latestReps: [8, 8, 7],
+            bestSetRepsSeries: [5, 6, 8, 8], unchangedSessions: 2,
+          }],
+          weeks: [{ weekStart: '2026-07-20', sessions: 2, volumeKg: 0, plannedSessions: 2 }],
+        }),
+      };
+      // What the endpoint does to a posted context before rendering it.
+      const out = buildAiCoachSystemContext(normalizeAiCoachTrainingContext(posted));
+      assert.ok(
+        out.includes('- Pull Up (no added load): best set +3 reps over 9 days | best set per session 5 → 6 → 8 → 8 | first 5, 5, 4 | latest 8, 8, 7'),
+        out,
+      );
+      assert.match(out, /- week of 2026-07-20: 2\/2 planned$/m);
+      assert.ok(!out.includes('| 0 kg'), out);
+    },
+  },
+  {
+    // Review, 2026-09-28: shedding keeps the last eight points of the series,
+    // and the change used to be read off the first of those.
+    name: 'a shed rep series still reports the change from the first session',
+    run() {
+      const out = buildAiCoachSystemContext(
+        baseContext({
+          history: history({
+            repsLifts: [{
+              name: 'Pull Up', sessions: 12, spanDays: 40, firstReps: [5, 5, 4], latestReps: [10, 9, 9],
+              bestSetRepsSeries: [7, 7, 8, 8, 9, 9, 10, 10], unchangedSessions: 2,
+            }],
+          }),
+        }),
+      );
+      assert.ok(out.includes('best set +5 reps over 40 days'), out);
+    },
+  },
+  {
+    name: 'an older client with no rep trajectories, or a malformed one, renders without them',
+    run() {
+      const old = buildAiCoachSystemContext(normalizeAiCoachTrainingContext({ ...baseContext(), history: history() }));
+      assert.ok(!old.includes('no added load'));
+      const junk = buildAiCoachSystemContext(
+        normalizeAiCoachTrainingContext({
+          ...baseContext(),
+          history: history({ repsLifts: [{ name: 'Dip', bestSetRepsSeries: [] }, 'x', null] }),
+        }),
+      );
+      assert.ok(!junk.includes('Dip'), junk);
     },
   },
 ];

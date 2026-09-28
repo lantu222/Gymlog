@@ -178,11 +178,14 @@ export function scoreCase(evalCase: AiCoachEvalCase, advice: AICoachAdvice): Eva
   }
 
   // 2. The figures a good answer has to reach for.
+  // A Finnish answer writes 87,5 where the case says 87.5; both are the figure.
+  const decimalPoints = (text: string) => text.replace(/(\d),(\d)/g, '$1.$2');
   for (const figure of evalCase.mustCite ?? []) {
+    const cited = contains(decimalPoints(answer), decimalPoints(figure));
     checks.push({
       check: `cites:${figure}`,
-      passed: contains(answer, figure),
-      detail: contains(answer, figure) ? 'present' : `missing "${figure}"`,
+      passed: cited,
+      detail: cited ? 'present' : `missing "${figure}"`,
     });
   }
 
