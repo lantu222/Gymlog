@@ -9,12 +9,15 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 
 import { CoachReadoutTicker } from '../components/CoachReadoutTicker';
+import { CoachReportSheet } from '../components/CoachReportSheet';
 import { ProgrammeProposalCard } from '../components/ProgrammeProposalCard';
 import { ProLockedCard } from '../components/ProLockedCard';
-import { requestAiCoachAdvice } from '../lib/aiCoachClient';
+import { reportAiCoachAnswer, requestAiCoachAdvice } from '../lib/aiCoachClient';
+import { CoachReportReason } from '../lib/coachAnswerReport';
 import { trackEvent } from '../features/analytics/analyticsClient';
 import { buildAiCoachPreviewAnswer } from '../lib/aiCoachPreview';
 import { classifyCoachScope } from '../lib/aiCoachScope';
@@ -194,6 +197,17 @@ export interface ChatMessage {
   text: string;
   /** The coach's structured answer, rendered as sections rather than prose. */
   advice?: AICoachAdvice;
+  /**
+   * Written by the model, not the canned offline text — the answers Play's
+   * AI-generated content policy says a reader must be able to report.
+   */
+  generated?: boolean;
+  /**
+   * Set once a report of this answer has arrived. On the message rather than
+   * in the screen's state, so the mark survives the thread being resumed from
+   * memory when the tab is opened again.
+   */
+  reported?: boolean;
   /** An offer with buttons: log the reading, put its card on Home, or save the stated goal. */
   offer?:
     | { type: 'log'; intent: MeasurementIntent }
@@ -322,6 +336,9 @@ export function AICoachChatScreen({
   const resumed = useRef(resumeCoachChat(memory, new Date().toISOString())).current;
   const [messages, setMessages] = useState<ChatMessage[]>(resumed?.messages ?? []);
   const [asking, setAsking] = useState(false);
+  // The answer whose report sheet is open.
+  const [reportingId, setReportingId] = useState<string | null>(null);
+  const sheetInsets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView | null>(null);
   const askToken = useRef(0);
   /**
@@ -1107,6 +1124,7 @@ export function AICoachChatScreen({
             fromCoach: true,
             text: reply || answer.takeaway,
             advice: answer,
+            generated: result.source !== 'preview',
             ...(fellBackToPreview ? { evidence: t(language, 'coachChat.offlineAnswer') } : {}),
           },
           ...(suggestedOffer ? [suggestedOffer] : []),
@@ -1489,6 +1507,21 @@ export function AICoachChatScreen({
                         ))
                     : null}
                   {message.evidence ? <Text style={styles.evidence}>{message.evidence}</Text> : null}
+                  {message.fromCoach && message.advice && message.generated ? (
+                    message.reported ? (
+                      <Text style={[styles.reportTap, styles.reportLink]}>{t(language, 'coachChat.report.done')}</Text>
+                    ) : (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={t(language, 'coachChat.report.title')}
+                        hitSlop={10}
+                        onPress={() => setReportingId(message.id)}
+                        style={({ pressed }) => [styles.reportTap, pressed && styles.pressed]}
+                      >
+                        <Text style={styles.reportLink}>{t(language, 'coachChat.report.link')}</Text>
+                      </Pressable>
+                    )
+                  ) : null}
                 </View>
               </View>
             ),
@@ -1633,6 +1666,27 @@ export function AICoachChatScreen({
           )}
         </View>
       </View>
+      <CoachReportSheet
+        visible={reportingId !== null}
+        language={language}
+        bottomInset={sheetInsets.bottom}
+        onClose={() => setReportingId(null)}
+        onSend={async (reason: CoachReportReason) => {
+          const reported = messages.find((message) => message.id === reportingId);
+          if (!reported?.advice) {
+            return false;
+          }
+          const arrived = await reportAiCoachAnswer(reason, reported.advice);
+          if (arrived) {
+            // Marked only once the server said the report arrived.
+            setMessages((current) =>
+              current.map((message) => (message.id === reported.id ? { ...message, reported: true } : message)),
+            );
+            setReportingId(null);
+          }
+          return arrived;
+        }}
+      />
     </View>
   );
 }
@@ -2072,6 +2126,21 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
     lineHeight: 22.5,
+  },
+  // A 44 pt target around small text: the link is quiet, not hard to hit.
+  reportTap: {
+    alignSelf: 'flex-end',
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    marginTop: 2,
+    marginRight: -8,
+    marginBottom: -12,
+  },
+  reportLink: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: theme.muted,
   },
   evidence: {
     marginTop: 11,
