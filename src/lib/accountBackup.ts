@@ -210,6 +210,13 @@ export interface RestoreChoiceSummary {
   cloud: AccountBackupSummary;
   local: BackupContents & { workoutInProgress: boolean };
   keepingLocalShrinksCloud: boolean;
+  /**
+   * The phone's data was logged while another Google account was signed in
+   * (uploadNeedsConsent). The question then says so, offers the reader's own
+   * backup first, and always asks twice before that backup is replaced
+   * (user decision, 2026-09-28).
+   */
+  localFromOtherAccount: boolean;
 }
 
 export function describeRestoreChoice(
@@ -217,6 +224,7 @@ export function describeRestoreChoice(
   local: AppDatabase,
   liveSession: boolean,
   localHistory: WorkoutHistoryStore,
+  localFromOtherAccount = false,
 ): RestoreChoiceSummary {
   return {
     cloud: describeAccountBackup(payload),
@@ -225,6 +233,7 @@ export function describeRestoreChoice(
       countBackup(local, localHistory),
       countBackup(payload.database, payload.workoutHistory),
     ),
+    localFromOtherAccount,
   };
 }
 

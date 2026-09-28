@@ -83,6 +83,27 @@ export function restoreQuestionCopy(summary: RestoreChoiceSummary, language: App
     cloudContents: contentsList(summary.cloud, language),
     localContents: contentsList(summary.local, language),
   };
+  if (summary.localFromOtherAccount) {
+    // The phone's data is another Google account's (user decision,
+    // 2026-09-28): the question says whose, the reader's own backup is the
+    // first answer, and keeping the phone's data is always asked twice —
+    // it replaces the reader's own copy with someone else's log.
+    return {
+      title: t(language, 'account.restore.other.title'),
+      body: t(language, 'account.restore.other.body', {
+        date: formatDateNumeric(new Date(summary.cloud.exportedAt), language),
+        ...contents,
+      }),
+      keepLocal: t(language, 'account.restore.other.keepLocal'),
+      useBackup: t(language, 'account.restore.other.useBackup'),
+      replace: {
+        title: t(language, 'account.restore.other.replace.title'),
+        body: t(language, 'account.restore.other.replace.body', contents),
+        confirm: t(language, 'account.restore.replace.confirm'),
+        back: t(language, 'common.back'),
+      },
+    };
+  }
   return {
     title: t(language, 'account.restore.title'),
     body: t(language, 'account.restore.body', {

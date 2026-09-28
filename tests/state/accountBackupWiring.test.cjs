@@ -143,7 +143,9 @@ module.exports = [
       // Both sides of the question counted per store, the history included.
       assert.match(
         accountHook,
-        /describeRestoreChoice\(\s*payload,\s*latestRef\.current\.database,\s*latestRef\.current\.liveSession,\s*latestRef\.current\.workoutHistory,\s*\)/,
+        // …and whether the phone's side is another account's (user decision
+        // 2026-09-28).
+        /describeRestoreChoice\(\s*payload,\s*latestRef\.current\.database,\s*latestRef\.current\.liveSession,\s*latestRef\.current\.workoutHistory,\s*localFromOtherAccount,\s*\)/,
       );
 
       const appProvider = read('src', 'state', 'AppProvider.tsx');

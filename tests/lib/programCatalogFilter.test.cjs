@@ -39,6 +39,9 @@ module.exports = [
       assert.equal(matchesCatalogQuery(finnish, query({ search: 'yla' })), true);
       assert.equal(matchesCatalogQuery(finnish, query({ search: 'ylaselan' })), true);
       assert.equal(matchesCatalogQuery(finnish, query({ search: 'yläselän' })), true);
+      // Recheck of #222: "ä" typed as a + a combining diaeresis (NFD), as
+      // some keyboards write it, folds the same as the one-character "ä".
+      assert.equal(matchesCatalogQuery(finnish, query({ search: 'yla\u0308sela\u0308n' })), true);
       assert.equal(
         matchesCatalogQuery(row('ppl', 'Push-Pull-Legs', 'beginner', ['muscle']), query({ search: 'push pull' })),
         true,

@@ -59,6 +59,40 @@ function usedInstall(language) {
 
 module.exports = [
   {
+    // Recheck of #221: the reset blob was written, and the old preferences
+    // key removed four writes later. A kill in between laid the old
+    // preferences — setup done, the old language — over the reset data.
+    name: 'reset: the reset preferences land with the reset blob, so a kill right after cannot bring the old ones back',
+    async run() {
+      const fake = createFakeAsyncStorage();
+      const database = loadDatabaseModule(fake, 'fi_FI');
+      const before = usedInstall('fi');
+      await database.saveDatabase(before);
+      await database.savePreferences(before.preferences);
+
+      // Kill the process after the first write of the reset: every later
+      // call throws, as a dead process writes nothing more.
+      const alive = { ...fake };
+      let writes = 0;
+      for (const method of ['setItem', 'removeItem', 'multiSet', 'multiRemove']) {
+        const real = fake[method];
+        fake[method] = async (...args) => {
+          writes += 1;
+          if (writes > 1) {
+            throw new Error('killed');
+          }
+          return real.apply(fake, args);
+        };
+      }
+      await assert.rejects(database.resetDatabase(before.preferences));
+      Object.assign(fake, { setItem: alive.setItem, removeItem: alive.removeItem, multiSet: alive.multiSet, multiRemove: alive.multiRemove });
+
+      const reloaded = await database.loadDatabase();
+      assert.equal(reloaded.workoutSessions.length, 0, 'the reset blob did not land first');
+      assert.equal(reloaded.preferences.onboardingCompleted, false, 'the old preferences were laid over the reset data');
+    },
+  },
+  {
     name: 'reset: the trial, the membership and the meters stay with the install',
     async run() {
       const fake = createFakeAsyncStorage();

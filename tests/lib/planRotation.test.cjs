@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 
-const { resolveNextPlanEntryIndex } = require('../../.test-dist/lib/planRotation.js');
+const { planTrainedOnDay, resolveNextPlanEntryIndex } = require('../../.test-dist/lib/planRotation.js');
 
 const ENTRIES = [
   { workoutTemplateId: 'tpl', workoutTemplateSessionId: 's1' },
@@ -81,6 +81,20 @@ module.exports = [
         { workoutTemplateId: 'other', workoutTemplateSessionId: null },
       ];
       assert.equal(resolveNextPlanEntryIndex(entries, [logged('anything', '2026-08-10T10:00:00.000Z')]), 1);
+    },
+  },
+  {
+    // Recheck of #224: the forecast read any workout logged today, of any
+    // programme, as this plan trained.
+    name: 'plan rotation: trained today means a session this plan counts, logged today',
+    run() {
+      const today = new Date(2026, 8, 28).getTime();
+      const at = (hour) => new Date(2026, 8, 28, hour).toISOString();
+      const other = { workoutTemplateId: 'someone_else', workoutTemplateSessionId: 'x', performedAt: at(9) };
+      assert.equal(planTrainedOnDay(ENTRIES, [other], today), false, 'another programme counted as this one');
+      assert.equal(planTrainedOnDay(ENTRIES, [logged('s2', at(18))], today), true);
+      assert.equal(planTrainedOnDay(ENTRIES, [logged('s2', new Date(2026, 8, 27, 23).toISOString())], today), false, 'yesterday counted as today');
+      assert.equal(planTrainedOnDay(ENTRIES, [logged('s2', 'not a date')], today), false);
     },
   },
 ];

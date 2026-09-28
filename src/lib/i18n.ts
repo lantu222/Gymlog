@@ -464,6 +464,7 @@ const EN = {
   // A programme with a workout of it running is not deleted: the workout
   // would have nowhere to be saved to (see lib/programmeDeletion).
   'toast.programDeleteWorkoutRunning': 'A workout of this program is in progress — save or discard it first',
+  'toast.programEditWorkoutRunning': 'A workout of this program is in progress — edit the program once it is saved',
   'export.log.tooBig': 'The log could not be handed over — it has grown past what a share can carry. Export your programme instead, and tell us: we will add a file export.',
   'toast.entrySaveFailed': 'Could not save that entry',
   // After Reset, when the server did not confirm deleting the coach's kept
@@ -1696,6 +1697,15 @@ const EN = {
   'account.restore.replace.body':
     'The backup holds {cloudContents}. It is replaced by the data on this phone ({localContents}), and everything only the backup has is lost.',
   'account.restore.replace.confirm': 'Replace backup',
+  // The phone's data is another Google account's (user decision 2026-09-28).
+  'account.restore.other.title': 'This phone holds another account’s data',
+  'account.restore.other.body':
+    'The data on this phone ({localContents}) was logged while another Google account was signed in. Your account has its own backup from {date}: {cloudContents}. Which one do you keep? The other is replaced.',
+  'account.restore.other.useBackup': 'Restore my own backup',
+  'account.restore.other.keepLocal': 'Use the phone’s data',
+  'account.restore.other.replace.title': 'Replace your own backup?',
+  'account.restore.other.replace.body':
+    'Your backup ({cloudContents}) is replaced by the other account’s data ({localContents}), and everything only your backup has is lost.',
   'account.restore.restored': 'Backup restored',
   'account.restore.failed': 'Could not restore the backup. Nothing on this phone changed.',
   // The phone was last signed in to another account and still holds its data
@@ -3678,6 +3688,7 @@ const FI: Record<I18nKey, string> = {
   'toast.deleteFailed': 'Treeniä ei voitu poistaa',
   'toast.entryDeleteFailed': 'Merkintää ei voitu poistaa — se on takaisin listassa',
   'toast.programDeleteWorkoutRunning': 'Tämän ohjelman treeni on kesken — tallenna tai hylkää se ensin',
+  'toast.programEditWorkoutRunning': 'Tämän ohjelman treeni on kesken — muokkaa ohjelmaa, kun treeni on tallennettu',
   'export.log.tooBig': 'Lokia ei saatu luovutettua — se on kasvanut isommaksi kuin jako pystyy kantamaan. Vie ohjelmasi sen sijaan ja kerro meille: lisäämme tiedostoviennin.',
   'toast.entrySaveFailed': 'Merkintää ei voitu tallentaa',
   'toast.resetCoachCopiesPending': 'Tiedot tyhjennetty. Valmentajan säilyttämiä kopioita ei voitu vielä poistaa — sovellus yrittää uudelleen.',
@@ -4801,6 +4812,14 @@ const FI: Record<I18nKey, string> = {
   'account.restore.replace.body':
     'Varmuuskopiossa on {cloudContents}. Se korvataan tämän puhelimen tiedoilla ({localContents}), ja kaikki, mikä on vain varmuuskopiossa, menetetään.',
   'account.restore.replace.confirm': 'Korvaa varmuuskopio',
+  'account.restore.other.title': 'Puhelimessa on toisen tilin tiedot',
+  'account.restore.other.body':
+    'Puhelimen tiedot ({localContents}) kirjattiin, kun puhelimessa oli kirjautuneena toinen Google-tili. Tililläsi on oma varmuuskopio {date}: {cloudContents}. Kumman pidät? Toinen korvataan.',
+  'account.restore.other.useBackup': 'Palauta oma varmuuskopioni',
+  'account.restore.other.keepLocal': 'Käytä puhelimen tietoja',
+  'account.restore.other.replace.title': 'Korvataanko oma varmuuskopiosi?',
+  'account.restore.other.replace.body':
+    'Varmuuskopiosi ({cloudContents}) korvataan toisen tilin tiedoilla ({localContents}), ja kaikki mikä on vain varmuuskopiossasi katoaa.',
   'account.restore.restored': 'Varmuuskopio palautettu',
   'account.restore.failed': 'Varmuuskopiota ei voitu palauttaa. Puhelimen tiedot eivät muuttuneet.',
   'account.confirmUpload.title': 'Varmuuskopioidaanko puhelimen tiedot?',

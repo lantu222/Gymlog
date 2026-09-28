@@ -116,6 +116,12 @@ export interface ProgressionGateInput {
   fatigueSignal?: ProgressionFatigueSignal;
   /** Bodyweight exercises accumulate reps; load never moves. */
   trackingMode?: string;
+  /**
+   * The caller's clock. Only the early jump reads it: a single session is its
+   * whole case, so there is no session before it for the break rule to see.
+   * Absent, no early jump.
+   */
+  nowMs?: number;
 }
 
 const GAP_DAYS = 7;
@@ -191,9 +197,18 @@ export function evaluateProgression(input: ProgressionGateInput): ProgressionDec
   if (history.length < params.minSessions) {
     // Short of the baseline, one exception: a weight so light that every
     // set went well past the ceiling. The holds below still apply to it.
-    const early =
-      params.earlyJumpRepsOver !== null &&
+    // And only off a recent session. The break rule needs a session before
+    // this one, which a single session never has, so a first session months
+    // old moved the load as if it were last week (recheck of #223,
+    // 2026-09-28). Within the same week, as the break rule counts.
+    const recent =
+      typeof input.nowMs === 'number' &&
+      Number.isFinite(input.nowMs) &&
       history.length >= 1 &&
+      !isAtLeastDaysBefore(history[0].performedAt, new Date(input.nowMs).toISOString(), GAP_DAYS);
+    const early =
+      recent &&
+      params.earlyJumpRepsOver !== null &&
       clearsCeilingBy(history[0], repsMax, targetSets, params.earlyJumpRepsOver);
     if (!early) {
       return { recommendation: 'silent' };

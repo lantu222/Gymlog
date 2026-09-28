@@ -1497,16 +1497,18 @@ export async function resetDatabase(
       pendingAiLogDeletions: withPendingAiLogDeletion(kept.pendingAiLogDeletions, device.aiLogId),
     },
   });
-  await saveDatabase(empty);
+  // The preferences key goes in the blob's own transaction. It used to be
+  // removed four writes later, and a kill in between left the old language,
+  // theme and "setup done" laid over the reset data by the next load
+  // (recheck of #221, 2026-09-28). Overwritten with the reset preferences
+  // instead, in the same write, so there is no gap to land in.
+  await saveDatabase(empty, { withPreferences: true });
   // Reset has to mean reset: leaving the pre-rename blob behind would let it
   // come back if the new key were ever cleared on its own. The quarantined copy
   // goes for a second reason — somebody who asks for their data to be erased is
   // not asking for a copy of it to survive under another name.
   await AsyncStorage.removeItem(LEGACY_STORAGE_KEY);
   await removeLargeItem(CORRUPT_STORAGE_KEY);
-  // The preferences key outlives the blob otherwise, and a reset that leaves
-  // the old language and theme behind is not the reset that was asked for.
-  await AsyncStorage.removeItem(PREFERENCES_STORAGE_KEY);
   // And the coach's memory, on its own key for backup reasons but erased by
   // the same request: "delete my data" cannot leave behind what the coach was
   // told to remember about the person asking.

@@ -193,7 +193,7 @@ import {
 } from './src/lib/season';
 import { suggestHomeStatCardKeys } from './src/lib/homeCardSuggestions';
 import { isMeasurementCardKey } from './src/lib/homeStatCards';
-import { resolveNextPlanEntryIndex } from './src/lib/planRotation';
+import { planTrainedOnDay, resolveNextPlanEntryIndex } from './src/lib/planRotation';
 import { alignHistoryToCopiedDays, programmeHistoryIds } from './src/lib/programLineage';
 import { cycleSchedule, trainsOn, weekdaySchedule, withRestDays } from './src/lib/trainingSchedule';
 import {
@@ -3269,6 +3269,15 @@ function VinhaApp() {
     // block it inherits, the record it replaces — follows the record
     // (CI review of #161).
     const wasHeld = database.workoutPlans.some((item) => item.id === readyPlanId);
+    // The copy replaces a held programme's record below (forgetHeldProgramme),
+    // and that is a delete like the other two: not while a workout of it is
+    // running. It freed the running slot mid-workout and the player's week
+    // line went with it (recheck of #222, 2026-09-28).
+    if (wasHeld && liveSessionBlocksProgrammeDelete(workout.activeSession, programId)) {
+      void haptics.error();
+      showToast(t(preferences.appLanguage, 'toast.programEditWorkoutRunning'));
+      return false;
+    }
     if (!programSlots.canCreate) {
       setProgramLimitVisible(true);
       return false;
@@ -4533,7 +4542,7 @@ function VinhaApp() {
       const sessionForecast = {
         fromDayStart: todayDayStart,
         nextSlot: nextSessionIndex,
-        trainedToday: completedForTemplate.some((session) => toDayStartMs(session.performedAt) === todayDayStart),
+        trainedToday: planTrainedOnDay(sortedEntries, completedForTemplate, todayDayStart),
       };
       // The reader's own answer wins for the day they gave it. The rotation
       // knows what comes next in the programme and cannot know that today is

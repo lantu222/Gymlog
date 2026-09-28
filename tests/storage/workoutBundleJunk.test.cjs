@@ -125,6 +125,24 @@ module.exports = [
       const { entriesForLift } = require(path.join(DIST, 'lib', 'exerciseHistoryLookup.js'));
       assert.deepEqual(entriesForLift('not a list', 'Bench Press'), []);
       assert.deepEqual(entriesForLift({ sets: [] }, 'Bench Press'), []);
+
+      // Recheck of #221: a sets list holding null, or a set without its
+      // numbers, passed the entry check and crashed the lookup inside it.
+      const goodSet = good.sets[0];
+      const withJunkSets = workout.normalizeWorkoutBundle(
+        onDisk({
+          activeSession: null,
+          history: {
+            ...history,
+            slotHistory: {
+              'tpl_x:upper_a:bench': [{ ...good, sets: [null, goodSet, { setIndex: 1, reps: 'eight' }, { loadKg: 80 }, 5] }],
+            },
+          },
+          activeCardio: null,
+          freestyleDraft: null,
+        }),
+      );
+      assert.deepEqual(onDisk(withJunkSets.history.slotHistory['tpl_x:upper_a:bench'][0].sets), [goodSet]);
     },
   },
   {
