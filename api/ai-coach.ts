@@ -205,7 +205,7 @@ const AI_COACH_RESPONSE_SCHEMA = {
     example: {
       type: 'string',
       description:
-        'For last_session only: one concrete line for the next session of one lift, its numbers copied from that lift\'s "next time" in the context ("Pidä 50 kg ja tavoittele 7/7/7"). Empty when the context gives no "next time" for the lift you would pick. Never compute the numbers yourself.',
+        'For last_session only: one concrete line for the next session of one lift, its numbers copied from that lift\'s "next time" in the context, in the reader\'s language ("Hold 50 kg and aim for 7/7/7"; in Finnish "Pidä 50 kg ja tavoittele 7/7/7"). Empty when the context gives no "next time" for the lift you would pick. Never compute the numbers yourself.',
     },
     unanswered: {
       type: 'boolean',
@@ -305,9 +305,9 @@ const COACH_SYSTEM_RULES = [
   '- `takeaway` is the observation: what that lift did compared with the time before — went up, held or fell. Not the total volume, and not a comparison with a different day.',
   '- `why`: at most three short facts about that lift, each from its Last session line.',
   '- A line compares this session with the time before, once. "N of this session in a row at X kg" counts sessions at that weight, not drops: never write that a lift fell again, twice or N times in a row — the context shows one comparison, not a run of them.',
-  '- `nextSteps`: one sentence on how to approach that lift next time — the focus or the reason ("anna uuden painon vakiintua ennen seuraavaa nostoa"), with no kg or rep figure; the figures belong to `example`. A step that repeats the example is removed before the reader sees it.',
+  '- `nextSteps`: one sentence on how to approach that lift next time — the focus or the reason, in the reader\'s language ("let the new weight settle before the next jump"; in Finnish "anna uuden painon vakiintua ennen seuraavaa nostoa"), with no kg or rep figure; the figures belong to `example`. A step that repeats the example is removed before the reader sees it.',
   '- `attention`: only when something needs a warning — a set at least 2 reps below the set before it, or at least 2 reps below the same set the time before. One rep lower is ordinary fatigue, not a warning. The one place another lift may appear. Name the lift and the set, and give one thing that could fix it (for example 30 s more rest). Otherwise empty; most answers have none.',
-  '- `example`: one line for that lift\'s next session, with the numbers from its "next time" in the context, written the way a coach says it ("Pidä 50 kg ja tavoittele 7/7/7"). Empty when the context gives no "next time" for it. Do not repeat the example in `nextSteps`.',
+  '- `example`: one line for that lift\'s next session, with the numbers from its "next time" in the context, written the way a coach says it, in the reader\'s language ("Hold 50 kg and aim for 7/7/7"; in Finnish "Pidä 50 kg ja tavoittele 7/7/7"). A Finnish-only example came back word for word in English answers (live, 2026-09-28). Empty when the context gives no "next time" for it. Do not repeat the example in `nextSteps`.',
   '',
   '# When you cannot answer',
   '- A coach asks before advising. When the context does not hold what an accurate answer needs, do not guess and do not fall back on a generic answer: ask exactly one short follow-up question, put that question in `takeaway`, leave `why`, `nextSteps`, `plan` and `assumptions` empty, and set `unanswered` to true.',
