@@ -684,6 +684,25 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
           }
           expectedVersion = remote.ok ? remote.version : null;
         }
+        // This account's first backup, onto no copy, from a phone last signed
+        // in to another account: not sent unattended. Sign-in could not ask
+        // when the server was unreachable, and this retry used to send the
+        // other account's log once the network came back (CI review of #221).
+        // Held until the reader's own "Back up now", which asks.
+        if (!interactive && !current.lastBackupAt && expectedVersion === null) {
+          const signedOutSub = await loadSignedOutAccount();
+          ensureCurrent(generation);
+          if (
+            uploadNeedsConsent({
+              signedOutSub,
+              sub: current.sub,
+              localWorthKeeping: hasLocalDataWorthKeeping(latestRef.current.database, latestRef.current.liveSession),
+            })
+          ) {
+            await persistAccount({ ...current, autoBackupPaused: true });
+            return { kind: 'failed' };
+          }
+        }
         const uploaded = await uploadCurrent(idToken, current, generation, expectedVersion);
         if (uploaded !== 'changed') {
           return uploaded === 'done' ? { kind: 'backed_up' } : { kind: 'failed' };

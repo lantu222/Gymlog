@@ -304,6 +304,29 @@ module.exports = [
     },
   },
   {
+    // CI review of #221: sign-in could not reach the server, so it could not
+    // ask; the automatic retry found no copy and uploaded A's log to B.
+    name: 'account hook: a switch signed in offline is not backed up unattended once the network returns, and "Back up now" asks',
+    async run() {
+      await withHook({ local: database({ workoutSessions: workouts(4) }) }, async (env) => {
+        const uploadsBefore = await switchToNewAccount(env);
+        env.server.downloadError = 'NETWORK';
+        assert.equal((await env.api.signIn()).kind, 'not_backed_up');
+        env.server.downloadError = null;
+
+        await env.edit((db) => ({ ...db, workoutSessions: [...db.workoutSessions, workout('later')] }));
+        await env.advance(QUIET_MS);
+        await env.foreground();
+        await env.advance(QUIET_MS);
+        assert.equal(env.calls.upload, uploadsBefore, "the automatic backup sent the other account's log");
+        assert.equal(env.store.account.autoBackupPaused, true);
+
+        assert.equal((await env.api.backUpOrAsk()).kind, 'confirm_upload');
+        assert.equal(env.calls.upload, uploadsBefore);
+      });
+    },
+  },
+  {
     name: 'account hook: "back it up" on the switch question uploads to the new account and lifts the hold',
     async run() {
       await withHook({ local: database({ workoutSessions: workouts(3) }) }, async (env) => {
