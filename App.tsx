@@ -4525,10 +4525,16 @@ function VinhaApp() {
       });
       // Was `homeSessions[0]`, always. Finishing day 1 offered day 1 again,
       // and the start button logged the wrong session against the plan.
-      const nextSessionIndex = resolveNextPlanEntryIndex(
-        sortedEntries,
-        completedSessionsForTemplate(firstEntry.workoutTemplateId, completedPlanSessions),
-      );
+      const completedForTemplate = completedSessionsForTemplate(firstEntry.workoutTemplateId, completedPlanSessions);
+      const nextSessionIndex = resolveNextPlanEntryIndex(sortedEntries, completedForTemplate);
+      // Where the rotation stands, for the calendars: they name days from here
+      // on by what Home will offer, not by counting calendar days
+      // (trainingSchedule forecastSlotOn).
+      const sessionForecast = {
+        fromDayStart: todayDayStart,
+        nextSlot: nextSessionIndex,
+        trainedToday: completedForTemplate.some((session) => toDayStartMs(session.performedAt) === todayDayStart),
+      };
       // The reader's own answer wins for the day they gave it. The rotation
       // knows what comes next in the programme and cannot know that today is
       // legs — but it is right again tomorrow, so the override is dated rather
@@ -4648,6 +4654,7 @@ function VinhaApp() {
           // widget needs the difference: a pick makes today a training day,
           // the rotation's next session does not.
           todayPickSessionId: pickedToday?.id ?? null,
+          sessionForecast,
 
           // The catalog lookup, not the DB one, but by SOURCE id for a copy:
           // a custom template carries no goal or level for affinity to
@@ -5734,6 +5741,7 @@ function VinhaApp() {
         completedDayStarts: widgetCompletedDayStarts,
         completedWorkoutDayStarts: widgetCompletedWorkoutDayStarts,
         sessions: homeActivePlanCard?.sessions ?? [],
+        sessionForecast: homeActivePlanCard?.sessionForecast ?? null,
         monthTotals: widgetMonthTotals,
         // Every workout ever, not a week streak: the 2x1 counts what you have
         // done, asked for on the home screen 2026-08-20.

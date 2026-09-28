@@ -155,6 +155,60 @@ export function sessionSlotOn(schedule: TrainingSchedule, date: Date): number | 
 }
 
 /**
+ * Where the rotation stands today: the slot Home's hero offers next
+ * (resolveNextPlanEntryIndex, by what was last trained) and whether this
+ * programme was already trained today.
+ */
+export interface SessionForecast {
+  /** Local midnight of today. */
+  fromDayStart: number;
+  /** Index into the plan's session list of the session Home offers next. */
+  nextSlot: number;
+  trainedToday: boolean;
+}
+
+/**
+ * Which session a day is shown with, as an index into the programme's list.
+ *
+ * From today on, the rotation Home's hero follows: the first training day not
+ * yet trained gets the session Home offers, and each training day after it
+ * the next one. `sessionSlotOn` counted by the calendar instead, so a missed
+ * day or a rest day on a training day left every later label one session off
+ * what the Start button then offered — the calendar said Legs, Home said Pull
+ * (break round, 2026-09-28). The rhythm still decides WHICH days train; only
+ * the names follow the rotation. Days before today, and a call with no
+ * forecast (the rhythm editor's preview), keep the calendar count.
+ */
+export function forecastSlotOn(schedule: TrainingSchedule, date: Date, forecast: SessionForecast | null): number | null {
+  const day = dayStartOf(date);
+  if (!forecast || day < forecast.fromDayStart) {
+    return sessionSlotOn(schedule, date);
+  }
+  if (forecast.trainedToday && day === forecast.fromDayStart) {
+    // Today's session is the one just done.
+    return forecast.nextSlot - 1;
+  }
+  if (!trainsOn(schedule, date)) {
+    return null;
+  }
+  // Training days from the first untrained day through this one, stepped by
+  // calendar date so a clock change cannot skip or repeat a day.
+  const cursor = new Date(forecast.fromDayStart);
+  if (forecast.trainedToday) {
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  let turn = 0;
+  // A year ahead is the most any calendar here asks for.
+  for (let guard = 0; guard < 400 && dayStartOf(cursor) <= day; guard += 1) {
+    if (trainsOn(schedule, cursor)) {
+      turn += 1;
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return forecast.nextSlot + turn - 1;
+}
+
+/**
  * How many training days a seven-day window holds, on average, for a rolling
  * cycle of `onDays` training and `offDays` rest.
  *

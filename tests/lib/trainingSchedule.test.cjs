@@ -3,12 +3,14 @@ const assert = require('node:assert/strict');
 const {
   cycleSchedule,
   cycleSessionsPerWeek,
+  forecastSlotOn,
   isScheduleKnown,
   patternFromOnOff,
   sessionSlotOn,
   trainsOn,
   UNKNOWN_SCHEDULE,
   weekdaySchedule,
+  withRestDays,
 } = require('../../.test-dist/lib/trainingSchedule.js');
 const { planWeekdayIndexes } = require('../../.test-dist/lib/programTrainingDays.js');
 const { planLabelsForProgramme } = require('../../.test-dist/lib/trainingWeekSync.js');
@@ -201,6 +203,62 @@ module.exports = [
       const pattern = patternFromOnOff(3, 2);
       const ratio = (pattern.filter(Boolean).length / pattern.length) * 7;
       assert.equal(cycleSessionsPerWeek(3, 2), ratio);
+    },
+  },
+{
+    // Break round, 2026-09-28: a rest day on a training day of a 2-on-1-off
+    // rhythm, and every later label was one session off what Start offered.
+    name: 'forecast: after a rest day on a training day, the next training day is the session Home offers',
+    run() {
+      const midnight = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+      // Jan 1 anchor: 1 Push, 2 Pull, 3 rest, 4 Legs, 5 Push ... by the calendar.
+      const rhythm = cycleSchedule([true, true, false], midnight(on(2026, 1, 1)));
+      const withRest = withRestDays(rhythm, [midnight(on(2026, 1, 2))]);
+      // Push trained on the 1st; today is the 2nd, taken off. Home offers Pull.
+      const forecast = { fromDayStart: midnight(on(2026, 1, 2)), nextSlot: 1, trainedToday: false };
+      assert.equal(forecastSlotOn(withRest, on(2026, 1, 2), forecast), null, 'the rest day trains');
+      assert.equal(forecastSlotOn(withRest, on(2026, 1, 3), forecast), null, 'the rhythm\'s own rest day trains');
+      assert.equal(forecastSlotOn(withRest, on(2026, 1, 4), forecast), 1, 'Pull is not the next training day\'s session');
+      assert.equal(forecastSlotOn(withRest, on(2026, 1, 5), forecast), 2);
+      // The calendar count, for contrast: it says Legs on the 4th.
+      assert.equal(sessionSlotOn(withRest, on(2026, 1, 4)), 2);
+    },
+  },
+  {
+    name: 'forecast: a missed weekday moves the names along, today trained names today by what was done, and past days keep the calendar',
+    run() {
+      const midnight = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+      const monWedFri = weekdaySchedule([0, 2, 4]);
+      // Wednesday 7 Jan 2026. Monday was missed, so Home still offers slot 0.
+      const today = on(2026, 1, 7);
+      const forecast = { fromDayStart: midnight(today), nextSlot: 0, trainedToday: false };
+      assert.equal(forecastSlotOn(monWedFri, today, forecast), 0);
+      assert.equal(forecastSlotOn(monWedFri, on(2026, 1, 9), forecast), 1);
+      assert.equal(forecastSlotOn(monWedFri, on(2026, 1, 12), forecast), 2);
+      // Monday, before today: what the calendar always said.
+      assert.equal(forecastSlotOn(monWedFri, on(2026, 1, 5), forecast), sessionSlotOn(monWedFri, on(2026, 1, 5)));
+
+      // Trained today: the rotation already points past it.
+      const done = { fromDayStart: midnight(today), nextSlot: 1, trainedToday: true };
+      assert.equal(forecastSlotOn(monWedFri, today, done), 0, 'today is named by what was just done');
+      assert.equal(forecastSlotOn(monWedFri, on(2026, 1, 9), done), 1);
+
+      // No forecast: the calendar count, as the rhythm editor's preview wants.
+      assert.equal(forecastSlotOn(monWedFri, on(2026, 1, 9), null), sessionSlotOn(monWedFri, on(2026, 1, 9)));
+    },
+  },
+  {
+    name: 'forecast: counted by calendar day across the spring clock change',
+    run() {
+      const { withHelsinkiClocks } = require('../helpers/clockChange.cjs');
+      withHelsinkiClocks(() => {
+        const midnight = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+        const everyDay = cycleSchedule([true], midnight(on(2026, 3, 1)));
+        const forecast = { fromDayStart: midnight(on(2026, 3, 28)), nextSlot: 0, trainedToday: false };
+        // 28, 29 (23 hours), 30, 31: four training days, slots 0..3.
+        assert.equal(forecastSlotOn(everyDay, on(2026, 3, 29), forecast), 1);
+        assert.equal(forecastSlotOn(everyDay, on(2026, 3, 31), forecast), 3);
+      });
     },
   },
 ];

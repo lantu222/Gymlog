@@ -30,7 +30,7 @@ import { localDateKey } from './completedSessions';
 import { formatCompactVolume, formatDurationMinutes } from './format';
 import { getHomeDayView, getHomeMonthCalendar, getMondayFirstWeekdayLabels, HomeDaySessionSummary } from './homeCalendar';
 import { localizeSessionName } from './sessionNameLabel';
-import { isScheduleKnown, TrainingSchedule, trainsOn } from './trainingSchedule';
+import { isScheduleKnown, SessionForecast, TrainingSchedule, trainsOn } from './trainingSchedule';
 import { t } from './i18n';
 import { AppLanguage } from '../types/models';
 
@@ -201,6 +201,13 @@ export interface HomeWidgetInput {
   completedWorkoutDayStarts?: number[];
   sessions: HomeDaySessionSummary[];
   /**
+   * Where the rotation stands (App's plan card). From today on the widget
+   * names days by it, as Home's week strip does — a count of calendar days
+   * drifted one session off after any missed day (break round, 2026-09-28).
+   * Absent: the calendar's own mapping.
+   */
+  sessionForecast?: SessionForecast | null;
+  /**
    * This month's totals, from `getMonthTrainingTotals`. Absent means zeroes:
    * the stats are drawn either way, because a month with nothing in it is a
    * true answer and a blank column is not.
@@ -312,6 +319,7 @@ export function findHomeWidgetNextSession(input: {
   schedule: TrainingSchedule;
   sessions: HomeDaySessionSummary[];
   completedWorkoutDayStarts?: number[];
+  sessionForecast?: SessionForecast | null;
 }): HomeWidgetNextSession | null {
   const { nowMs, schedule, sessions } = input;
   if (!isScheduleKnown(schedule) || sessions.length === 0) {
@@ -343,6 +351,7 @@ export function findHomeWidgetNextSession(input: {
       },
       schedule,
       sessions,
+      input.sessionForecast ?? null,
     );
 
     if (view.kind !== 'training' || !view.session) {
@@ -363,6 +372,7 @@ function sessionForDate(
   date: Date,
   schedule: TrainingSchedule,
   sessions: HomeDaySessionSummary[],
+  forecast: SessionForecast | null,
 ): HomeDaySessionSummary | null {
   if (!isScheduleKnown(schedule) || sessions.length === 0) {
     return null;
@@ -381,6 +391,7 @@ function sessionForDate(
     },
     schedule,
     sessions,
+    forecast,
   );
 
   return view.kind === 'training' ? view.session : null;
@@ -575,7 +586,7 @@ export function buildHomeWidgetPayload(input: HomeWidgetInput): HomeWidgetPayloa
         offset === 0 && input.todaySessionId
           ? sessions.find((entry) => entry.id === input.todaySessionId) ?? null
           : null;
-      const session = picked ?? sessionForDate(date, schedule, sessions);
+      const session = picked ?? sessionForDate(date, schedule, sessions, input.sessionForecast ?? null);
       // "Is today a training day" stops being the question the moment the
       // training is done. The card said "Treeni" on an afternoon when the
       // calendar beside it had already gone green.

@@ -64,7 +64,23 @@ module.exports = [
 
       // Home's own strip goes through the same function, not its own modulo.
       const home = strip(read('src', 'screens', 'HomeScreen.tsx'));
-      assert.match(home, /return \{ date, session: sessionForSlot\(planSessions, sessionSlotOn\(trainingSchedule, date\)\) \};/);
+      // From today on it names days by the rotation Home offers (forecastSlotOn).
+      assert.match(
+        home,
+        /session: sessionForSlot\(planSessions, forecastSlotOn\(trainingSchedule, date, activePlan\?\.sessionForecast \?\? null\)\),/,
+      );
+
+      // Break round, 2026-09-28: Monday missed, Home still offers Push on
+      // Wednesday — and so does the widget, not the calendar's Wednesday slot.
+      const missedMonday = { fromDayStart: WEDNESDAY.getTime(), nextSlot: 0, trainedToday: false };
+      const forecastWidget = findHomeWidgetNextSession({
+        nowMs: WEDNESDAY.getTime(),
+        schedule: SCHEDULE,
+        sessions: SESSIONS,
+        sessionForecast: missedMonday,
+      });
+      assert.equal(forecastWidget.session.id, 's0');
+      assert.equal(forecastWidget.offset, 0);
       // The chips and what a screen reader hears come from the same walk: the
       // label was built from each session's next date and kept announcing
       // the empty day (CI review, 2026-09-26).
