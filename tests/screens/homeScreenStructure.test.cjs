@@ -448,7 +448,7 @@ module.exports = [
       // yesterday (2026-09-16).
       assert.match(
         appSource,
-        /resolveNextPlanEntryIndex\(\s*sortedEntries,\s*completedSessionsForTemplate\(firstEntry\.workoutTemplateId, completedPlanSessions\),\s*\)/,
+        /const completedForTemplate = completedSessionsForTemplate\(firstEntry\.workoutTemplateId, completedPlanSessions\);\s*const nextSessionIndex = resolveNextPlanEntryIndex\(sortedEntries, completedForTemplate\);/,
       );
       assert.match(appSource, /equipmentLabel: buildSessionEquipmentLabel\(/);
       assert.match(appSource, /totalSets: session\.exercises\.reduce/);
@@ -707,7 +707,13 @@ module.exports = [
       // strip lights its dots from — not the plan's stored weekday labels,
       // which survive a switch to a cycle untouched and kept saying MON/THU
       // under a six-day rotation (user, 2026-08-25).
-      assert.match(homeScreenSource, /sessionForSlot\(planSessions, sessionSlotOn\(trainingSchedule, date\)\)/);
+      // From today on the names follow the rotation the hero offers
+      // (forecastSlotOn, break round 2026-09-28); which days train is still
+      // the schedule's.
+      assert.match(
+        homeScreenSource,
+        /sessionForSlot\(planSessions, forecastSlotOn\(trainingSchedule, date, activePlan\?\.sessionForecast \?\? null\)\)/,
+      );
       assert.doesNotMatch(homeScreenSource, /resolveSessionWeekday|hasFixedWeekdays/);
       // The five day cards became a compact strip (design frame 15), and the
       // strip asks the SCHEDULE which session a date owns — the same walk the

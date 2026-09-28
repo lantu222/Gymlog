@@ -28,7 +28,14 @@ import { CardioIconKind, getCardioActivity } from '../lib/cardio';
 import { HomeStatCard } from '../lib/homeStatCards';
 import { VinhaIcon } from '../components/VinhaIcon';
 import { getHomeMiniCalendarDays, getHomeMonthCalendar, HomeDaySessionSummary, sessionForSlot } from '../lib/homeCalendar';
-import { isScheduleKnown, sessionSlotOn, TrainingSchedule, trainsOn, UNKNOWN_SCHEDULE } from '../lib/trainingSchedule';
+import {
+  forecastSlotOn,
+  isScheduleKnown,
+  SessionForecast,
+  TrainingSchedule,
+  trainsOn,
+  UNKNOWN_SCHEDULE,
+} from '../lib/trainingSchedule';
 import {
   getDefaultCooldown,
   getDefaultWarmup,
@@ -205,6 +212,10 @@ interface HomePlanCard {
   nextSession: HomeDaySessionSummary & {
     label: string;
   };
+  /** Where the rotation stands, so the week strip names days as Home will offer them. */
+  sessionForecast?: SessionForecast;
+  /** The reader's own answer for today, which the hero offers over the rotation. */
+  todayPickSessionId?: string | null;
 
   /**
    * Present only when the plan's block is finished and unanswered. The card
@@ -608,11 +619,29 @@ export function HomeScreen({
    * built separately from each session's next date, and after empty days
    * started handing their slot on it still announced "WED: Treeni 2" under a
    * chip reading Pull (CI review of audit 8, 2026-09-26).
+   *
+   * From today on the names follow the rotation the hero offers, not a count
+   * of calendar days: after a missed day or a rest day the strip said Legs
+   * while Start offered Pull (break round, 2026-09-28).
    */
   const programWeek = Array.from({ length: 7 }, (_, offset) => {
     const now = new Date();
     const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7) + offset);
-    return { date, session: sessionForSlot(planSessions, sessionSlotOn(trainingSchedule, date)) };
+    // Today, the reader's own pick is what the hero offers, so it is what
+    // today's chip says (review of the forecast, 2026-09-28) — the widget
+    // already read it this way.
+    const isToday =
+      date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate();
+    const picked =
+      isToday && activePlan?.todayPickSessionId
+        ? planSessions.find((session) => session.id === activePlan.todayPickSessionId) ?? null
+        : null;
+    return {
+      date,
+      session:
+        picked ??
+        sessionForSlot(planSessions, forecastSlotOn(trainingSchedule, date, activePlan?.sessionForecast ?? null)),
+    };
   });
   useEffect(() => {
     const shown = Keyboard.addListener('keyboardDidShow', (event) =>

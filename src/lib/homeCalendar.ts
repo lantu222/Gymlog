@@ -1,6 +1,6 @@
 import { SessionFocusKind } from './homeSessionHero';
 import { nextStartableSessionIndex } from './programSessionList';
-import { sessionSlotOn, TrainingSchedule } from './trainingSchedule';
+import { forecastSlotOn, SessionForecast, TrainingSchedule } from './trainingSchedule';
 import { AppLanguage } from '../types/models';
 
 // Sunday-first, matching Date#getDay().
@@ -281,8 +281,10 @@ export function getHomeDayView(
   day: Pick<HomeMiniCalendarDay, 'dayStart' | 'weekdayIndex' | 'weekdayLabel' | 'dateLabel' | 'label' | 'isToday'>,
   schedule: TrainingSchedule,
   sessions: HomeDaySessionSummary[],
+  /** Where the rotation stands; from today on, days are named by it (forecastSlotOn). */
+  forecast: SessionForecast | null = null,
 ): HomeDayView {
-  const trainingSlotIndex = sessionSlotOn(schedule, new Date(day.dayStart));
+  const trainingSlotIndex = forecastSlotOn(schedule, new Date(day.dayStart), forecast);
   const session = sessionForSlot(sessions, trainingSlotIndex);
 
   if (session) {
