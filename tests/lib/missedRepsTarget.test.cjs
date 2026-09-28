@@ -64,11 +64,11 @@ const TEMPLATE = {
   ],
 };
 
-function session(state, reps, day, pro = true) {
+function session(state, reps, day, pro = true, template = TEMPLATE, beforeSet = () => {}) {
   let next = workoutReducer(state, {
     type: 'session/startFromRuntimeTemplate',
     payload: {
-      template: TEMPLATE,
+      template,
       sessionOrderIndex: 0,
       unitPreference: 'kg',
       progression: { automatedProgressionEnabled: pro, setupLevel: 'beginner' },
@@ -78,6 +78,7 @@ function session(state, reps, day, pro = true) {
   const openedOn = opened.sets.map((_, index) => resolveGuidedSetTarget(opened.sets, index, opened.trackingMode).reps);
   const at = new Date(Date.UTC(2026, 8, day, 9)).toISOString();
   reps.forEach((count, index) => {
+    next = beforeSet(next, index) ?? next;
     next = workoutReducer(next, {
       type: 'set/updateDraft',
       payload: { slotId: opened.slotId, setIndex: index, patch: { loadText: '60', repsText: String(count) } },
@@ -205,6 +206,46 @@ module.exports = [
     run() {
       const { state } = session(EMPTY, [7, 6, 4, 4], 20, false);
       assert.deepEqual(session(state, [6, 6, 6, 6], 22, false).openedOn, [12, 12, 12, 12]);
+    },
+  },
+  {
+    name: 'a lift swapped in on Home keeps the lowered target it was given, and climbs back from it',
+    run() {
+      // Home's swap (lib/sessionAdaptation applySwap) hands the session a
+      // template whose lift is the new one, marked with the lift it replaced.
+      // The session is built from the new lift's own history, so a short run
+      // of it is lowered like any other — and has to be remembered, or the
+      // next session re-derives the average instead of asking one more rep
+      // (review of #202, 2026-09-28).
+      const swapped = {
+        ...TEMPLATE,
+        sessions: [{ ...TEMPLATE.sessions[0], exercises: [{ ...TEMPLATE.sessions[0].exercises[0], sourceExerciseName: 'Dumbbell Bench Press' }] }],
+      };
+      const { state } = session(EMPTY, [7, 6, 4, 4], 20, true, swapped);
+      const result = session(state, [6, 6, 6, 6], 22, true, swapped);
+      assert.deepEqual(result.openedOn, [6, 6, 6, 6]);
+      const stored = Object.values(result.state.history.slotHistory)[0][0];
+      assert.equal(stored.swappedFrom, 'Dumbbell Bench Press');
+      assert.equal(stored.targetReps, 6);
+      assert.deepEqual(session(result.state, [7, 7, 7, 7], 24, true, swapped).openedOn, [7, 7, 7, 7]);
+    },
+  },
+  {
+    name: 'a swap mid-session keeps the target on the lift that was given it, and gives the new lift none',
+    run() {
+      const { state } = session(EMPTY, [7, 6, 4, 4], 20);
+      const swapAfterTwo = (current, index) =>
+        index === 2
+          ? workoutReducer(current, {
+              type: 'exercise/swap',
+              payload: { slotId: current.activeSession.exercises[0].slotId, exerciseName: 'Incline Bench Press', substitutionGroup: 'bench_press', unitPreference: 'kg' },
+            })
+          : undefined;
+      const result = session(state, [6, 6, 12, 12], 22, true, TEMPLATE, swapAfterTwo);
+      const [incline, bench] = Object.values(result.state.history.slotHistory)[0];
+      assert.deepEqual([incline.exerciseName, bench.exerciseName], ['Incline Bench Press', 'Bench Press']);
+      assert.equal(bench.targetReps, 6);
+      assert.equal('targetReps' in incline, false, 'the incline sets were asked for the programme, not the bench target');
     },
   },
 ];

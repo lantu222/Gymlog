@@ -1996,14 +1996,20 @@ function cloneSession(session: WorkoutSessionRuntime) {
 
 /**
  * The reps a lift's sets were asked for when the app lowered them below the
- * programme's floor — read off the first set, since all of them carry it.
- * Nothing for an ordinary session, a bodyweight lift or a lift swapped in:
- * a swapped-in lift was never given that target.
+ * programme's floor, read off the first set logged as that lift. Nothing for
+ * an ordinary session or a bodyweight lift.
+ *
+ * Read off the sets, not off whether the lift was swapped in: a lift swapped
+ * on Home is materialized from its own history and can be given a lowered
+ * target, while a swap mid-session clears the target on every set still ahead
+ * (`exercise/swap`) — so the sets already say which lift was given one
+ * (review of #202). Logged, because a set skipped before a mid-session swap
+ * falls to the new lift still carrying the old one's number.
  */
-function loweredTargetOf(segment: { sets: WorkoutSetInstance[]; current: boolean; swappedFrom?: string | null }) {
-  const first = segment.sets[0];
+function loweredTargetOf(segment: { sets: WorkoutSetInstance[] }) {
+  const first = segment.sets.find((set) => set.status === 'completed');
   const target = first?.plannedTargetReps;
-  if (segment.swappedFrom || !first || typeof target !== 'number' || !(target < first.plannedRepsMin)) {
+  if (!first || typeof target !== 'number' || !(target < first.plannedRepsMin)) {
     return {};
   }
   return { targetReps: target };
