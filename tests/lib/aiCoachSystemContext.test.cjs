@@ -44,10 +44,27 @@ module.exports = [
     run() {
       const out = buildAiCoachSystemContext(baseContext());
       assert.ok(out.includes('## Load'));
-      assert.ok(out.includes('ACWR 1.05'));
-      assert.ok(out.includes('optimal'));
-      assert.ok(out.includes('Recovery 98/100'));
-      assert.ok(out.includes('2 sessions'));
+      assert.ok(out.includes('2 sessions | lifting load in line with usual'), out);
+      // The ratio and the score were quoted back to readers (eval, 2026-09-28):
+      // a number that is not in the context cannot be.
+      assert.ok(!out.includes('ACWR'), out);
+      assert.ok(!out.includes('1.05'), out);
+      assert.ok(!out.includes('/100'), out);
+    },
+  },
+  {
+    name: 'the load line says each signal in words, and tells an empty week from a week without kilos',
+    run() {
+      const fatigue = (overrides) => ({ acwr: 1.05, recoveryScore: 98, signal: 'optimal', sessionCount7d: 2, confident: true, ...overrides });
+      const say = (overrides) => buildAiCoachSystemContext(baseContext({ fatigue: fatigue(overrides) }));
+      assert.ok(say({ acwr: 0.5, signal: 'undertrained' }).includes('lifting load well below usual'));
+      assert.ok(say({ acwr: 1.4, signal: 'elevated' }).includes('lifting load above usual'));
+      assert.ok(say({ acwr: 1.8, signal: 'high' }).includes('sharply above usual — a spike'));
+      // Pull-ups all week: ACWR 0, which used to read "undertrained".
+      const bodyweight = say({ acwr: 0, signal: 'undertrained', sessionCount7d: 3 });
+      assert.ok(bodyweight.includes("this week's sessions carried no added kilos"), bodyweight);
+      assert.ok(!bodyweight.includes('well below'), bodyweight);
+      assert.ok(say({ acwr: 0, signal: 'undertrained', sessionCount7d: 0 }).includes('no lifting this week'));
     },
   },
   {
