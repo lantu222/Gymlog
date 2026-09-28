@@ -569,17 +569,22 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       pendingUploadRef.current = null;
       const generation = generationRef.current;
       try {
-        await forgetSignedOutAccount();
-        ensureCurrent(generation);
         if (choice === 'skip') {
-          // Signed in, nothing sent, the automatic backup still held: the
-          // reader's own "Back up now" is what sends this phone's data.
+          // Signed in, nothing sent, the automatic backup still held. The
+          // mark stays: "Not now" is not a yes, and forgotten here the next
+          // "Back up now" found no other account and sent its log unasked
+          // (recheck of #221, 2026-09-28). It asks again instead.
           await persistAccount(pending.account);
           return 'done';
         }
         enterPhase('backing_up');
-        // uploadCurrent lifts the hold when the upload lands.
-        return (await uploadCurrent(pending.idToken, pending.account, generation, null)) === 'done' ? 'done' : 'failed';
+        // uploadCurrent lifts the hold when the upload lands. Only a landed
+        // upload settles whose data this is; a failed one asks again.
+        const uploaded = await uploadCurrent(pending.idToken, pending.account, generation, null);
+        if (uploaded === 'done') {
+          await forgetSignedOutAccount();
+        }
+        return uploaded === 'done' ? 'done' : 'failed';
       } catch (error) {
         if (error instanceof Superseded) {
           return 'cancelled';

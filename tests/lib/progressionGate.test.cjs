@@ -211,9 +211,17 @@ module.exports = [
     name: 'progression: a beginner whose first session cleared the ceiling by two reps on every set moves now',
     run() {
       // The gate's ceiling here is 12.
-      const clear = gate({ history: [entry(40, [14, 14, 14], 0)], level: 'beginner' });
+      const clear = gate({ history: [entry(40, [14, 14, 14], 0)], level: 'beginner', nowMs: NOW + DAY_MS });
       assert.equal(clear.recommendation, 'increase');
       assert.equal(clear.loadKg, 42.5);
+
+      // Recheck of #223: only off a recent session. Months old, or a week
+      // back as the break rule counts it, the first session moves nothing —
+      // and without a clock the gate does not guess.
+      assert.equal(gate({ history: [entry(40, [14, 14, 14], 90)], level: 'beginner', nowMs: NOW }).recommendation, 'silent');
+      assert.equal(gate({ history: [entry(40, [14, 14, 14], 7)], level: 'beginner', nowMs: NOW }).recommendation, 'silent');
+      assert.equal(gate({ history: [entry(40, [14, 14, 14], 6)], level: 'beginner', nowMs: NOW }).recommendation, 'increase');
+      assert.equal(gate({ history: [entry(40, [14, 14, 14], 0)], level: 'beginner' }).recommendation, 'silent');
 
       // At the ceiling, or past it on only some sets: the baseline still waits.
       assert.equal(gate({ history: [entry(40, [12, 12, 12], 0)], level: 'beginner' }).recommendation, 'silent');
@@ -223,7 +231,7 @@ module.exports = [
       // Only beginners.
       assert.equal(gate({ history: [entry(40, [16, 16, 16], 0)], level: 'advanced' }).recommendation, 'silent');
       // And the holds still come first: a fatigue signal wins.
-      const tired = gate({ history: [entry(40, [14, 14, 14], 0)], level: 'beginner', fatigueSignal: 'high' });
+      const tired = gate({ history: [entry(40, [14, 14, 14], 0)], level: 'beginner', fatigueSignal: 'high', nowMs: NOW });
       assert.equal(tired.recommendation, 'hold');
     },
   },

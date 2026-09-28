@@ -56,6 +56,21 @@ module.exports = [
 
       // Sets still to do: the lift is as it was.
       assert.equal(remove(sessionWith(['completed', 'pending', 'pending'])).activeSession.exercises[0].status, 'active');
+      // Recheck of #222: finished, the lift is no longer the one in front of
+      // the reader — the next lift with a set to do is.
+      const two = sessionWith(['completed', 'pending']);
+      two.activeSession.exercises.push({
+        ...two.activeSession.exercises[0],
+        slotId: 'slot_2',
+        exerciseName: 'Row',
+        status: 'pending',
+        sets: two.activeSession.exercises[0].sets.map((set) => ({ ...set, status: 'pending' })),
+      });
+      const moved = remove(two).activeSession;
+      assert.equal(moved.exercises[0].status, 'completed');
+      assert.equal(moved.ui.activeSlotId, 'slot_2', 'the finished lift stayed the active one');
+      assert.equal(moved.ui.activeSetIndex, 0);
+
       // And a lift not started is not started by removing a set from it.
       const untouched = sessionWith(['pending', 'pending']);
       untouched.activeSession.exercises[0].status = 'pending';

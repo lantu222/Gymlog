@@ -44,6 +44,19 @@ function buildScopedSlotId(templateId: string, templateSessionId: string, slotId
  * is dropped; an entry without its sets list is dropped too, since every
  * reader of an entry walks its sets.
  */
+/** A logged set as every reader of "last time" uses it: the three numbers. */
+function isHistorySet(value: unknown): boolean {
+  return (
+    isObject(value) &&
+    typeof value.setIndex === 'number' &&
+    Number.isFinite(value.setIndex) &&
+    typeof value.loadKg === 'number' &&
+    Number.isFinite(value.loadKg) &&
+    typeof value.reps === 'number' &&
+    Number.isFinite(value.reps)
+  );
+}
+
 function normalizeSlotHistory(input: unknown): WorkoutHistoryStore['slotHistory'] {
   if (!isObject(input)) {
     return {};
@@ -53,9 +66,12 @@ function normalizeSlotHistory(input: unknown): WorkoutHistoryStore['slotHistory'
     if (!Array.isArray(entries)) {
       continue;
     }
-    slots[slotId] = entries.filter(
-      (entry) => isObject(entry) && Array.isArray(entry.sets),
-    ) as unknown as WorkoutHistoryStore['slotHistory'][string];
+    slots[slotId] = entries
+      .filter((entry): entry is Record<string, unknown> & { sets: unknown[] } => isObject(entry) && Array.isArray(entry.sets))
+      // And every set in it: a list holding `null`, or a set without its
+      // numbers, reached `set.loadKg` in the "last time" lookup and took
+      // down every lift of that name (recheck of #221, 2026-09-28).
+      .map((entry) => ({ ...entry, sets: entry.sets.filter(isHistorySet) })) as unknown as WorkoutHistoryStore['slotHistory'][string];
   }
   return slots;
 }

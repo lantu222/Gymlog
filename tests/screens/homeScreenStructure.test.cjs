@@ -450,6 +450,10 @@ module.exports = [
         appSource,
         /const completedForTemplate = completedSessionsForTemplate\(firstEntry\.workoutTemplateId, completedPlanSessions\);\s*const nextSessionIndex = resolveNextPlanEntryIndex\(sortedEntries, completedForTemplate\);/,
       );
+      // "Trained today" for the calendar forecast counts this plan's sessions
+      // by the rotation's own match, not any workout logged today (recheck of
+      // #224, 2026-09-28).
+      assert.match(appSource, /trainedToday: planTrainedOnDay\(sortedEntries, completedForTemplate, todayDayStart\),/);
       assert.match(appSource, /equipmentLabel: buildSessionEquipmentLabel\(/);
       assert.match(appSource, /totalSets: session\.exercises\.reduce/);
       assert.doesNotMatch(homeScreenSource, /planChartBars/);

@@ -73,6 +73,10 @@ export function normalizeSearchText(value: string): string {
 
 function foldSearchText(value: string): string {
   return value
+    // Some keyboards write ä as a + a combining diaeresis (NFD); composed
+    // first, it folds like the precomposed letter instead of leaving a mark
+    // that no stored name has (recheck of #222, 2026-09-28).
+    .normalize('NFC')
     .toLowerCase()
     .replace(/[äå]/g, 'a')
     .replace(/ö/g, 'o')

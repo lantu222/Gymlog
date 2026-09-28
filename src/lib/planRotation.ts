@@ -41,6 +41,31 @@ function entryMatchesSession(entry: PlanRotationEntry, session: PlanRotationSess
  * Returns 0 when nothing has been logged yet, and 0 for an empty plan so the
  * caller's `entries[index]` is undefined rather than a negative lookup.
  */
+/**
+ * Whether this plan was trained on the local day starting at `dayStart`, by
+ * the same match the rotation counts with.
+ *
+ * The calendar forecast asked "was anything logged today", and the list it
+ * was handed holds every programme's sessions: a workout of another
+ * programme marked this one trained and pushed its labels a session along
+ * (recheck of #224, 2026-09-28).
+ */
+export function planTrainedOnDay(
+  entries: readonly PlanRotationEntry[],
+  completed: readonly PlanRotationSession[],
+  dayStart: number,
+): boolean {
+  return completed.some((session) => {
+    const stamp = Date.parse(session.performedAt);
+    if (!Number.isFinite(stamp)) {
+      return false;
+    }
+    const day = new Date(stamp);
+    const start = new Date(day.getFullYear(), day.getMonth(), day.getDate()).getTime();
+    return start === dayStart && entries.some((entry) => entryMatchesSession(entry, session));
+  });
+}
+
 export function resolveNextPlanEntryIndex(
   entries: readonly PlanRotationEntry[],
   completed: readonly PlanRotationSession[],

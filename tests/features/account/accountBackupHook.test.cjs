@@ -284,7 +284,15 @@ module.exports = [
         assert.equal(env.calls.upload, uploadsBefore, '"not now" still sent it');
         assert.equal(env.server.blob, null);
         assert.equal(env.store.account.autoBackupPaused, true);
-        assert.equal(env.store.signedOut, null, 'asked again on every sign-in after an answer');
+        // Recheck of #221: "Not now" forgot the mark, and the next "Back up
+        // now" sent A's log to B unasked. The mark stays; the reader's own
+        // backup asks again, and nothing is sent until "Back it up".
+        assert.equal(env.store.signedOut, 'sub-1', '"not now" forgot whose data it is');
+        assert.equal((await env.api.backUpOrAsk()).kind, 'confirm_upload', '"Back up now" after "not now" did not ask');
+        assert.equal(env.calls.upload, uploadsBefore, '"Back up now" after "not now" sent it unasked');
+        assert.equal(await env.api.resolveUploadChoice('upload'), 'done');
+        assert.equal(env.calls.upload, uploadsBefore + 1);
+        assert.equal(env.store.signedOut, null, 'a landed yes did not settle it');
       });
     },
   },

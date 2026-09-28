@@ -450,6 +450,8 @@ function resolveHistoricalSetDraft(
     // never fired on a single set.
     fatigueSignal: options.fatigueSignal,
     fallbackLoadKg: matched.loadKg,
+    // The early jump reads a single session, and only a recent one counts.
+    nowMs: options.nowMs ?? Date.now(),
   });
 
   // Bodyweight progresses by reps where the load gate stays silent — same
@@ -1650,8 +1652,15 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
         }
       });
       const exercise = session.exercises[exerciseIndex];
-      const nextIndex = exercise.sets[exercise.sets.length - 1]?.setIndex ?? 0;
-      updateActiveExercise(session, exerciseIndex, nextIndex);
+      if (!exercise.sets.some((set) => set.status === 'pending')) {
+        // Nothing left to do here: on to the next lift with a set to do, as a
+        // skip or a last logged set moves on. Left in place, the player held a
+        // finished lift as the active one (recheck of #222, 2026-09-28).
+        advanceAfterMutation(session, exerciseIndex);
+      } else {
+        const nextIndex = exercise.sets[exercise.sets.length - 1]?.setIndex ?? 0;
+        updateActiveExercise(session, exerciseIndex, nextIndex);
+      }
       session.updatedAt = new Date().toISOString();
       return { ...state, activeSession: session };
     }

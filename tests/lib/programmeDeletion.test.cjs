@@ -47,6 +47,13 @@ module.exports = [
           `${handler} deletes without asking whether a workout of it is running`,
         );
       }
+      // Recheck of #222: the third call — editing a held ready programme
+      // copies it and forgets the original — asks the same rule first.
+      const edit = app.slice(app.indexOf('async function runProgramExerciseEdit('));
+      const guardAt = edit.indexOf('if (wasHeld && liveSessionBlocksProgrammeDelete(workout.activeSession, programId)) {');
+      const forgetAt = edit.indexOf('await forgetHeldProgramme(template.id);');
+      assert.ok(guardAt > 0 && forgetAt > guardAt, 'the edit copies a held programme and forgets it without the rule');
+      assert.equal((app.match(/await forgetHeldProgramme\(/g) ?? []).length, 2, 'a new call to forgetHeldProgramme needs the rule too');
     },
   },
 ];
