@@ -1,14 +1,14 @@
 # Privacy policy
 
-*Updated 16 September 2026*
+*Updated 28 September 2026*
 
 What Vinha stores, what leaves your phone, and what you can do about it.
 
 ## The short version
 
-Vinha keeps your training data on your phone. By default nothing about your training leaves it: not your workouts, not your weight, not your programmes.
+Vinha stores your training data on your phone. This policy lists what the app sends to our server, when, and why.
 
-Two things leave your phone only if you choose them: the optional cloud backup (you sign in with Google) and the AI coach’s online mode (you read a notice and then send a question, ask for a programme, or import one from a photo). A third thing, anonymous usage statistics, is sent by the app itself unless you switch it off in Settings — it carries no content and no identity, and it is described in full below.
+At present that is three things. The optional cloud backup is sent when you sign in with Google, and the AI coach’s online mode when you read a notice and then send a question, ask for a programme, or import one from a photo. Anonymous usage statistics are sent by the app itself unless you switch them off in Settings — they carry no content and no identity, and they are described in full below. Each of these requests also carries the app’s version number and whether the phone runs Android or iOS, so our server can recognise an app too old to understand and ask you to update it.
 
 No ads, no trackers, no selling of data. If something in this policy is unclear, write to us — the address is in the next section.
 
@@ -106,8 +106,8 @@ Where data goes outside the European Union — the coach traffic to Anthropic, a
 The GDPR requires a lawful basis for each kind of processing. These are ours.
 
 - Providing the app you asked for (contract): keeping your data on your phone, running Pro, and showing you your own history.
-- Your consent: the cloud backup (you sign in), the coach’s online mode (you read the notice and send a question), the programme composer and the photo import (you ask for them). Training and body data count as health data, so for anything that leaves your phone we rely on your explicit consent. You can withdraw it at any time: delete the backup and sign out, and simply stop sending questions.
-- Our legitimate interest: the anonymous usage statistics, so we can see where the app fails people, and the brief rate limiting that protects the server from abuse. You can object by switching the statistics off in Settings, or by writing to us.
+- Your consent: the cloud backup (you sign in), the coach’s online mode (you read the notice and send a question), the programme composer and the photo import (you ask for them). Training and body data count as health data, so whenever they leave your phone we rely on your explicit consent. You can withdraw it at any time: delete the backup and sign out, and simply stop sending questions.
+- Our legitimate interest: the anonymous usage statistics, so we can see where the app fails people, the brief rate limiting that protects the server from abuse, and the app version on each request, so the server can ask an outdated app to update. You can object by switching the statistics off in Settings, or by writing to us.
 - Legal obligations: none of ours involve your personal data today. Google Play is the seller of record for Pro and keeps the purchase records; the sales reports we receive from Google contain no personal data.
 
 ## What the app does not do
@@ -127,7 +127,7 @@ The app asks your phone for very little. What it does use:
 
 - Notifications: asked the first time a rest timer needs to alert you, or when you switch notifications on in Settings. Refuse, and everything else keeps working.
 - Photos: the phone’s own picker hands the app the one photo you chose. No permission to your photo library is asked.
-- Internet: only for the three things above — backup, coach, statistics. Logging a workout never needs a connection.
+- Internet: for the server features described in this policy — at present backup, coach and statistics. Logging a workout never needs a connection.
 - Keeping the screen on during a workout, if you switch that on in Settings.
 - Vibration, for the haptic ticks — which you can switch off.
 

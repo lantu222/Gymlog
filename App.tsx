@@ -1,7 +1,8 @@
 import './src/globalFont';
 
 import React, { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, BackHandler, Linking, View } from 'react-native';
+import { Alert, AppState, BackHandler, Linking, Platform, View } from 'react-native';
+import Constants from 'expo-constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
 import { emitRestAction } from './src/hooks/useRestEndAlert';
@@ -330,6 +331,9 @@ import { getWorkoutTemplateById, WORKOUT_TEMPLATES_V1 } from './src/features/wor
 import { previewNextSession } from './src/features/workout/workoutState';
 import { isTimedTrackingMode } from './src/features/workout/workoutTypes';
 import { AppProvider, useAppContext } from './src/state/AppProvider';
+import { AppUpdateDialog } from './src/features/appUpdate/AppUpdateDialog';
+import { registerAppIdentity } from './src/features/appUpdate/appUpdateSignal';
+import { appInfo } from './src/theme';
 import {
   AppLanguage,
   AppPreferences,
@@ -3724,10 +3728,10 @@ function VinhaApp() {
   /**
    * The notice, before the photo leaves — the one the policy promises.
    *
-   * "Two things leave your phone only if you choose them: … the AI coach's
-   * online mode (you read a notice and then send a question, ask for a
-   * programme, or import one from a photo)" — docs/legal/privacy, both
-   * languages. The notice existed in exactly one place, the chat screen, and
+   * The policy: the AI coach's online mode is sent "when you read a notice
+   * and then send a question, ask for a programme, or import one from a
+   * photo" — docs/legal/privacy, both languages. The notice existed in
+   * exactly one place, the chat screen, and
    * `aiOnlineNoticeAcknowledged` was read only there. The photo import is
    * reached from the Programs tab, the training plan and Settings, none of
    * which touches the chat, so a reader who had never opened the coach could
@@ -5332,6 +5336,21 @@ function VinhaApp() {
    * of empty sheet under Continue (#bugs 2026-09-26, "jatka buttoni
    * alemmas"). On the screens that drop the edge it pads for itself.
    */
+  /**
+   * The update prompt waits for a calm moment. A refusal can arrive at any
+   * time — the statistics flush runs in the background — and the prompt is a
+   * modal of its own, which must not land on the terms sheet, the tour or a
+   * workout in progress (review, 2026-09-28).
+   */
+  const appUpdateHeld =
+    !appHydrated ||
+    !brandSplashDone ||
+    onboardingActive ||
+    setupHandoffActive ||
+    legalConsentDue !== null ||
+    Boolean(tourElement) ||
+    (workout.activeSession !== null && workout.activeSession.status !== 'completed');
+
   const renderLegalConsent = (shellPadsBottom: boolean) => (
     <>
       <LegalConsentSheet
@@ -7965,6 +7984,7 @@ function VinhaApp() {
       }
     >
       {content}
+      <AppUpdateDialog language={preferences.appLanguage} held={appUpdateHeld} />
       <SettingsImportSheet
         visible={settingsImportVisible}
         initialView="csv"
@@ -8077,6 +8097,14 @@ function VinhaApp() {
     </AppShell>
   );
 }
+
+/**
+ * Which build this is, on every request to our server (lib/appUpdateGate).
+ * Read from the app config the native build was made from, so it is the
+ * version the store shows; the theme's copy is only the fallback for a run
+ * that has no config to read.
+ */
+registerAppIdentity(Constants.expoConfig?.version ?? appInfo.version, Platform.OS);
 
 /**
  * ThemeProvider sits *inside* AppProvider because the theme is a stored,

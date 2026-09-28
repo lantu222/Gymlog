@@ -60,7 +60,7 @@ function publisher(): string {
 }
 
 /** Bumped whenever the wording changes in a way a user should re-read. */
-export const LEGAL_LAST_UPDATED = '2026-09-16';
+export const LEGAL_LAST_UPDATED = '2026-09-28';
 
 export type LegalDocumentId = 'privacy' | 'terms';
 
@@ -85,8 +85,8 @@ const PRIVACY_EN: LegalSection[] = [
   {
     heading: 'The short version',
     body: [
-      'Vinha keeps your training data on your phone. By default nothing about your training leaves it: not your workouts, not your weight, not your programmes.',
-      'Two things leave your phone only if you choose them: the optional cloud backup (you sign in with Google) and the AI coach’s online mode (you read a notice and then send a question, ask for a programme, or import one from a photo). A third thing, anonymous usage statistics, is sent by the app itself unless you switch it off in Settings — it carries no content and no identity, and it is described in full below.',
+      'Vinha stores your training data on your phone. This policy lists what the app sends to our server, when, and why.',
+      'At present that is three things. The optional cloud backup is sent when you sign in with Google, and the AI coach’s online mode when you read a notice and then send a question, ask for a programme, or import one from a photo. Anonymous usage statistics are sent by the app itself unless you switch them off in Settings — they carry no content and no identity, and they are described in full below. Each of these requests also carries the app’s version number and whether the phone runs Android or iOS, so our server can recognise an app too old to understand and ask you to update it.',
       'No ads, no trackers, no selling of data. If something in this policy is unclear, write to us — the address is in the next section.',
     ],
   },
@@ -188,8 +188,8 @@ const PRIVACY_EN: LegalSection[] = [
     ],
     bullets: [
       'Providing the app you asked for (contract): keeping your data on your phone, running Pro, and showing you your own history.',
-      'Your consent: the cloud backup (you sign in), the coach’s online mode (you read the notice and send a question), the programme composer and the photo import (you ask for them). Training and body data count as health data, so for anything that leaves your phone we rely on your explicit consent. You can withdraw it at any time: delete the backup and sign out, and simply stop sending questions.',
-      'Our legitimate interest: the anonymous usage statistics, so we can see where the app fails people, and the brief rate limiting that protects the server from abuse. You can object by switching the statistics off in Settings, or by writing to us.',
+      'Your consent: the cloud backup (you sign in), the coach’s online mode (you read the notice and send a question), the programme composer and the photo import (you ask for them). Training and body data count as health data, so whenever they leave your phone we rely on your explicit consent. You can withdraw it at any time: delete the backup and sign out, and simply stop sending questions.',
+      'Our legitimate interest: the anonymous usage statistics, so we can see where the app fails people, the brief rate limiting that protects the server from abuse, and the app version on each request, so the server can ask an outdated app to update. You can object by switching the statistics off in Settings, or by writing to us.',
       'Legal obligations: none of ours involve your personal data today. Google Play is the seller of record for Pro and keeps the purchase records; the sales reports we receive from Google contain no personal data.',
     ],
   },
@@ -214,7 +214,7 @@ const PRIVACY_EN: LegalSection[] = [
     bullets: [
       'Notifications: asked the first time a rest timer needs to alert you, or when you switch notifications on in Settings. Refuse, and everything else keeps working.',
       'Photos: the phone’s own picker hands the app the one photo you chose. No permission to your photo library is asked.',
-      'Internet: only for the three things above — backup, coach, statistics. Logging a workout never needs a connection.',
+      'Internet: for the server features described in this policy — at present backup, coach and statistics. Logging a workout never needs a connection.',
       'Keeping the screen on during a workout, if you switch that on in Settings.',
       'Vibration, for the haptic ticks — which you can switch off.',
     ],
@@ -292,8 +292,8 @@ const PRIVACY_FI: LegalSection[] = [
   {
     heading: 'Lyhyesti',
     body: [
-      'Vinha pitää treenitietosi puhelimessasi. Oletuksena treeneistäsi ei lähde puhelimesta mitään: ei treenejä, ei painoa, ei ohjelmia.',
-      'Kaksi asiaa lähtee puhelimestasi vain, jos itse valitset ne: vapaaehtoinen pilvivarmuuskopio (kirjaudut Googlella) ja AI-valmentajan verkkotila (luet ilmoituksen ja lähetät sen jälkeen kysymyksen, pyydät ohjelman tai tuot sellaisen valokuvasta). Kolmannen asian, nimettömät käyttötilastot, sovellus lähettää itse, ellet kytke sitä pois asetuksista — niissä ei ole sisältöä eikä henkilöllisyyttä, ja ne kuvataan kokonaan alla.',
+      'Vinha tallentaa treenitietosi puhelimeesi. Tämä seloste kertoo, mitä sovellus lähettää palvelimellemme, milloin ja miksi.',
+      'Tällä hetkellä asioita on kolme. Vapaaehtoinen pilvivarmuuskopio lähtee, kun kirjaudut Googlella, ja AI-valmentajan verkkotila, kun luet ilmoituksen ja lähetät sen jälkeen kysymyksen, pyydät ohjelman tai tuot sellaisen valokuvasta. Nimettömät käyttötilastot sovellus lähettää itse, ellet kytke niitä pois asetuksista — niissä ei ole sisältöä eikä henkilöllisyyttä, ja ne kuvataan kokonaan alla. Jokaisessa näistä pyynnöistä kulkee lisäksi sovelluksen versionumero ja tieto siitä, onko puhelin Android vai iOS, jotta palvelimemme tunnistaa liian vanhan sovelluksen ja voi pyytää sinua päivittämään sen.',
       'Ei mainoksia, ei seurantaa, ei tietojen myyntiä. Jos jokin tässä selosteessa on epäselvää, kirjoita meille — osoite on seuraavassa kohdassa.',
     ],
   },
@@ -395,8 +395,8 @@ const PRIVACY_FI: LegalSection[] = [
     ],
     bullets: [
       'Sovelluksen tarjoaminen sinulle (sopimus): tietojesi säilyttäminen puhelimessasi, Pron toimittaminen ja oman historiasi näyttäminen.',
-      'Suostumuksesi: pilvivarmuuskopio (kirjaudut sisään), valmentajan verkkotila (luet ilmoituksen ja lähetät kysymyksen), ohjelmakoostaja ja kuvatuonti (pyydät niitä). Treeni- ja kehontiedot ovat terveystietoja, joten kaikkeen puhelimestasi lähtevään nojaamme nimenomaiseen suostumukseesi. Voit peruuttaa sen milloin tahansa: poista varmuuskopio ja kirjaudu ulos, ja lakkaa lähettämästä kysymyksiä.',
-      'Oikeutettu etumme: nimettömät käyttötilastot, jotta näemme, missä sovellus pettää käyttäjät, sekä lyhytaikainen pyyntöjen rajoitus, joka suojaa palvelinta väärinkäytöltä. Voit vastustaa tätä kytkemällä tilastot pois asetuksista tai kirjoittamalla meille.',
+      'Suostumuksesi: pilvivarmuuskopio (kirjaudut sisään), valmentajan verkkotila (luet ilmoituksen ja lähetät kysymyksen), ohjelmakoostaja ja kuvatuonti (pyydät niitä). Treeni- ja kehontiedot ovat terveystietoja, joten aina kun niitä lähtee puhelimestasi, nojaamme nimenomaiseen suostumukseesi. Voit peruuttaa sen milloin tahansa: poista varmuuskopio ja kirjaudu ulos, ja lakkaa lähettämästä kysymyksiä.',
+      'Oikeutettu etumme: nimettömät käyttötilastot, jotta näemme, missä sovellus pettää käyttäjät, lyhytaikainen pyyntöjen rajoitus, joka suojaa palvelinta väärinkäytöltä, sekä sovelluksen versio jokaisessa pyynnössä, jotta palvelin voi pyytää vanhentunutta sovellusta päivittymään. Voit vastustaa tätä kytkemällä tilastot pois asetuksista tai kirjoittamalla meille.',
       'Lakisääteiset velvoitteet: mikään meidän velvoitteistamme ei tänään koske henkilötietojasi. Google Play on Pron myyjä ja säilyttää ostotiedot; Googlelta saamamme myyntiraportit eivät sisällä henkilötietoja.',
     ],
   },
@@ -421,7 +421,7 @@ const PRIVACY_FI: LegalSection[] = [
     bullets: [
       'Ilmoitukset: kysytään, kun lepoajastin ensimmäisen kerran tarvitsee hälyttää, tai kun kytket ilmoitukset päälle asetuksista. Kieltäydy, ja kaikki muu toimii silti.',
       'Kuvat: puhelimen oma valitsin antaa sovellukselle sen yhden kuvan, jonka valitsit. Lupaa kuvakirjastoosi ei pyydetä.',
-      'Internet: vain kolmea yllä kuvattua asiaa varten — varmuuskopio, valmentaja, tilastot. Treenin kirjaaminen ei koskaan tarvitse yhteyttä.',
+      'Internet: tässä selosteessa kuvattuja palvelintoimintoja varten — tällä hetkellä varmuuskopio, valmentaja ja tilastot. Treenin kirjaaminen ei koskaan tarvitse yhteyttä.',
       'Näytön pitäminen päällä treenin aikana, jos kytket sen päälle asetuksista.',
       'Värinä, haptisia napsautuksia varten — ne voi kytkeä pois.',
     ],

@@ -27,6 +27,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { get, list, put } from '@vercel/blob';
 
 import { validateBatch } from '../src/lib/analytics';
+import { appUpdateRefusalBody, isAppVersionRefused } from '../src/lib/appUpdateGate';
 import {
   ANALYTICS_READ_CONCURRENCY,
   ANALYTICS_READ_PAGE_MAX,
@@ -98,6 +99,13 @@ async function handlePost(req: RequestLike, res: ResponseLike): Promise<void> {
     'unknown';
   if (limited(ip)) {
     res.status(429).json({ ok: false, error: 'RATE_LIMIT' });
+    return;
+  }
+
+  // A build older than APP_MIN_VERSION_<platform> is told to update; its batch
+  // stays queued on the phone (lib/appUpdateGate).
+  if (isAppVersionRefused(req.headers, process.env)) {
+    res.status(426).json(appUpdateRefusalBody(req.headers, process.env));
     return;
   }
 

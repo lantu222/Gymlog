@@ -40,6 +40,8 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { BlobNotFoundError, BlobPreconditionFailedError, del, get, head, put } from '@vercel/blob';
 
+import { appUpdateRefusalBody, isAppVersionRefused } from '../src/lib/appUpdateGate';
+
 type ApiRequest = {
   method?: string;
   headers: Record<string, string | string[] | undefined>;
@@ -196,6 +198,14 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   if (isRateLimited(getIpAddress(req))) {
     res.status(429).json({ ok: false, error: 'RATE_LIMITED' });
+    return;
+  }
+
+  // Only a write is refused to a build older than APP_MIN_VERSION_<platform>:
+  // the shape it writes is what the server may no longer read. Reading your
+  // own backup back and deleting it work from any build (lib/appUpdateGate).
+  if ((req.method === 'PUT' || req.method === 'POST') && isAppVersionRefused(req.headers, process.env)) {
+    res.status(426).json(appUpdateRefusalBody(req.headers, process.env));
     return;
   }
 

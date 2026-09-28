@@ -7,6 +7,7 @@ import { normalizeAiCoachTrainingContext } from '../src/lib/aiTrainingContext';
 import { AI_COACH_DEBUG_TRANSCRIPTS } from '../src/lib/aiCoachDebug';
 import { LOG_ID_PATTERN } from '../src/lib/aiCoachLogId';
 import { AI_COACH_DEFAULT_MODEL } from '../src/lib/aiCoachModel';
+import { appUpdateRefusalBody, isAppVersionRefused } from '../src/lib/appUpdateGate';
 import {
   isProgramImageMediaType,
   PROGRAM_TABLE_RULES,
@@ -1242,6 +1243,14 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       // written; this only means the copies already there survived the call.
       res.status(502).json({ ok: false, error: 'FORGET_FAILED' });
     }
+    return;
+  }
+
+  // A build older than APP_MIN_VERSION_<platform> is told to update — after
+  // the withdrawal above, never before it: taking back permission has to work
+  // from whatever build the reader has (lib/appUpdateGate).
+  if (isAppVersionRefused(req.headers, process.env)) {
+    res.status(426).json(appUpdateRefusalBody(req.headers, process.env));
     return;
   }
 

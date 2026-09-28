@@ -25,6 +25,7 @@ const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
  */
 const LEGAL_TEXT_VERSIONS = [
   { date: '2026-09-16', fingerprint: 'c52c7814c8a7ba76' },
+  { date: '2026-09-28', fingerprint: '522d320d1760d203' },
 ];
 
 const IDS = ['privacy', 'terms'];

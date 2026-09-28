@@ -273,6 +273,7 @@ const suites = [
   ...require('./lib/aiCoachBudget.test.cjs'),
   ...require('./lib/aiCoachLiveGate.test.cjs'),
   ...require('./lib/aiCoachAppKey.test.cjs'),
+  ...require('./lib/appUpdateGate.test.cjs'),
   ...require('./lib/aiLogConsent.test.cjs'),
   ...require('./lib/accountBackup.test.cjs'),
   ...require('./lib/accountBackupCompression.test.cjs'),
