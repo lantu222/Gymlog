@@ -176,7 +176,8 @@ const AI_COACH_RESPONSE_SCHEMA = {
     nextSteps: {
       type: 'array',
       items: { type: 'string' },
-      description: 'What to do at the next session. One or two concrete actions, with numbers.',
+      description:
+        'What to do at the next session. One or two concrete actions, with numbers. When `example` is filled, leave its lift out of these: the example already says it, and a rule in prose alone did not stop the repeat (live, 2026-09-28).',
     },
     plan: {
       type: 'array',
