@@ -91,6 +91,16 @@ module.exports = [
       const root = path.join(__dirname, '..', '..');
       const player = fs.readFileSync(path.join(root, 'src', 'screens', 'GuidedPlayerScreen.tsx'), 'utf8');
       assert.match(player, /const \[kg, setKg\] = useState\(\(\) => openingWeightWithBar\(target\?\.loadKg, barRow \? bar : null\)\);/);
+      // The reset effect that follows a step or a swap re-derives the bar with
+      // the weight; resetting the weight alone put a bar-only opening back to 0
+      // and kept a swapped-away lift's bar selected (review of #214).
+      assert.match(
+        player,
+        /const chosenBar = barRow\?\.chosen \?\? null;\s*setBar\(chosenBar\);\s*setKg\(openingWeightWithBar\(target\?\.loadKg, barRow \? chosenBar : null\)\);/,
+      );
+      assert.doesNotMatch(player, /setKg\(target\?\.loadKg \?\? 0\);/);
+      // Read aloud as a weight, not as the chip's words twice.
+      assert.match(player, /t\(language, 'guided\.bar\.a11y', \{ bar: removeTrailingZeros\(option\) \}\)/);
       assert.match(player, /\{barRow && !bodyweight \? \(/);
       assert.match(player, /const next = on \? null : option;/);
       assert.match(player, /setKg\(\(current\) => switchBar\(current, bar, next\)\);\s*setBar\(next\);\s*onBarChoice\?\.\(next\);/);

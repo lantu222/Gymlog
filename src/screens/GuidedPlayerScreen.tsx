@@ -4482,6 +4482,7 @@ function SetStepView({
   const timed = exercise ? isTimedTrackingMode(exercise.trackingMode) : false;
   const [reps, setReps] = useState(target?.reps ?? 8);
   const [bar, setBar] = useState<BarWeightKg | null>(barRow?.chosen ?? null);
+  // Seeded here for the first frame; the reset effect below owns it after that.
   const [kg, setKg] = useState(() => openingWeightWithBar(target?.loadKg, barRow ? bar : null));
   /** Which dial is open for editing; null = both locked. */
   const [dial, setDial] = useState<'reps' | 'weight' | null>(null);
@@ -4500,7 +4501,13 @@ function SetStepView({
   useEffect(() => {
     setDial(null);
     setReps(target?.reps ?? 8);
-    setKg(target?.loadKg ?? 0);
+    // The bar is re-derived with the weight, for the lift now under the step:
+    // resetting the weight alone put a bar-only opening back to 0 under a
+    // selected chip, and left the swapped-away lift's bar selected (review of
+    // #214) — both then fed the next chip tap a wrong base.
+    const chosenBar = barRow?.chosen ?? null;
+    setBar(chosenBar);
+    setKg(openingWeightWithBar(target?.loadKg, barRow ? chosenBar : null));
     // Re-derive when the step changes — and when the exercise under the step
     // changes, which is what a swap does without moving the index. Keying on
     // stepIndex alone left the old lift's weight sitting in local state after a
@@ -4831,7 +4838,7 @@ function SetStepView({
                     key={option}
                     accessibilityRole="radio"
                     accessibilityState={{ selected: on, checked: on }}
-                    accessibilityLabel={t(language, 'guided.bar.a11y', { bar: label })}
+                    accessibilityLabel={t(language, 'guided.bar.a11y', { bar: removeTrailingZeros(option) })}
                     onPress={() => {
                       const next = on ? null : option;
                       setDial(null);
