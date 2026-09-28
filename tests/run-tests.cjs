@@ -330,6 +330,7 @@ const suites = [
   ...require('./lib/coachLastSession.test.cjs'),
   ...require('./lib/aiCoachAnswerExtras.test.cjs'),
   ...require('./lib/coachAnswerReport.test.cjs'),
+  ...require('./lib/barChoice.test.cjs'),
   ...require('./lib/aiCoachProgramme.test.cjs'),
   ...require('./lib/coachComposeOffer.test.cjs'),
   ...require('./lib/briefProgrammeMatch.test.cjs'),

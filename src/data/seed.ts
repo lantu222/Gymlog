@@ -137,6 +137,7 @@ const DEFAULT_PREFERENCES = {
   recommendedProgramId: null,
   learnedExerciseLibraryItemIds: [] as string[],
   exerciseTechniqueChecks: {} as Record<string, number[]>,
+  barChoiceByExercise: {},
   dismissedTipIds: [] as string[],
   dismissedCompletionPlanIds: [] as string[],
   dismissedCardSuggestionKeys: [] as string[],

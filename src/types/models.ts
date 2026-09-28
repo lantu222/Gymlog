@@ -1,3 +1,4 @@
+import type { BarWeightKg } from '../lib/barChoice';
 import type { TourSurface } from '../lib/firstRunTour';
 import type { LegalAcceptance } from '../lib/legalAcceptance';
 import type { LightNextSession } from '../lib/recoverySheet';
@@ -730,6 +731,11 @@ export interface AppPreferences {
    * other would put words in the reader's mouth.
    */
   exerciseTechniqueChecks: Record<string, number[]>;
+  /**
+   * The bar each barbell lift is loaded on, by lift name (lib/barChoice). The
+   * set screen's weight is the total with this bar in it; absent = not chosen.
+   */
+  barChoiceByExercise: Record<string, BarWeightKg>;
   /**
    * "Bench 100 kg" targets. Empty until the user sets one — the onboarding
    * goal is a category ('strength'), not a number, and a progress bar needs
