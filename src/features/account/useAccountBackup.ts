@@ -43,6 +43,7 @@ import {
   describeRestoreChoice,
   hasLocalDataWorthKeeping,
   isCloudCopyThisPhones,
+  phoneDataIsInCopy,
   planBackup,
   RestoreChoiceSummary,
   syncCounts,
@@ -379,7 +380,11 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
           // 2026-09-28). The mark stays until the answer lands.
           const signedOutSubs = await loadSignedOutAccounts();
           ensureCurrent(generation);
-          const fromOtherAccount = uploadNeedsConsent({ signedOutSubs, sub: base.sub, localWorthKeeping: true });
+          // Not when every row on the phone is already in this account's own
+          // copy: then nothing here is anyone else's, whoever signed out last.
+          const fromOtherAccount =
+            uploadNeedsConsent({ signedOutSubs, sub: base.sub, localWorthKeeping: true }) &&
+            !phoneDataIsInCopy(latestRef.current.database, remote.payload.database);
           return await askRestoreOrKeep(idToken, base, remote.payload, remote.version, fromOtherAccount);
         }
         // The phone is empty: the account signed out of earlier has nothing
@@ -723,6 +728,13 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
           }
         }
         const uploaded = await uploadCurrent(idToken, current, generation, expectedVersion);
+        if (uploaded === 'done') {
+          // Landed without needing a yes (the check above held it otherwise):
+          // the phone's data is this account's now, and an account signed out
+          // of long ago must not ask the next one about it (review of the
+          // invariant fix, 2026-09-28).
+          await forgetSignedOutAccount();
+        }
         if (uploaded !== 'changed') {
           return uploaded === 'done' ? { kind: 'backed_up' } : { kind: 'failed' };
         }

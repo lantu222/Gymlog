@@ -372,6 +372,58 @@ module.exports = [
     },
   },
   {
+    // Third break round, 2026-09-28: A's own log, adopted by B ("use the
+    // phone's data"), was flagged "another account's data" when A signed back
+    // in — the list says who left, not whose the rows are.
+    name: 'account hook: an account whose own copy already holds every row on the phone is not told the data is someone else\'s',
+    async run() {
+      await withHook({ local: database({ workoutSessions: workouts(5) }) }, async (env) => {
+        assert.equal((await env.api.signIn()).kind, 'backed_up');
+        const aCopy = env.server.blob;
+        await env.api.signOut();
+
+        env.server.blob = cloudCopy(database({ workoutSessions: [workout('b-own')] }));
+        env.google.signIn = { status: 'signed_in', account: { sub: 'sub-2', email: 'other@example.com', name: 'Other', idToken: 'token-b' } };
+        const atB = await env.api.signIn();
+        assert.equal(atB.kind, 'choice');
+        assert.equal(atB.summary.localFromOtherAccount, true, 'B was not told the phone\'s data is someone else\'s');
+        assert.equal(await env.api.resolveRestoreChoice('keep_local'), 'done');
+        await env.api.signOut();
+
+        env.server.blob = aCopy;
+        env.google.signIn = { status: 'signed_in', account: { sub: 'sub-1', email: 'reader@example.com', name: 'Reader', idToken: 'token' } };
+        const back = await env.api.signIn();
+        // Both sides hold data, so A is asked — the ordinary question.
+        assert.equal(back.kind, 'choice');
+        assert.equal(back.summary.localFromOtherAccount, false, 'A\'s own log was called another account\'s');
+        // A phone holding a row A's copy lacks is still someone else's.
+        const { phoneDataIsInCopy } = lib;
+        assert.equal(phoneDataIsInCopy(database({ workoutSessions: workouts(2) }), aCopy.database), true);
+        assert.equal(phoneDataIsInCopy(database({ workoutSessions: [workout('b-new')] }), aCopy.database), false);
+        assert.equal(phoneDataIsInCopy(database({ workoutSessions: workouts(1) }), null), false);
+      });
+    },
+  },
+  {
+    // Review of the invariant fix: an unattended first upload that needed no
+    // yes left the signed-out list standing, to ask the next account about
+    // data that was no longer anyone else's.
+    name: 'account hook: an unattended first backup that needed no yes settles the signed-out list',
+    async run() {
+      await withHook({ local: database({ workoutSessions: workouts(3) }) }, async (env) => {
+        env.store.signedOut = ['sub-1'];
+        env.server.downloadError = 'NETWORK';
+        assert.equal((await env.api.signIn()).kind, 'not_backed_up');
+        env.server.downloadError = null;
+        await env.advance(QUIET_MS);
+        await env.foreground();
+        await env.advance(QUIET_MS);
+        assert.ok(env.server.blob, 'the automatic backup never ran');
+        assert.deepEqual(env.store.signedOut, [], 'a landed unattended backup left the list standing');
+      });
+    },
+  },
+  {
     name: 'account hook: "back it up" on the switch question uploads to the new account and lifts the hold',
     async run() {
       await withHook({ local: database({ workoutSessions: workouts(3) }) }, async (env) => {

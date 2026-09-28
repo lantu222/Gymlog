@@ -278,6 +278,7 @@ const suites = [
   ...require('./lib/accountBackup.test.cjs'),
   ...require('./lib/accountBackupCompression.test.cjs'),
   ...require('./features/account/accountBackupHook.test.cjs'),
+  ...require('./features/account/signedOutAccounts.test.cjs'),
   ...require('./api/backupEndpoint.test.cjs'),
   ...require('./state/accountBackupWiring.test.cjs'),
   ...require('./lib/hevyImport.test.cjs'),

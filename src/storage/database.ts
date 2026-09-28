@@ -1497,12 +1497,13 @@ export async function resetDatabase(
       pendingAiLogDeletions: withPendingAiLogDeletion(kept.pendingAiLogDeletions, device.aiLogId),
     },
   });
-  // The preferences key goes in the blob's own transaction. It used to be
-  // removed four writes later, and a kill in between left the old language,
-  // theme and "setup done" laid over the reset data by the next load
-  // (recheck of #221, 2026-09-28). Overwritten with the reset preferences
-  // instead, in the same write, so there is no gap to land in.
-  await saveDatabase(empty, { withPreferences: true });
+  // The erasing goes first, the reset write last. Once that write lands the
+  // app opens as reset, so anything still to erase after it was left behind
+  // by a kill in between: the coach remembered a reader whose data was gone
+  // (third break round, 2026-09-28). In this order a kill leaves the old data
+  // standing and the reset simply not done yet — asked for again, it runs
+  // again.
+  //
   // Reset has to mean reset: leaving the pre-rename blob behind would let it
   // come back if the new key were ever cleared on its own. The quarantined copy
   // goes for a second reason — somebody who asks for their data to be erased is
@@ -1513,5 +1514,11 @@ export async function resetDatabase(
   // the same request: "delete my data" cannot leave behind what the coach was
   // told to remember about the person asking.
   await clearCoachAdviceMemory();
+  // The preferences key goes in the blob's own transaction. It used to be
+  // removed four writes later, and a kill in between left the old language,
+  // theme and "setup done" laid over the reset data by the next load
+  // (recheck of #221, 2026-09-28). Overwritten with the reset preferences
+  // instead, in the same write, so there is no gap to land in.
+  await saveDatabase(empty, { withPreferences: true });
   return empty;
 }

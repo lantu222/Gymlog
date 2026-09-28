@@ -228,6 +228,12 @@ module.exports = [
       assert.equal(gate({ history: [entry(40, [14, 14, 13], 0)], level: 'beginner' }).recommendation, 'silent');
       // Fewer sets than the programme asks: not proof the weight is light.
       assert.equal(gate({ history: [entry(40, [15, 15], 0)], level: 'beginner' }).recommendation, 'silent');
+      // Third break round: a session dated ahead of now (a wrong phone clock)
+      // is not "recent", and an entry with no sets is not a session — one real
+      // session plus an empty entry does not meet the two-session baseline.
+      assert.equal(gate({ history: [entry(40, [14, 14, 14], -3)], level: 'beginner', nowMs: NOW }).recommendation, 'silent');
+      const emptyEntry = { ...entry(40, 12, 3), sets: [] };
+      assert.equal(gate({ history: [entry(40, [12, 12, 12], 0), emptyEntry], level: 'beginner' }).recommendation, 'silent');
       // Only beginners.
       assert.equal(gate({ history: [entry(40, [16, 16, 16], 0)], level: 'advanced' }).recommendation, 'silent');
       // And the holds still come first: a fatigue signal wins.

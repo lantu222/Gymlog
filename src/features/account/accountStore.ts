@@ -122,8 +122,9 @@ export async function loadSignedOutAccounts(): Promise<string[]> {
     if (typeof raw !== 'string' || raw.length === 0) {
       return [];
     }
-    // A build from earlier the same day stored one bare identifier.
-    if (!raw.startsWith('[')) {
+    // A build from earlier the same day stored one bare identifier — a
+    // Google account id, digits and nothing else JSON would start with.
+    if (/^[A-Za-z0-9._-]+$/.test(raw)) {
       return [raw];
     }
     const parsed: unknown = JSON.parse(raw);

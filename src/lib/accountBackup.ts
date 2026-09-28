@@ -303,6 +303,35 @@ function isUntouchedOnboardingTemplate(
  * settled: one of them other than this one is enough to ask, because the
  * phone may hold that account's workouts beside this one's.
  */
+/**
+ * Whether everything logged on this phone is already in an account's own
+ * cloud copy — workouts, runs, weigh-ins and measurements, by id.
+ *
+ * Then the phone holds nothing of anyone else, whoever signed out last. A
+ * reader's own log that another account had adopted ("use the phone's data")
+ * was flagged "another account's data" when its owner signed back in
+ * (third break round, 2026-09-28): the signed-out list says who LEFT, not
+ * whose the rows are, and the rows answer that better when there is a copy
+ * to compare with.
+ */
+export function phoneDataIsInCopy(local: AppDatabase, copy: Partial<AppDatabase> | null | undefined): boolean {
+  if (!copy) {
+    return false;
+  }
+  const idsOf = (rows: ReadonlyArray<{ id?: unknown }> | undefined) =>
+    new Set((Array.isArray(rows) ? rows : []).map((row) => row?.id).filter((id): id is string => typeof id === 'string'));
+  const pairs: Array<[ReadonlyArray<{ id?: unknown }> | undefined, ReadonlyArray<{ id?: unknown }> | undefined]> = [
+    [local.workoutSessions, copy.workoutSessions],
+    [local.cardioSessions, copy.cardioSessions],
+    [local.bodyweightEntries, copy.bodyweightEntries],
+    [local.measurementEntries, copy.measurementEntries],
+  ];
+  return pairs.every(([mine, theirs]) => {
+    const inCopy = idsOf(theirs);
+    return [...idsOf(mine)].every((id) => inCopy.has(id));
+  });
+}
+
 export function uploadNeedsConsent(input: {
   signedOutSubs: readonly string[];
   sub: string;
