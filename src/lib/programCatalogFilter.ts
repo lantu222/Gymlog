@@ -1,3 +1,4 @@
+import { normalizeSearchText } from './exerciseSearch';
 import { ProgramCategoryKey } from './programCategories';
 import { WorkoutLevel } from '../features/workout/workoutTypes';
 
@@ -36,9 +37,13 @@ export const EMPTY_CATALOG_QUERY: ProgramCatalogQuery = { level: null, goal: nul
  * foundations"; someone hunting the first types "huge pro". Case and the gaps
  * between words are the two things that must not matter, so both sides are
  * lowercased and their runs of whitespace collapsed.
+ *
+ * Folded the way the exercise search folds (ä/ö to a/o, dashes to spaces): a
+ * keyboard without ä typed "yla" and found "ylä" among the lifts but not
+ * among the programmes (break round, 2026-09-28).
  */
 function normalize(value: string): string {
-  return value.toLowerCase().replace(/\s+/g, ' ').trim();
+  return normalizeSearchText(value);
 }
 
 /**
@@ -52,9 +57,16 @@ export function matchesCatalogQuery(row: ProgramCatalogRow, query: ProgramCatalo
   if (query.goal && !row.categories.includes(query.goal)) {
     return false;
   }
+  // Empty is decided on what was typed, not on the fold: "-" folds to nothing,
+  // and read as no search it showed the whole catalog under a box with text
+  // in it (review of the fold, 2026-09-28). Typed but folded away, it names
+  // nothing.
+  if (!query.search.trim()) {
+    return true;
+  }
   const needle = normalize(query.search);
   if (!needle) {
-    return true;
+    return false;
   }
   // Name first, then the sentence under it: someone typing "beginner" is
   // describing a programme, not naming one, and the blurbs say so.
@@ -69,5 +81,5 @@ export function filterProgramCatalog<T extends ProgramCatalogRow>(
 }
 
 export function isCatalogQueryEmpty(query: ProgramCatalogQuery): boolean {
-  return !query.level && !query.goal && !normalize(query.search);
+  return !query.level && !query.goal && !query.search.trim();
 }

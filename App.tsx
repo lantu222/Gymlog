@@ -2604,6 +2604,15 @@ function VinhaApp() {
    * custom programme's pages do.
    */
   async function handleForgetHeldProgram(workoutTemplateId: string) {
+    // The same rule as deleting your own programme: not mid-workout on it.
+    // A ready programme's session still saves, but the running slot went
+    // mid-workout and the player's week line with it (break round,
+    // 2026-09-28).
+    if (liveSessionBlocksProgrammeDelete(workout.activeSession, workoutTemplateId)) {
+      void haptics.error();
+      showToast(t(preferences.appLanguage, 'toast.programDeleteWorkoutRunning'));
+      return;
+    }
     await forgetHeldProgramme(workoutTemplateId);
     void haptics.success();
     leaveDeletedProgramme(workoutTemplateId);

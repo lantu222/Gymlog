@@ -79,4 +79,24 @@ module.exports = [
       assert.ok(finish.indexOf("trackEvent('workout_completed')") > finish.indexOf('await saveCompletedWorkoutSession('), 'the event must fire after the save, not before');
     },
   },
+  {
+    // Break round, 2026-09-28: a notification or widget tap routed off the
+    // board inside the 400 ms debounce, and the last edit went with the timer.
+    name: 'freestyle: leaving without a discard writes the pending edit, except while Finish is saving',
+    run() {
+      const screen = read('src', 'screens', 'EmptyWorkoutScreen.tsx');
+      const flushAt = screen.indexOf('const pending = pendingDraftRef.current;');
+      const debounceAt = screen.indexOf('pendingDraftRef.current = { exercises, startedAtMs, rest };');
+      assert.ok(flushAt > 0 && debounceAt > 0, 'the flush or the pending copy is gone');
+      // Its cleanup must run before the debounce's cancels the timer: React
+      // runs a component's effect cleanups in the order they were declared.
+      assert.ok(flushAt < debounceAt, 'the flush is declared after the debounce, so the timer is already gone');
+      assert.match(
+        screen,
+        /if \(draftTimerRef\.current === null \|\| pending === null \|\| finishingRef\.current\) \{\s*return;\s*\}\s*clearTimeout\(draftTimerRef\.current\);\s*draftTimerRef\.current = null;\s*draftSinkRef\.current\.onSaveDraft\?\.\(\{ \.\.\.pending, savedAtMs: Date\.now\(\) \}\);/,
+      );
+      // A discard still takes the timer first, so there is nothing to flush.
+      assert.match(screen, /const discardDraft = \(\) => \{\s*if \(draftTimerRef\.current !== null\) \{\s*clearTimeout\(draftTimerRef\.current\);\s*draftTimerRef\.current = null;/);
+    },
+  },
 ];
