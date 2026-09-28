@@ -247,7 +247,7 @@ module.exports = [
       for (const handler of [
         'handleEditProgramExercise',
         'handleSaveEmphasis',
-        'handleRenameActivePlanSession',
+        'handleRenameProgramSession',
       ]) {
         const start = source.indexOf(`function ${handler}(`);
         assert.ok(start > -1, `${handler} should still exist`);

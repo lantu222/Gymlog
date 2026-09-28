@@ -147,6 +147,8 @@ export interface WorkoutTabDeps {
   ) => Promise<boolean>;
   /** A custom programme's own name. Ready ones keep the catalog's. */
   handleRenameCustomProgram: (workoutTemplateId: string, name: string) => void;
+  /** One day's name in a custom programme. */
+  handleRenameProgramSession: (workoutTemplateId: string, sessionId: string, name: string) => Promise<void>;
   handleReorderProgramSession: (
     workoutTemplateId: string,
     sessionId: string,
@@ -266,6 +268,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     handleStartCustomProgramSession,
     editProgramExercise,
     handleRenameCustomProgram,
+    handleRenameProgramSession,
     handleReorderProgramSession,
     handleAddProgramSession,
     handleRemoveProgramSession,
@@ -863,6 +866,20 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           })
         }
         tailoringPreferences={preferences}
+        // A catalog day's roles are the catalog's decision; a custom day's
+        // are derived, and would tag every row the same.
+        showRoles={route.programType === 'ready'}
+        // Custom only, like the programme's own name.
+        onRenameSession={
+          route.programType === 'custom'
+            ? (name) =>
+                void handleRenameProgramSession(route.workoutTemplateId, daySession.id, name).catch((error) => {
+                  console.error('Failed to rename a day of the programme', error);
+                  void haptics.error();
+                  showToast(t(preferences.appLanguage, 'toast.planSaveFailed'));
+                })
+            : undefined
+        }
         // Back to the programme page first, then the write. The route names
         // this day, so once the day is gone the page has nothing left to draw
         // and would flash blank until a navigation queued behind the write

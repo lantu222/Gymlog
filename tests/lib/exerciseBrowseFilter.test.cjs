@@ -5,6 +5,8 @@ const path = require('node:path');
 const {
   isBrowsableExercise,
   filterBrowsableExercises,
+  matchesBodyPartFilter,
+  BODY_PART_FILTERS,
 } = require('../../.test-dist/lib/exerciseBrowseFilter.js');
 const { createSeedExerciseLibrary } = require('../../.test-dist/data/seed.js');
 
@@ -88,6 +90,47 @@ module.exports = [
       // Applied to the list the reader browses, with the query passed through
       // so searching still reaches everything.
       assert.match(sheet, /filterBrowsableExercises\(\s*items,\s*\{ query \}\s*\)/);
+    },
+  },
+  {
+    name: 'body-part chips: arms and the three leg muscles each find their lifts',
+    run() {
+      const library = createSeedExerciseLibrary();
+      const count = (filter) => library.filter((item) => matchesBodyPartFilter(item, filter)).length;
+      for (const filter of ['biceps', 'triceps', 'quadriceps', 'hamstrings', 'calves']) {
+        assert.ok(BODY_PART_FILTERS.includes(filter), `no chip for ${filter}`);
+        assert.ok(count(filter) >= 10, `${filter} finds only ${count(filter)} lifts`);
+      }
+      // A muscle chip reads the primary muscles, not the coarse body part:
+      // every lift it returns names that muscle, and "legs" still holds them all.
+      for (const muscle of ['quadriceps', 'hamstrings', 'calves']) {
+        const found = library.filter((item) => matchesBodyPartFilter(item, muscle));
+        assert.ok(found.every((item) => (item.primaryMuscles ?? []).includes(muscle)));
+      }
+      const squat = library.find((item) => item.name === 'Barbell Squat');
+      assert.ok(squat, 'Barbell Squat missing from the library');
+      assert.equal(matchesBodyPartFilter(squat, 'legs'), true);
+      assert.equal(matchesBodyPartFilter(squat, 'quadriceps'), true);
+      assert.equal(matchesBodyPartFilter(squat, 'hamstrings'), false);
+      assert.equal(matchesBodyPartFilter(squat, 'biceps'), false);
+      assert.equal(matchesBodyPartFilter(squat, 'all'), true);
+      // A lift with no muscle data is not in any muscle chip, and does not throw.
+      assert.equal(matchesBodyPartFilter({ bodyPart: 'legs' }, 'calves'), false);
+    },
+  },
+  {
+    name: 'body-part chips: the quick row and the full filter are the same list',
+    run() {
+      const sheet = fs.readFileSync(
+        path.join(__dirname, '../../src/components/AddExerciseSheet.tsx'),
+        'utf8',
+      );
+      // Two lists is how the quick row lost biceps and triceps.
+      assert.equal((sheet.match(/BODY_PART_FILTERS/g) ?? []).length, 3, 'import + both chip rows');
+      assert.match(sheet, /matchesBodyPartFilter\(item, bodyPart\)/);
+      for (const muscle of ['quadriceps', 'hamstrings', 'calves']) {
+        assert.ok(sheet.includes(`${muscle}: 'lib.muscle.${muscle}'`), `no label for ${muscle}`);
+      }
     },
   },
 ];

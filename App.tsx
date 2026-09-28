@@ -2700,17 +2700,17 @@ function VinhaApp() {
   }
 
   /**
-   * Renaming a session from Home.
+   * Renaming one day of a custom programme — from Home's plan sheet and from
+   * the day's own page.
    *
    * Only a program of the reader's own can be renamed: the catalog's templates
    * are immutable at runtime, and a rename that silently did nothing would be
-   * worse than no button. The sheet asks whether this handler exists before it
-   * draws the pencil.
+   * worse than no button. Both surfaces ask whether they were handed this
+   * before they draw the pencil.
    */
-  async function handleRenameActivePlanSession(sessionId: string, name: string) {
+  async function handleRenameProgramSession(templateId: string, sessionId: string, name: string) {
     const trimmed = name.trim();
-    const templateId = homeActivePlanCard?.programId;
-    if (!trimmed || !templateId || homeActivePlanCard?.programType !== 'custom') {
+    if (!trimmed) {
       return;
     }
     await editWorkoutTemplateSessions(templateId, (sessions) => ({
@@ -7442,6 +7442,7 @@ function VinhaApp() {
       editProgramExercise: handleEditProgramExercise,
       handleSaveRhythm,
       handleRenameCustomProgram,
+      handleRenameProgramSession,
       handleReorderProgramSession,
       handleAddProgramSession,
       handleRemoveProgramSession,
@@ -7731,7 +7732,7 @@ function VinhaApp() {
         // not offered for them rather than offered and inert.
         onRenameSession={
           homeActivePlanCard?.programType === 'custom'
-            ? (sessionId, name) => void handleRenameActivePlanSession(sessionId, name)
+            ? (sessionId, name) => void handleRenameProgramSession(homeActivePlanCard.programId, sessionId, name)
             : undefined
         }
         onStartActivePlanSession={(sessionId) => {

@@ -233,6 +233,20 @@ interface ProgramDayScreenProps {
    * deleting the programme, which has its own button.
    */
   onRemoveSession?: () => void;
+  /**
+   * The day's own name, typed over from the pen beside it (#bugs 2026-09-28:
+   * "lisää tähän kynä ikoni josta voi nimeä muokata"). Undefined for a
+   * catalog programme, whose day names are the catalog's.
+   */
+  onRenameSession?: (name: string) => void;
+  /**
+   * Whether ANCHOR / SUPPORT / EXTRA were decided by someone. A catalog day's
+   * roles were; a day the reader built has them derived from the library
+   * (every compound lift SUPPORT, nothing ever ANCHOR), so every row carried
+   * the same tag and the reader asked why their own day was all support lifts
+   * (#bugs 2026-09-28). A tag on every row says nothing, so it is not drawn.
+   */
+  showRoles?: boolean;
   onBack: () => void;
 }
 
@@ -257,6 +271,8 @@ export function ProgramDayScreen({
   onSupersetLink,
   tailoringPreferences,
   onRemoveSession,
+  onRenameSession,
+  showRoles = true,
   onBack,
 }: ProgramDayScreenProps) {
   const theme = useTheme();
@@ -264,6 +280,8 @@ export function ProgramDayScreen({
   const styles = useThemedStyles(makeStyles);
   const tints = roleTints(theme);
   const [confirmRemoveSession, setConfirmRemoveSession] = useState(false);
+  // Null while the title reads; the draft while it is being typed over.
+  const [nameDraft, setNameDraft] = useState<string | null>(null);
 
   // Warm-up and recovery closed by default: they are the same generated
   // blocks on every session of this focus, and the lifts are what the reader
@@ -533,9 +551,27 @@ export function ProgramDayScreen({
   // Only the roles this day actually contains — a legend for a role that
   // never appears below it is furniture.
   const presentRoles = useMemo(() => {
+    if (!showRoles) {
+      return [];
+    }
     const seen = new Set(session.exercises.map((exercise) => exercise.role as string));
     return ['primary', 'secondary', 'accessory'].filter((role) => seen.has(role));
-  }, [session.exercises]);
+  }, [session.exercises, showRoles]);
+
+  const dayTitle = formatPlanSessionTitle(session, dayNumber - 1, programTitle, language);
+  const commitRename = () => {
+    if (nameDraft === null) {
+      return;
+    }
+    const trimmed = nameDraft.trim();
+    // Blank is a cancel, and so is Save on the untouched field: it was seeded
+    // with the title as shown, which for an unnamed day is a placeholder
+    // ("Treeni 2") that nobody typed — writing it back would make it the name.
+    if (trimmed && trimmed !== dayTitle) {
+      onRenameSession?.(trimmed);
+    }
+    setNameDraft(null);
+  };
 
   const canTune = Boolean(onPrescribe);
 
@@ -761,11 +797,13 @@ export function ProgramDayScreen({
                     </Text>
                   );
                 })()}
-                <View style={[styles.roleTag, { backgroundColor: tints[exercise.role]?.bg ?? theme.surfaceSoft }]}>
-                  <Text style={[styles.roleTagText, { color: tints[exercise.role]?.ink ?? theme.muted }]}>
-                    {t(language, ROLE_TAG_KEYS[exercise.role] ?? 'detail.role.accessory')}
-                  </Text>
-                </View>
+                {showRoles ? (
+                  <View style={[styles.roleTag, { backgroundColor: tints[exercise.role]?.bg ?? theme.surfaceSoft }]}>
+                    <Text style={[styles.roleTagText, { color: tints[exercise.role]?.ink ?? theme.muted }]}>
+                      {t(language, ROLE_TAG_KEYS[exercise.role] ?? 'detail.role.accessory')}
+                    </Text>
+                  </View>
+                ) : null}
                 {/* Swap and remove sit on the name line as icons (design
                     2026-08-31): "Swap" was a word in a button on the line
                     below, which put a verb in the same row as the numbers and
@@ -883,6 +921,8 @@ export function ProgramDayScreen({
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        // The day's name is typed in here: Save must answer the first tap.
+        keyboardShouldPersistTaps="handled"
         // Two vertical gestures cannot share one finger: the list holds
         // still while a row is being dragged.
         scrollEnabled={dragIndex === null}
@@ -923,9 +963,63 @@ export function ProgramDayScreen({
           2026-08-27). The programme's name is on the page you came from and
           is not repeated here.
         */}
-        <Text style={styles.pageTitle} numberOfLines={2}>
-          {formatPlanSessionTitle(session, dayNumber - 1, programTitle, language)}
-        </Text>
+        {nameDraft === null ? (
+          <View style={styles.titleRow}>
+            <Text style={styles.pageTitle} numberOfLines={2}>
+              {dayTitle}
+            </Text>
+            {onRenameSession ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t(language, 'home.today.rename')}
+                hitSlop={12}
+                onPress={() => setNameDraft(dayTitle)}
+                style={({ pressed }) => [styles.titlePen, pressed && { opacity: 0.6 }]}
+              >
+                <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3z"
+                    stroke={theme.faint}
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </Svg>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : (
+          <View style={styles.titleEdit}>
+            <TextInput
+              value={nameDraft}
+              onChangeText={setNameDraft}
+              autoFocus
+              selectTextOnFocus
+              maxLength={60}
+              placeholderTextColor={theme.faint}
+              style={styles.titleInput}
+              onSubmitEditing={commitRename}
+            />
+            <View style={styles.titleActions}>
+              <Pressable
+                accessibilityRole="button"
+                hitSlop={10}
+                onPress={() => setNameDraft(null)}
+                style={({ pressed }) => [styles.titleAction, pressed && { opacity: 0.6 }]}
+              >
+                <Text style={styles.titleActionCancel}>{t(language, 'common.cancel')}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                hitSlop={10}
+                onPress={commitRename}
+                style={({ pressed }) => [styles.titleAction, pressed && { opacity: 0.6 }]}
+              >
+                <Text style={styles.titleActionSave}>{t(language, 'common.save')}</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
 
         {/* Three accordions in Home's shape: the warm-up used to be a plain
             paragraph card next to a list of exercise cards, which made the
@@ -1630,8 +1724,55 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 35,
     fontWeight: '800',
     letterSpacing: -0.9,
+    // Takes the row's leftover width so a long name wraps instead of
+    // shoving the pen off the edge.
+    flexShrink: 1,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
     marginTop: 14,
     paddingHorizontal: spacing.lg,
+  },
+  // Nudged onto the first line's baseline rather than the block's top.
+  titlePen: {
+    paddingTop: 9,
+  },
+  titleEdit: {
+    marginTop: 14,
+    paddingHorizontal: spacing.lg,
+  },
+  // The field wears the title's own type, so renaming looks like editing the
+  // title and not like filling in a form.
+  titleInput: {
+    color: theme.ink,
+    fontSize: 30,
+    lineHeight: 35,
+    fontWeight: '800',
+    letterSpacing: -0.9,
+    paddingVertical: 2,
+    borderBottomWidth: 2,
+    borderBottomColor: theme.highlight,
+  },
+  titleActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 18,
+    marginTop: 8,
+  },
+  titleAction: {
+    paddingVertical: 6,
+  },
+  titleActionCancel: {
+    color: theme.faint,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  titleActionSave: {
+    color: theme.highlight,
+    fontSize: 14,
+    fontWeight: '800',
   },
   pageStats: {
     flexDirection: 'row',
