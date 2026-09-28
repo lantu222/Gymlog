@@ -1479,6 +1479,10 @@ const EN = {
   'guided.swap.noMatch': 'No exercise matches that.',
   'guided.swap.footnote': 'Your logged sets stay on the exercise you did them on.',
   'guided.weight': 'WEIGHT',
+  'guided.bar.ez': 'EZ bar 7.5',
+  'guided.bar.15': 'Bar 15',
+  'guided.bar.20': 'Bar 20',
+  'guided.bar.a11y': 'Bar in the weight: {bar} kg',
   // Automated progression (Pro) raised this set's load; the badge names the
   // step it took so the number is not a mystery. The down variants wait for a
   // rule that lowers — the rendering is sign-aware so they cannot misprint.
@@ -4613,6 +4617,10 @@ const FI: Record<I18nKey, string> = {
   'guided.swap.noMatch': 'Yksikään liike ei osu hakuun.',
   'guided.swap.footnote': 'Jo kirjaamasi sarjat jäävät sille liikkeelle, jolla ne teit.',
   'guided.weight': 'PAINO',
+  'guided.bar.ez': 'Z-tanko 7,5',
+  'guided.bar.15': 'Tanko 15',
+  'guided.bar.20': 'Tanko 20',
+  'guided.bar.a11y': 'Tanko painossa: {bar} kg',
   'guided.autoLoad': 'AUTOMAATTINEN +{kg} KG',
   'guided.autoLoadDown': 'AUTOMAATTINEN −{kg} KG',
   'guided.autoReps': 'AUTOMAATTINEN +{count}',
