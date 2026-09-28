@@ -457,7 +457,14 @@ export function resolveMissedRepsTarget(input: MissedRepsInput): MissedRepsResol
   if (!latest || latest.skipped) {
     return null;
   }
-  const reps = latest.sets.map((set) => set.reps).filter((count) => Number.isFinite(count) && count > 0);
+  // The sets the programme asks for — the first ones, as the entry is written
+  // in the order they were done. A set added past them is extra work: a tired
+  // fifth set at 3 reps is not a reason to lower a 12/12/12/12 session, nor to
+  // hold back a target every programmed set met (review of #202).
+  const reps = latest.sets
+    .map((set) => set.reps)
+    .filter((count) => Number.isFinite(count) && count > 0)
+    .slice(0, targetSets);
   if (reps.length === 0) {
     return null;
   }
@@ -475,7 +482,8 @@ export function resolveMissedRepsTarget(input: MissedRepsInput): MissedRepsResol
   // A target was given last time and every set reached it: one rep more, two
   // when every set went past it — never below what the sets just averaged, so
   // 10/10/10/10 on a target of 6 does not come back as 8.
-  // "Every set" means every set the programme asks for, not every set logged.
+  // "Every set" means every set the programme asks for, and fewer than that
+  // did not meet it.
   if (given !== null && reps.length >= targetSets && reps.every((count) => count >= given)) {
     const next = Math.max(given + (reps.every((count) => count > given) ? 2 : 1), averageTarget);
     return next >= repsMin ? null : { targetReps: next, fromAverage: null };

@@ -125,6 +125,17 @@ module.exports = [
     },
   },
   {
+    name: 'a set added past the programme is extra work: it neither lowers the target nor holds one back',
+    run() {
+      // 4 × 12 asked; a fifth set added at the end (exercise/addSet appends).
+      assert.equal(rule([entry([12, 12, 12, 12, 5])]), null);
+      assert.equal(rule([entry([6, 6, 6, 6, 3], { targetReps: 6 })]).targetReps, 7);
+      assert.equal(rule([entry([7, 7, 7, 7, 6], { targetReps: 6 })]).targetReps, 8);
+      // Short of the programme, the average is the programmed sets' own.
+      assert.deepEqual(rule([entry([7, 6, 4, 4, 2])]), { targetReps: 6, fromAverage: 5.25 });
+    },
+  },
+  {
     name: 'a lift opened and left without a set does not hide the short session before it',
     run() {
       assert.equal(rule([entry([]), entry([7, 6, 4, 4])]).targetReps, 6);
