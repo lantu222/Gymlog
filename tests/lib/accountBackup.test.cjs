@@ -587,4 +587,29 @@ module.exports = [
       assert.match(restoreQuestionCopy(summary, 'en').body, /This phone has a workout in progress\. /);
     },
   },
+  {
+    // Break round, 2026-09-28 (user decision: ask).
+    name: 'account backup: a first backup needs a yes only when another account left its data on the phone',
+    run() {
+      const { uploadNeedsConsent } = require('../../.test-dist/lib/accountBackup.js');
+      assert.equal(uploadNeedsConsent({ signedOutSub: 'a', sub: 'b', localWorthKeeping: true }), true);
+      assert.equal(uploadNeedsConsent({ signedOutSub: 'a', sub: 'a', localWorthKeeping: true }), false, 'the same account came back');
+      assert.equal(uploadNeedsConsent({ signedOutSub: null, sub: 'b', localWorthKeeping: true }), false, 'never signed in before');
+      assert.equal(uploadNeedsConsent({ signedOutSub: 'a', sub: 'b', localWorthKeeping: false }), false, 'nothing of the other account left');
+    },
+  },
+  {
+    name: 'account backup: the switch question names what is on the phone and where it would go, in both languages',
+    run() {
+      const { confirmUploadCopy } = require('../../.test-dist/lib/accountBackupCopy.js');
+      const local = { workoutCount: 12, customProgramCount: 1, readyProgramCount: 0, cardioCount: 0, bodyweightCount: 0, measurementCount: 0, workoutInProgress: false };
+      const fi = confirmUploadCopy({ email: 'toinen@example.com', local }, 'fi');
+      assert.match(fi.body, /\(12 treeniä, 1 ohjelma\)/);
+      assert.match(fi.body, /Varmuuskopioidaanko ne tilille toinen@example\.com\?$/);
+      assert.match(confirmUploadCopy({ email: null, local }, 'fi').body, /Varmuuskopioidaanko ne tälle tilille\?$/);
+      const en = confirmUploadCopy({ email: 'other@example.com', local }, 'en');
+      assert.match(en.body, /Back it up to other@example\.com\?$/);
+      assert.equal(en.skip, 'Not now');
+    },
+  },
 ];

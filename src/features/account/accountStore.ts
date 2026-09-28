@@ -94,3 +94,29 @@ export async function saveStoredAccount(account: StoredAccount): Promise<void> {
 export async function clearStoredAccount(): Promise<void> {
   await AsyncStorage.removeItem(STORAGE_KEY);
 }
+
+/**
+ * The account this phone was last signed out of. Sign-out keeps the local
+ * data, so the next sign-in may be someone else — a second Google account, a
+ * shared phone — and that data is not theirs to have backed up unasked
+ * (lib/accountBackup uploadNeedsConsent). Kept until the next sign-in has
+ * settled, then forgotten.
+ */
+const SIGNED_OUT_KEY = '@vinha/account/signedout/v1';
+
+export async function rememberSignedOutAccount(sub: string): Promise<void> {
+  await AsyncStorage.setItem(SIGNED_OUT_KEY, sub);
+}
+
+export async function loadSignedOutAccount(): Promise<string | null> {
+  try {
+    const sub = await AsyncStorage.getItem(SIGNED_OUT_KEY);
+    return typeof sub === 'string' && sub.length > 0 ? sub : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function forgetSignedOutAccount(): Promise<void> {
+  await AsyncStorage.removeItem(SIGNED_OUT_KEY);
+}

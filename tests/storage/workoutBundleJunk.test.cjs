@@ -103,6 +103,31 @@ const onDisk = (value) => JSON.parse(JSON.stringify(value));
 
 module.exports = [
   {
+    // Break round, 2026-09-28: the map was checked and cast whole, and a slot
+    // holding a string reached entriesForLift's .filter on every session start.
+    name: 'workout loader: a "last time" slot that is not a list, or an entry without sets, is dropped and the rest kept',
+    async run() {
+      const { workout } = loadWorkoutStore();
+      const good = history.slotHistory['tpl_x:upper_a:bench'][0];
+      const junk = {
+        ...history,
+        slotHistory: {
+          'tpl_x:upper_a:bench': [good, null, 'x', { ...good, sets: 'three' }],
+          'tpl_x:upper_a:row': 'not a list',
+          'tpl_x:upper_a:squat': { sets: [] },
+          'tpl_x:upper_a:dip': 7,
+        },
+      };
+      const back = workout.normalizeWorkoutBundle(onDisk({ activeSession: null, history: junk, activeCardio: null, freestyleDraft: null }));
+      assert.deepEqual(Object.keys(back.history.slotHistory), ['tpl_x:upper_a:bench']);
+      assert.deepEqual(onDisk(back.history.slotHistory['tpl_x:upper_a:bench']), [good]);
+
+      const { entriesForLift } = require(path.join(DIST, 'lib', 'exerciseHistoryLookup.js'));
+      assert.deepEqual(entriesForLift('not a list', 'Bench Press'), []);
+      assert.deepEqual(entriesForLift({ sets: [] }, 'Bench Press'), []);
+    },
+  },
+  {
     name: 'workout loader: a live session missing a part is repaired or dropped, and the history survives it',
     async run() {
       const ready = readySession();

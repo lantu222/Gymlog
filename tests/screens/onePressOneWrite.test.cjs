@@ -116,4 +116,25 @@ module.exports = [
       assert.match(sheet, /\} finally \{\s*sendingRef\.current = false;\s*setSending\(false\);\s*\}/);
     },
   },
+  {
+    // Break round, 2026-09-28: a double tap on a ruler sheet's Save wrote two
+    // weigh-ins a few milliseconds apart.
+    name: 'one press: a weigh-in, a measurement or a BMI edit is saved once, and the next opening can save again',
+    run() {
+      const screen = strip(read('src', 'screens', 'ProgressScreen.tsx'));
+      assert.match(
+        screen,
+        /function takeRulerSave\(\) \{\s*if \(rulerSaveTakenRef\.current\) \{\s*return false;\s*\}\s*rulerSaveTakenRef\.current = true;\s*return true;\s*\}/,
+      );
+      // Given back whenever any of the three sheets opens.
+      assert.match(
+        screen,
+        /if \(weightSheetVisible \|\| measureSheetVisible \|\| bmiSheetVisible\) \{\s*rulerSaveTakenRef\.current = false;\s*\}/,
+      );
+      // Each of the three Saves asks first, before it writes anything.
+      assert.match(screen, /onSave=\{\(weightKg\) => \{\s*if \(!takeRulerSave\(\)\) \{\s*return;\s*\}\s*onAddBodyweight\(weightKg\);/);
+      assert.match(screen, /onSave=\{\(value\) => \{\s*if \(!takeRulerSave\(\)\) \{\s*return;\s*\}\s*void handleSaveMeasure\(value\);/);
+      assert.match(screen, /onSave=\{\(\{ weightKg, heightCm: nextHeight \}\) => \{\s*if \(!takeRulerSave\(\)\) \{\s*return;\s*\}\s*onSaveHeight\?\.\(nextHeight\);/);
+    },
+  },
 ];

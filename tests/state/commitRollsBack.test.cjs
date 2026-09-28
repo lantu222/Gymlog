@@ -41,18 +41,18 @@ module.exports = [
       assert.ok(snapshot >= 0 && snapshot < swap, 'the previous database is not held before memory moves');
 
       const tryAt = commit.indexOf('try {');
-      assert.ok(tryAt > swap && tryAt < commit.indexOf('await saveDatabase(nextDatabase);'), 'the write is outside the try');
-      assert.ok(commit.indexOf('await savePreferences(nextDatabase.preferences);') > tryAt, 'the preferences write is outside the try');
+      const write = commit.indexOf('await saveDatabase(nextDatabase, { withPreferences: nextDatabase.preferences !== previous.preferences });');
+      assert.ok(write > tryAt && tryAt > swap, 'the write is outside the try, or no longer carries the preferences with it');
       assert.match(
         commit,
-        /catch \(error\) \{\s*databaseRef\.current = previous;\s*setDatabase\(previous\);[\s\S]*?throw error;\s*\}/,
+        /catch \(error\) \{\s*databaseRef\.current = previous;\s*setDatabase\(previous\);\s*throw error;\s*\}/,
         'a failed write leaves the new state in memory, or is swallowed',
       );
-      // Two writes, not one transaction: a blob that landed before the
-      // preferences key failed is brought back to the snapshot memory returned
-      // to, or the next launch reads a database memory gave up on.
-      assert.match(commit, /await saveDatabase\(nextDatabase\);\s*blobWritten = true;/);
-      assert.match(commit, /if \(blobWritten\) \{\s*try \{\s*await saveDatabase\(previous\);/);
+      // One transaction, not two writes: the preferences key travels with the
+      // blob, so there is no second write for a kill to land between (break
+      // round, 2026-09-28), and nothing half-written to take back.
+      assert.doesNotMatch(commit, /savePreferences\(/);
+      assert.doesNotMatch(commit, /blobWritten/);
     },
   },
   {

@@ -25,7 +25,52 @@ function database() {
   };
 }
 
+/** A free workout, saved the way finishLoggedWorkoutSave saves one. */
+function withFreeWorkouts() {
+  return {
+    ...database(),
+    workoutTemplates: [
+      { id: 'free1', name: 'Vapaa treeni', origin: 'freestyle', sessions: [], exerciseIds: ['fe1'] },
+      { id: 't1', name: 'Mine', origin: 'authored', sessions: [], exerciseIds: [] },
+    ],
+    exerciseTemplates: [
+      { id: 'fe1', workoutTemplateId: 'free1', name: 'Push-up' },
+      { id: 'e1', workoutTemplateId: 't1', name: 'Squat' },
+    ],
+    workoutPlans: [],
+    workoutSessions: [
+      ...database().workoutSessions,
+      { id: 'f1', workoutTemplateId: 'free1', workoutNameSnapshot: 'Vapaa treeni', performedAt: '2026-08-22T10:00:00.000Z' },
+    ],
+  };
+}
+
 module.exports = [
+  {
+    // Break round, 2026-09-28: the programme a free workout is saved against
+    // is shown nowhere and deletable by no one, and it stayed behind for good.
+    name: 'history delete: a free workout takes its holding programme with it, and a programme of your own stays',
+    run() {
+      const afterFree = workoutSessionRepository.remove(withFreeWorkouts(), 'f1');
+      assert.deepEqual(afterFree.workoutTemplates.map((template) => template.id), ['t1']);
+      assert.deepEqual(afterFree.exerciseTemplates.map((exercise) => exercise.id), ['e1']);
+
+      // Deleting a workout of an authored programme never deletes the programme.
+      const afterOwn = workoutSessionRepository.remove(
+        workoutSessionRepository.remove(withFreeWorkouts(), 's1'),
+        's2',
+      );
+      assert.deepEqual(afterOwn.workoutTemplates.map((template) => template.id), ['free1', 't1']);
+
+      // A holder another workout still hangs on stays.
+      const shared = withFreeWorkouts();
+      shared.workoutSessions.push({ id: 'f2', workoutTemplateId: 'free1', workoutNameSnapshot: 'Vapaa treeni', performedAt: '2026-08-23T10:00:00.000Z' });
+      assert.deepEqual(
+        workoutSessionRepository.remove(shared, 'f1').workoutTemplates.map((template) => template.id),
+        ['free1', 't1'],
+      );
+    },
+  },
   {
     name: 'history delete: the sets go with the workout',
     run() {

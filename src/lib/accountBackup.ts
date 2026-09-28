@@ -279,6 +279,25 @@ function isUntouchedOnboardingTemplate(
  * the player's store and puts the live session away; once a setup-only phone
  * counted as empty, signing in mid-workout threw that workout out unasked.
  */
+/**
+ * Whether the first backup of an account needs the reader's yes.
+ *
+ * An account with no cloud copy takes this phone's data as its first backup.
+ * That is right for the person who logged it; it is wrong when the phone was
+ * last signed in to another account, because sign-out keeps the data and the
+ * account now signing in may be someone else's. The previous account's whole
+ * log went to the new one with "backed up" on screen (break round,
+ * 2026-09-28; user decision: ask). The same account signing back in, or a
+ * phone never signed in before, is not asked.
+ */
+export function uploadNeedsConsent(input: {
+  signedOutSub: string | null;
+  sub: string;
+  localWorthKeeping: boolean;
+}): boolean {
+  return input.localWorthKeeping && input.signedOutSub !== null && input.signedOutSub !== input.sub;
+}
+
 export function hasLocalDataWorthKeeping(database: AppDatabase, liveSession = false): boolean {
   if (
     liveSession ||

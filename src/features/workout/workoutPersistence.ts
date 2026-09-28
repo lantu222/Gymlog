@@ -36,6 +36,30 @@ function buildScopedSlotId(templateId: string, templateSessionId: string, slotId
   return `${templateId}:${templateSessionId}:${slotId}`;
 }
 
+/**
+ * Every slot's "last time" list, checked slot by slot. The map itself was
+ * checked and then cast whole, so one slot holding a string or an object
+ * reached entriesForLift's `.filter` and took the guided player down on
+ * every session start (break round, 2026-09-28). A slot that is not a list
+ * is dropped; an entry without its sets list is dropped too, since every
+ * reader of an entry walks its sets.
+ */
+function normalizeSlotHistory(input: unknown): WorkoutHistoryStore['slotHistory'] {
+  if (!isObject(input)) {
+    return {};
+  }
+  const slots: WorkoutHistoryStore['slotHistory'] = {};
+  for (const [slotId, entries] of Object.entries(input)) {
+    if (!Array.isArray(entries)) {
+      continue;
+    }
+    slots[slotId] = entries.filter(
+      (entry) => isObject(entry) && Array.isArray(entry.sets),
+    ) as unknown as WorkoutHistoryStore['slotHistory'][string];
+  }
+  return slots;
+}
+
 function normalizeHistory(input: unknown): WorkoutHistoryStore {
   if (!isObject(input)) {
     return createEmptyWorkoutHistory();
@@ -47,7 +71,7 @@ function normalizeHistory(input: unknown): WorkoutHistoryStore {
 
   return {
     sessions,
-    slotHistory: isObject(input.slotHistory) ? (input.slotHistory as unknown as WorkoutHistoryStore['slotHistory']) : {},
+    slotHistory: normalizeSlotHistory(input.slotHistory),
     lastSelectedTemplateId: typeof input.lastSelectedTemplateId === 'string' ? input.lastSelectedTemplateId : null,
   };
 }

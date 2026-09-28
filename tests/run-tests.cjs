@@ -446,6 +446,7 @@ const suites = [
   ...require('./storage/runningSetMatchesPlans.test.cjs'),
   ...require('./lib/storageChunks.test.cjs'),
   ...require('./storage/largeItem.test.cjs'),
+  ...require('./storage/preferencesWithBlob.test.cjs'),
   ...require('./storage/loadWithRetry.test.cjs'),
   ...require('./storage/longHistoryLoads.test.cjs'),
   ...require('./storage/resetKeepsInstall.test.cjs'),

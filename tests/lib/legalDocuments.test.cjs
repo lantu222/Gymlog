@@ -25,7 +25,7 @@ const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
  */
 const LEGAL_TEXT_VERSIONS = [
   { date: '2026-09-16', fingerprint: 'c52c7814c8a7ba76' },
-  { date: '2026-09-28', fingerprint: 'd36885d3285f4a31' },
+  { date: '2026-09-28', fingerprint: '9632d9ac09b709c1' },
 ];
 
 const IDS = ['privacy', 'terms'];
@@ -160,11 +160,15 @@ module.exports = [
       // rather than paying for the whole database. Plus the quarantine slot an
       // unreadable database is
       // moved to rather than deleted. The policy declares that one too, in
-      // "Where it is stored" — it holds the reader's own data.
+      // "Where it is stored" — it holds the reader's own data. The account
+      // signed out of last is kept as its identifier alone, so the next
+      // account to sign in is asked about the data it left (break round,
+      // 2026-09-28); the cloud-backup paragraph says so.
       const keys = new Set(allSource.match(/@vinha\/[a-z0-9/]+/g) ?? []);
       assert.deepEqual(
         [...keys].sort(),
         [
+          '@vinha/account/signedout/v1',
           '@vinha/account/v1',
           '@vinha/analytics/v1',
           '@vinha/coach/memory/v1',
@@ -178,6 +182,10 @@ module.exports = [
         ],
         'The policy declares these storage keys. A new one needs a line in "Where it is stored".',
       );
+      // And the line itself, in both languages (break round, 2026-09-28).
+      const policy = (language) => renderLegalDocumentMarkdown(buildLegalDocument('privacy', language));
+      assert.match(policy('en'), /the phone keeps only the identifier of the account you left/);
+      assert.match(policy('fi'), /puhelin säilyttää vain sen tilin tunnisteen, josta kirjauduit ulos/);
       const legacy = new Set(allSource.match(/@gymlog\/[a-z0-9/]+/g) ?? []);
       assert.deepEqual(
         [...legacy].sort(),

@@ -36,7 +36,14 @@ module.exports = [
         /\{ text: replace\.back, style: 'cancel', onPress: ask \},\s*\{ text: replace\.confirm, style: 'destructive', onPress: keepLocal \},/,
       );
       assert.equal((presenter.match(/resolveRestoreChoice\('keep_local'\)/g) ?? []).length, 1, 'a second path uploads without the question');
-      assert.equal((presenter.match(/cancelable: false/g) ?? []).length, 2, 'a dismissable dialog leaves the choice dangling');
+      // Three: the restore question, its second question, and the account-switch
+      // question (break round, 2026-09-28), whose dismissal would leave the
+      // automatic backup held with nothing to lift it.
+      assert.equal((presenter.match(/cancelable: false/g) ?? []).length, 3, 'a dismissable dialog leaves the choice dangling');
+      assert.match(
+        presenter,
+        /if \(outcome\.kind === 'confirm_upload'\) \{[\s\S]*?resolveUploadChoice\('skip'\)[\s\S]*?resolveUploadChoice\('upload'\)[\s\S]*?\{ cancelable: false \},\s*\);\s*return outcome\.kind;/,
+      );
       assert.match(presenter, /ask\(\);\s*return outcome\.kind;/);
     },
   },

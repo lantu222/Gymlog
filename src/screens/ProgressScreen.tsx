@@ -785,6 +785,23 @@ export function ProgressScreen({
   const [measureSheetVisible, setMeasureSheetVisible] = useState(false);
   const [weightSheetVisible, setWeightSheetVisible] = useState(false);
   const [bmiSheetVisible, setBmiSheetVisible] = useState(false);
+  // One press, one entry. A ruler sheet closes on the next render, and a
+  // second tap landing before it wrote a second weigh-in a few milliseconds
+  // after the first (break round, 2026-09-28). Taken on Save, given back each
+  // time a sheet opens.
+  const rulerSaveTakenRef = useRef(false);
+  useEffect(() => {
+    if (weightSheetVisible || measureSheetVisible || bmiSheetVisible) {
+      rulerSaveTakenRef.current = false;
+    }
+  }, [weightSheetVisible, measureSheetVisible, bmiSheetVisible]);
+  function takeRulerSave() {
+    if (rulerSaveTakenRef.current) {
+      return false;
+    }
+    rulerSaveTakenRef.current = true;
+    return true;
+  }
   /**
    * Whether the entries list is showing its deletes.
    *
@@ -2166,6 +2183,9 @@ export function ProgressScreen({
         bottomInset={insets.bottom}
         onCancel={() => setWeightSheetVisible(false)}
         onSave={(weightKg) => {
+          if (!takeRulerSave()) {
+            return;
+          }
           onAddBodyweight(weightKg);
           setWeightSheetVisible(false);
         }}
@@ -2186,6 +2206,9 @@ export function ProgressScreen({
         bottomInset={insets.bottom}
         onCancel={() => setMeasureSheetVisible(false)}
         onSave={(value) => {
+          if (!takeRulerSave()) {
+            return;
+          }
           void handleSaveMeasure(value);
           setMeasureSheetVisible(false);
         }}
@@ -2198,6 +2221,9 @@ export function ProgressScreen({
         bottomInset={insets.bottom}
         onCancel={() => setBmiSheetVisible(false)}
         onSave={({ weightKg, heightCm: nextHeight }) => {
+          if (!takeRulerSave()) {
+            return;
+          }
           onSaveHeight?.(nextHeight);
           // Only writes a weigh-in when the reader actually moved the weight
           // dial. Editing your height should not silently stamp today with a

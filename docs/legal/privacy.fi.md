@@ -42,7 +42,7 @@ Uusi puhelin aloittaa siis tyhjästä, ellet käytä alla kuvattua pilvivarmuusk
 
 Jos kirjaudut Googlella, kopio kaikesta kohdassa ”Mitä sovellus tallentaa puhelimeesi” luetellusta — paitsi kesken olevasta treenistä — lähetetään salattua yhteyttä pitkin palvelimellemme ja säilytetään siellä, jotta uusi puhelin voi palauttaa sen, kun kirjaudut uudelleen. Kirjautumista ei koskaan vaadita; jokainen toiminto toimii ilman sitä.
 
-Googlelta saamme Google-tilisi tunnisteen, sähköpostiosoitteesi ja nimesi. Ne säilyvät puhelimessasi, jotta sovellus voi näyttää, mikä tili on kirjautuneena. Palvelimella varmuuskopio tallennetaan tunnisteen sekoitetun muodon alle; sähköpostiasi ja nimeäsi ei tallenneta sinne.
+Googlelta saamme Google-tilisi tunnisteen, sähköpostiosoitteesi ja nimesi. Ne säilyvät puhelimessasi, jotta sovellus voi näyttää, mikä tili on kirjautuneena. Palvelimella varmuuskopio tallennetaan tunnisteen sekoitetun muodon alle; sähköpostiasi ja nimeäsi ei tallenneta sinne. Kun kirjaudut ulos, puhelin säilyttää vain sen tilin tunnisteen, josta kirjauduit ulos, jotta sovellus kysyy ennen kuin se varmuuskopioi puhelimen tiedot seuraavaksi kirjautuvalle toiselle Google-tilille; tunniste poistetaan, kun tämä kirjautuminen on ratkaistu.
 
 Varmuuskopio lähetetään hetki sen jälkeen, kun kirjaat treenin, ja aina kun painat Varmuuskopioi nyt. Palvelin tarkistaa kirjautumisesi Googlelta joka pyynnöllä, tallentaa tiedoston ja luovuttaa sen vain samalle Google-tilille. Se ei lue, analysoi eikä lokita sisältöä.
 
