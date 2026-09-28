@@ -121,10 +121,12 @@ module.exports = [
       assert.doesNotMatch(rules, /tell the reader to add weight next time/);
       // Six days a week, 95 minutes a session: "ACWR 1.03, you are not training too much".
       assert.match(rules, /answered from the absolute load in the log/);
-      assert.match(rules, /never answer those questions from them alone/);
-      assert.match(rules, /Never write "ACWR", the ratio or the recovery score to the reader/);
-      // The Recovery sheet shows ACWR, so a reader can ask what it is.
-      assert.match(rules, /unless the reader asks about them by name \(the Recovery sheet shows ACWR\)/);
+      assert.match(rules, /never answer those questions from it alone/);
+      // A rule against quoting the numbers did not hold ("palautuminen 98\/100"
+      // after #215); the context no longer carries them. The Recovery sheet
+      // shows ACWR, so a reader can still ask what it is.
+      assert.match(rules, /neither number is in your context/);
+      assert.match(rules, /Asked about them by name, explain what they measure/);
       // "How many calories" was answered with advice about the lifts.
       assert.match(rules, /A calorie question gets a calorie figure/);
       assert.match(rules, /Mifflin-St Jeor/);

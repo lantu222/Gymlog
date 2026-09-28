@@ -46,6 +46,39 @@ function trim(value: number) {
   return `${Math.round(value * 100) / 100}`;
 }
 
+/**
+ * This week's lifting load against the reader's own last four weeks, said the
+ * way a reader would be told it. It is a comparison, not a verdict: a heavy
+ * week held steady reads "in line", which is why the line says so.
+ */
+function loadInWords(
+  signal: AICoachTrainingContext['fatigue']['signal'],
+  acwr: number,
+  sessionCount7d: number,
+): string {
+  const relative = 'compared with the reader\'s own last four weeks, not a measure of how much is too much';
+  if (!(acwr > 0)) {
+    // A ratio of 0 is either no lifting this week, or sessions that carried
+    // no kilos — pull-ups, push-ups. The second read "undertrained", which
+    // says nothing about a week of bodyweight training.
+    return sessionCount7d > 0
+      ? 'no loaded lifting to compare: this week\'s sessions carried no added kilos'
+      : `no lifting this week (${relative})`;
+  }
+  switch (signal) {
+    case 'undertrained':
+      return `lifting load well below usual (${relative})`;
+    case 'optimal':
+      return `lifting load in line with usual (${relative})`;
+    case 'elevated':
+      return `lifting load above usual (${relative})`;
+    case 'high':
+      return `lifting load sharply above usual — a spike (${relative})`;
+    default:
+      return `lifting load not readable (${relative})`;
+  }
+}
+
 const isRepList = (value: unknown): value is number[] =>
   Array.isArray(value) && value.length > 0 && value.every((entry) => typeof entry === 'number' && Number.isFinite(entry));
 
@@ -143,7 +176,7 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
   const strength = cardio ? 'strength session' : 'session';
 
   // Load & fatigue — always present, first so LLM sees it immediately
-  const { signal, acwr, recoveryScore, sessionCount7d, confident } = context.fatigue;
+  const { signal, acwr, sessionCount7d, confident } = context.fatigue;
   const weekCount = cardio
     ? `${plural(sessionCount7d, strength)} + ${cardio.sessionsLast7Days} cardio`
     : plural(sessionCount7d, strength);
@@ -151,10 +184,17 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
     section('Load', [
       // ACWR off four weeks of data is a ratio, not a reading. Stating the
       // signal as fact is how one logged session becomes "you are overtrained".
+      //
+      // In words, and without the numbers: the ratio and the recovery score
+      // (which is computed from the ratio alone) were quoted back as "ACWR
+      // 1,03 on optimaalinen" and "palautuminen 98/100", and six days a week
+      // at 95 minutes was called "not too much" on their strength. A rule
+      // against quoting them did not hold; a number that is not here cannot
+      // be quoted (eval matrix, 2026-09-28).
       line(
         'This week',
         confident
-          ? `${weekCount} | ACWR ${acwr} (${signal}${cardio ? ', lifting load only' : ''}) | Recovery ${recoveryScore}/100`
+          ? `${weekCount} | ${loadInWords(signal, acwr, sessionCount7d)}${cardio ? ' (lifting load only)' : ''}`
           : `${weekCount} | too little history to read load or recovery — do not comment on fatigue`,
       ),
       line(
