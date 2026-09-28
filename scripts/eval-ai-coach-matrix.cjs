@@ -46,6 +46,11 @@ function readEnvLocal() {
 
 const outFile = arg('out', null);
 const maxCalls = Number(arg('max-calls', 40));
+// NaN would make the cap compare false forever, and this script spends money.
+if (!Number.isInteger(maxCalls) || maxCalls < 0) {
+  console.error('--max-calls needs a whole number, e.g. --max-calls 10');
+  process.exit(1);
+}
 const only = arg('only', null)?.split(',');
 const reportOnly = process.argv.includes('--report');
 

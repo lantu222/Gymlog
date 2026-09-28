@@ -443,6 +443,20 @@ module.exports = [
     },
   },
   {
+    // Review, #213: one name logged both ways got two contradictory lines.
+    name: 'a lift that ever carried load stays in the weighted history only',
+    run() {
+      const sessions = [0, 1, 2].map((i) => session(`m${i}`, 'Pull', at(9 - i * 3), 0));
+      const logs = [
+        log('m0', 'Pull Up', 0, [6, 6, 5]),
+        log('m1', 'Pull Up', 10, [5, 5, 5]),
+        log('m2', 'Pull Up', 0, [8, 8, 7]),
+      ];
+      assert.deepEqual(buildRepsLiftHistories(sessions, logs), []);
+      assert.deepEqual(buildLiftHistories(sessions, logs).map((lift) => lift.name), ['Pull Up']);
+    },
+  },
+  {
     name: 'a skipped or empty bodyweight log is not a point',
     run() {
       const sessions = [session('a', 'Home', at(4), 0), session('b', 'Home', at(2), 0)];

@@ -337,9 +337,19 @@ export function buildRepsLiftHistories(
   const timeById = new Map(sessions.map((session) => [session.id, sessionTime(session)] as const));
   const buckets = new Map<string, { name: string; nameTime: number; points: RepsLiftPoint[] }>();
 
+  // Decided per lift, not per log: pull-ups done bodyweight some days and
+  // with a belt on others would otherwise get two lines under one name, each
+  // from half the sessions, one "flat" and one "+3 reps" (review, #213). The
+  // weighted history keeps a lift that has ever carried load.
+  const weightedKeys = new Set(
+    logs
+      .filter((log) => timeById.has(log.sessionId) && topSetOf(log) !== null)
+      .map((log) => normalizedName(log.exerciseNameSnapshot)),
+  );
+
   for (const log of logs) {
     const time = timeById.get(log.sessionId);
-    if (log.skipped || time === undefined || topSetOf(log) !== null) {
+    if (log.skipped || time === undefined || weightedKeys.has(normalizedName(log.exerciseNameSnapshot))) {
       continue;
     }
     const sets = getComparableLogSets(log).filter((set) => set.reps > 0);
