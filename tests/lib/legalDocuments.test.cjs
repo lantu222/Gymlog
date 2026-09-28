@@ -483,6 +483,9 @@ module.exports = [
         homeState: null,
         plannerSetup: 'setup',
         coachMemory: 'pastAdvice',
+        // Computed from the logged workouts already sent: the set screen's next
+        // targets for the last session's lifts (2026-09-27).
+        nextSessionTargets: 'workouts',
       };
       const PHRASES = {
         workouts: { en: /recent workouts/, fi: /viimeaikaiset treenisi/ },

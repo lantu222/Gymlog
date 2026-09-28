@@ -135,6 +135,12 @@ export interface AICoachLastSessionExercise {
   previous?: { day: string; sets: AICoachLastSessionSet[] } | null;
   /** Sessions of this name in a row, this one included, at this top-set weight. */
   sessionsAtThisWeight?: number;
+  /**
+   * What the set screen will open on next time, set by set — the app's own
+   * prescription (workoutState previewNextSession). The coach's example quotes
+   * it. Null or absent when the lift is not in a programme the app can start.
+   */
+  next?: { loadKg: number | null; reps: number[] } | null;
 }
 
 export interface AICoachHistoryLift {
@@ -385,6 +391,27 @@ export interface AICoachAdvice {
    * the app itself offered. An answer that answers nothing does not cost one.
    */
   unanswered?: boolean;
+  /**
+   * The answer's shape, as the user set it on 2026-09-27 for "analyse my last
+   * workout": an observation (the takeaway), what I would do next, a heads-up
+   * when something needs one, and one concrete example for next time. Set only
+   * for that kind of answer; every other answer keeps its own shape.
+   */
+  topic?: 'last_session';
+  /**
+   * "Huomio": a warning, only when a set dropped clearly more than before or
+   * something else needs care, with one thing that could fix it ("+30 s
+   * rest"). Absent when there is nothing to warn about — the heading is shown
+   * only when it has something under it.
+   */
+  attention?: string;
+  /**
+   * "Kehitysesimerkki": one concrete line for next time ("Pidä 50 kg ja
+   * tavoittele 7/7/7"), its numbers copied from the context's prescription
+   * for that lift — never the model's own arithmetic, or the coach and the
+   * set screen would prescribe two different things.
+   */
+  example?: string;
   /**
    * One thing the coach offers to do, drawn as a button by the chat. At most
    * one per answer: a reply that ends in three offers is a menu, not advice.

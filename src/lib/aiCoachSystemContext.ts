@@ -539,6 +539,15 @@ function renderLastSession(
             : `${streak} of this session in a row at ${trim(top)} kg, this one included`,
         );
       }
+      // The app's own next prescription, which the answer's example quotes.
+      if (exercise.next) {
+        const reps = exercise.next.reps.join(', ');
+        parts.push(
+          exercise.next.loadKg !== null
+            ? `next time (the app's own prescription): ${trim(exercise.next.loadKg)} kg x ${reps}`
+            : `next time (the app's own prescription): ${reps} reps`,
+        );
+      }
       return `- ${liftName(exercise.name)} — ${parts.join(' | ')}`;
     };
     const before = last.previousSameName;

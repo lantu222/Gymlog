@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import { del, list, put } from '@vercel/blob';
+import { readAnswerExtras } from '../src/lib/aiCoachAnswerExtras';
 import { buildAiCoachPreviewAnswer } from '../src/lib/aiCoachPreview';
 import { buildAiCoachContextText } from '../src/lib/aiCoachSystemContext';
 import { normalizeAiCoachTrainingContext } from '../src/lib/aiTrainingContext';
@@ -184,6 +185,22 @@ const AI_COACH_RESPONSE_SCHEMA = {
       items: { type: 'string' },
       description: 'Anything you had to assume because the context did not say. Empty when nothing was assumed.',
     },
+    topic: {
+      type: 'string',
+      enum: ['last_session', 'other'],
+      description:
+        '`last_session` when the question is about the reader\'s last workout ("analyse my last workout", "miten viime treeni meni"); `other` for everything else.',
+    },
+    attention: {
+      type: 'string',
+      description:
+        'For last_session only, and only when something needs a warning: a set that dropped clearly more than the others or than the time before, a lift that went backwards. One sentence naming it and one thing that could fix it ("the third set fell to 4 — 30 s more rest could hold it"). Empty when there is nothing to warn about.',
+    },
+    example: {
+      type: 'string',
+      description:
+        'For last_session only: one concrete line for the next session of one lift, its numbers copied from that lift\'s "next time" in the context ("Pidä 50 kg ja tavoittele 7/7/7"). Empty when the context gives no "next time" for the lift you would pick. Never compute the numbers yourself.',
+    },
     unanswered: {
       type: 'boolean',
       description:
@@ -276,6 +293,13 @@ const COACH_SYSTEM_RULES = [
   '- All weights are kilograms.',
   '- Answer in the language the user wrote in, and write numbers and dates the way that language does: Finnish uses a decimal comma (82,5 kg) and day.month dates (3.8.); English uses 82.5 kg and 3 Aug. Never write ISO dates such as 2026-08-03 in prose — the context uses them only as data.',
   '- Do not describe yourself, your context, or how you reasoned.',
+  '',
+  '# Answering about the last workout (topic `last_session`)',
+  '- `takeaway` is the observation: what happened in that session compared with the time before — which lifts went up, held or fell. Not the total volume, and not a comparison with a different day.',
+  '- `why`: at most three short facts behind it, each from the Last session lines.',
+  '- `nextSteps`: what you would do next, one or two actions.',
+  '- `attention`: only when something needs a warning — a set that fell clearly more than the others or than the time before. Name the lift and the set, and give one thing that could fix it (for example 30 s more rest). Otherwise empty; most answers have none.',
+  '- `example`: one line for the next session of the lift that matters most, with the numbers from that lift\'s "next time" in the context, written the way a coach says it ("Pidä 50 kg ja tavoittele 7/7/7"). Empty when the context gives no "next time" for it.',
   '',
   '# When you cannot answer',
   '- A coach asks before advising. When the context does not hold what an accurate answer needs, do not guess and do not fall back on a generic answer: ask exactly one short follow-up question, put that question in `takeaway`, leave `why`, `nextSteps`, `plan` and `assumptions` empty, and set `unanswered` to true.',
@@ -560,6 +584,8 @@ function validateAnswer(payload: unknown): AICoachAdvice | null {
     nextSteps,
     plan,
     assumptions,
+    // The last-workout shape's topic and two optional lines (lib/aiCoachAnswerExtras).
+    ...readAnswerExtras(candidate),
     ...(candidate.unanswered === true ? { unanswered: true } : {}),
     ...(suggestion ? { suggestion } : {}),
   };
