@@ -5,6 +5,7 @@ const { withHelsinkiClocks } = require('../helpers/clockChange.cjs');
 const {
   buildTrainingHistory,
   buildLiftHistories,
+  buildRepsLiftHistories,
   comparableSessions,
   previousComparableSession,
   sessionVolumeKg,
@@ -411,6 +412,62 @@ module.exports = [
       const schedule = weekdaySchedule([6, 2, 4]);
       buildTrainingHistory({ sessions: [], logs: [], schedule, now: NOW });
       assert.deepEqual(schedule.weekdayIndexes, [6, 2, 4]);
+    },
+  },
+  {
+    // Eval matrix, 2026-09-28: pull-ups rose from 5 to 8 a set and the coach
+    // said they had stalled, because a top set needs a weight above zero.
+    name: 'a lift with no added load gets a rep trajectory, and a weighted one does not',
+    run() {
+      const sessions = [0, 1, 2, 3].map((i) => session(`bw${i}`, 'Home', at(10 - i * 3), 0));
+      const logs = [
+        log('bw0', 'Pull Up', 0, [5, 5, 4]),
+        log('bw1', 'Pull Up', 0, [6, 6, 5]),
+        log('bw2', 'Pull Up', 0, [8, 7, 7]),
+        log('bw3', 'Pull Up', 0, [8, 8, 7]),
+        log('bw3', 'Bench Press', 60, [8, 8, 8]),
+      ];
+      const reps = buildRepsLiftHistories(sessions, logs);
+      assert.equal(reps.length, 1);
+      assert.equal(reps[0].name, 'Pull Up');
+      assert.deepEqual(reps[0].points.map((point) => point.bestSetReps), [5, 6, 8, 8]);
+      assert.deepEqual(reps[0].first.reps, [5, 5, 4]);
+      assert.deepEqual(reps[0].latest.reps, [8, 8, 7]);
+      assert.equal(reps[0].unchangedSessions, 2);
+      assert.equal(reps[0].spanDays, 9);
+
+      // Neither list counts a lift twice.
+      assert.deepEqual(buildLiftHistories(sessions, logs).map((lift) => lift.name), ['Bench Press']);
+      const history = buildTrainingHistory({ sessions, logs, now: NOW });
+      assert.deepEqual(history.repsLifts.map((lift) => lift.name), ['Pull Up']);
+    },
+  },
+  {
+    // Review, #213: one name logged both ways got two contradictory lines.
+    name: 'a lift that ever carried load stays in the weighted history only',
+    run() {
+      const sessions = [0, 1, 2].map((i) => session(`m${i}`, 'Pull', at(9 - i * 3), 0));
+      const logs = [
+        log('m0', 'Pull Up', 0, [6, 6, 5]),
+        log('m1', 'Pull Up', 10, [5, 5, 5]),
+        log('m2', 'Pull Up', 0, [8, 8, 7]),
+      ];
+      assert.deepEqual(buildRepsLiftHistories(sessions, logs), []);
+      assert.deepEqual(buildLiftHistories(sessions, logs).map((lift) => lift.name), ['Pull Up']);
+    },
+  },
+  {
+    name: 'a skipped or empty bodyweight log is not a point',
+    run() {
+      const sessions = [session('a', 'Home', at(4), 0), session('b', 'Home', at(2), 0)];
+      const logs = [
+        log('a', 'Dip', 0, [10, 10]),
+        log('b', 'Dip', 0, [12, 12], { skipped: true }),
+        log('b', 'Push Up', 0, [0, 0]),
+      ];
+      const reps = buildRepsLiftHistories(sessions, logs);
+      assert.equal(reps.length, 1);
+      assert.equal(reps[0].points.length, 1);
     },
   },
 ];

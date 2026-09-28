@@ -1,5 +1,6 @@
 import {
   AICoachCardioSession,
+  AICoachHistoryRepsLift,
   AICoachHistorySession,
   AICoachLastSession,
   AICoachRecentCompletedSession,
@@ -38,8 +39,34 @@ function kg(value: number) {
   return `${Math.round(value)} kg`;
 }
 
+// Two decimals, not one: a 1.25 kg plate step makes 58.75 kg, and one decimal
+// turned it into 58.8 — a weight no bar holds, which the coach then quoted as
+// the reader's record (eval matrix, 2026-09-28).
 function trim(value: number) {
-  return `${Math.round(value * 10) / 10}`;
+  return `${Math.round(value * 100) / 100}`;
+}
+
+const isRepList = (value: unknown): value is number[] =>
+  Array.isArray(value) && value.length > 0 && value.every((entry) => typeof entry === 'number' && Number.isFinite(entry));
+
+/**
+ * The client's rep trajectories, kept only where every field has the shape
+ * the lines below read. Older clients send none, and a payload is the phone's
+ * word, not a checked record.
+ */
+function readRepsLifts(value: unknown): AICoachHistoryRepsLift[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (lift): lift is AICoachHistoryRepsLift =>
+      typeof lift === 'object' &&
+      lift !== null &&
+      typeof lift.name === 'string' &&
+      Number.isFinite(lift.spanDays) &&
+      Number.isFinite(lift.unchangedSessions) &&
+      isRepList(lift.firstReps) &&
+      isRepList(lift.latestReps) &&
+      isRepList(lift.bestSetRepsSeries),
+  );
 }
 
 function cardioActivityName(id: string) {
@@ -230,7 +257,8 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
       week.plannedSessions === null
         ? `${week.sessions} session${week.sessions === 1 ? '' : 's'}`
         : `${week.sessions}/${week.plannedSessions} planned`;
-    return `- week of ${week.weekStart}: ${done} | ${kg(week.volumeKg)}`;
+    // "0 kg" on a week of pull-ups read as a week of nothing.
+    return `- week of ${week.weekStart}: ${done}${week.volumeKg > 0 ? ` | ${kg(week.volumeKg)}` : ''}`;
   });
   const weekBlock = section(`Weeks (last ${history.windowDays} days)`, weekLines);
   if (weekBlock) blocks.push(weekBlock);
@@ -282,6 +310,21 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
       lift.bestWeightKg > lift.latestWeightKg ? `, best ${trim(lift.bestWeightKg)} kg` : '';
     return `- ${liftName(lift.name)}: ${move}${best} | top sets ${series} | latest ${trim(lift.latestWeightKg)} kg x ${lift.latestReps}`;
   });
+  // Bodyweight lifts progress in reps. Without these lines the coach saw only
+  // "8, 8, 7 — same as the time before" and told a reader whose pull-ups rose
+  // from 5 to 8 a set that they had stalled.
+  const repsLiftLines = readRepsLifts(history.repsLifts).map((lift) => {
+    const series = lift.bestSetRepsSeries.join(' → ');
+    // From the first session, not the series' first point: shedding a heavy
+    // context keeps only the last eight points, while the span and the first
+    // session still describe the whole window.
+    const change = Math.max(...lift.latestReps) - Math.max(...lift.firstReps);
+    const moved = `best set ${change > 0 ? '+' : ''}${change} reps over ${lift.spanDays} day${lift.spanDays === 1 ? '' : 's'}`;
+    const same = `the same ${lift.bestSetRepsSeries[lift.bestSetRepsSeries.length - 1]} reps for ${lift.unchangedSessions} session${lift.unchangedSessions === 1 ? '' : 's'}`;
+    const move = change === 0 ? same : lift.unchangedSessions >= 3 ? `${moved}, but ${same}` : moved;
+    return `- ${liftName(lift.name)} (no added load): ${move} | best set per session ${series} | first ${lift.firstReps.join(', ')} | latest ${lift.latestReps.join(', ')}`;
+  });
+  trajectoryLines.push(...repsLiftLines);
   const liftHistoryBlock = section('Lift trajectories (top set per session)', trajectoryLines);
   if (liftHistoryBlock) blocks.push(liftHistoryBlock);
 
@@ -533,10 +576,19 @@ function renderLastSession(
       const streak = exercise.sessionsAtThisWeight;
       // Counted within this session's name — see buildAiCoachLastSession.
       if (typeof streak === 'number' && exercise.previous && top > 0) {
+        const previousTop = Math.max(0, ...exercise.previous.sets.map((entry) => entry.weightKg));
+        // "The time before" can be another day that trains the lift heavier,
+        // while the streak is this day's. Only when it is this same session
+        // does a lower weight mean the reader came down.
+        const previousIsThisSession = last.previousSameName?.day === exercise.previous.day;
         parts.push(
-          streak === 1
-            ? `first time at ${trim(top)} kg in this session`
-            : `${streak} of this session in a row at ${trim(top)} kg, this one included`,
+          streak > 1
+            ? `${streak} of this session in a row at ${trim(top)} kg, this one included`
+            : // A drop is not a first: after a break "first time at 60 kg" read
+              // as a new level when the reader had come down from 70.
+              previousIsThisSession && top < previousTop
+              ? `lighter than the time before (${trim(previousTop)} kg)`
+              : `first time at ${trim(top)} kg in this session`,
         );
       }
       // The app's own next prescription, which the answer's example quotes.

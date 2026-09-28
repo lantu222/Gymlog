@@ -367,6 +367,15 @@ function buildHistoryBlock(
       stalledSessions: lift.stalledSessions,
       weightSeriesKg: lift.points.map((point) => point.topSetWeightKg),
     })),
+    repsLifts: history.repsLifts.slice(0, MAX_HISTORY_LIFTS).map((lift) => ({
+      name: lift.name,
+      sessions: lift.points.length,
+      spanDays: lift.spanDays,
+      firstReps: lift.first.reps,
+      latestReps: lift.latest.reps,
+      bestSetRepsSeries: lift.points.map((point) => point.bestSetReps),
+      unchangedSessions: lift.unchangedSessions,
+    })),
     weeks: history.weeks,
     schedule: history.adherence,
     truncated: history.sessionCount > sessions.length,
@@ -756,13 +765,16 @@ const CONTEXT_SHEDDING: ReadonlyArray<(context: AICoachTrainingContext) => AICoa
     history: {
       ...context.history,
       lifts: context.history.lifts.slice(0, 5).map((lift) => ({ ...lift, weightSeriesKg: lift.weightSeriesKg.slice(-8) })),
+      repsLifts: (context.history.repsLifts ?? [])
+        .slice(0, 5)
+        .map((lift) => ({ ...lift, bestSetRepsSeries: lift.bestSetRepsSeries.slice(-8) })),
     },
   }),
   // The reader can open their plan; the coach can do without its rows.
   (context) => ({ ...context, programme: null }),
   (context) => ({
     ...context,
-    history: { ...context.history, sessions: [], lifts: [], truncated: true },
+    history: { ...context.history, sessions: [], lifts: [], repsLifts: [], truncated: true },
     lastSession: context.lastSession
       ? {
           ...context.lastSession,
@@ -841,6 +853,9 @@ function normalizeHistory(input: Partial<AICoachHistory> | null | undefined): AI
       typeof input.totalVolumeKg === 'number' && Number.isFinite(input.totalVolumeKg) ? input.totalVolumeKg : 0,
     sessions,
     lifts: list(input.lifts, empty.lifts),
+    // Shape-checked entry by entry where it is rendered (readRepsLifts); an
+    // older app sends none.
+    repsLifts: list(input.repsLifts, []),
     weeks: list(input.weeks, empty.weeks),
     schedule: input.schedule ?? null,
     truncated: input.truncated === true,
