@@ -159,6 +159,26 @@ module.exports = [
     },
   },
   {
+    name: 'the coach\'s example sees the lowered target: it previews the same start',
+    run() {
+      const { previewNextSession } = require('../../.test-dist/features/workout/workoutState');
+      const { state } = session(EMPTY, [7, 6, 4, 4], 20);
+      const preview = previewNextSession(TEMPLATE, {
+        unitPreference: 'kg',
+        history: state.history,
+        sessionOrderIndex: 0,
+        automatedProgressionEnabled: true,
+        setupLevel: 'beginner',
+      });
+      assert.deepEqual(preview[0].sets, [
+        { loadKg: 60, reps: 6 },
+        { loadKg: 60, reps: 6 },
+        { loadKg: 60, reps: 6 },
+        { loadKg: 60, reps: 6 },
+      ]);
+    },
+  },
+  {
     name: 'without Pro the dial opens on the programme\'s reps, as before',
     run() {
       const { state } = session(EMPTY, [7, 6, 4, 4], 20, false);
