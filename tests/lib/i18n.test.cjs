@@ -61,4 +61,20 @@ module.exports = [
       assert.ok(SUPPORTED_LANGUAGES.every((lang) => lang.flag.length > 0 && lang.label.length > 0));
     },
   },
+  {
+    // Home said "Start workout" and "Warmup", the session overview one tap
+    // later "Start session" and "Warm-up" (store screenshots, 2026-09-28).
+    // Finnish already said "Aloita treeni" and "Lämmittely" in both places.
+    name: 'i18n: one name for starting a workout and for the warm-up, on every screen',
+    run() {
+      for (const language of ['en', 'fi']) {
+        const start = t(language, 'home.startWorkout');
+        assert.equal(t(language, 'guided.entry.start'), start, language);
+        assert.equal(t(language, 'prog.custom.detail.startSession'), start, language);
+        assert.equal(t(language, 'home.section.warmup'), t(language, 'guided.phase.warmup'), language);
+      }
+      const english = I18N_KEYS.map((key) => t('en', key));
+      assert.equal(english.filter((text) => /\bWarmup\b/.test(text)).length, 0, 'English writes Warm-up');
+    },
+  },
 ];

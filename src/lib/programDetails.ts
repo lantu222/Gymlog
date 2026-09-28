@@ -260,7 +260,8 @@ export function buildReadyProgramDetail(
       language,
       isActivePlan || isHeldNotLeading ? 'detail.startNext' : 'detail.adopt',
     ),
-    sessionActionLabel: 'Start session',
+    // Home's words, in the reader's language — it was an English literal.
+    sessionActionLabel: t(language, 'home.startWorkout'),
     sessions: buildSessionItems(detailSessions, insights?.sessionStatusById, template),
     daysPerWeek,
   };
