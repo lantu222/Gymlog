@@ -28,7 +28,8 @@ module.exports = [
       // validation and drops every live answer to the preview fallback.
       assert.match(source, /tool_choice: \{ type: 'tool', name: ADVICE_TOOL_NAME \}/);
       assert.match(source, /input_schema: AI_COACH_RESPONSE_SCHEMA/);
-      assert.match(source, /required: \['takeaway', 'why', 'nextSteps', 'plan', 'assumptions'\]/);
+      // topic too: left optional, the model left it out and the headings with it (2026-09-28).
+      assert.match(source, /required: \['takeaway', 'why', 'nextSteps', 'plan', 'assumptions', 'topic'\]/);
     },
   },
   {

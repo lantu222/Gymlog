@@ -158,7 +158,10 @@ const COMPOSER_SYSTEM_RULES = [
 const AI_COACH_RESPONSE_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['takeaway', 'why', 'nextSteps', 'plan', 'assumptions'],
+  // `topic` is required so the model always says which shape it answered in:
+  // left optional, it was left out, and the chat drew a last-workout answer
+  // without its headings (live, 2026-09-28).
+  required: ['takeaway', 'why', 'nextSteps', 'plan', 'assumptions', 'topic'],
   properties: {
     takeaway: {
       type: 'string',
@@ -299,7 +302,7 @@ const COACH_SYSTEM_RULES = [
   '- `why`: at most three short facts behind it, each from the Last session lines.',
   '- `nextSteps`: what you would do next, one or two actions.',
   '- `attention`: only when something needs a warning — a set that fell clearly more than the others or than the time before. Name the lift and the set, and give one thing that could fix it (for example 30 s more rest). Otherwise empty; most answers have none.',
-  '- `example`: one line for the next session of the lift that matters most, with the numbers from that lift\'s "next time" in the context, written the way a coach says it ("Pidä 50 kg ja tavoittele 7/7/7"). Empty when the context gives no "next time" for it.',
+  '- `example`: one line for the next session of the lift that matters most, with the numbers from that lift\'s "next time" in the context, written the way a coach says it ("Pidä 50 kg ja tavoittele 7/7/7"). Empty when the context gives no "next time" for it. Do not repeat the example in `nextSteps`: the steps say what else to do.',
   '',
   '# When you cannot answer',
   '- A coach asks before advising. When the context does not hold what an accurate answer needs, do not guess and do not fall back on a generic answer: ask exactly one short follow-up question, put that question in `takeaway`, leave `why`, `nextSteps`, `plan` and `assumptions` empty, and set `unanswered` to true.',
