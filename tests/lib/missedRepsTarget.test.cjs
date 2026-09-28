@@ -120,6 +120,24 @@ module.exports = [
     },
   },
   {
+    name: 'a lift opened and left without a set does not hide the short session before it',
+    run() {
+      assert.equal(rule([entry([]), entry([7, 6, 4, 4])]).targetReps, 6);
+    },
+  },
+  {
+    name: 'the player\'s overview and plan list say the lowered target, and the walk-up card the programme\'s range',
+    run() {
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const player = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'screens', 'GuidedPlayerScreen.tsx'), 'utf8');
+      // One number for one set across the player (review, 2026-09-28).
+      assert.match(player, /if \(isLoweredTarget\(set\)\) \{\s*return `\$\{set\.plannedTargetReps\}`;/);
+      assert.match(player, /isLoweredTarget\(lift\.sets\[0\]\) \? lift\.sets\[0\]\.plannedTargetReps! : lift\.sets\[0\]\.plannedRepsMin/);
+      assert.match(player, /programme: formatProgrammeReps\(firstSet\)/);
+    },
+  },
+  {
     name: 'bodyweight, holds, a skipped lift, Pro off and a malformed stored target are left alone',
     run() {
       assert.equal(rule([entry([7, 6, 4, 4])], { trackingMode: 'bodyweight' }), null);

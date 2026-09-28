@@ -450,8 +450,11 @@ export function resolveMissedRepsTarget(input: MissedRepsInput): MissedRepsResol
   if (trackingMode === 'bodyweight' || trackingMode === 'hold') {
     return null;
   }
-  const latest = history[0];
-  if (!latest || latest.skipped || latest.sets.length === 0) {
+  // The newest entry that logged something — the same reading the set
+  // screen's prefill takes (selectLatestUsableEntry); an opened-and-abandoned
+  // lift must not hide the short session before it.
+  const latest = history.find((entry) => entry.sets.length > 0);
+  if (!latest || latest.skipped) {
     return null;
   }
   const reps = latest.sets.map((set) => set.reps).filter((count) => Number.isFinite(count) && count > 0);
