@@ -258,7 +258,10 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
         ? `${week.sessions} session${week.sessions === 1 ? '' : 's'}`
         : `${week.sessions}/${week.plannedSessions} planned`;
     // "0 kg" on a week of pull-ups read as a week of nothing.
-    return `- week of ${week.weekStart}: ${done}${week.volumeKg > 0 ? ` | ${kg(week.volumeKg)}` : ''}`;
+    // In the reader's date format: "Viikolla 2026-07-20 tehtiin 1/2" was the
+    // week label copied into a Finnish answer (eval, 2026-09-28).
+    const weekOf = language ? readerDate(week.weekStart, language) : week.weekStart;
+    return `- week of ${weekOf}: ${done}${week.volumeKg > 0 ? ` | ${kg(week.volumeKg)}` : ''}`;
   });
   const weekBlock = section(`Weeks (last ${history.windowDays} days)`, weekLines);
   if (weekBlock) blocks.push(weekBlock);

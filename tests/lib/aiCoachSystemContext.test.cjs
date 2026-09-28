@@ -435,6 +435,18 @@ module.exports = [
     },
   },
   {
+    // Eval matrix, 2026-09-28: "Viikolla 2026-07-20 tehtiin 1/2".
+    name: 'a week is labelled in the reader\'s date format when the language is known',
+    run() {
+      const weeks = [{ weekStart: '2026-07-20', sessions: 1, volumeKg: 3000, plannedSessions: 2 }];
+      const fi = buildAiCoachSystemContext(baseContext({ history: history({ weeks }) }), 'fi');
+      assert.ok(fi.includes('- week of 20.7.: 1/2 planned | 3000 kg'), fi);
+      assert.ok(!fi.includes('week of 2026-07-20'), fi);
+      const en = buildAiCoachSystemContext(baseContext({ history: history({ weeks }) }), 'en');
+      assert.ok(en.includes('- week of 20 Jul: 1/2 planned'), en);
+    },
+  },
+  {
     name: 'an older client with no rep trajectories, or a malformed one, renders without them',
     run() {
       const old = buildAiCoachSystemContext(normalizeAiCoachTrainingContext({ ...baseContext(), history: history() }));
