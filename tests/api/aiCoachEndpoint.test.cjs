@@ -108,6 +108,34 @@ module.exports = [
     },
   },
   {
+    // Eval matrix, 2026-09-28: each of these was a live answer.
+    name: 'a completed set earns the next jump, load is judged in absolute terms, calories get a figure, and labels are not copied',
+    run() {
+      const rules = source.slice(source.indexOf('const COACH_SYSTEM_RULES'));
+      // A beginner who made every rep at 87.5 kg was told to hold it.
+      assert.match(rules, /A lift whose every set reached its reps is ready to progress/);
+      assert.match(rules, /never for a set that was completed/);
+      // Review: the app often progresses by reps at the same weight ("Hold
+      // 50 kg and aim for 7\/7\/7"); "add weight" would contradict its card.
+      assert.match(rules, /When the context gives its "next time", that is the progression — more weight, or more reps at the same weight/);
+      assert.doesNotMatch(rules, /tell the reader to add weight next time/);
+      // Six days a week, 95 minutes a session: "ACWR 1.03, you are not training too much".
+      assert.match(rules, /answered from the absolute load in the log/);
+      assert.match(rules, /never answer those questions from them alone/);
+      assert.match(rules, /Never write "ACWR", the ratio or the recovery score to the reader/);
+      // The Recovery sheet shows ACWR, so a reader can ask what it is.
+      assert.match(rules, /unless the reader asks about them by name \(the Recovery sheet shows ACWR\)/);
+      // "How many calories" was answered with advice about the lifts.
+      assert.match(rules, /A calorie question gets a calorie figure/);
+      assert.match(rules, /Mifflin-St Jeor/);
+      assert.match(rules, /Missing height, age or sex, estimate from bodyweight alone/);
+      assert.match(rules, /read the direction from the bodyweight trend and say which one you assumed/);
+      // "Takakyykky flat 80 kg" in a Finnish answer.
+      assert.match(rules, /The context\\'s labels are English data/);
+      assert.match(rules, /never copy them into a Finnish answer/);
+    },
+  },
+  {
     name: 'the last-workout answer is about one lift, warns only on a real drop, and claims no run it cannot see',
     run() {
       const start = source.indexOf('# Answering about the last workout');
@@ -132,7 +160,13 @@ module.exports = [
       assert.doesNotMatch(section, /one or two actions/);
       // The example's model line in both languages: given only in Finnish, an
       // English answer ended "Pidä 155 kg ja tavoittele 6/6/6" (live, 2026-09-28).
-      assert.match(section, /`nextSteps`:[^\n]*in the reader\\'s language \("let the new weight settle before the next jump"; in Finnish/);
+      // One model line each way, picked by the log: the single "let the new
+      // weight settle" line was told to every beginner who made every rep
+      // (eval matrix, 2026-09-28).
+      assert.match(section, /`nextSteps`:[^\n]*every rep made means moving on, the way `example` moves \("every rep landed, so it is time to move on"; in Finnish "kaikki toistot menivät, joten on aika edetä"\)/);
+      assert.match(section, /`nextSteps`:[^\n]*a missed rep or a drop means repeating the weight/);
+      assert.match(section, /`nextSteps`:[^\n]*It never contradicts `example`/);
+      assert.doesNotMatch(section, /let the new weight settle|anna uuden painon vakiintua/);
       assert.match(section, /`example`:[^\n]*in the reader\\'s language \("Hold 50 kg and aim for 7\/7\/7"; in Finnish "Pidä 50 kg ja tavoittele 7\/7\/7"\)/);
 
       // The tool schema's field descriptions say the same — the model reads

@@ -91,6 +91,26 @@ module.exports = [
     },
   },
   {
+    // Both were copied out of the context into Finnish answers (2026-09-28).
+    name: 'eval matrix: an ISO date or an English context label in a Finnish answer fails',
+    run() {
+      const leaky = advice({
+        takeaway: 'Takakyykky on junnannut.',
+        why: ['Takakyykky flat 80 kg viidessä sessiossa', 'Viikolla 2026-07-20 tehtiin 1/2'],
+      });
+      const checks = scoreGeneralRules(byId('inconsistent-why-no-progress'), leaky);
+      assert.equal(checks.find((check) => check.check === 'no-iso-date').passed, false);
+      assert.equal(checks.find((check) => check.check === 'no-english-labels').passed, false);
+      const clean = advice({ takeaway: 'Takakyykky on ollut paikallaan 80 kilossa.', why: ['Viikolla 20.7. tehtiin 1/2'] });
+      const ok = scoreGeneralRules(byId('inconsistent-why-no-progress'), clean);
+      assert.equal(ok.find((check) => check.check === 'no-iso-date').passed, true);
+      assert.equal(ok.find((check) => check.check === 'no-english-labels').passed, true);
+      // English answers use those words legitimately.
+      const en = scoreGeneralRules(byId('beginner-en-progress'), advice({ takeaway: 'Your latest top set is up.' }));
+      assert.equal(en.find((check) => check.check === 'no-english-labels'), undefined);
+    },
+  },
+  {
     // The first live run failed "87,5 kg" for missing "87.5".
     name: 'eval matrix: a cited figure written with a decimal comma still counts as cited',
     run() {

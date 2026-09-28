@@ -306,28 +306,28 @@ export const AI_COACH_EVAL_MATRIX: MatrixCase[] = [
     prompt: 'Analysoi viime treenini',
     intent: 'An analysis draws conclusions, it does not list the sets back',
     goodAnswer: 'Names what improved (all three lifts up), what follows; no set dump.',
-    mustCite: ['87.5'], allowedNewFigures: [...PRESCRIPTION_FIGURES, '90', '2.5', '1.25'],
+    mustCite: ['87.5'], mustNotSay: ['vakiin', 'pysy tällä painolla', 'pidä paino samana'], allowedNewFigures: [...PRESCRIPTION_FIGURES, '90', '2.5', '1.25'],
   },
   {
     id: 'beginner-next', profile: 'beginner', language: fi, context: beginnerReader,
     prompt: 'Mitä seuraavaksi?',
     intent: 'A concrete next step from a clean linear climb',
     goodAnswer: 'Next loads for the next session; maybe when linear gains will slow.',
-    allowedNewFigures: [...PRESCRIPTION_FIGURES, '90', '2.5', '1.25', '60', '55'],
+    mustNotSay: ['vakiin', 'pysy tällä painolla', 'pidä paino samana'], allowedNewFigures: [...PRESCRIPTION_FIGURES, '90', '2.5', '1.25', '60', '55'],
   },
   {
     id: 'beginner-en-progress', profile: 'beginner', language: en, context: beginnerReader,
     prompt: 'How is my progress?',
     intent: 'Answers in English, with the real climb',
     goodAnswer: 'English; squat 60→87.5 style evidence; earned praise.',
-    mustMention: ['squat'], allowedNewFigures: [...PRESCRIPTION_FIGURES, '90', '2.5'],
+    mustMention: ['squat'], mustNotSay: ['acwr'], allowedNewFigures: [...PRESCRIPTION_FIGURES, '90', '2.5'],
   },
   {
     id: 'beginner-record', profile: 'beginner', language: fi, context: beginnerReader,
     prompt: 'Mikä on penkkini ennätys?',
     intent: 'A direct factual question gets the logged number',
     goodAnswer: 'States 58.75 kg (the heaviest logged bench) and nothing invented.',
-    mustCite: ['58'],
+    mustCite: ['58'], mustNotSay: ['vakiin', 'pysy tällä painolla', 'pidä paino samana'],
   },
   {
     id: 'beginner-sick', profile: 'beginner', language: fi, context: beginnerReader,
@@ -374,7 +374,7 @@ export const AI_COACH_EVAL_MATRIX: MatrixCase[] = [
     prompt: 'Pitäisikö pitää kevennysviikko?',
     intent: 'A deload question answered against this log, not in general',
     goodAnswer: 'Weighs the one stalled lift against the climbing squat; clear yes/no.',
-    allowsComputedFigures: true,
+    mustNotSay: ['acwr', '/100'], allowsComputedFigures: true,
   },
   {
     id: 'stalled-program', profile: 'stalled', language: fi, context: stalledReader,
@@ -452,21 +452,21 @@ export const AI_COACH_EVAL_MATRIX: MatrixCase[] = [
     prompt: 'Treenaanko liikaa?',
     intent: 'A real volume question on a heavy log, answered from the numbers',
     goodAnswer: 'Six days, ~13 sets, 95 min; whether loads still move decides it.',
-    allowsComputedFigures: true,
+    mustNotSay: ['acwr', '/100'], allowsComputedFigures: true,
   },
   {
     id: 'highfreq-en-overtraining', profile: 'high-frequency', language: en, context: highFrequencyReader,
     prompt: 'Am I overtraining?',
     intent: 'Same question in English',
     goodAnswer: 'English; grounded in frequency and flat loads; no diagnosis.',
-    allowsComputedFigures: true,
+    mustNotSay: ['acwr', '/100'], allowsComputedFigures: true,
   },
   {
     id: 'highfreq-rest-day', profile: 'high-frequency', language: fi, context: highFrequencyReader,
     prompt: 'Tarvitsenko lepopäivän?',
     intent: 'A yes/no question gets a yes/no',
     goodAnswer: 'Clear answer first, with the six-day week as the reason.',
-    allowedNewFigures: PRESCRIPTION_FIGURES,
+    mustNotSay: ['acwr', '/100'], allowedNewFigures: PRESCRIPTION_FIGURES,
   },
   // H. cutting
   {
@@ -481,7 +481,7 @@ export const AI_COACH_EVAL_MATRIX: MatrixCase[] = [
     prompt: 'Paljonko pitäisi syödä kaloreita?',
     intent: 'Calories from the body record and the observed loss rate',
     goodAnswer: 'Maintenance from profile; current loss ~0.7 kg/wk; keep or ease the deficit.',
-    allowsComputedFigures: true,
+    mustMention: ['kcal'], allowsComputedFigures: true,
   },
   {
     id: 'cutting-strength', profile: 'cutting', language: fi, context: cuttingReader,
@@ -549,6 +549,12 @@ export const AI_COACH_EVAL_MATRIX: MatrixCase[] = [
 /** Finnish letters or common Finnish words — none of them an English word too. */
 const FINNISH_MARKERS = /[äö]|\b(ja|ei|että|sinun|olet|kun|mutta|kannattaa|noussut|treeni\w*)\b/i;
 
+/** The context's dates are ISO data; prose writes 20.7. or 20 Jul. */
+const ISO_DATE = /\b20\d\d-\d\d-\d\d\b/g;
+
+/** Context labels that turned up word for word in Finnish answers. */
+const ENGLISH_LABELS = /\b(flat|top set|latest|time before|first time|best set|no added load|trajector(?:y|ies))\b/gi;
+
 /** "82,5 kg × 5, 5, 4"-style listings. Two can be evidence; more is a dump. */
 const SET_LISTING = /\d+(?:[.,]\d+)?\s*kg\s*[x×]\s*\d+(?:\s*[,/]\s*\d+){1,}/gi;
 
@@ -570,6 +576,22 @@ export function scoreGeneralRules(evalCase: MatrixCase, advice: AICoachAdvice): 
   } else if (evalCase.language === 'en') {
     const english = !FINNISH_MARKERS.test(takeaway);
     checks.push({ check: 'language:en', passed: english, detail: english ? 'English' : 'takeaway reads as Finnish' });
+  }
+
+  const isoDates = everything.match(ISO_DATE) ?? [];
+  checks.push({
+    check: 'no-iso-date',
+    passed: isoDates.length === 0,
+    detail: isoDates.length === 0 ? 'none' : `wrote ${isoDates.join(', ')}`,
+  });
+
+  if (evalCase.language === 'fi') {
+    const leaked = [...new Set((everything.match(ENGLISH_LABELS) ?? []).map((word) => word.toLowerCase()))];
+    checks.push({
+      check: 'no-english-labels',
+      passed: leaked.length === 0,
+      detail: leaked.length === 0 ? 'none' : `copied ${leaked.join(', ')}`,
+    });
   }
 
   const listings = everything.match(SET_LISTING) ?? [];
