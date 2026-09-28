@@ -108,6 +108,35 @@ module.exports = [
     },
   },
   {
+    name: 'the last-workout answer is about one lift, warns only on a real drop, and claims no run it cannot see',
+    run() {
+      const start = source.indexOf('# Answering about the last workout');
+      const section = source.slice(start, source.indexOf('# When you cannot answer', start));
+      // Three lifts walked through read as three topics (user, 2026-09-28).
+      assert.match(section, /One topic: the lift that matters most in that session/);
+      assert.match(section, /do not walk through the others/);
+      assert.match(section, /`nextSteps`: one action for that lift/);
+      // 14/13 → 13/12 was raised as a warning, and "2 of this session in a
+      // row at 20 kg" was read as "fell a second time in a row" (live, 2026-09-28).
+      assert.match(section, /at least 2 reps below the set before it, or at least 2 reps below the same set the time before/);
+      assert.match(section, /One rep lower is ordinary fatigue, not a warning/);
+      assert.match(section, /counts sessions at that weight, not drops/);
+      assert.match(section, /never write that a lift fell again, twice or N times in a row/);
+      assert.doesNotMatch(section, /one or two actions/);
+
+      // The tool schema's field descriptions say the same — the model reads
+      // them as closely as the rules, and a contradiction there wins.
+      const schema = source.slice(source.indexOf('AI_COACH_RESPONSE_SCHEMA'), source.indexOf('COACH_SYSTEM_RULES'));
+      // A field runs to its own closing brace at property depth, past `items: { … }`.
+      const field = (name) => schema.match(new RegExp(`\\n    ${name}: \\{[\\s\\S]*?\\n    \\},`))[0];
+      assert.match(field('nextSteps'), /For last_session: one action for the one lift the answer is about, in words/);
+      assert.doesNotMatch(field('nextSteps'), /leave its lift out/);
+      assert.match(field('attention'), /at least 2 reps below the set before it or at least 2 reps below the same set the time before/);
+      assert.match(field('attention'), /One rep lower is ordinary fatigue/);
+      assert.doesNotMatch(field('attention'), /went backwards/);
+    },
+  },
+  {
     name: 'the coach introduces itself as Vinha, not under the old brand',
     run() {
       // GAINER is another company's EU trademark; the app has been Vinha
