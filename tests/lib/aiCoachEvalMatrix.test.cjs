@@ -60,6 +60,16 @@ module.exports = [
       assert.equal(checks.find((check) => check.check === 'language:fi').passed, false);
       const ok = scoreGeneralRules(byId('stalled-why'), advice({ takeaway: 'Penkki on junnannut 82,5 kilossa.' }));
       assert.equal(ok.find((check) => check.check === 'language:fi').passed, true);
+      // "On" is an English word too: an English takeaway that uses it is not
+      // Finnish (break round 2026-09-28).
+      for (const takeaway of [
+        'Focus on your squat form before adding more weight next session.',
+        'Keep the weight on the bar and add a rep.',
+        'Stay on 82.5 kg for this week.',
+      ]) {
+        const english = scoreGeneralRules(byId('stalled-why'), advice({ takeaway }));
+        assert.equal(english.find((check) => check.check === 'language:fi').passed, false, takeaway);
+      }
     },
   },
   {

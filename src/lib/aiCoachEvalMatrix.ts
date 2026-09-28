@@ -549,6 +549,14 @@ export const AI_COACH_EVAL_MATRIX: MatrixCase[] = [
 /** Finnish letters or common Finnish words — none of them an English word too. */
 const FINNISH_MARKERS = /[äö]|\b(ja|ei|että|sinun|olet|kun|mutta|kannattaa|noussut|treeni\w*)\b/i;
 
+/**
+ * Common English words that are not Finnish ones. "On" is both — Finnish for
+ * "is", English for "on" — so it counted a takeaway as Finnish by itself, and
+ * "Focus on your squat form" passed the Finnish check (break round
+ * 2026-09-28). It still counts, but only in a line with none of these.
+ */
+const ENGLISH_STOPWORDS = /\b(the|and|your|you|is|are|to|of|for|with|this|that|it|next|before|after|keep|add|stay)\b/i;
+
 /** The context's dates are ISO data; prose writes 20.7. or 20 Jul. */
 const ISO_DATE = /\b20\d\d-\d\d-\d\d\b/g;
 
@@ -571,7 +579,8 @@ export function scoreGeneralRules(evalCase: MatrixCase, advice: AICoachAdvice): 
   const everything = [takeaway, ...advice.why, ...advice.nextSteps, ...advice.plan].join(' ');
 
   if (evalCase.language === 'fi') {
-    const finnish = FINNISH_MARKERS.test(takeaway) || /\bon\b/i.test(takeaway);
+    const finnish =
+      FINNISH_MARKERS.test(takeaway) || (/\bon\b/i.test(takeaway) && !ENGLISH_STOPWORDS.test(takeaway));
     checks.push({ check: 'language:fi', passed: finnish, detail: finnish ? 'Finnish' : 'takeaway does not read as Finnish' });
   } else if (evalCase.language === 'en') {
     const english = !FINNISH_MARKERS.test(takeaway);
