@@ -351,8 +351,10 @@ export function formatPlanSessionTitle(
   // Every rule below is for names the app wrote. One the reader typed is
   // theirs, placeholder-shaped or not: "Päivä 2" came back as "Treeni 2", and
   // "Workout B" as a number unrelated to it (break round 2026-09-28).
-  if (readerNamed) {
-    return sessionName;
+  // As stored, not through the display label: that turns a one-letter name
+  // into "Workout".
+  if (readerNamed && session.name.trim()) {
+    return session.name.trim();
   }
   const normalizedProgram = programTitle.toLowerCase();
   const normalizedSession = sessionName.toLowerCase();

@@ -61,8 +61,9 @@ export function CoachReportSheet({ visible, language, bottomInset, onSend, onClo
     let arrived = false;
     try {
       arrived = await onSend(reason);
-    } catch {
+    } catch (error) {
       // A throw is a report that did not arrive, said as one below.
+      console.error('Coach report could not be sent', error);
       arrived = false;
     } finally {
       // Released only once the send settles, so a failed one can be retried.

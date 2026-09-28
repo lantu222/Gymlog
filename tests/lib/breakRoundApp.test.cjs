@@ -64,6 +64,8 @@ module.exports = [
       assert.equal(formatPlanSessionTitle(typed, 1, 'My plan', 'fi', true), 'Päivä 2');
       assert.equal(formatPlanSessionTitle({ name: 'Workout B' }, 4, 'My plan', 'en', true), 'Workout B');
       assert.equal(formatPlanSessionTitle({ name: 'Päivä 1: Jalat' }, 0, 'My plan', 'fi', true), 'Päivä 1: Jalat');
+      // Not through the display label either, which reads a one-letter name as "Workout".
+      assert.equal(formatPlanSessionTitle({ name: 'A' }, 0, 'My plan', 'en', true), 'A');
 
       assert.equal(isReaderNamedSession({ s2: 'Päivä 2' }, typed), true);
       assert.equal(isReaderNamedSession({ s2: '  Päivä   2 ' }, typed), true, 'whitespace the store trims');
@@ -102,7 +104,14 @@ module.exports = [
       const rename = app.slice(app.indexOf('async function handleRenameProgramSession('));
       const body = rename.slice(0, rename.indexOf('\n  }\n'));
       // Remembered only after the stored name changed.
-      assert.match(body, /if \(result\.saved\) \{\s*await updatePreferences\(\(current\) => \(\{\s*readerSessionNames: \{ \.\.\.current\.readerSessionNames, \[sessionId\]: trimmed \},/);
+      assert.match(body, /if \(!result\.saved\) \{\s*return;\s*\}/);
+      // A failed save is said and stops there; the name is remembered in a
+      // write of its own after it, whose failure is not told as a failed
+      // rename — the name is already stored by then (review, 2026-09-28).
+      assert.match(
+        body,
+        /showToast\(t\(preferences\.appLanguage, 'toast\.planSaveFailed'\)\);\s*return;\s*\}\s*try \{\s*await updatePreferences\(\(current\) => \(\{\s*readerSessionNames: \{ \.\.\.current\.readerSessionNames, \[sessionId\]: trimmed \},\s*\}\)\);\s*\} catch \(error\) \{\s*console\.error\(/,
+      );
       assert.ok(body.indexOf('editWorkoutTemplateSessions(') < body.indexOf('readerSessionNames'));
     },
   },

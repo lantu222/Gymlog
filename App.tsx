@@ -2730,17 +2730,25 @@ function VinhaApp() {
           exercises: session.exercises.map(toDraftExercise),
         })),
       }));
-      // Remembered once the name is stored, so the display rule shows it as
-      // typed rather than reading "Päivä 2" as a placeholder of its own.
-      if (result.saved) {
-        await updatePreferences((current) => ({
-          readerSessionNames: { ...current.readerSessionNames, [sessionId]: trimmed },
-        }));
+      if (!result.saved) {
+        return;
       }
     } catch (error) {
       console.error('Failed to rename a day of the programme', error);
       void haptics.error();
       showToast(t(preferences.appLanguage, 'toast.planSaveFailed'));
+      return;
+    }
+    // Remembered once the name is stored, so the display rule shows it as
+    // typed rather than reading "Päivä 2" as a placeholder of its own. Its own
+    // write: the name is saved by now, and a failure here must not be told as
+    // a failed rename — the day would only read by the usual rule.
+    try {
+      await updatePreferences((current) => ({
+        readerSessionNames: { ...current.readerSessionNames, [sessionId]: trimmed },
+      }));
+    } catch (error) {
+      console.error('Failed to remember a typed day name', error);
     }
   }
 
