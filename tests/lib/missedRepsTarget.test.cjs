@@ -137,8 +137,8 @@ module.exports = [
       const player = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'screens', 'GuidedPlayerScreen.tsx'), 'utf8');
       // One number for one set across the player (review, 2026-09-28).
       assert.match(player, /if \(isLoweredTarget\(set\)\) \{\s*return `\$\{set\.plannedTargetReps\}`;/);
-      assert.match(player, /isLoweredTarget\(lift\.sets\[0\]\) \? lift\.sets\[0\]\.plannedTargetReps! : lift\.sets\[0\]\.plannedRepsMin/);
-      assert.match(player, /programme: formatProgrammeReps\(firstSet\)/);
+      assert.match(player, /isLoweredTarget\(planSet\) \? planSet\.plannedTargetReps! : planSet\.plannedRepsMin/);
+      assert.match(player, /programme: formatProgrammeReps\(firstSet!\)/);
     },
   },
   {
