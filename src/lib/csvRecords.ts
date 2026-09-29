@@ -50,6 +50,13 @@ export function splitCsvRecords(text: string, delimiter: string): CsvRecordSplit
   let atFieldStart = true;
   let recordStart = 0;
   let openQuoteRecordStart = -1;
+  // The character offset of the quote that ends up unterminated, not just
+  // the record it lives in. A record can hold an earlier, properly-closed
+  // quoted field (its own embedded line break included) before the stray
+  // quote that never closes; recovery below must split raw lines from THIS
+  // offset, or it cuts at the legitimate field's embedded newline instead
+  // and still garbles the record (recheck round 2026-09-29).
+  let openQuoteIndex = -1;
   let openQuoteRow = -1;
   for (let i = 0; i < text.length; i += 1) {
     const char = text[i];
@@ -78,6 +85,7 @@ export function splitCsvRecords(text: string, delimiter: string): CsvRecordSplit
     if (char === '"' && atFieldStart) {
       inQuotes = true;
       openQuoteRecordStart = recordStart;
+      openQuoteIndex = i;
       openQuoteRow = records.length + 1;
     }
     current += char;
@@ -85,12 +93,15 @@ export function splitCsvRecords(text: string, delimiter: string): CsvRecordSplit
   }
 
   if (inQuotes) {
-    // The record holding the unclosed quote, and everything after it, raw —
-    // split on real line breaks instead of trusting quotes at all, since the
-    // one quote we trusted here is exactly the one that lied.
-    const rest = text.slice(openQuoteRecordStart);
+    // Everything in the record BEFORE the quote that never closes is kept
+    // verbatim — it may hold its own earlier quoted field, embedded line
+    // break and all, and that field was already valid. Only from the bad
+    // quote onward do we stop trusting quotes and split on a real line
+    // break instead, treating that quote as a literal character.
+    const prefix = text.slice(openQuoteRecordStart, openQuoteIndex);
+    const rest = text.slice(openQuoteIndex);
     const rawLines = rest.split(/\r\n|\r|\n/);
-    records.push(rawLines[0]);
+    records.push(prefix + rawLines[0]);
     // Everything past the offending line may still hold a genuine quoted
     // field (including one that wraps a line) — hand it back through the
     // ordinary quote-aware parser rather than staying in raw-line mode for

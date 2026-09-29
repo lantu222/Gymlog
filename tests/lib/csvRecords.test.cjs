@@ -98,6 +98,36 @@ module.exports = [
     },
   },
   {
+    // Recheck round 2026-09-29: recovery used to re-slice from the START of
+    // the record and take only its first raw line as the "recovered" row.
+    // When the record holds a legitimate, properly-closed multi-line quoted
+    // field BEFORE the later stray quote, that first raw line break is the
+    // field's own embedded newline, not the trouble spot — cutting there
+    // split one logical row into two garbled records and shifted every
+    // later row's number by one.
+    name: 'splitCsvRecords: recovery finds the actual unterminated quote, not the earlier field\'s embedded line break',
+    run() {
+      const text = [
+        'Day,Exercise,Notes,Sets,Reps',
+        'Day 1,"Bench\nPress","Unclosed note here,4,5',
+        'Day 2,Squat,Fine,4,5',
+        'Day 3,Deadlift,Fine,4,5',
+      ].join('\n');
+      const { records, unterminatedQuoteRow } = splitCsvRecords(text, ',');
+
+      assert.equal(unterminatedQuoteRow, 2, 'names the row the stray quote is actually in');
+      assert.equal(records.length, 4, 'one logical row recovers as one record, not two');
+      assert.equal(
+        records[1],
+        'Day 1,"Bench\nPress","Unclosed note here,4,5',
+        'the earlier legitimate quoted field survives inside the recovered record',
+      );
+      // Rows 3 and 4 are untouched — no row-number shift from the recovery.
+      assert.equal(records[2], 'Day 2,Squat,Fine,4,5');
+      assert.equal(records[3], 'Day 3,Deadlift,Fine,4,5');
+    },
+  },
+  {
     name: 'collapseCellWhitespace: a wrapped cell is one name, not two lines of one',
     run() {
       assert.equal(collapseCellWhitespace('Bench\nPress'), 'Bench Press');

@@ -306,33 +306,45 @@ export function parseCsvProgram(
   // spreadsheet's own wrap — into two rows: the exercise vanished and the
   // error below named a row the reader's sheet does not have (#bugs).
   const split = splitCsvRecords(text, delimiter);
-  const lines = split.records.map((line) => line.trim()).filter(Boolean);
+  // Each surviving line keeps the 1-based row number it had in
+  // `split.records` — the SAME numbering `unterminatedQuoteRow` already
+  // uses — so that filtering out blank lines here never desyncs the two.
+  // A pasted/uploaded CSV can start with a blank line, and `index + 1` into
+  // this filtered array pointed at the wrong physical row for every error
+  // from there on whenever a blank line preceded the row in question
+  // (recheck round 2026-09-29).
+  const lineEntries = split.records
+    .map((line, index) => ({ text: line.trim(), row: index + 1 }))
+    .filter((entry) => entry.text.length > 0);
   const errors: string[] = [];
 
-  if (!lines.length) {
+  if (!lineEntries.length) {
     return { rows: [], matchedCount: 0, unmatchedCount: 0, dayCount: 0, errors: [t(language, 'csv.error.empty')] };
   }
 
   // Named before the header/row errors below, so the reader sees the actual
   // cause — a stray quote in their sheet — rather than a wall of "missing
   // name" errors for rows that were merely misread as a consequence of it.
+  // Pushed onto `errors`, never dropped by a later early return, so a
+  // header that is also unusable still shows both causes.
   if (split.unterminatedQuoteRow !== null) {
     errors.push(t(language, 'csv.error.unclosedQuote', { row: split.unterminatedQuoteRow }));
   }
 
-  const header = splitCsvLine(lines[0], delimiter).map((cell) => normalizeName(cell));
+  const header = splitCsvLine(lineEntries[0].text, delimiter).map((cell) => normalizeName(cell));
   const dayIndex = header.findIndex((cell) => cell === 'day' || cell === 'session');
   const exerciseIndex = header.findIndex((cell) => cell === 'exercise' || cell === 'exercise name' || cell === 'lift');
   const setsIndex = header.findIndex((cell) => cell === 'sets');
   const repsIndex = header.findIndex((cell) => cell === 'reps' || cell === 'rep range');
 
   if (dayIndex < 0 || exerciseIndex < 0 || setsIndex < 0 || repsIndex < 0) {
+    errors.push(t(language, 'csv.error.header'));
     return {
       rows: [],
       matchedCount: 0,
       unmatchedCount: 0,
       dayCount: 0,
-      errors: [t(language, 'csv.error.header')],
+      errors,
     };
   }
 
@@ -340,8 +352,9 @@ export function parseCsvProgram(
   const seenDayKeys = new Set<string>();
   const skippedDayKeys = new Set<string>();
   let lastDay: string | null = null;
-  for (let index = 1; index < lines.length; index += 1) {
-    const cells = splitCsvLine(lines[index], delimiter);
+  for (let index = 1; index < lineEntries.length; index += 1) {
+    const row = lineEntries[index].row;
+    const cells = splitCsvLine(lineEntries[index].text, delimiter);
     // Collapsed, not just trimmed: a quoted cell can carry the line break it
     // was wrapped with (Alt+Enter, or a photographed cell copied verbatim),
     // and that wrap is not part of the name.
@@ -356,15 +369,15 @@ export function parseCsvProgram(
     const reps = parseReps((cells[repsIndex] ?? '').trim());
 
     if (!day || !exerciseName) {
-      errors.push(t(language, 'csv.error.missing', { row: index + 1 }));
+      errors.push(t(language, 'csv.error.missing', { row }));
       continue;
     }
     if (!Number.isFinite(sets) || sets <= 0) {
-      errors.push(t(language, 'csv.error.sets', { row: index + 1 }));
+      errors.push(t(language, 'csv.error.sets', { row }));
       continue;
     }
     if (!reps) {
-      errors.push(t(language, 'csv.error.reps', { row: index + 1 }));
+      errors.push(t(language, 'csv.error.reps', { row }));
       continue;
     }
 
@@ -373,7 +386,7 @@ export function parseCsvProgram(
       if (seenDayKeys.size >= MAX_TRAINING_DAYS) {
         if (!skippedDayKeys.has(dayKey)) {
           skippedDayKeys.add(dayKey);
-          errors.push(t(language, 'csv.error.dayCap', { row: index + 1, day, max: MAX_TRAINING_DAYS }));
+          errors.push(t(language, 'csv.error.dayCap', { row, day, max: MAX_TRAINING_DAYS }));
         }
         continue;
       }
