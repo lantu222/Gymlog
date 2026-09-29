@@ -28,7 +28,23 @@ const GOAL_WORDS = /tavoit|haluan|haluaisin|yritän|aion|\bgoal\b|\btarget\b|i w
 const DIRECTION_WORDS =
   /kasvat|isomma|nosta|lisä|pienen|pudott|laske|polt|kiinte|grow|bigger|increase|build|gain|lose|drop|cut|reach|tavoite?paino|tavoitteeni on|tavoite on|goal is|target is/i;
 
-const NUMBER = /(\d{1,3}(?:[.,]\d{1,2})?)\s*(cm|kg|%)/i;
+// "kilo\w*" alongside the literal unit: "90 kiloon", "80 kiloihin" name kg
+// through the noun's own case ending rather than the abbreviation. Captured
+// unit is normalised to 'kg' below before it is compared against the kind's.
+const NUMBER = /(\d{1,3}(?:[.,]\d{1,2})?)\s*(cm|kg|%|kilo\w*)/i;
+
+/**
+ * A number is a destination the sentence names, not a change from wherever
+ * the reader is now, when it carries a case ending or preposition that says
+ * so: Finnish illative/allative on the unit ("90 kg:aan"), on "kilo" itself
+ * ("90 kiloon", "80 kiloihin" — the doubled vowel + n of illative case), the
+ * "asti" postposition, or English "to 90 kg". Present, this overrides
+ * RELATIVE_WORDS below: "nosta"/"nostaa"/"laske"/"laskea" name a destination
+ * as often as a change ("nosta painoni 90 kg:aan" vs "nosta painoa 5 kg"),
+ * and only this ending tells the two readings apart (recheck round,
+ * 2026-09-29).
+ */
+const DESTINATION_MARKER = /\bkg\s*:\s*(?:aan|ään)\b|\bkilo(?:on|ihin)\b|\basti\b|\bto\s+\d/i;
 
 /**
  * A number phrased as a change from wherever the reader is now — "lisää
@@ -59,7 +75,10 @@ const RELATIVE_WORDS =
 const EXTRA_KIND_WORDS: Array<{ kind: MeasurementIntentKind; pattern: RegExp }> = [
   // "haluisin painaa 80 kg" is the commonest way to state a weight goal in
   // Finnish, and none of these forms was here — see `declared` below.
-  { kind: 'bodyweight', pattern: /\bpainoa\b|\bpainoani\b|\bpainaa\b|\bpainaisin\b|\bpainoon\b/i },
+  // "painon" (genitive/total object — "nostaa painon 90 kiloon", raise the
+  // weight to 90 kilos) alongside the partitive and illative forms already
+  // here.
+  { kind: 'bodyweight', pattern: /\bpainoa\b|\bpainoani\b|\bpainaa\b|\bpainaisin\b|\bpainoon\b|\bpainon\b/i },
   { kind: 'chest', pattern: /\brintaa\b|\brintaani\b/i },
   { kind: 'arms', pattern: /\bhauista\b|käsivarsia/i },
   { kind: 'thighs', pattern: /\breisiä\b/i },
@@ -112,12 +131,17 @@ export function parseGoalIntent(
 
   // A target number is optional, and only counts with an explicit matching
   // unit: "tavoite rinta 104 cm" carries a target, "tavoite rinta 104 kg" is
-  // a bench press dream and keeps the goal without the number.
+  // a bench press dream and keeps the goal without the number. A relative
+  // phrasing ("nosta painoa 5 kg") keeps the number out too — unless the
+  // sentence names the number as its destination (DESTINATION_MARKER), which
+  // reads the same growth/shrink verb the other way.
   const number = message.match(NUMBER);
   let targetValue: number | null = null;
-  if (number && !RELATIVE_WORDS.test(message)) {
+  if (number && (!RELATIVE_WORDS.test(message) || DESTINATION_MARKER.test(message))) {
     const value = Number(number[1].replace(',', '.'));
-    if (Number.isFinite(value) && number[2].toLowerCase() === unitFor(match.kind)) {
+    const rawUnit = number[2].toLowerCase();
+    const normalizedUnit = rawUnit.startsWith('kilo') ? 'kg' : rawUnit;
+    if (Number.isFinite(value) && normalizedUnit === unitFor(match.kind)) {
       targetValue = Math.round(value * 10) / 10;
     }
   }

@@ -148,8 +148,16 @@ export interface AccountBackupInput {
    * plus its AsyncStorage key — see storage/coachAdviceMemoryStore) sits
    * outside both of the stores above, so without this a restore that replaced
    * everything else, another account's data included, would leave it behind.
+   *
+   * Awaited before the restore resolves: fired-and-forgotten, a process kill
+   * between the restore landing and this finishing left the erase for the
+   * next account (recheck round, 2026-09-29). May reject — its own erase
+   * already retries once and marks what it could not finish for next launch
+   * (see coachAdviceMemoryStore) — but that must never turn an already-landed
+   * restore into a reported failure or a rollback, so applyRestore below
+   * only logs it.
    */
-  onRestored?: () => void;
+  onRestored?: () => void | Promise<void>;
 }
 
 /** How long the data has to stay still before the automatic backup looks at it. */
@@ -340,8 +348,16 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
     // Both stores are on disk now: this is the one place a restore actually
     // lands, shared by a fresh phone's automatic restore and the reader's own
     // "restore" answer — so it is the one place that clears state neither
-    // store above carries (see onRestored's own comment).
-    latestRef.current.onRestored?.();
+    // store above carries (see onRestored's own comment). Awaited, so a
+    // process kill cannot land the restore while the erase is still on its
+    // way — but never allowed to fail the restore that already committed:
+    // both stores are already another account's, and there is nothing left
+    // to roll back to.
+    try {
+      await latestRef.current.onRestored?.();
+    } catch (error) {
+      console.error('Post-restore cleanup failed', error);
+    }
     return accountBackupFingerprint(database, history);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

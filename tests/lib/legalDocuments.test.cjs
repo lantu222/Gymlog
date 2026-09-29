@@ -26,6 +26,7 @@ const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
 const LEGAL_TEXT_VERSIONS = [
   { date: '2026-09-16', fingerprint: 'c52c7814c8a7ba76' },
   { date: '2026-09-28', fingerprint: '7019c14a32fca330' },
+  { date: '2026-09-29', fingerprint: 'c0f19e9dea408950' },
 ];
 
 const IDS = ['privacy', 'terms'];
@@ -171,6 +172,7 @@ module.exports = [
           '@vinha/account/signedout/v1',
           '@vinha/account/v1',
           '@vinha/analytics/v1',
+          '@vinha/coach/memory/pendingerase/v1',
           '@vinha/coach/memory/v1',
           '@vinha/database/corrupt',
           '@vinha/database/v1',
