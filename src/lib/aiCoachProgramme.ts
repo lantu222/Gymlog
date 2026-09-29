@@ -31,14 +31,21 @@ export function singleLine(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
-/** Sessions past this are named but not listed — see MAX_EXERCISES. */
-const MAX_DAYS = 7;
+/**
+ * Sessions past this are named but not listed — see MAX_EXERCISES. Exported
+ * so the endpoint's re-parse of a posted programme (normalizeAiCoachTrainingContext
+ * in aiTrainingContext.ts) caps a posted `days` array to the same bound this
+ * builder holds its own to, rather than a second number that can drift from
+ * it (recheck round, 2026-09-29).
+ */
+export const MAX_DAYS = 7;
 /**
  * Enough for a long day and a hard stop before a payload becomes a bill. A
  * trimmed day still says how many exercises it really has, because "8
- * exercises, first 12 listed" is a lie no reader can catch.
+ * exercises, first 12 listed" is a lie no reader can catch. Exported for the
+ * same reason as MAX_DAYS above.
  */
-const MAX_EXERCISES = 12;
+export const MAX_EXERCISES = 12;
 
 export interface ProgrammeCardSession {
   title: string;

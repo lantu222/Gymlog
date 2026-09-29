@@ -13,20 +13,30 @@ import {
   WorkoutSession,
 } from '../types/models';
 import {
+  AICoachActiveSessionSummary,
   AICoachBody,
   AICoachBodyChange,
+  AICoachBodyMeasurementTrend,
   AICoachCardio,
   AICoachGoal,
   AICoachHistory,
   AICoachHistoryConfidence,
   AICoachHistoryLift,
+  AICoachHistoryRepsLift,
   AICoachHistorySchedule,
   AICoachHistorySession,
   AICoachHistoryWeek,
   AICoachHomeState,
   AICoachLastSession,
+  AICoachLatestTopSet,
+  AICoachLiftHighlight,
+  AICoachPlannerSetupSummary,
+  AICoachPlateauSummary,
   AICoachProfile,
   AICoachProgramme,
+  AICoachProgrammeDay,
+  AICoachRecentCompletedSession,
+  AICoachRhythmDay,
   AICoachTrainingContext,
 } from '../types/aiCoach';
 import { DEFAULT_BUDGET_LIMITS } from './aiCoachBudget';
@@ -43,6 +53,7 @@ import {
   topSetOf,
 } from './trainingHistory';
 import { CoachAdviceMemoryEntry, buildCoachAdviceLines, parseCoachAdviceLines } from './coachAdviceMemory';
+import { MAX_DAYS as MAX_PROGRAMME_DAYS, MAX_EXERCISES as MAX_PROGRAMME_EXERCISES } from './aiCoachProgramme';
 import type { TrainingSchedule } from './trainingSchedule';
 
 /**
@@ -62,6 +73,51 @@ const MAX_LAST_SESSION_EXERCISES = 12;
 const MAX_LAST_SESSION_SETS = 8;
 /** A cardio line is short, but it is still a line per session. */
 const MAX_CARDIO_SESSIONS = 12;
+
+/**
+ * Caps for the endpoint's re-parse of a posted context (normalizeAiCoachTrainingContext,
+ * below), sized to what the device's own builder in this file would ever
+ * send. A posted context is otherwise unbounded on every one of these, and
+ * the size check meant to catch that (fitAiCoachContextToCap) runs only on
+ * the device — the endpoint renders the text straight from what it parses
+ * (buildAiCoachContextText, called before its own budget check) — so an
+ * oversized field here is cheap to accept and expensive only once it is
+ * written out and joined into lines (recheck round, 2026-09-29).
+ */
+
+/**
+ * A lift's own trajectory arrays — weightSeriesKg, and repsLifts'
+ * bestSetRepsSeries — hold one point per session inside the window, not one
+ * per MAX_HISTORY_SESSIONS row: a lift trained daily for the whole 56-day
+ * default window can log more points than the session list keeps. This
+ * leaves slack above that whole window, the same margin MAX_HISTORY_WEEKS
+ * takes above its own calendar count.
+ */
+const MAX_LIFT_SERIES_POINTS = 60;
+/** More reps-per-set entries than one exercise logs in one real session. */
+const MAX_REPS_PER_SESSION = 20;
+/** A name the reader typed or the device resolved: a lift, a session, a day. */
+const MAX_NAME_CHARS = 120;
+/** A short field: a scheme label, a planner note, a home-state key. */
+const MAX_SHORT_TEXT_CHARS = 80;
+/** The longest free text the endpoint would ever knowingly forward as a goal or a prompt. */
+const MAX_LONG_TEXT_CHARS = 2000;
+/** Matches the device builder: trackedProgress.slice(0, 3) — twice, for two different views of it. */
+const MAX_TRACKED_LIFTS = 3;
+const MAX_LATEST_TOP_SETS = 3;
+/** Matches the device builder: workoutSessions...slice(0, 3). */
+const MAX_RECENT_SESSIONS = 3;
+/** Matches getRecentActivityStrip's own default window (completedSessions.ts). */
+const MAX_RHYTHM_DAYS = 16;
+/** No device-side cap on either list; generous but bounded is enough here. */
+const MAX_GOALS = 20;
+const MAX_PLATEAUS = 20;
+/** A reader tracks a handful of measured sites, not hundreds. */
+const MAX_BODY_MEASUREMENTS = 20;
+/** Home-state and planner lists: a handful of keys or notes, not thousands. */
+const MAX_LIST_ITEMS = 20;
+/** One entry per weekday, at most. */
+const MAX_SCHEDULE_TRAINING_DAYS = 7;
 
 type AiCardioInput = Pick<CardioSession, 'id' | 'activityType' | 'performedAt' | 'durationSec' | 'distanceKm'>;
 
@@ -866,8 +922,63 @@ function isHistoryLift(value: unknown): value is AICoachHistoryLift {
   return typeof lift.name === 'string' && Array.isArray(lift.weightSeriesKg) && lift.weightSeriesKg.every(isFiniteNumber);
 }
 
-function isHistorySession(value: unknown): value is AICoachHistorySession {
-  return !!value && typeof value === 'object' && typeof (value as Record<string, unknown>).performedAt === 'string';
+/**
+ * A lift row's own scalar fields, sanitised the same way its arrays already
+ * are. `isHistoryLift` above requires only `name` and `weightSeriesKg` to be
+ * well-shaped, so every other field this type promises — `latestReps`,
+ * `stalledSessions`, `spanDays`, `sessions`, the weight fields — reached the
+ * renderer as whatever the client posted. Three of them (`latestReps`,
+ * `stalledSessions`, `spanDays`) are spliced straight into a trajectory line
+ * in aiCoachSystemContext.ts with no guard of their own, so a giant string in
+ * any one of them rendered a line the same size — the exact class of bug this
+ * file's cap on `weightSeriesKg` closed, just on a scalar (recheck round,
+ * 2026-09-29).
+ */
+function normalizeHistoryLiftRow(lift: AICoachHistoryLift): AICoachHistoryLift {
+  const num = (value: unknown, fallback: number): number => (isFiniteNumber(value) ? value : fallback);
+  return {
+    name: clipText(lift.name, MAX_NAME_CHARS),
+    sessions: num(lift.sessions, 0),
+    firstWeightKg: num(lift.firstWeightKg, 0),
+    latestWeightKg: num(lift.latestWeightKg, 0),
+    latestReps: num(lift.latestReps, 0),
+    bestWeightKg: num(lift.bestWeightKg, 0),
+    changeKg: num(lift.changeKg, 0),
+    spanDays: num(lift.spanDays, 0),
+    stalledSessions: num(lift.stalledSessions, 0),
+    weightSeriesKg: lift.weightSeriesKg.slice(-MAX_LIFT_SERIES_POINTS),
+  };
+}
+
+/**
+ * One history session row, repaired the same way a lift row above is.
+ * `isHistorySession` used to require only `performedAt` to be a string, so
+ * `name` — rendered through `singleLine`, which only collapses whitespace and
+ * has no length cap of its own — and the numeric fields spliced straight into
+ * the same line (`durationMinutes`, `setCount`, `exerciseCount`) reached the
+ * renderer as whatever the client posted: the sibling of
+ * `recentCompletedSessions`, which this file already caps and clips, left
+ * uncapped (recheck round, 2026-09-29).
+ */
+function normalizeHistorySessionRow(value: unknown): AICoachHistorySession | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const row = value as Record<string, unknown>;
+  if (typeof row.performedAt !== 'string') {
+    return null;
+  }
+  const num = (v: unknown, fallback: number): number => (isFiniteNumber(v) ? v : fallback);
+  return {
+    sessionId: typeof row.sessionId === 'string' ? row.sessionId.slice(0, MAX_NAME_CHARS) : '',
+    name: typeof row.name === 'string' ? clipText(row.name, MAX_NAME_CHARS) : '',
+    performedAt: row.performedAt.slice(0, MAX_SHORT_TEXT_CHARS),
+    ...(typeof row.day === 'string' ? { day: row.day.slice(0, MAX_SHORT_TEXT_CHARS) } : {}),
+    durationMinutes: isFiniteNumber(row.durationMinutes) ? row.durationMinutes : null,
+    volumeKg: isFiniteNumber(row.volumeKg) ? row.volumeKg : null,
+    setCount: num(row.setCount, 0),
+    exerciseCount: num(row.exerciseCount, 0),
+  };
 }
 
 function isHistoryWeek(value: unknown): value is AICoachHistoryWeek {
@@ -887,13 +998,64 @@ function normalizeHistorySchedule(input: unknown): AICoachHistory['schedule'] {
   }
   const schedule = input as Record<string, unknown> & AICoachHistorySchedule;
   const cycle = schedule.cycle as unknown;
+  const rawCycle = cycle && typeof cycle === 'object' && !Array.isArray(cycle) ? (cycle as Record<string, unknown>) : null;
   return {
     ...schedule,
+    // One entry per weekday, at most — the render joins this with `.join`.
     trainingDays: Array.isArray(schedule.trainingDays)
-      ? (schedule.trainingDays as unknown[]).filter((day): day is SetupWeekday => typeof day === 'string')
+      ? (schedule.trainingDays as unknown[])
+          .filter((day): day is SetupWeekday => typeof day === 'string')
+          .slice(0, MAX_SCHEDULE_TRAINING_DAYS)
       : [],
-    cycle: cycle && typeof cycle === 'object' && !Array.isArray(cycle) ? (cycle as AICoachHistorySchedule['cycle']) : null,
-    nextTrainingDate: typeof schedule.nextTrainingDate === 'string' ? schedule.nextTrainingDate : null,
+    // Its three fields are numbers spliced straight into a template literal
+    // (`${s.cycle.onDays} days on...`) with no guard of their own — a string
+    // posted in their place would print in full rather than a number.
+    cycle: rawCycle
+      ? {
+          onDays: isFiniteNumber(rawCycle.onDays) ? rawCycle.onDays : 0,
+          offDays: isFiniteNumber(rawCycle.offDays) ? rawCycle.offDays : 0,
+          length: isFiniteNumber(rawCycle.length) ? rawCycle.length : 0,
+        }
+      : null,
+    nextTrainingDate:
+      typeof schedule.nextTrainingDate === 'string' ? schedule.nextTrainingDate.slice(0, MAX_SHORT_TEXT_CHARS) : null,
+    // Also spliced straight into a template literal, same as the cycle's own
+    // fields above.
+    plannedPerWeek: isFiniteNumber(schedule.plannedPerWeek) ? schedule.plannedPerWeek : 0,
+    plannedSessions: isFiniteNumber(schedule.plannedSessions) ? schedule.plannedSessions : 0,
+    completedSessions: isFiniteNumber(schedule.completedSessions) ? schedule.completedSessions : 0,
+  };
+}
+
+/**
+ * One reps-lift row, repaired rather than trusted. readRepsLifts
+ * (aiCoachSystemContext.ts) shape-checks these again where they are
+ * rendered, but that check has no length limit of its own — an array of a
+ * million reps still passes its isRepList test — so the caps that matter run
+ * here, before any of these lists are ever joined into text (recheck round,
+ * 2026-09-29).
+ */
+function normalizeRepsLift(value: unknown): AICoachHistoryRepsLift | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const lift = value as Record<string, unknown>;
+  const repList = (input: unknown, max: number): number[] =>
+    Array.isArray(input) ? input.filter(isFiniteNumber).slice(0, max) : [];
+  const firstReps = repList(lift.firstReps, MAX_REPS_PER_SESSION);
+  const latestReps = repList(lift.latestReps, MAX_REPS_PER_SESSION);
+  const bestSetRepsSeries = repList(lift.bestSetRepsSeries, MAX_LIFT_SERIES_POINTS);
+  if (typeof lift.name !== 'string' || firstReps.length === 0 || latestReps.length === 0 || bestSetRepsSeries.length === 0) {
+    return null;
+  }
+  return {
+    name: clipText(lift.name, MAX_NAME_CHARS),
+    sessions: isFiniteNumber(lift.sessions) ? lift.sessions : bestSetRepsSeries.length,
+    spanDays: isFiniteNumber(lift.spanDays) ? lift.spanDays : 0,
+    firstReps,
+    latestReps,
+    bestSetRepsSeries,
+    unchangedSessions: isFiniteNumber(lift.unchangedSessions) ? lift.unchangedSessions : 1,
   };
 }
 
@@ -909,7 +1071,10 @@ function normalizeHistory(input: Partial<AICoachHistory> | null | undefined): AI
   // to catch that runs on the rendered text these arrays feed, so an
   // oversized array is still cheap here and expensive only after it is
   // written out (server audit, 2026-09-29).
-  const sessions = list<unknown>(input.sessions, empty.sessions).filter(isHistorySession).slice(-MAX_HISTORY_SESSIONS);
+  const sessions = list<unknown>(input.sessions, empty.sessions)
+    .map(normalizeHistorySessionRow)
+    .filter((session): session is AICoachHistorySession => session !== null)
+    .slice(-MAX_HISTORY_SESSIONS);
   return {
     windowDays:
       typeof input.windowDays === 'number' && Number.isFinite(input.windowDays) ? input.windowDays : empty.windowDays,
@@ -920,10 +1085,20 @@ function normalizeHistory(input: Partial<AICoachHistory> | null | undefined): AI
     totalVolumeKg:
       typeof input.totalVolumeKg === 'number' && Number.isFinite(input.totalVolumeKg) ? input.totalVolumeKg : 0,
     sessions,
-    lifts: list<unknown>(input.lifts, empty.lifts).filter(isHistoryLift).slice(0, MAX_HISTORY_LIFTS),
-    // Shape-checked entry by entry where it is rendered (readRepsLifts); an
+    // A lift's own weightSeriesKg is capped the same way, row by row: the
+    // session-count cap above bounds how many rows there are, not how long
+    // one row's own trajectory is — a lift trained daily for the window logs
+    // more points than the session list keeps (recheck round, 2026-09-29).
+    lifts: list<unknown>(input.lifts, empty.lifts)
+      .filter(isHistoryLift)
+      .slice(0, MAX_HISTORY_LIFTS)
+      .map(normalizeHistoryLiftRow),
+    // Shape-checked and capped row by row — see normalizeRepsLift above — an
     // older app sends none.
-    repsLifts: list(input.repsLifts, []).slice(0, MAX_HISTORY_LIFTS),
+    repsLifts: list(input.repsLifts, [])
+      .map(normalizeRepsLift)
+      .filter((lift): lift is AICoachHistoryRepsLift => lift !== null)
+      .slice(0, MAX_HISTORY_LIFTS),
     weeks: list<unknown>(input.weeks, empty.weeks).filter(isHistoryWeek).slice(-MAX_HISTORY_WEEKS),
     schedule: normalizeHistorySchedule(input.schedule),
     truncated: input.truncated === true,
@@ -1080,48 +1255,378 @@ function withPrimaryGoal(goals: AICoachGoal[]): AICoachGoal[] {
   return goals.map((goal, index) => ({ ...goal, isPrimary: index === goals.length - 1 }));
 }
 
+/**
+ * The rest of a posted context, repaired field by field the same way the
+ * history block above is: every array here goes into the '# Training
+ * context' block through a template literal or a `.map`/`.join` with no cap
+ * of its own, and several of the scalars beside them (a lift's `latestReps`,
+ * a goal's `unit`, a plateau's `stagnantSessions`) are spliced straight in
+ * too — so a client-typed field posted as a giant string, or a list posted
+ * a hundred times its real length, rendered in full rather than erroring
+ * (recheck round, 2026-09-29).
+ *
+ * A dropped row is dropped, never repaired into something that never
+ * happened — a lift highlight with no name is not "unnamed exercise", it is
+ * one row fewer.
+ */
+function normalizeActiveSession(value: unknown): AICoachActiveSessionSummary | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const row = value as Record<string, unknown>;
+  if (typeof row.title !== 'string') {
+    return null;
+  }
+  return {
+    title: clipText(row.title, MAX_NAME_CHARS),
+    nextExercise: typeof row.nextExercise === 'string' ? clipText(row.nextExercise, MAX_NAME_CHARS) : null,
+    meta: typeof row.meta === 'string' ? clipText(row.meta, MAX_SHORT_TEXT_CHARS) : '',
+  };
+}
+
+function normalizeRecentSession(value: unknown): AICoachRecentCompletedSession | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const row = value as Record<string, unknown>;
+  if (typeof row.sessionId !== 'string' || typeof row.title !== 'string' || typeof row.performedAt !== 'string') {
+    return null;
+  }
+  const count = (v: unknown): number | null => (isFiniteNumber(v) ? v : null);
+  return {
+    sessionId: row.sessionId.slice(0, MAX_NAME_CHARS),
+    title: clipText(row.title, MAX_NAME_CHARS),
+    performedAt: row.performedAt.slice(0, MAX_SHORT_TEXT_CHARS),
+    day: typeof row.day === 'string' ? row.day.slice(0, MAX_SHORT_TEXT_CHARS) : undefined,
+    durationMinutes: count(row.durationMinutes),
+    setsCompleted: count(row.setsCompleted),
+    swappedExercises: isFiniteNumber(row.swappedExercises) ? row.swappedExercises : 0,
+    noteCount: isFiniteNumber(row.noteCount) ? row.noteCount : 0,
+  };
+}
+
+function normalizeLiftHighlight(value: unknown): AICoachLiftHighlight | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const row = value as Record<string, unknown>;
+  if (typeof row.name !== 'string') {
+    return null;
+  }
+  return {
+    key: typeof row.key === 'string' ? row.key.slice(0, MAX_NAME_CHARS) : '',
+    name: clipText(row.name, MAX_NAME_CHARS),
+    latestWeight: isFiniteNumber(row.latestWeight) ? row.latestWeight : null,
+    bestWeight: isFiniteNumber(row.bestWeight) ? row.bestWeight : null,
+    latestReps: typeof row.latestReps === 'string' ? clipText(row.latestReps, MAX_SHORT_TEXT_CHARS) : '',
+  };
+}
+
+function normalizeLatestTopSet(value: unknown): AICoachLatestTopSet | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const row = value as Record<string, unknown>;
+  if (typeof row.exerciseName !== 'string') {
+    return null;
+  }
+  return {
+    exerciseName: clipText(row.exerciseName, MAX_NAME_CHARS),
+    weight: isFiniteNumber(row.weight) ? row.weight : null,
+    reps: typeof row.reps === 'string' ? clipText(row.reps, MAX_SHORT_TEXT_CHARS) : '',
+    performedAt: typeof row.performedAt === 'string' ? row.performedAt.slice(0, MAX_SHORT_TEXT_CHARS) : null,
+  };
+}
+
+function normalizeRhythmDay(value: unknown): AICoachRhythmDay | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const row = value as Record<string, unknown>;
+  return {
+    dayStart: isFiniteNumber(row.dayStart) ? row.dayStart : 0,
+    dayNumber: isFiniteNumber(row.dayNumber) ? row.dayNumber : 0,
+    weekdayLabel: typeof row.weekdayLabel === 'string' ? row.weekdayLabel.slice(0, MAX_SHORT_TEXT_CHARS) : '',
+    active: row.active === true,
+    isToday: row.isToday === true,
+  };
+}
+
+function normalizePlateau(value: unknown): AICoachPlateauSummary | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const row = value as Record<string, unknown>;
+  if (typeof row.name !== 'string') {
+    return null;
+  }
+  return {
+    exerciseKey: typeof row.exerciseKey === 'string' ? row.exerciseKey.slice(0, MAX_NAME_CHARS) : '',
+    name: clipText(row.name, MAX_NAME_CHARS),
+    stagnantSessions: isFiniteNumber(row.stagnantSessions) ? row.stagnantSessions : 0,
+    topWeightKg: isFiniteNumber(row.topWeightKg) ? row.topWeightKg : null,
+  };
+}
+
+function normalizeGoal(value: unknown): AICoachGoal | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const row = value as Record<string, unknown>;
+  if (typeof row.text !== 'string') {
+    return null;
+  }
+  const num = (v: unknown): number | null => (isFiniteNumber(v) ? v : null);
+  return {
+    text: clipText(row.text, MAX_LONG_TEXT_CHARS),
+    kind: typeof row.kind === 'string' ? row.kind.slice(0, MAX_SHORT_TEXT_CHARS) : null,
+    targetValue: num(row.targetValue),
+    unit: typeof row.unit === 'string' ? row.unit.slice(0, MAX_SHORT_TEXT_CHARS) : null,
+    startValue: num(row.startValue),
+    currentValue: num(row.currentValue),
+    setAt: typeof row.setAt === 'string' ? row.setAt.slice(0, MAX_SHORT_TEXT_CHARS) : null,
+    isPrimary: row.isPrimary === true,
+  };
+}
+
+/**
+ * The running programme. renderAiCoachProgramme walks `days` and each day's
+ * `exercises` with no cap of its own — that cap lives in the device-side
+ * builder (aiCoachProgramme.ts), which a posted context does not go
+ * through — so it is capped here to the same MAX_PROGRAMME_DAYS /
+ * MAX_PROGRAMME_EXERCISES that builder holds itself to, imported from there
+ * rather than restated, so the two cannot drift apart.
+ */
+function normalizeProgrammeDay(value: unknown): AICoachProgrammeDay | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const row = value as Record<string, unknown>;
+  if (typeof row.name !== 'string') {
+    return null;
+  }
+  const exercises = (Array.isArray(row.exercises) ? row.exercises : [])
+    .slice(0, MAX_PROGRAMME_EXERCISES)
+    .filter((exercise): exercise is Record<string, unknown> => !!exercise && typeof exercise === 'object' && typeof exercise.name === 'string')
+    .map((exercise) => ({
+      name: clipText(exercise.name as string, MAX_NAME_CHARS),
+      scheme: typeof exercise.scheme === 'string' ? clipText(exercise.scheme, MAX_SHORT_TEXT_CHARS) : '',
+    }));
+  return {
+    name: clipText(row.name, MAX_NAME_CHARS),
+    dayLabel: typeof row.dayLabel === 'string' ? row.dayLabel.slice(0, MAX_SHORT_TEXT_CHARS) : null,
+    estimatedMinutes: isFiniteNumber(row.estimatedMinutes) ? row.estimatedMinutes : null,
+    exercises,
+  };
+}
+
+function normalizeProgramme(value: unknown): AICoachProgramme | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const row = value as Record<string, unknown>;
+  if (typeof row.title !== 'string' || !Array.isArray(row.days)) {
+    return null;
+  }
+  const daysInput = row.days;
+  const days = daysInput
+    .slice(0, MAX_PROGRAMME_DAYS)
+    .map(normalizeProgrammeDay)
+    .filter((day): day is AICoachProgrammeDay => day !== null);
+  // A day or an exercise list that was cut says so, the same way the device
+  // builder's own truncated flag does — a trimmed payload must not read as a
+  // shorter week than the reader actually has.
+  const truncated =
+    row.truncated === true ||
+    daysInput.length > MAX_PROGRAMME_DAYS ||
+    daysInput.some((day) => {
+      const exercises = day && typeof day === 'object' ? (day as Record<string, unknown>).exercises : undefined;
+      return Array.isArray(exercises) && exercises.length > MAX_PROGRAMME_EXERCISES;
+    });
+  return {
+    title: clipText(row.title, MAX_NAME_CHARS),
+    source: row.source === 'ready' ? 'ready' : 'custom',
+    daysPerWeek: isFiniteNumber(row.daysPerWeek) ? row.daysPerWeek : days.length,
+    days,
+    truncated,
+  };
+}
+
+function normalizePlannerSetup(value: unknown): AICoachPlannerSetupSummary | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const row = value as Record<string, unknown>;
+  const str = (v: unknown): string | null => (typeof v === 'string' ? v.slice(0, MAX_SHORT_TEXT_CHARS) : null);
+  const list = (v: unknown): string[] =>
+    (Array.isArray(v) ? v : [])
+      .filter((entry): entry is string => typeof entry === 'string')
+      .slice(0, MAX_LIST_ITEMS)
+      .map((entry) => clipText(entry, MAX_SHORT_TEXT_CHARS));
+  return {
+    goal: str(row.goal),
+    daysPerWeek: isFiniteNumber(row.daysPerWeek) ? row.daysPerWeek : null,
+    experience: str(row.experience),
+    sessionMinutes: isFiniteNumber(row.sessionMinutes) ? row.sessionMinutes : null,
+    equipment: str(row.equipment),
+    recovery: str(row.recovery),
+    mustInclude: list(row.mustInclude),
+    avoid: list(row.avoid),
+    limitations: list(row.limitations),
+  };
+}
+
+function normalizeHomeState(value: unknown): AICoachHomeState | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const row = value as Record<string, unknown>;
+  const list = (v: unknown): string[] =>
+    (Array.isArray(v) ? v : [])
+      .filter((entry): entry is string => typeof entry === 'string')
+      .slice(0, MAX_LIST_ITEMS)
+      .map((entry) => clipText(entry, MAX_SHORT_TEXT_CHARS));
+  return {
+    pinnedStatCardKeys: list(row.pinnedStatCardKeys),
+    weighInReminderEnabled: row.weighInReminderEnabled === true,
+    silencedSuggestions: list(row.silencedSuggestions),
+  };
+}
+
+function normalizeBodyMeasurement(value: unknown): AICoachBodyMeasurementTrend | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const row = value as Record<string, unknown>;
+  if (typeof row.kind !== 'string' || typeof row.unit !== 'string' || !isFiniteNumber(row.latestValue) || typeof row.latestAt !== 'string') {
+    return null;
+  }
+  return {
+    kind: row.kind.slice(0, MAX_SHORT_TEXT_CHARS),
+    unit: row.unit.slice(0, MAX_SHORT_TEXT_CHARS),
+    latestValue: row.latestValue,
+    latestAt: row.latestAt.slice(0, MAX_SHORT_TEXT_CHARS),
+    previousValue: isFiniteNumber(row.previousValue) ? row.previousValue : null,
+    previousAt: typeof row.previousAt === 'string' ? row.previousAt.slice(0, MAX_SHORT_TEXT_CHARS) : null,
+  };
+}
+
+function normalizeBodyChange(value: unknown): AICoachBodyChange | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const row = value as Record<string, unknown>;
+  return isFiniteNumber(row.deltaKg) && isFiniteNumber(row.spanDays) ? { deltaKg: row.deltaKg, spanDays: row.spanDays } : null;
+}
+
+function normalizeBody(value: unknown): AICoachBody | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const row = value as Record<string, unknown>;
+  const measurements = (Array.isArray(row.measurements) ? row.measurements : [])
+    .slice(0, MAX_BODY_MEASUREMENTS)
+    .map(normalizeBodyMeasurement)
+    .filter((entry): entry is AICoachBodyMeasurementTrend => entry !== null);
+  return {
+    weightKg: isFiniteNumber(row.weightKg) ? row.weightKg : null,
+    weightAt: typeof row.weightAt === 'string' ? row.weightAt.slice(0, MAX_SHORT_TEXT_CHARS) : null,
+    weightChange30d: normalizeBodyChange(row.weightChange30d),
+    weightChange90d: normalizeBodyChange(row.weightChange90d),
+    measurements,
+  };
+}
+
+function normalizeProfile(value: unknown): AICoachProfile | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const row = value as Record<string, unknown>;
+  return {
+    heightCm: isFiniteNumber(row.heightCm) ? row.heightCm : null,
+    age: isFiniteNumber(row.age) ? row.age : null,
+    ageRange: typeof row.ageRange === 'string' ? row.ageRange.slice(0, MAX_SHORT_TEXT_CHARS) : row.ageRange === null ? null : undefined,
+    gender: typeof row.gender === 'string' ? row.gender.slice(0, MAX_SHORT_TEXT_CHARS) : null,
+  };
+}
+
 export function normalizeAiCoachTrainingContext(
   input: Partial<AICoachTrainingContext> | null | undefined,
 ): AICoachTrainingContext {
   const candidate = input && typeof input === 'object' ? input : {};
-  const array = <T,>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);
+  // Repaired and capped row by row, then capped again by count — the same
+  // two steps normalizeHistory already takes above, applied to every other
+  // array this context carries. `max` matches what the device's own builder
+  // in this file would ever send (see the MAX_* constants' own comments);
+  // where the builder has no cap of its own, it is a small documented one
+  // instead (recheck round, 2026-09-29).
+  const boundedList = <T>(value: unknown, normalize: (row: unknown) => T | null, max: number, fromEnd = false): T[] => {
+    const rows = Array.isArray(value) ? value : [];
+    // Which end survives a cut matters for a list the client appends to: the
+    // head is the oldest entry, not a row worth keeping over the newest.
+    const sliced = fromEnd ? rows.slice(-max) : rows.slice(0, max);
+    return sliced.map(normalize).filter((row): row is T => row !== null);
+  };
   const number = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) ? value : 0);
-  const fatigue = candidate.fatigue && typeof candidate.fatigue === 'object' ? candidate.fatigue : null;
+  const fatigueRow = candidate.fatigue && typeof candidate.fatigue === 'object' ? (candidate.fatigue as unknown as Record<string, unknown>) : null;
+  const knownFatigueSignal = new Set(['undertrained', 'optimal', 'elevated', 'high']);
   return {
     unitPreference: candidate.unitPreference === 'lb' ? 'lb' : 'kg',
-    activeSession: candidate.activeSession ?? null,
-    recentCompletedSessions: array(candidate.recentCompletedSessions),
-    trackedLifts: array(candidate.trackedLifts),
-    latestTopSets: array(candidate.latestTopSets),
+    activeSession: normalizeActiveSession(candidate.activeSession),
+    // Matches the device builder: workoutSessions...slice(0, 3).
+    recentCompletedSessions: boundedList(candidate.recentCompletedSessions, normalizeRecentSession, MAX_RECENT_SESSIONS),
+    // Matches the device builder: trackedProgress.slice(0, 3), twice over.
+    trackedLifts: boundedList(candidate.trackedLifts, normalizeLiftHighlight, MAX_TRACKED_LIFTS),
+    latestTopSets: boundedList(candidate.latestTopSets, normalizeLatestTopSet, MAX_LATEST_TOP_SETS),
     sessionsThisWeek: number(candidate.sessionsThisWeek),
     sessionsLast30Days: number(candidate.sessionsLast30Days),
-    rhythm: array(candidate.rhythm),
+    // Matches getRecentActivityStrip's own default window.
+    rhythm: boundedList(candidate.rhythm, normalizeRhythmDay, MAX_RHYTHM_DAYS),
     readyProgramCount: number(candidate.readyProgramCount),
     recommendedProgramId: candidate.recommendedProgramId ?? null,
     recommendedProgramTitle: candidate.recommendedProgramTitle ?? null,
     customProgramTitle: candidate.customProgramTitle ?? null,
-    programme: candidate.programme && typeof candidate.programme === 'object' ? candidate.programme : null,
-    plateaus: array(candidate.plateaus),
-    fatigue: fatigue ?? {
-      acwr: 0,
-      recoveryScore: 0,
-      signal: 'optimal',
-      sessionCount7d: 0,
-      confident: false,
-    },
+    programme: normalizeProgramme(candidate.programme),
+    // No device-side cap on this list; a small documented one is enough here.
+    plateaus: boundedList(candidate.plateaus, normalizePlateau, MAX_PLATEAUS),
+    // acwr, recoveryScore and sessionCount7d are spliced straight into the
+    // Load block's text with no guard of their own (loadInWords, `plural`).
+    fatigue: fatigueRow
+      ? {
+          acwr: isFiniteNumber(fatigueRow.acwr) ? fatigueRow.acwr : 0,
+          recoveryScore: isFiniteNumber(fatigueRow.recoveryScore) ? fatigueRow.recoveryScore : 0,
+          signal:
+            typeof fatigueRow.signal === 'string' && knownFatigueSignal.has(fatigueRow.signal)
+              ? (fatigueRow.signal as AICoachTrainingContext['fatigue']['signal'])
+              : 'optimal',
+          sessionCount7d: isFiniteNumber(fatigueRow.sessionCount7d) ? fatigueRow.sessionCount7d : 0,
+          confident: fatigueRow.confident === true,
+        }
+      : {
+          acwr: 0,
+          recoveryScore: 0,
+          signal: 'optimal',
+          sessionCount7d: 0,
+          confident: false,
+        },
     history: normalizeHistory(candidate.history),
     lastSession: normalizeLastSession(candidate.lastSession),
     cardio: normalizeCardio(candidate.cardio),
-    plannerSetup: candidate.plannerSetup ?? null,
-    body: candidate.body && typeof candidate.body === 'object' ? candidate.body : null,
-    // An installed app that predates the primary goal sends goals without the
-    // flag, and it keeps sending them until the reader updates. Rather than
-    // leaving the list headless, the newest goal — last in the order the
-    // client appends them — takes the lead, which is what a null stored
-    // choice resolves to anyway.
-    goals: withPrimaryGoal(array<AICoachGoal>(candidate.goals)),
-    profile: candidate.profile && typeof candidate.profile === 'object' ? candidate.profile : null,
-    homeState: candidate.homeState && typeof candidate.homeState === 'object' ? candidate.homeState : null,
+    plannerSetup: normalizePlannerSetup(candidate.plannerSetup),
+    body: normalizeBody(candidate.body),
+    // No device-side cap on this list either; a small documented one is
+    // enough here too. An installed app that predates the primary goal sends
+    // goals without the flag, and it keeps sending them until the reader
+    // updates. Rather than leaving the list headless, the newest goal — last
+    // in the order the client appends them — takes the lead, which is what a
+    // null stored choice resolves to anyway. That only holds if a cut over
+    // the cap drops from the head: sliced from the front, a posted list
+    // longer than MAX_GOALS kept the oldest goals and crowned goal number
+    // MAX_GOALS primary, dropping the true newest one entirely (recheck
+    // round, 2026-09-29).
+    goals: withPrimaryGoal(boundedList(candidate.goals, normalizeGoal, MAX_GOALS, true)),
+    profile: normalizeProfile(candidate.profile),
+    homeState: normalizeHomeState(candidate.homeState),
     // Re-parsed rather than trusted. This runs on the endpoint, where the
     // payload is whatever was posted: the same bound the device applies has to
     // hold for a request the device did not write.
