@@ -79,4 +79,44 @@ module.exports = [
       assert.deepEqual(rankExerciseMatches(library.slice(0, 5), '  ', 'fi').map((i) => i.name), library.slice(0, 5).map((i) => i.name));
     },
   },
+  {
+    name: 'the gym\'s own words for Leg Curl and Leg Extension find them ("jalankoukistus ja ojennus ei löydy", #bugs 2026-09-29)',
+    run() {
+      // The library calls them Takareisikoukistus and Reiden ojennus; the gym
+      // says "jalan koukistus"/"jalan ojennus" — English words with no reason
+      // for a Finnish keyboard to know them.
+      const curlPhrasings = ['jalankoukistus', 'jalan koukistus', 'jalkakoukistus'];
+      for (const phrasing of curlPhrasings) {
+        const hits = search(phrasing);
+        assert.ok(hits.length > 0, `"${phrasing}" found nothing`);
+        assert.ok(
+          hits.some((item) => /leg curl/i.test(item.name)),
+          `"${phrasing}" found ${hits.length} but none of them a Leg Curl: ${hits.map((h) => h.name).join(', ')}`,
+        );
+      }
+
+      const extensionPhrasings = ['jalan ojennus', 'jalkaojennus', 'polven ojennus'];
+      for (const phrasing of extensionPhrasings) {
+        const hits = search(phrasing);
+        assert.ok(hits.length > 0, `"${phrasing}" found nothing`);
+        assert.ok(
+          hits.some((item) => /leg extension/i.test(item.name)),
+          `"${phrasing}" found ${hits.length} but none of them a Leg Extension: ${hits.map((h) => h.name).join(', ')}`,
+        );
+      }
+
+      // The ä/ö fold (#222/#225) still runs first: a typed "jalankoukistus"
+      // with an accidental "ä" nowhere near it is unaffected either way, but
+      // the phrase alias must not have skipped folding — "polven öjennus"
+      // (a stray ä/ö) should still answer.
+      assert.ok(search('polven ojennus', 'fi').length > 0);
+
+      // English gym words, not just Finnish ones.
+      assert.ok(search('hamstring curl', 'en').some((item) => /leg curl/i.test(item.name)));
+      assert.ok(search('quad extension', 'en').some((item) => /leg extension/i.test(item.name)));
+
+      // A plain, unaliased query is unaffected by any of this.
+      assert.equal(exerciseMatchesQuery('barbell full squat takakyykky', 'jalan koukistus'), false);
+    },
+  },
 ];

@@ -76,8 +76,11 @@ export function filterBrowsableExercises<T extends BrowsableExercise>(
 export type BodyPartFilter = 'all' | ExerciseBodyPart | LegMuscleFilter;
 
 // One list, and the type read off it, so a muscle cannot be a chip without
-// being answered by its muscles.
-const LEG_MUSCLE_FILTERS = ['quadriceps', 'hamstrings', 'calves'] as const;
+// being answered by its muscles. Exported for the swap sheet's browse
+// prefilter (swapBrowsePrefilter.ts), which needs the same three names to
+// decide whether a leg exercise preselects a muscle chip or the plain "Legs"
+// one — a second copy of this list would drift the day either one changes.
+export const LEG_MUSCLE_FILTERS = ['quadriceps', 'hamstrings', 'calves'] as const;
 
 type LegMuscleFilter = (typeof LEG_MUSCLE_FILTERS)[number];
 

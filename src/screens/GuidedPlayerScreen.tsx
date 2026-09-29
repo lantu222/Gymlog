@@ -119,6 +119,8 @@ import { elapsedSecondsOf } from '../features/workout/workoutState';
 import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailoringFit';
 import { exerciseMatchesQuery, oneRowPerShownName, rankExerciseMatches } from '../lib/exerciseSearch';
 import { sessionLiftsMatchingQuery } from '../lib/swapShortlist';
+import { BODY_PART_FILTERS, BodyPartFilter, matchesBodyPartFilter } from '../lib/exerciseBrowseFilter';
+import { resolveSwapBrowsePrefilter } from '../lib/swapBrowsePrefilter';
 import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import { useKeepScreenAwake } from '../utils/keepAwake';
 import { queryReduceMotion } from '../utils/reduceMotion';
@@ -1638,6 +1640,18 @@ function GuidedPlayer({
     return exercise ? (set ? liftOfSet(exercise, set) : exercise) : null;
   })();
   const [swapQuery, setSwapQuery] = useState('');
+  /**
+   * The swap sheet's "browse all exercises", opened from a link under
+   * Ehdotetut rather than shown by default — a chip row on every swap would
+   * be one more thing to read past on the sheet that already has the most
+   * going on (#bugs 2026-09-29, "tehdään joku v2 tähän että on helppo
+   * etsiä"). `swapBodyPartFilter` stays 'all' until it opens, so the two
+   * places that already reset `swapQuery` on close (this sheet's onClose and
+   * `applySwap`) reset this the same way, and the chip is computed fresh —
+   * see `swapBrowsePrefilter` — the moment the reader taps in.
+   */
+  const [swapBrowseOpen, setSwapBrowseOpen] = useState(false);
+  const [swapBodyPartFilter, setSwapBodyPartFilter] = useState<BodyPartFilter>('all');
   const [confirmingEnd, setConfirmingEnd] = useState(false);
   /** The lift whose final set was just logged — a one-second check-splash
       before the next exercise's walk-up screen. Null = no splash showing. */
@@ -2148,6 +2162,26 @@ function GuidedPlayer({
   );
 
   /**
+   * The current exercise's own library row, read the same way the walk-up
+   * card reads it (`setPanelSource` above) — a name may need `getDrillLibraryName`
+   * first to resolve to a library entry at all.
+   */
+  const swapCurrentLibraryItem = useMemo(() => {
+    if (!actionExercise) {
+      return null;
+    }
+    const lookupName = getDrillLibraryName(actionExercise.exerciseName) ?? actionExercise.exerciseName;
+    const index = findGuidedLibraryIndex(lookupName, exerciseLibrary.map((item) => item.name));
+    return index === null ? null : exerciseLibrary[index];
+  }, [actionExercise, exerciseLibrary]);
+
+  /** Which chip "Selaa kaikkia liikkeitä" opens on — see swapBrowsePrefilter. */
+  const swapBrowsePrefilter = useMemo(
+    () => resolveSwapBrowsePrefilter(swapCurrentLibraryItem),
+    [swapCurrentLibraryItem],
+  );
+
+  /**
    * Everything else the library holds.
    *
    * Capped while there is no query: 873 rows inside a sheet is a scroll, not a
@@ -2169,7 +2203,12 @@ function GuidedPlayer({
         item.name !== current &&
         exerciseNameLabel(language, item.name) !== currentLabel &&
         !sessionLiftLabels.has(exerciseNameLabel(language, item.name)) &&
-        !suggested.has(exerciseNameLabel(language, item.name)),
+        !suggested.has(exerciseNameLabel(language, item.name)) &&
+        // The library's own body-part chip, only once "Selaa kaikkia
+        // liikkeitä" is open — see swapBrowseOpen. Composes with the typed
+        // query below rather than replacing it, like the library screen's
+        // own chips do.
+        matchesBodyPartFilter(item, swapBodyPartFilter),
     );
     if (!query) {
       const popular = getPopularExerciseLibraryOrder(exerciseLibrary);
@@ -2184,7 +2223,7 @@ function GuidedPlayer({
     // One row per shown name, as on Home and the programme day (PR review).
     const ranked = rankExerciseMatches(pool, query, language, (item) => popular.get(item.id));
     return oneRowPerShownName(ranked, language).slice(0, 40);
-  }, [actionExercise, exerciseLibrary, language, sessionLiftLabels, swapSuggestions, swapQuery]);
+  }, [actionExercise, exerciseLibrary, language, sessionLiftLabels, swapBodyPartFilter, swapSuggestions, swapQuery]);
 
   const applySwap = (exerciseName: string) => {
     if (!actionExercise) {
@@ -2198,6 +2237,8 @@ function GuidedPlayer({
     );
     setSwapOpen(false);
     setSwapQuery('');
+    setSwapBrowseOpen(false);
+    setSwapBodyPartFilter('all');
     unpause();
   };
 
@@ -4171,6 +4212,8 @@ function GuidedPlayer({
           onClose={() => {
             setSwapOpen(false);
             setSwapQuery('');
+            setSwapBrowseOpen(false);
+            setSwapBodyPartFilter('all');
             unpause();
           }}
           bottomInset={screenInsets.bottom}
@@ -4208,6 +4251,57 @@ function GuidedPlayer({
                 </View>
               </>
             ) : null}
+
+            {/*
+              The library's own way to narrow this list: not shown until
+              asked for, so a swap that already found its answer in
+              Ehdotetut is not made to read a chip row it will never touch.
+              Opens on the exercise's own body part (swapBrowsePrefilter),
+              closest first the way Ehdotetut already orders it — the
+              library screen has its own full chip set (body part, category,
+              equipment) and its own dashboard chrome around a FlatList
+              that owns the screen; forking that whole component into a
+              bottom sheet is a different-sized change from this one, so
+              this reuses its actual chip data and matcher
+              (BODY_PART_FILTERS, matchesBodyPartFilter from
+              exerciseBrowseFilter.ts) rather than a second copy of either.
+            */}
+            {!swapBrowseOpen ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  setSwapBodyPartFilter(swapBrowsePrefilter);
+                  setSwapBrowseOpen(true);
+                }}
+                style={styles.swapBrowseToggle}
+              >
+                <Text style={styles.swapBrowseToggleText}>{t(language, 'guided.swap.browseAll')}</Text>
+              </Pressable>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={styles.swapBrowseChipRow}
+              >
+                {BODY_PART_FILTERS.map((option) => {
+                  const selected = swapBodyPartFilter === option;
+                  return (
+                    <Pressable
+                      key={option}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      onPress={() => setSwapBodyPartFilter(option)}
+                      style={[styles.swapBrowseChip, selected && styles.swapBrowseChipActive]}
+                    >
+                      <Text style={[styles.swapBrowseChipText, selected && styles.swapBrowseChipTextActive]}>
+                        {libraryLabel(option, language)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            )}
 
             <Text style={styles.swapSectionLabel}>{t(language, 'guided.swap.library')}</Text>
             {swapLibrary.length > 0 ? (
@@ -6071,6 +6165,41 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1.1,
     textTransform: 'uppercase',
+  },
+  swapBrowseToggle: {
+    marginTop: 4,
+    paddingVertical: 6,
+  },
+  swapBrowseToggleText: {
+    color: theme.purple,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  swapBrowseChipRow: {
+    gap: 8,
+    paddingBottom: 4,
+  },
+  swapBrowseChip: {
+    minHeight: 34,
+    paddingHorizontal: 14,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.bg,
+  },
+  swapBrowseChipActive: {
+    backgroundColor: theme.purpleFill,
+    borderColor: theme.purpleFill,
+  },
+  swapBrowseChipText: {
+    color: theme.muted,
+    fontSize: 12.5,
+    fontWeight: '800',
+  },
+  swapBrowseChipTextActive: {
+    color: '#FFFFFF',
   },
   sheetHandle: { width: 40, height: 5, borderRadius: 3, backgroundColor: theme.border, alignSelf: 'center', marginBottom: 16 },
   sheetTitle: { fontSize: 20, fontWeight: '800', color: theme.ink, marginBottom: 16 },

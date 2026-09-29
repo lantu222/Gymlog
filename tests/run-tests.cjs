@@ -342,6 +342,7 @@ const suites = [
   ...require('./lib/programCapNotice.test.cjs'),
   ...require('./lib/exerciseBrowseFilter.test.cjs'),
   ...require('./lib/swapShortlist.test.cjs'),
+  ...require('./lib/swapBrowsePrefilter.test.cjs'),
   ...require('./lib/aiCoachPreview.test.cjs'),
   ...require('./lib/aiCoachScope.test.cjs'),
   ...require('./lib/coachChipAnswers.test.cjs'),

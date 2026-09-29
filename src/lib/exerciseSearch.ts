@@ -108,7 +108,52 @@ const SEARCH_ALIASES: Record<string, readonly string[]> = {
   // The stem, not the word: alaote / alaotteella differ in the consonant.
   vastaote: ['alaot'],
   vastaotteella: ['alaot'],
+  // "Jalankoukistus ja ojennus ei löydy" (#bugs 2026-09-29): the gym's one
+  // compound word for these two machines, where the library's own English
+  // name — carried in the haystack alongside the Finnish label — is the
+  // target, so the match holds whichever language the reader is in.
+  jalankoukistus: ['leg curl'],
+  jalkakoukistus: ['leg curl'],
+  jalanojennus: ['leg extension'],
+  jalkaojennus: ['leg extension'],
+  polvenojennus: ['leg extension'],
 };
+
+/**
+ * Gym phrases that split into two words the library's name does not carry
+ * either half of on its own — "jalan ojennus" (#bugs 2026-09-29) has no
+ * "jalka" anywhere near "Leg Extension" or "Reiden ojennus", so aliasing only
+ * "ojennus" would still leave "jalan" unmatched and the whole query would
+ * fail (every term must land). Replaced as a phrase, before the query is
+ * split into terms, so the two words resolve together to the one the
+ * library uses.
+ *
+ * The English forms ("hamstring curl", "quad extension") are gym words too —
+ * a reader who trained abroad or read them off a machine plaque types the
+ * muscle, not the library's "leg". Kept to phrases that would otherwise miss
+ * entirely; a single English word like "curl" or "extension" already lands
+ * on its own.
+ */
+const SEARCH_PHRASE_ALIASES: ReadonlyArray<readonly [phrase: string, target: string]> = [
+  ['jalan koukistus', 'leg curl'],
+  ['jalan ojennus', 'leg extension'],
+  ['polven ojennus', 'leg extension'],
+  ['hamstring curl', 'leg curl'],
+  ['quad extension', 'leg extension'],
+];
+
+/**
+ * The query with every known phrase swapped for the word the library
+ * carries, applied before the per-term aliasing below (and before the query
+ * is split into terms) so a two-word gym phrase is one hit instead of two
+ * separate ones that both have to land.
+ */
+function applyPhraseAliases(normalizedQuery: string): string {
+  return SEARCH_PHRASE_ALIASES.reduce(
+    (text, [phrase, target]) => (text.includes(phrase) ? text.split(phrase).join(target) : text),
+    normalizedQuery,
+  );
+}
 
 /** A term and the words it also stands for. */
 function termVariants(term: string): string[] {
@@ -127,7 +172,7 @@ function termVariants(term: string): string[] {
  */
 export function exerciseMatchesQuery(haystack: string, query: string): boolean {
   const hay = normalizeSearchText(haystack);
-  const terms = normalizeSearchText(query).split(' ').filter(Boolean);
+  const terms = applyPhraseAliases(normalizeSearchText(query)).split(' ').filter(Boolean);
   return terms.every((term) => termVariants(term).some((variant) => hay.includes(variant)));
 }
 
@@ -148,7 +193,7 @@ export function rankExerciseMatch(
   query: string,
   language: AppLanguage,
 ): number {
-  const normalized = normalizeSearchText(query);
+  const normalized = applyPhraseAliases(normalizeSearchText(query));
   if (!normalized) {
     return 0;
   }
