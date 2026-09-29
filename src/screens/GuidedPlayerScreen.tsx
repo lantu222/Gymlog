@@ -4729,8 +4729,7 @@ function SetStepView({
             exerciseNameLabel(language, step.exerciseName),
             panels?.history
               ? {
-                  heaviestKg: heaviestOf(panels.history),
-                  reps: panels.history.sets.map((set) => set.reps),
+                  sets: panels.history.sets,
                   borrowed: panels.history.borrowed === true,
                 }
               : null,
@@ -5672,7 +5671,18 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.ink,
     fontVariant: ['tabular-nums'],
   },
-  setExerciseLastPills: { flex: 1, flexDirection: 'row', justifyContent: 'flex-end', gap: 4 },
+  // A ramp's chips are "16,25×8" (7-8 characters), not the bare 1-2 digit rep
+  // count this row was built for — five of them on one line can run past the
+  // card's right edge with `justifyContent: 'flex-end'` pushing the overflow
+  // off the near (left) side instead of clipping visibly (review, #bugs
+  // 2026-09-29). `flexWrap` lets a wide row fall to a second line instead.
+  setExerciseLastPills: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+    gap: 4,
+  },
   setExerciseLastPill: {
     minWidth: 23,
     alignItems: 'center',

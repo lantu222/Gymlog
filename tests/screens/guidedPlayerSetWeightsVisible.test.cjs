@@ -58,4 +58,20 @@ module.exports = [
       );
     },
   },
+  {
+    name: 'guided set card: the last-time pill row wraps instead of overflowing for a wide ramp',
+    run() {
+      // A ramp's chips are "16,25×8" (7-8 characters) where this row used to
+      // hold a bare 1-2 digit rep count. A 5-set ramp (the reported
+      // Lantionnosto laitteessa case) at 360dp has no room for five such
+      // pills on one line; without `flexWrap: 'wrap'`,
+      // `justifyContent: 'flex-end'` pushes the overflow off the near (left)
+      // edge instead of clipping visibly (review, #bugs 2026-09-29).
+      const pillsStyle = playerSource.slice(
+        playerSource.indexOf('setExerciseLastPills: {'),
+        playerSource.indexOf('setExerciseLastPill: {'),
+      );
+      assert.match(pillsStyle, /flexWrap:\s*'wrap'/);
+    },
+  },
 ];
