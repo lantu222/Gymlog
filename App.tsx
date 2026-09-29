@@ -3829,6 +3829,12 @@ function VinhaApp() {
   }
 
   async function pickProgramImageForImport(): Promise<ProgramImageImportResult> {
+    // Pro only (user 2026-09-29): each photo is a paid model call. The sheet
+    // locks its link, but a sheet whose caller forgot proUnlocked defaults to
+    // unlocked, so the paid call itself checks too.
+    if (!resolveProEntitlement(preferences).unlocked) {
+      return { status: 'cancelled' };
+    }
     if (!(await askPhotoOnlineNotice())) {
       return { status: 'cancelled' };
     }
@@ -8083,13 +8089,17 @@ function VinhaApp() {
         exerciseLibrary={exerciseBrowserItems}
         nameBook={exerciseNameBook}
         onPickImage={handlePickProgramImage}
+        // The photo link on the paste box is Pro only (2026-09-29), so this
+        // sheet passes the lock too; the AI-assisted row it also gates is
+        // never drawn from here.
+        proUnlocked={resolveProEntitlement(preferences).unlocked}
+        onOpenPaywall={() => navigate({ tab: 'profile', screen: 'premium' })}
         onTeachName={(wrote, exercise) =>
           teachExerciseName(wrote, { name: exercise.name, libraryItemId: exercise.id })
         }
         onClose={() => setSettingsImportVisible(false)}
         // Settings' CSV sheet opens straight on the paste box, so this row is
-        // never drawn from here and the Pro lock the Programs tab passes does
-        // not apply. The lock itself was decided on 2026-09-01, reversing the
+        // never drawn from here. The lock itself was decided on 2026-09-01, reversing the
         // earlier "the chat, for everyone" call: the gate had moved onto the
         // act of composing, and the row went to the chat for anyone.
         onAiAssisted={() =>

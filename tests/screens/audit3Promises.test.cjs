@@ -38,7 +38,8 @@ module.exports = [
       assert.match(app, /function askPhotoOnlineNotice\(\): Promise<boolean> \{/);
       assert.match(
         app,
-        /async function pickProgramImageForImport\(\): Promise<ProgramImageImportResult> \{\s*if \(!\(await askPhotoOnlineNotice\(\)\)\) \{/,
+        // Only the Pro check (2026-09-29) may come first: it sends nothing.
+        /async function pickProgramImageForImport\(\): Promise<ProgramImageImportResult> \{\s*(?:if \(!resolveProEntitlement\(preferences\)\.unlocked\) \{\s*return \{ status: 'cancelled' \};\s*\}\s*)?if \(!\(await askPhotoOnlineNotice\(\)\)\) \{/,
         'the notice must be asked before anything else in the import',
       );
       /*

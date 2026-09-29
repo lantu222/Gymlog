@@ -181,7 +181,44 @@ module.exports = [
         require('node:path').join(__dirname, '..', '..', 'src', 'components', 'NewProgramSheet.tsx'),
         'utf8',
       );
-      assert.match(sheet, /\{onPickImage \? \(/, 'the sheet renders the row only when it has a handler');
+      assert.match(
+        sheet,
+        /\{onPickImage && \(!photoLocked \|\| onOpenPaywall\) \? \(/,
+        'the sheet renders the row only when it has a handler, and a locked one only when it can lead to Pro',
+      );
+    },
+  },
+  {
+    name: 'reading a programme from a photo is Pro only, at the link and at the paid call',
+    run() {
+      // Each photo is a live model call paid from the coach's balance, and a
+      // free reader could run it without limit (2026-09-29 hunt). The user
+      // chose Pro only, like the AI-assisted row beside it.
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const sheet = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'components', 'NewProgramSheet.tsx'), 'utf8');
+      assert.match(sheet, /const photoLocked = !proUnlocked;/);
+      assert.match(
+        sheet,
+        /if \(photoLocked\) \{\s*handleClose\(\);\s*onOpenPaywall\?\.\(\);\s*return;\s*\}\s*void handlePickImage\(\);/,
+        'a locked link opens Pro instead of the picker',
+      );
+      assert.match(sheet, /\{photoLocked \? <ProPill \/> : null\}/);
+
+      // The sheet defaults proUnlocked to true, so the paid call checks the
+      // entitlement itself before anything else, notice included.
+      const wiring = readAppWiring();
+      const body = wiring.slice(wiring.indexOf('async function pickProgramImageForImport'));
+      const gate = body.indexOf('if (!resolveProEntitlement(preferences).unlocked)');
+      assert.ok(gate > 0, 'pickProgramImageForImport checks the entitlement');
+      assert.ok(gate < body.indexOf('askPhotoOnlineNotice'), 'before the notice and the picker');
+      assert.ok(gate < body.indexOf('requestProgramTableFromImage'), 'before the paid call');
+
+      // Every sheet handed the photo handler also gets the lock.
+      const settings = wiring.slice(wiring.indexOf('<SettingsImportSheet'));
+      const settingsProps = settings.slice(0, settings.indexOf('/>'));
+      assert.match(settingsProps, /proUnlocked=\{resolveProEntitlement\(preferences\)\.unlocked\}/);
+      assert.match(settingsProps, /onOpenPaywall=\{/);
     },
   },
 ];

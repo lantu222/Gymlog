@@ -186,6 +186,13 @@ export function NewProgramSheet({
    * nothing is a row that does nothing, which is worse than the unlocked row.
    */
   const aiLocked = !proUnlocked && Boolean(onOpenPaywall);
+  /**
+   * Reading a photo is a live model call paid from the same balance as the
+   * coach, so it is Pro only (user 2026-09-29). Unlike the row above, a free
+   * reader with nowhere to be sent gets no link at all: an unlocked one would
+   * be a paid call nobody bought.
+   */
+  const photoLocked = !proUnlocked;
   const [csvText, setCsvText] = useState('');
   const defaultProgramName = t(language, 'csv.defaultName');
   const [programName, setProgramName] = useState(defaultProgramName);
@@ -491,16 +498,26 @@ export function NewProgramSheet({
                 {/* A photo of the reader's spreadsheet becomes the same text a
                     paste would have produced, so it lands in the box above and
                     joins this flow rather than getting one of its own. */}
-                {onPickImage ? (
+                {onPickImage && (!photoLocked || onOpenPaywall) ? (
                   <Pressable
                     accessibilityRole="button"
+                    accessibilityLabel={photoLocked ? t(language, 'csv.photo.lockedA11y') : undefined}
                     disabled={readingImage}
-                    onPress={() => void handlePickImage()}
+                    onPress={() => {
+                      if (photoLocked) {
+                        handleClose();
+                        onOpenPaywall?.();
+                        return;
+                      }
+                      void handlePickImage();
+                    }}
                     hitSlop={6}
+                    style={styles.photoLink}
                   >
                     <Text style={styles.sampleLink}>
                       {readingImage ? t(language, 'csv.photo.reading') : t(language, 'csv.photo.cta')}
                     </Text>
+                    {photoLocked ? <ProPill /> : null}
                   </Pressable>
                 ) : null}
               </View>
@@ -879,6 +896,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.purple,
     fontSize: 12.5,
     fontWeight: '800',
+  },
+  photoLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   resultBanner: {
     borderRadius: 13,
