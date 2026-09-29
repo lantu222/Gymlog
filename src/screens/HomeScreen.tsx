@@ -1321,7 +1321,6 @@ export function HomeScreen({
                   ruksin että selvä"). */}
               {onDismissPlateau ? (
                 <Pressable
-                  hitSlop={8}
                   accessibilityRole="button"
                   onPress={() => onDismissPlateau(plateau.episodeKey)}
                   style={styles.plateauDismiss}
@@ -3619,7 +3618,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     letterSpacing: 1,
     color: PW.amber,
   },
+  // Reaches 44 the way the plan stepper does (TrainingPlanScreen's
+  // stepperButton) — sized on the control itself, not a hitSlop this close
+  // to the kicker and the ⚠ icon would only get clipped against (accessibility
+  // audit, break round 2026-09-29). Was padding 3 plus an 8 slop: 36 to the
+  // thumb, not 44.
   plateauDismiss: {
+    minHeight: 44,
+    justifyContent: 'center',
     paddingVertical: 3,
     paddingHorizontal: 8,
   },

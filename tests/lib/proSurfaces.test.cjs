@@ -836,4 +836,27 @@ module.exports = [
       assert.match(guidedSource, /\{walkPlateau\.headline\}/);
     },
   },
+  {
+    /*
+     * A double tap on "Selvä" before the first write lands re-fires
+     * onPress with the same episodeKey — Pressable has no built-in
+     * debounce. Guarded the same way handleDismissTip and
+     * dismissCompletionCard guard their own lists (break round,
+     * 2026-09-29): the second write is a no-op, not a second entry.
+     */
+    name: 'a second dismiss of the same plateau episode before the first write lands is a no-op',
+    run() {
+      const onDismiss = appSource.slice(
+        appSource.indexOf('onDismissPlateau={(episodeKey) =>'),
+        appSource.indexOf('onDismissPlateau={(episodeKey) =>') + 320,
+      );
+      // Reads the episode list at write time (the updatePreferences
+      // functional form), not the render-time closure, and only appends
+      // when the key is not already there.
+      assert.match(
+        onDismiss,
+        /void updatePreferences\(\(current\) =>\s*current\.dismissedPlateauEpisodes\.includes\(episodeKey\)\s*\?\s*current\s*:\s*\{ dismissedPlateauEpisodes: \[\.\.\.current\.dismissedPlateauEpisodes, episodeKey\] \}/,
+      );
+    },
+  },
 ];

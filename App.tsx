@@ -7916,10 +7916,16 @@ function VinhaApp() {
               }
             : null
         }
+        // Guarded like dismissedTipIds (handleDismissTip) and
+        // dismissedCompletionPlanIds (dismissCompletionCard): a double tap
+        // before the write lands must not append the same episode twice
+        // (break round 2026-09-29).
         onDismissPlateau={(episodeKey) =>
-          void updatePreferences((current) => ({
-            dismissedPlateauEpisodes: [...current.dismissedPlateauEpisodes, episodeKey],
-          }))
+          void updatePreferences((current) =>
+            current.dismissedPlateauEpisodes.includes(episodeKey)
+              ? current
+              : { dismissedPlateauEpisodes: [...current.dismissedPlateauEpisodes, episodeKey] },
+          )
         }
         proUnlocked={coachProUnlocked}
         onSetTrainingDays={() =>

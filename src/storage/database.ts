@@ -1315,11 +1315,18 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
           : fallback.preferences.dismissedCardSuggestionKeys,
       // Missing on every install from before the plateau card could be
       // dismissed; a bad entry is dropped rather than trusted (#bugs 2026-09-29).
+      // De-duplicated the same way normalizeActivePlanIds is: a stored repeat
+      // (an old install written before the double-tap guard, break round
+      // 2026-09-29) must not cost more than one entry.
       dismissedPlateauEpisodes:
         Array.isArray(input?.preferences?.dismissedPlateauEpisodes)
-          ? input.preferences.dismissedPlateauEpisodes.filter(
-              (value: unknown): value is string => typeof value === 'string',
-            )
+          ? [
+              ...new Set(
+                input.preferences.dismissedPlateauEpisodes.filter(
+                  (value: unknown): value is string => typeof value === 'string',
+                ),
+              ),
+            ]
           : fallback.preferences.dismissedPlateauEpisodes,
       activePlanIds: normalizeActivePlanIds(
         input?.preferences?.activePlanIds,
