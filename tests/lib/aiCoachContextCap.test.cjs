@@ -211,4 +211,223 @@ module.exports = [
       assert.ok(buildAiCoachContextText(normalized, 'fi').length < 20000, 'an oversized posted history still rendered close to full size');
     },
   },
+  {
+    // The previous case capped how many lift rows a posted history carries;
+    // it did not cap how long one row's own series is. A lift trained daily
+    // for years, or a rep trajectory just as long, is still one row under
+    // MAX_HISTORY_LIFTS, and one row still has to be cheap to render (recheck
+    // round, 2026-09-29).
+    name: 'a single history lift or reps-lift is capped on its own series, not only on row count',
+    run() {
+      const hugeWeightSeries = Array.from({ length: 6000 }, (_, index) => 80 + index * 0.1);
+      const hugeRepList = Array.from({ length: 2000 }, (_, index) => 5 + (index % 10));
+      const context = {
+        history: {
+          lifts: [{ name: 'Bench Press', weightSeriesKg: hugeWeightSeries }],
+          repsLifts: [
+            {
+              name: 'Pull Up',
+              spanDays: 40,
+              unchangedSessions: 1,
+              firstReps: hugeRepList,
+              latestReps: hugeRepList,
+              bestSetRepsSeries: hugeWeightSeries,
+            },
+          ],
+        },
+      };
+      const normalized = normalizeAiCoachTrainingContext(context);
+      assert.ok(normalized.history.lifts[0].weightSeriesKg.length <= 60, `weightSeriesKg not capped: ${normalized.history.lifts[0].weightSeriesKg.length}`);
+      assert.ok(normalized.history.repsLifts[0].firstReps.length <= 20, `firstReps not capped: ${normalized.history.repsLifts[0].firstReps.length}`);
+      assert.ok(normalized.history.repsLifts[0].latestReps.length <= 20, `latestReps not capped: ${normalized.history.repsLifts[0].latestReps.length}`);
+      assert.ok(
+        normalized.history.repsLifts[0].bestSetRepsSeries.length <= 60,
+        `bestSetRepsSeries not capped: ${normalized.history.repsLifts[0].bestSetRepsSeries.length}`,
+      );
+      const text = buildAiCoachContextText(normalized, 'fi');
+      assert.ok(
+        text.length < DEFAULT_BUDGET_LIMITS.maxContextChars,
+        `one lift's own series still rendered ${text.length} chars`,
+      );
+
+      // Mutation check (recheck round, 2026-09-29): reverting the
+      // `.slice(-MAX_LIFT_SERIES_POINTS)` / `.slice(0, MAX_REPS_PER_SESSION)`
+      // calls in aiTrainingContext.ts's normalizeHistory /
+      // normalizeRepsLift makes this fail — the rendered text runs well past
+      // the cap.
+    },
+  },
+  {
+    // Every array field a posted context carries besides the history block —
+    // goals, plateaus, the three tracked-lift lists, rhythm, and a
+    // programme's days and each day's exercises — went through the endpoint's
+    // re-parse with no cap of its own; a posted context 100x any of the
+    // app's own limits rendered in full before the size check ever ran on it
+    // (recheck round, 2026-09-29).
+    name: 'every other array in a posted context is capped, at a hundred times its real limit',
+    run() {
+      const many = (count, build) => Array.from({ length: count }, (unused, index) => build(index));
+      const context = {
+        goals: many(2000, (index) => ({
+          text: `goal ${index}`,
+          kind: `k${index}`,
+          targetValue: 1,
+          unit: 'kg',
+          startValue: 1,
+          currentValue: 1,
+          setAt: '2026-01-01',
+          isPrimary: index === 0,
+        })),
+        plateaus: many(2000, (index) => ({ exerciseKey: `p${index}`, name: `Lift ${index}`, stagnantSessions: 1, topWeightKg: 1 })),
+        trackedLifts: many(300, (index) => ({ key: `t${index}`, name: `Lift ${index}`, latestWeight: 1, bestWeight: 1, latestReps: '8' })),
+        latestTopSets: many(300, (index) => ({ exerciseName: `Lift ${index}`, weight: 1, reps: '8', performedAt: '2026-01-01T00:00:00.000Z' })),
+        recentCompletedSessions: many(300, (index) => ({
+          sessionId: `s${index}`,
+          title: `Session ${index}`,
+          performedAt: '2026-01-01T00:00:00.000Z',
+          durationMinutes: 1,
+          setsCompleted: 1,
+          swappedExercises: 0,
+          noteCount: 0,
+        })),
+        rhythm: many(1600, (index) => ({ dayStart: index, dayNumber: index, weekdayLabel: 'ma', active: true, isToday: false })),
+        programme: {
+          title: 'Everything',
+          source: 'custom',
+          daysPerWeek: 700,
+          truncated: false,
+          // A hundred times MAX_PROGRAMME_DAYS (7), each with a hundred times
+          // MAX_PROGRAMME_EXERCISES (12) — checked as two separate dimensions
+          // rather than multiplied together, which a real posted payload
+          // could still do.
+          days: many(700, (day) => ({
+            name: `Day ${day}`,
+            dayLabel: null,
+            estimatedMinutes: 1,
+            exercises: day === 0 ? many(1200, (exercise) => ({ name: `Exercise ${exercise}`, scheme: '3x5' })) : [{ name: 'Squat', scheme: '3x5' }],
+          })),
+        },
+      };
+      const normalized = normalizeAiCoachTrainingContext(context);
+      assert.ok(normalized.goals.length <= 20, `goals not capped: ${normalized.goals.length}`);
+      assert.ok(normalized.plateaus.length <= 20, `plateaus not capped: ${normalized.plateaus.length}`);
+      assert.ok(normalized.trackedLifts.length <= 3, `trackedLifts not capped: ${normalized.trackedLifts.length}`);
+      assert.ok(normalized.latestTopSets.length <= 3, `latestTopSets not capped: ${normalized.latestTopSets.length}`);
+      assert.ok(
+        normalized.recentCompletedSessions.length <= 3,
+        `recentCompletedSessions not capped: ${normalized.recentCompletedSessions.length}`,
+      );
+      assert.ok(normalized.rhythm.length <= 16, `rhythm not capped: ${normalized.rhythm.length}`);
+      assert.ok(normalized.programme.days.length <= 7, `programme days not capped: ${normalized.programme.days.length}`);
+      assert.ok(
+        normalized.programme.days.every((day) => day.exercises.length <= 12),
+        'a single programme day\'s exercises not capped',
+      );
+      const text = buildAiCoachContextText(normalized, 'fi');
+      assert.ok(
+        text.length < DEFAULT_BUDGET_LIMITS.maxContextChars,
+        `a hundredfold posted context still rendered ${text.length} chars`,
+      );
+    },
+  },
+  {
+    // The same fields again, this time with the reader's own free text — a
+    // goal, a name, a scheme, a planner note — a hundred times the longest
+    // the app would ever knowingly send, rather than a hundred times as many
+    // rows. "A single 1 MB goal string is the same attack" as an oversized
+    // array (recheck round, 2026-09-29).
+    name: 'reader-authored strings in a posted context are capped, at a hundred times a real one\'s length',
+    run() {
+      const hugeName = 'n'.repeat(12000); // 100x MAX_NAME_CHARS (120)
+      const hugeGoalText = 'g'.repeat(200000); // 100x the endpoint's own longest prompt (2000)
+      const hugeShort = 's'.repeat(8000); // 100x MAX_SHORT_TEXT_CHARS (80)
+      const context = {
+        activeSession: { title: hugeName, nextExercise: hugeName, meta: hugeShort },
+        goals: [{ text: hugeGoalText, kind: hugeShort, targetValue: 1, unit: hugeShort, startValue: 1, currentValue: 1, setAt: hugeShort, isPrimary: true }],
+        plateaus: [{ exerciseKey: hugeShort, name: hugeName, stagnantSessions: 1, topWeightKg: 1 }],
+        trackedLifts: [{ key: hugeShort, name: hugeName, latestWeight: 1, bestWeight: 1, latestReps: hugeShort }],
+        recentCompletedSessions: [
+          { sessionId: 's1', title: hugeName, performedAt: '2026-01-01T00:00:00.000Z', durationMinutes: 1, setsCompleted: 1, swappedExercises: 0, noteCount: 0 },
+        ],
+        programme: {
+          title: hugeName,
+          source: 'custom',
+          daysPerWeek: 1,
+          truncated: false,
+          days: [{ name: hugeName, dayLabel: hugeShort, estimatedMinutes: 1, exercises: [{ name: hugeName, scheme: hugeShort }] }],
+        },
+        plannerSetup: {
+          goal: hugeShort,
+          daysPerWeek: 1,
+          experience: hugeShort,
+          sessionMinutes: 1,
+          equipment: hugeShort,
+          recovery: hugeShort,
+          mustInclude: [hugeShort],
+          avoid: [hugeShort],
+          limitations: [hugeShort],
+        },
+        homeState: { pinnedStatCardKeys: [hugeShort], weighInReminderEnabled: true, silencedSuggestions: [hugeShort] },
+        history: {
+          lifts: [{ name: hugeName, weightSeriesKg: [80] }],
+          repsLifts: [{ name: hugeName, spanDays: 1, unchangedSessions: 1, firstReps: [5], latestReps: [5], bestSetRepsSeries: [5] }],
+        },
+      };
+      const normalized = normalizeAiCoachTrainingContext(context);
+      const text = buildAiCoachContextText(normalized, 'fi');
+      assert.ok(
+        text.length < DEFAULT_BUDGET_LIMITS.maxContextChars,
+        `a hundredfold reader string still rendered ${text.length} chars`,
+      );
+    },
+  },
+  {
+    // The other side of the same fix: a context built entirely at the app's
+    // own limits — heavyCoachContext, plus the fields it leaves empty by
+    // default — must reach the model exactly as built. A normaliser that
+    // caps a hostile payload but also clips an honest one has traded one bug
+    // for another (recheck round, 2026-09-29).
+    name: 'a normal device-built context is unchanged by the endpoint\'s re-parse',
+    run() {
+      const context = {
+        ...heavyCoachContext(),
+        recentCompletedSessions: [
+          {
+            sessionId: 's1',
+            title: 'Push Day',
+            performedAt: '2026-09-20T09:00:00.000Z',
+            day: '2026-09-20',
+            durationMinutes: 52,
+            setsCompleted: 15,
+            swappedExercises: 1,
+            noteCount: 2,
+          },
+        ],
+        latestTopSets: [{ exerciseName: 'Bench Press', weight: 102.5, reps: '8,7,6', performedAt: '2026-09-20T09:00:00.000Z' }],
+        rhythm: Array.from({ length: 16 }, (unused, index) => ({
+          dayStart: index,
+          dayNumber: index + 1,
+          weekdayLabel: 'ma',
+          active: index % 2 === 0,
+          isToday: index === 15,
+        })),
+      };
+      // As it would actually arrive at the endpoint: through JSON, not the
+      // in-memory object the test built.
+      const posted = JSON.parse(JSON.stringify(context));
+      const normalized = normalizeAiCoachTrainingContext(posted);
+      assert.deepEqual(normalized.recentCompletedSessions, context.recentCompletedSessions);
+      assert.deepEqual(normalized.latestTopSets, context.latestTopSets);
+      assert.deepEqual(normalized.rhythm, context.rhythm);
+      assert.deepEqual(normalized.trackedLifts, context.trackedLifts);
+      assert.deepEqual(normalized.plateaus, context.plateaus);
+      assert.deepEqual(normalized.goals, context.goals);
+      assert.deepEqual(normalized.programme, context.programme);
+      assert.deepEqual(normalized.homeState, context.homeState);
+      assert.deepEqual(normalized.plannerSetup, context.plannerSetup);
+      assert.deepEqual(normalized.body, context.body);
+      assert.deepEqual(normalized.profile, context.profile);
+      assert.deepEqual(normalized.history.lifts, context.history.lifts);
+    },
+  },
 ];
