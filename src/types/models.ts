@@ -771,6 +771,15 @@ export interface AppPreferences {
    */
   dismissedCardSuggestionKeys: string[];
   /**
+   * Plateau episodes — one lift, stuck at one weight — the reader has said
+   * "selvä" to on Home. Keyed `${liftKey}::${topSetKg}` (lib/proInsights
+   * plateauEpisodeKey) so the card returns the moment that weight changes:
+   * the plateau resolved, or the same lift stalled again somewhere new.
+   * Missing on every install from before this card could be dismissed
+   * (#bugs 2026-09-29).
+   */
+  dismissedPlateauEpisodes: string[];
+  /**
    * The programme Home leads with. Kept as the primary while `activePlanIds`
    * carries the full set, so every screen that only ever wanted one still has
    * one to read.

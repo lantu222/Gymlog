@@ -184,6 +184,8 @@ export interface WorkoutTabDeps {
   exerciseLibrary: AppDatabase['exerciseLibrary'];
   /** The lift's logged history by name, for the player's History tab. */
   liftHistory: React.ComponentProps<typeof GuidedPlayerScreen>['liftHistory'];
+  /** The plateau reminder for whichever lift is walked to next, by name. */
+  plateauNotice: React.ComponentProps<typeof GuidedPlayerScreen>['plateauNotice'];
   /** Whether a log is one library row's history — see isSameLiftAsLibraryRow. */
   sameLibraryRow: SameLiftMatcher;
   guidedEntryEyebrow: GuidedProps['entryEyebrow'];
@@ -287,6 +289,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     finishLoggedWorkoutSave,
     exerciseLibrary,
     liftHistory,
+    plateauNotice,
     freestyleDraft,
     saveFreestyleDraft,
     clearFreestyleDraft,
@@ -1044,6 +1047,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         tailoringPreferences={tailoringPreferences}
         exerciseLibrary={exerciseLibrary}
         liftHistory={liftHistory}
+        plateauNotice={plateauNotice}
         soundCuesEnabled={preferences.soundCuesEnabled}
         onToggleSoundCues={(next) => void updatePreferences({ soundCuesEnabled: next })}
         language={preferences.appLanguage}

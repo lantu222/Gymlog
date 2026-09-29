@@ -96,6 +96,7 @@ import { buildExerciseSheetHistory, LastTimeView } from '../lib/exerciseSheetHis
 import { formatLoadOrRange, summarizeHistoricalSetChips } from '../lib/guidedSetWeightSummary';
 import type { LiftHistoryEntry } from '../lib/progression';
 import type { LoggedSetRow } from '../lib/guidedPlayer';
+import type { PlateauDetection } from '../lib/proInsights';
 import { ExerciseSheet } from '../components/ExerciseSheet';
 import { CtaShimmer } from '../components/CtaShimmer';
 import { SupersetBorder } from '../components/SupersetBorder';
@@ -263,6 +264,15 @@ interface GuidedPlayerScreenProps {
    * install only has in slot history, is still this slot's past.
    */
   liftHistory?: (exerciseName: string) => readonly LiftHistoryEntry[] | null;
+  /**
+   * The plateau reminder for the lift being walked to, or null when it is
+   * not currently stalled. Same detection Home's card shows (lib/proInsights
+   * findPlateauDetection) — shown once here, on the beat where the lift is
+   * introduced, so the finding survives dismissing Home's card without a
+   * second rule to keep in sync (user 2026-09-29, "muistutus kun
+   * seuraavalla kerralla on sumo").
+   */
+  plateauNotice?: (exerciseName: string) => PlateauDetection | null;
   soundCuesEnabled: boolean;
   /** Keep the display on for the whole guided session. */
   keepScreenAwake?: boolean;
@@ -1324,6 +1334,7 @@ function GuidedPlayer({
   tailoringPreferences = null,
   exerciseLibrary,
   liftHistory,
+  plateauNotice,
   soundCuesEnabled,
   keepScreenAwake = false,
   onToggleSoundCues,
@@ -2757,6 +2768,9 @@ function GuidedPlayer({
     };
   })();
 
+  /** The lift being walked to, if it is currently plateaued — see plateauNotice. */
+  const walkPlateau = step.type === 'position' ? plateauNotice?.(step.exerciseName) ?? null : null;
+
   const railGroupIndex = step.type === 'finish' || step.type === 'splash' ? 0 : step.groupIndex;
   const phaseRail = useMemo(() => getGuidedPhaseRail(groups, railGroupIndex), [groups, railGroupIndex]);
 
@@ -3416,6 +3430,15 @@ function GuidedPlayer({
                     ) : null}
                   </View>
                 </View>
+
+                {/* The same finding Home's card shows, once, here — so
+                    dismissing that card does not make the lift's own stall
+                    unmentioned the next time it comes up (user 2026-09-29). */}
+                {walkPlateau ? (
+                  <View style={styles.walkPlateauBanner}>
+                    <Text style={styles.walkPlateauText}>{walkPlateau.headline}</Text>
+                  </View>
+                ) : null}
               </ScrollView>
               <View style={{ paddingHorizontal: 22, paddingBottom: 14, gap: 10 }}>
                 <Pressable
@@ -6196,6 +6219,16 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   walkStatSub: { fontSize: 12, fontWeight: '600', color: theme.muted, fontVariant: ['tabular-nums'] },
+  // Amber, matching Home's plateau card and the rest-denied banner above —
+  // one finding, one colour, wherever it shows up.
+  walkPlateauBanner: {
+    borderWidth: 1,
+    borderColor: theme.amberBorder,
+    backgroundColor: theme.amberSoft,
+    borderRadius: 14,
+    padding: 12,
+  },
+  walkPlateauText: { fontSize: 12.5, fontWeight: '700', color: theme.amberInk, lineHeight: 18 },
   /* rest screen */
   restRunStrip: {
     marginHorizontal: 20,

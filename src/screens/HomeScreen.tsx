@@ -319,7 +319,16 @@ interface HomeScreenProps {
     meta: string;
     locked: { teaser: string; body: string };
     moment: ProMomentContent;
+    /**
+     * Identifies this plateau's own run — the lift and the weight it is
+     * stuck at — so dismissing it does not also hide a different lift's
+     * card, and a fresh stall at a new weight is not silenced by an old
+     * dismissal (#bugs 2026-09-29).
+     */
+    episodeKey: string;
   } | null;
+  /** Puts this plateau's episodeKey away until it resolves or changes. */
+  onDismissPlateau?: (episodeKey: string) => void;
   proUnlocked?: boolean;
   /** Opens the training-plan screen so the week can stop being unknown. */
   onSetTrainingDays?: () => void;
@@ -460,6 +469,7 @@ export function HomeScreen({
   onOpenPremium,
   onOpenSubscription,
   plateau = null,
+  onDismissPlateau,
   proUnlocked = false,
   onSetTrainingDays,
   onOpenActivePlan,
@@ -1304,7 +1314,20 @@ export function HomeScreen({
                 <Path d="M12 3l9 16H3z" stroke={PW.amber} strokeWidth={2.3} strokeLinejoin="round" />
                 <Path d="M12 10v4M12 17h.01" stroke={PW.amber} strokeWidth={2.3} strokeLinecap="round" />
               </Svg>
-              <Text style={styles.plateauKicker}>{t(language, 'pro.plateau.eyebrow')}</Text>
+              <Text style={[styles.plateauKicker, { flex: 1 }]}>{t(language, 'pro.plateau.eyebrow')}</Text>
+              {/* A positive finding does not need re-reading every day it is
+                  true — one tap puts this run away until it resolves or a
+                  different weight stalls (user 2026-09-29, "saako vielä
+                  ruksin että selvä"). */}
+              {onDismissPlateau ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => onDismissPlateau(plateau.episodeKey)}
+                  style={styles.plateauDismiss}
+                >
+                  <Text style={styles.plateauDismissText}>{t(language, 'pro.plateau.dismiss')}</Text>
+                </Pressable>
+              ) : null}
             </View>
             <Text style={styles.plateauHeadline}>{plateau.headline}</Text>
             <Text style={styles.plateauMeta}>{plateau.meta}</Text>
@@ -3594,6 +3617,22 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1,
     color: PW.amber,
+  },
+  // Reaches 44 the way the plan stepper does (TrainingPlanScreen's
+  // stepperButton) — sized on the control itself, not a hitSlop this close
+  // to the kicker and the ⚠ icon would only get clipped against (accessibility
+  // audit, break round 2026-09-29). Was padding 3 plus an 8 slop: 36 to the
+  // thumb, not 44.
+  plateauDismiss: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+  },
+  plateauDismissText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: PW.amberInk,
   },
   plateauHeadline: {
     fontSize: 19,
