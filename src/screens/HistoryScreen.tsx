@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,6 +21,7 @@ import {
   filterHistorySessionViewModels,
   HistorySessionViewModel,
 } from '../lib/historyView';
+import { clampHistoryScrollOffset } from '../lib/historyScrollMemory';
 import { SessionFeelSummary, sessionFeelColor, summariseSessionFeel } from '../lib/sessionFeel';
 import { groupByMonth } from '../lib/monthGroups';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -53,6 +54,10 @@ interface HistoryScreenProps {
   language?: AppLanguage;
   selectedSessionId?: string;
   getSessionLogs: (sessionId: string) => AppDatabase['exerciseLogs'];
+  /** Where the list was left scrolled last time; see App.tsx. Absent = top. */
+  initialScrollOffset?: number;
+  /** Fired as the list scrolls, so the caller can remember where. */
+  onScrollOffsetChange?: (offsetY: number) => void;
   onSelectSession: (sessionId: string) => void;
   /** Absent hides the delete affordance entirely rather than inerting it. */
   onDeleteSession?: (sessionId: string) => void;
@@ -294,6 +299,8 @@ export function HistoryScreen({
   language = 'en',
   selectedSessionId,
   getSessionLogs,
+  initialScrollOffset = 0,
+  onScrollOffsetChange,
   onSelectSession,
   onDeleteSession,
   onDeleteCardioSession,
@@ -303,6 +310,15 @@ export function HistoryScreen({
   const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
+  // The list and the detail share one screen (below), so opening a session
+  // and coming back re-renders the SAME scroll view onto much shorter
+  // content and back — which snaps its native offset to 0 on the way in and
+  // leaves it there on the way out. Restored once per return, from the
+  // caller's memory, clamped to whatever the list can show right now (a
+  // session may have been deleted meanwhile). #bugs 2026-09-29.
+  const listScrollRef = useRef<ScrollView>(null);
+  const listRestoredRef = useRef(false);
+  const listViewportHeightRef = useRef(Dimensions.get('window').height);
   /**
    * Whether the rows are showing their bins.
    *
@@ -335,6 +351,9 @@ export function HistoryScreen({
 
   /* ── session detail ─────────────────────────────────────────────────── */
   if (selectedSession) {
+    // Coming back re-enters the list branch below on the same scroll view;
+    // let it restore again instead of trusting a restore from a previous visit.
+    listRestoredRef.current = false;
     const logs = [...getSessionLogs(selectedSession.id)].sort((left, right) => left.orderIndex - right.orderIndex);
     const view = buildHistorySessionViewModel(selectedSession, logs);
     const topLift = formatTopLift(view, unitPreference, language);
@@ -505,9 +524,24 @@ export function HistoryScreen({
   return (
     <View style={styles.screen}>
       <ScrollView
+        ref={listScrollRef}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.listContent, { paddingBottom: layout.bottomTabBarReserve }]}
+        onLayout={(event) => {
+          listViewportHeightRef.current = event.nativeEvent.layout.height;
+        }}
+        scrollEventThrottle={64}
+        onScroll={(event) => onScrollOffsetChange?.(event.nativeEvent.contentOffset.y)}
+        onContentSizeChange={(_width, height) => {
+          // contentOffset is iOS-only, so the restore is a one-time scrollTo
+          // once the list is tall enough to hold the old position again.
+          if (!listRestoredRef.current && initialScrollOffset > 0) {
+            listRestoredRef.current = true;
+            const target = clampHistoryScrollOffset(initialScrollOffset, height, listViewportHeightRef.current);
+            listScrollRef.current?.scrollTo({ y: target, animated: false });
+          }
+        }}
       >
         <Text style={styles.pageTitle}>{t(language, 'history.title')}</Text>
         <Text style={styles.pageSubtitle}>{t(language, 'history.subtitle')}</Text>
