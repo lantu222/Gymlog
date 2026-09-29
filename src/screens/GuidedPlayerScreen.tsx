@@ -67,6 +67,7 @@ import {
   resolveGuidedOpening,
   resolveGuidedSetTarget,
   restRoundCorrections,
+  loggedSetsOf,
 } from '../lib/guidedPlayer';
 import {
   buildOverviewColumns,
@@ -94,6 +95,7 @@ import { getExerciseTeaching } from '../lib/exerciseTeaching';
 import { buildExerciseSheetHistory, LastTimeView } from '../lib/exerciseSheetHistory';
 import { formatLoadOrRange, summarizeHistoricalSetChips } from '../lib/guidedSetWeightSummary';
 import type { LiftHistoryEntry } from '../lib/progression';
+import type { LoggedSetRow } from '../lib/guidedPlayer';
 import { ExerciseSheet } from '../components/ExerciseSheet';
 import { CtaShimmer } from '../components/CtaShimmer';
 import { SupersetBorder } from '../components/SupersetBorder';
@@ -1632,8 +1634,17 @@ function GuidedPlayer({
    * the other half of the block had no way back to its numbers anywhere in
    * the player (2026-09-16). The sheet offers each lift of the round its own
    * correction, and this says which one was asked for.
+   *
+   * `setIndex` is the set the sheet is CURRENTLY showing — it moves when the
+   * reader taps another row of the sheet's own list. `justLoggedSetIndex`
+   * never moves after the sheet opens: it is only read to decide whether the
+   * title still says "the set you just logged" or has to name a number
+   * (#bugs 2026-09-29, "näkyis kaikki tehdyt sarjat" — the sheet used to open
+   * on one set with no way to reach any other).
    */
-  const [restEdit, setRestEdit] = useState<{ slotId: string; setIndex: number } | null>(null);
+  const [restEdit, setRestEdit] = useState<
+    { slotId: string; setIndex: number; justLoggedSetIndex: number } | null
+  >(null);
   const restEditOpen = restEdit !== null;
   /** The lift the set being corrected was logged as (lib/liftSegments). */
   const restEditLift = (() => {
@@ -1641,6 +1652,8 @@ function GuidedPlayer({
     const set = exercise && restEdit ? findSetByIndex(exercise, restEdit.setIndex) : null;
     return exercise ? (set ? liftOfSet(exercise, set) : exercise) : null;
   })();
+  /** Every set already logged for that lift — the sheet's own row list. */
+  const restEditSets = restEdit ? loggedSetsOf(exerciseBySlot.get(restEdit.slotId)) : [];
   const [swapQuery, setSwapQuery] = useState('');
   const [confirmingEnd, setConfirmingEnd] = useState(false);
   /** The lift whose final set was just logged — a one-second check-splash
@@ -3864,9 +3877,13 @@ function GuidedPlayer({
       )}
 
 
-      {/* Correcting the set that was just logged, on the screen that shows it. */}
+      {/* Correcting a set logged on this lift, on the screen that shows it. */}
       {restEdit && step.type === 'rest' ? (
         <LoggedSetEditor
+          // A fresh set of draft fields for the set the reader just picked —
+          // switching rows must not keep the previous set's typed text
+          // sitting over the newly selected one's numbers.
+          key={`rest-edit-${restEdit.slotId}-${restEdit.setIndex}`}
           language={language}
           unitPreference={unitPreference}
           // The set is judged as the lift it was logged as — the reducer's
@@ -3874,6 +3891,18 @@ function GuidedPlayer({
           // the exercise here offered a squat set no weight after a swap to a
           // bodyweight lift, and the store refused the save for lacking one.
           unloaded={isUnloadedTrackingMode(restEditLift?.trackingMode ?? 'load_and_reps')}
+          title={
+            // "Fix the set you just logged" only while that is still the one
+            // selected — the moment the reader taps a different row the
+            // sheet is no longer talking about "just logged" (#bugs
+            // 2026-09-29).
+            restEdit.setIndex === restEdit.justLoggedSetIndex
+              ? t(language, 'guided.rest.editTitle')
+              : t(language, 'guided.rest.editTitleFor', { index: restEdit.setIndex + 1 })
+          }
+          sets={restEditSets}
+          selectedSetIndex={restEdit.setIndex}
+          onSelectSet={(setIndex) => setRestEdit((current) => (current ? { ...current, setIndex } : current))}
           setNumber={restEdit.setIndex + 1}
           repsCeiling={
             // The reducer's own ceiling, so Save and the store cannot disagree:
@@ -4090,7 +4119,7 @@ function GuidedPlayer({
                             hitSlop={8}
                             onPress={() => {
                               setRunSheetOpen(false);
-                              setRestEdit({ slotId: lift.slotId, setIndex });
+                              setRestEdit({ slotId: lift.slotId, setIndex, justLoggedSetIndex: setIndex });
                             }}
                             // A chip in the action colour, pencil first: it is
                             // the one thing in the sheet that does something,
@@ -4416,6 +4445,10 @@ function LoggedSetEditor({
   language,
   unitPreference,
   unloaded,
+  title,
+  sets,
+  selectedSetIndex,
+  onSelectSet,
   setNumber,
   repsCeiling,
   reps,
@@ -4427,6 +4460,20 @@ function LoggedSetEditor({
   language: AppLanguage;
   unitPreference: UnitPreference;
   unloaded: boolean;
+  /** Follows which set is selected — "Correct set N", or the just-logged
+   * wording while that is still the one picked. Decided by the caller,
+   * which is also the one that knows which set was "just logged". */
+  title: string;
+  /**
+   * Every set already logged for this lift, oldest first — the rows the
+   * reader can tap to correct a set other than the one the sheet opened on
+   * (#bugs 2026-09-29, "näkyis kaikki tehdyt sarjat"). Not shown at all when
+   * there is only the one: a list of one row taught nothing a title already
+   * said.
+   */
+  sets: LoggedSetRow[];
+  selectedSetIndex: number;
+  onSelectSet: (setIndex: number) => void;
   /** The set being corrected, as the screen counts it (1-based). */
   setNumber: number;
   /** The most this set can count — the store's rule, see repsCeilingFor. */
@@ -4467,7 +4514,40 @@ function LoggedSetEditor({
       <View style={styles.editVeil}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onCancel} accessible={false} />
         <View style={[styles.editSheet, { paddingBottom: bottomInset + 20 }]}>
-          <Text style={styles.editTitle}>{t(language, 'guided.rest.editTitle')}</Text>
+          <Text style={styles.editTitle}>{title}</Text>
+          {/* Every set already logged for this lift, so the reader is not
+              limited to the one the sheet opened on. A single row would only
+              repeat the title, so the list appears once there is a choice to
+              make. */}
+          {sets.length > 1 ? (
+            <View style={{ gap: 6 }}>
+              {sets.map((row) => {
+                const selected = row.setIndex === selectedSetIndex;
+                const detail = unloaded
+                  ? t(language, 'guided.rest.setRowUnloaded', { reps: row.reps })
+                  : t(language, 'guided.rest.setRow', {
+                      weight: formatWeight(row.loadKg, unitPreference),
+                      reps: row.reps,
+                    });
+                return (
+                  <Pressable
+                    key={row.setIndex}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    onPress={() => onSelectSet(row.setIndex)}
+                    style={[styles.editSetRow, selected && styles.editSetRowSelected]}
+                  >
+                    <Text
+                      style={[styles.editSetRowText, selected && styles.editSetRowTextSelected]}
+                      numberOfLines={1}
+                    >
+                      {t(language, 'guided.rest.setRowLabel', { index: row.setIndex + 1, detail })}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <View style={styles.editField}>
               <Text style={styles.editLabel}>{t(language, 'guided.reps')}</Text>
@@ -6040,6 +6120,17 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 14,
   },
   editTitle: { fontSize: 19, fontWeight: '800', color: theme.ink },
+  editSetRow: {
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceSoft,
+  },
+  editSetRowSelected: { borderColor: theme.highlight, backgroundColor: theme.highlightSoft },
+  editSetRowText: { fontSize: 14.5, fontWeight: '700', color: theme.ink },
+  editSetRowTextSelected: { color: theme.ink, fontWeight: '800' },
   // The finish step is the dark screen, so its failure copy is on GPD's ink.
   finishFailed: { flex: 1, justifyContent: 'center', paddingHorizontal: 24, gap: 14 },
   finishFailedTitle: { fontSize: 24, fontWeight: '800', color: GPD.ink },

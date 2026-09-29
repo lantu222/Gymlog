@@ -1395,6 +1395,36 @@ export function restRoundCorrections<
   return corrections;
 }
 
+/** One logged set, as the rest screen's correction sheet lists it. */
+export interface LoggedSetRow {
+  setIndex: number;
+  reps: number;
+  loadKg: number | null;
+}
+
+/**
+ * Every set already logged for a lift, oldest first.
+ *
+ * The rest screen's correction sheet used to open on the just-logged set
+ * alone — the only one its "Fix the set you just logged" title admitted to.
+ * A reader who mis-typed set 1 while resting after set 3 had no way back to
+ * it from here (#bugs 2026-09-29, "Olisiko järkevä jos näkyis kaikki tehdyt
+ * sarjat"). This reads the same field `findSetByIndex` does — `setIndex`,
+ * not array position — so a set removed from the middle some day cannot make
+ * this list disagree with what Save writes to.
+ */
+export function loggedSetsOf<
+  S extends { setIndex: number; status: string; actualReps?: number; actualLoadKg?: number },
+>(lift: { sets: ReadonlyArray<S> } | null | undefined): LoggedSetRow[] {
+  if (!lift) {
+    return [];
+  }
+  return lift.sets
+    .filter((set) => set.status === 'completed')
+    .map((set) => ({ setIndex: set.setIndex, reps: set.actualReps ?? 0, loadKg: set.actualLoadKg ?? null }))
+    .sort((a, b) => a.setIndex - b.setIndex);
+}
+
 /**
  * The whole session as a list, with where you are in it.
  *

@@ -38,6 +38,7 @@ const {
   dialHoldIntervalMs,
   buildGuidedRunSheet,
   restRoundCorrections,
+  loggedSetsOf,
   GUIDED_POSITION_SECONDS,
 } = require('../../.test-dist/lib/guidedPlayer.js');
 
@@ -126,6 +127,48 @@ module.exports = [
         ).map((entry) => entry.name),
         ['Squat', 'Bench'],
       );
+    },
+  },
+  {
+    /**
+     * The rest screen's correction sheet used to open on one set with no way
+     * back to any other (#bugs 2026-09-29, "näkyis kaikki tehdyt sarjat").
+     * This is the list it reads instead: every completed set, oldest first,
+     * whatever position they sit at in the array.
+     */
+    name: 'logged sets of a lift are every completed set, oldest first, by their own setIndex',
+    run() {
+      const lift = {
+        sets: [
+          { setIndex: 0, status: 'completed', actualReps: 8, actualLoadKg: 60 },
+          { setIndex: 1, status: 'skipped' },
+          { setIndex: 2, status: 'completed', actualReps: 6, actualLoadKg: 65 },
+          { setIndex: 3, status: 'pending' },
+        ],
+      };
+      assert.deepEqual(loggedSetsOf(lift), [
+        { setIndex: 0, reps: 8, loadKg: 60 },
+        { setIndex: 2, reps: 6, loadKg: 65 },
+      ]);
+
+      // Read by the field the reducer and findSetByIndex both key off —
+      // never array position — so a list out of setIndex order still comes
+      // back sorted, and a set logged with no weight (bodyweight) reads as
+      // null rather than as a number.
+      const outOfOrder = {
+        sets: [
+          { setIndex: 2, status: 'completed', actualReps: 10 },
+          { setIndex: 0, status: 'completed', actualReps: 12 },
+        ],
+      };
+      assert.deepEqual(loggedSetsOf(outOfOrder), [
+        { setIndex: 0, reps: 12, loadKg: null },
+        { setIndex: 2, reps: 10, loadKg: null },
+      ]);
+
+      // No lift, or nothing logged yet: no rows, not a throw.
+      assert.deepEqual(loggedSetsOf(null), []);
+      assert.deepEqual(loggedSetsOf({ sets: [{ setIndex: 0, status: 'pending' }] }), []);
     },
   },
   {

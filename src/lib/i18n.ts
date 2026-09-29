@@ -1416,6 +1416,14 @@ const EN = {
   // -- Rest (session flow, screen 7).
   'guided.rest.edit': 'Edit',
   'guided.rest.editTitle': 'Fix the set you just logged',
+  // Shown once the reader has tapped a different set of the sheet's own
+  // list — "Fix the set you just logged" no longer describes which one is
+  // selected (#bugs 2026-09-29).
+  'guided.rest.editTitleFor': 'Correct set {index}',
+  // One row of the sheet's set list: "Set 2 · 60 kg × 8".
+  'guided.rest.setRowLabel': 'Set {index} · {detail}',
+  'guided.rest.setRow': '{weight} × {reps}',
+  'guided.rest.setRowUnloaded': '{reps} reps',
   'guided.finish.saveFailed.title': 'Not saved yet',
   'guided.finish.saveFailed.body': 'The phone refused to save this workout. Your sets are still here.',
   'guided.finish.saveFailed.retry': 'Save workout',
@@ -4578,6 +4586,10 @@ const FI: Record<I18nKey, string> = {
   'guided.own.addExercise': 'Lisää liike',
   'guided.rest.edit': 'Muokkaa',
   'guided.rest.editTitle': 'Korjaa juuri kirjattu sarja',
+  'guided.rest.editTitleFor': 'Korjaa sarja {index}',
+  'guided.rest.setRowLabel': 'Sarja {index} · {detail}',
+  'guided.rest.setRow': '{weight} × {reps}',
+  'guided.rest.setRowUnloaded': '{reps} toistoa',
   'guided.finish.saveFailed.title': 'Ei vielä tallennettu',
   'guided.finish.saveFailed.body': 'Puhelin ei suostunut tallentamaan treeniä. Sarjasi ovat yhä tallessa.',
   'guided.finish.saveFailed.retry': 'Tallenna treeni',
