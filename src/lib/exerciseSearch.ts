@@ -152,6 +152,24 @@ const SEARCH_PHRASE_ALIASES: ReadonlyArray<readonly [phrase: string, target: str
 ];
 
 /**
+ * Every alias above routes its gym phrase through the boundary + join
+ * machinery below so the two words only ever match together — but typing
+ * the target phrase itself ("leg extension") skipped that machinery
+ * entirely, since it is nowhere on the left side of `SEARCH_PHRASE_ALIASES`.
+ * Split into its bare terms "leg" and "extension", "leg" landed on
+ * "Reverse Hyperextension" via its `legs` bodyPart and "extension" landed on
+ * the same lift's name, matching a machine the phrase never meant to reach
+ * (recheck round 2026-09-29). An identity entry for each distinct target
+ * phrase feeds the literal phrase through the same check its aliases use.
+ */
+const PHRASE_ALIAS_TARGETS = [...new Set(SEARCH_PHRASE_ALIASES.map(([, target]) => target))];
+
+const ALL_PHRASE_ALIASES: ReadonlyArray<readonly [phrase: string, target: string]> = [
+  ...SEARCH_PHRASE_ALIASES,
+  ...PHRASE_ALIAS_TARGETS.map((target) => [target, target] as const),
+];
+
+/**
  * A stand-in for the space inside a phrase-alias target, so the target's
  * words survive `applyPhraseAliases`'s output being split on `' '` into
  * per-term pieces further down. Never typed by a reader and never produced
@@ -184,7 +202,7 @@ const PHRASE_JOIN = '\u0000';
  * can only match where "leg extension" sits together as a phrase.
  */
 function applyPhraseAliases(normalizedQuery: string): string {
-  return SEARCH_PHRASE_ALIASES.reduce((text, [phrase, target]) => {
+  return ALL_PHRASE_ALIASES.reduce((text, [phrase, target]) => {
     const boundary = new RegExp(`\\b${phrase.replace(/ /g, '\\s+')}\\b`, 'g');
     const joinedTarget = target.split(' ').join(PHRASE_JOIN);
     return boundary.test(text) ? text.replace(boundary, joinedTarget) : text;

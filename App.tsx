@@ -27,6 +27,7 @@ import { BottomTabBar } from './src/components/BottomTabBar';
 import { getHomeSummary, getMonthTrainingTotals } from './src/lib/dashboard';
 import { formatDurationMinutes, formatRepRange, formatSetScheme, formatShortDate, formatTime, formatVolume, formatWeight, pluralize, removeTrailingZeros } from './src/lib/format';
 import { createId } from './src/lib/ids';
+import { HistoryScrollMemory } from './src/lib/historyScrollMemory';
 import {
   buildFirstRunRecommendationReasons,
   FirstRunSetupSelection,
@@ -511,11 +512,14 @@ function VinhaApp() {
   // Where Settings was scrolled when a sub-screen opened; the screen
   // unmounts on navigation, so the position survives here.
   const settingsScrollOffsetRef = useRef(0);
-  // Where History's list was scrolled before opening a session. Browsing
-  // old workouts landed back at the top of the list every time — the same
-  // row you had just opened, then a re-scroll down past everything you had
-  // already seen (#bugs 2026-09-29).
-  const historyScrollOffsetRef = useRef(0);
+  // Where History's list was scrolled before opening a session, and what
+  // search/filter it was showing then. Browsing old workouts landed back at
+  // the top of the list every time — the same row you had just opened, then
+  // a re-scroll down past everything you had already seen (#bugs
+  // 2026-09-29). Keyed by search/filter too: a bare offset restored onto a
+  // list a tab switch had reset the search on landed the reader partway
+  // down rows they had never scrolled past (recheck round 2026-09-29).
+  const historyScrollOffsetRef = useRef<HistoryScrollMemory | null>(null);
   const [completionSummary, setCompletionSummary] = useState<CompletionSummaryState | null>(null);
   const [ratingSheetVisible, setRatingSheetVisible] = useState(false);
   const [finishSaveState, setFinishSaveState] = useState<FinishSaveState>({
