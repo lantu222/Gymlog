@@ -592,10 +592,13 @@ module.exports = [
     name: 'account backup: a first backup needs a yes only when another account left its data on the phone',
     run() {
       const { uploadNeedsConsent } = require('../../.test-dist/lib/accountBackup.js');
-      assert.equal(uploadNeedsConsent({ signedOutSub: 'a', sub: 'b', localWorthKeeping: true }), true);
-      assert.equal(uploadNeedsConsent({ signedOutSub: 'a', sub: 'a', localWorthKeeping: true }), false, 'the same account came back');
-      assert.equal(uploadNeedsConsent({ signedOutSub: null, sub: 'b', localWorthKeeping: true }), false, 'never signed in before');
-      assert.equal(uploadNeedsConsent({ signedOutSub: 'a', sub: 'b', localWorthKeeping: false }), false, 'nothing of the other account left');
+      assert.equal(uploadNeedsConsent({ signedOutSubs: ['a'], sub: 'b', localWorthKeeping: true }), true);
+      assert.equal(uploadNeedsConsent({ signedOutSubs: ['a'], sub: 'a', localWorthKeeping: true }), false, 'the same account came back');
+      assert.equal(uploadNeedsConsent({ signedOutSubs: [], sub: 'b', localWorthKeeping: true }), false, 'never signed in before');
+      assert.equal(uploadNeedsConsent({ signedOutSubs: ['a'], sub: 'b', localWorthKeeping: false }), false, 'nothing of the other account left');
+      // Invariant test, 2026-09-28: A and B both left data; A coming back is
+      // not "the same account" while B's workouts are still on the phone.
+      assert.equal(uploadNeedsConsent({ signedOutSubs: ['a', 'b'], sub: 'a', localWorthKeeping: true }), true);
     },
   },
   {

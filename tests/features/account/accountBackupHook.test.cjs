@@ -168,11 +168,11 @@ async function withHook({ local, stored = null, cloud = null }, scenario) {
         store.account = null;
       },
       rememberSignedOutAccount: async (sub) => {
-        store.signedOut = sub;
+        store.signedOut = [...new Set([...(store.signedOut ?? []), sub])];
       },
-      loadSignedOutAccount: async () => store.signedOut ?? null,
+      loadSignedOutAccounts: async () => store.signedOut ?? [],
       forgetSignedOutAccount: async () => {
-        store.signedOut = null;
+        store.signedOut = [];
       },
     },
   });
@@ -252,7 +252,7 @@ async function withHook({ local, stored = null, cloud = null }, scenario) {
 async function switchToNewAccount(env) {
   assert.equal((await env.api.signIn()).kind, 'backed_up');
   await env.api.signOut();
-  assert.equal(env.store.signedOut, 'sub-1', 'sign-out forgot whose data stayed on the phone');
+  assert.deepEqual(env.store.signedOut, ['sub-1'], 'sign-out forgot whose data stayed on the phone');
   env.server.blob = null; // B's storage: never backed up
   env.google.signIn = { status: 'signed_in', account: { sub: 'sub-2', email: 'other@example.com', name: 'Other', idToken: 'token-b' } };
   return env.calls.upload;
@@ -287,12 +287,12 @@ module.exports = [
         // Recheck of #221: "Not now" forgot the mark, and the next "Back up
         // now" sent A's log to B unasked. The mark stays; the reader's own
         // backup asks again, and nothing is sent until "Back it up".
-        assert.equal(env.store.signedOut, 'sub-1', '"not now" forgot whose data it is');
+        assert.deepEqual(env.store.signedOut, ['sub-1'], '"not now" forgot whose data it is');
         assert.equal((await env.api.backUpOrAsk()).kind, 'confirm_upload', '"Back up now" after "not now" did not ask');
         assert.equal(env.calls.upload, uploadsBefore, '"Back up now" after "not now" sent it unasked');
         assert.equal(await env.api.resolveUploadChoice('upload'), 'done');
         assert.equal(env.calls.upload, uploadsBefore + 1);
-        assert.equal(env.store.signedOut, null, 'a landed yes did not settle it');
+        assert.deepEqual(env.store.signedOut, [], 'a landed yes did not settle it');
       });
     },
   },
@@ -305,7 +305,8 @@ module.exports = [
         const uploadsBefore = await switchToNewAccount(env);
         assert.equal((await env.api.signIn()).kind, 'confirm_upload');
         await env.api.signOut();
-        assert.equal(env.store.signedOut, 'sub-1', 'the unanswered account took over the mark');
+        // Both are remembered: A's data is still here, and B's may be too.
+        assert.deepEqual(env.store.signedOut, ['sub-1', 'sub-2'], 'the unanswered account replaced the earlier one');
         assert.equal((await env.api.signIn()).kind, 'confirm_upload', 'B signed back in and was not asked');
         assert.equal(env.calls.upload, uploadsBefore);
       });
@@ -347,7 +348,7 @@ module.exports = [
         const outcome = await env.api.signIn();
         assert.equal(outcome.kind, 'choice');
         assert.equal(outcome.summary.localFromOtherAccount, true);
-        assert.equal(env.store.signedOut, 'sub-1', 'the mark went before the answer');
+        assert.deepEqual(env.store.signedOut, ['sub-1'], 'the mark went before the answer');
 
         const copy = restoreQuestionCopy(outcome.summary, 'fi');
         assert.equal(copy.title, 'Puhelimessa on toisen tilin tiedot');
@@ -358,7 +359,7 @@ module.exports = [
         assert.equal(copy.replace.title, 'Korvataanko oma varmuuskopiosi?');
 
         assert.equal(await env.api.resolveRestoreChoice('restore'), 'done');
-        assert.equal(env.store.signedOut, null, 'a landed restore did not settle it');
+        assert.deepEqual(env.store.signedOut, [], 'a landed restore did not settle it');
       });
 
       // The same account's own data on both sides is the ordinary question.
@@ -367,6 +368,64 @@ module.exports = [
         assert.equal(outcome.kind, 'choice');
         assert.equal(outcome.summary.localFromOtherAccount, false);
         assert.equal(restoreQuestionCopy(outcome.summary, 'fi').title, 'Varmuuskopio löytyi');
+      });
+    },
+  },
+  {
+    // Third break round, 2026-09-28: A's own log, adopted by B ("use the
+    // phone's data"), was flagged "another account's data" when A signed back
+    // in — the list says who left, not whose the rows are.
+    name: 'account hook: an account whose own copy already holds every row on the phone is not told the data is someone else\'s',
+    async run() {
+      await withHook({ local: database({ workoutSessions: workouts(5) }) }, async (env) => {
+        assert.equal((await env.api.signIn()).kind, 'backed_up');
+        const aCopy = env.server.blob;
+        await env.api.signOut();
+
+        env.server.blob = cloudCopy(database({ workoutSessions: [workout('b-own')] }));
+        env.google.signIn = { status: 'signed_in', account: { sub: 'sub-2', email: 'other@example.com', name: 'Other', idToken: 'token-b' } };
+        const atB = await env.api.signIn();
+        assert.equal(atB.kind, 'choice');
+        assert.equal(atB.summary.localFromOtherAccount, true, 'B was not told the phone\'s data is someone else\'s');
+        assert.equal(await env.api.resolveRestoreChoice('keep_local'), 'done');
+        await env.api.signOut();
+
+        env.server.blob = aCopy;
+        env.google.signIn = { status: 'signed_in', account: { sub: 'sub-1', email: 'reader@example.com', name: 'Reader', idToken: 'token' } };
+        const back = await env.api.signIn();
+        // Both sides hold data, so A is asked — the ordinary question.
+        assert.equal(back.kind, 'choice');
+        assert.equal(back.summary.localFromOtherAccount, false, 'A\'s own log was called another account\'s');
+        // A phone holding a row A's copy lacks is still someone else's.
+        const { phoneDataIsInCopy } = lib;
+        assert.equal(phoneDataIsInCopy(database({ workoutSessions: workouts(2) }), aCopy.database), true);
+        assert.equal(phoneDataIsInCopy(database({ workoutSessions: [workout('b-new')] }), aCopy.database), false);
+        assert.equal(phoneDataIsInCopy(database({ workoutSessions: workouts(1) }), null), false);
+        // Review of the fix: a programme or a workout in progress is data
+        // too — no logged rows is not "all in the copy".
+        const ownProgramme = { id: 'tpl-mine', name: 'Mine', exerciseIds: [], sessions: [], createdAt: 't', updatedAt: 't', origin: 'authored' };
+        assert.equal(phoneDataIsInCopy(database({ workoutTemplates: [ownProgramme] }), aCopy.database), false);
+        assert.equal(phoneDataIsInCopy(database({ workoutPlans: [{ id: 'plan-mine', name: 'Mine', entries: [] }] }), aCopy.database), false);
+        assert.equal(phoneDataIsInCopy(database(), aCopy.database, true), false, 'a workout in progress passed as the copy\'s');
+      });
+    },
+  },
+  {
+    // Review of the invariant fix: an unattended first upload that needed no
+    // yes left the signed-out list standing, to ask the next account about
+    // data that was no longer anyone else's.
+    name: 'account hook: an unattended first backup that needed no yes settles the signed-out list',
+    async run() {
+      await withHook({ local: database({ workoutSessions: workouts(3) }) }, async (env) => {
+        env.store.signedOut = ['sub-1'];
+        env.server.downloadError = 'NETWORK';
+        assert.equal((await env.api.signIn()).kind, 'not_backed_up');
+        env.server.downloadError = null;
+        await env.advance(QUIET_MS);
+        await env.foreground();
+        await env.advance(QUIET_MS);
+        assert.ok(env.server.blob, 'the automatic backup never ran');
+        assert.deepEqual(env.store.signedOut, [], 'a landed unattended backup left the list standing');
       });
     },
   },
@@ -1054,6 +1113,166 @@ module.exports = [
       assert.equal(normalizeStoredAccount({ sub: 's', lastBackupFingerprint: 'abc', autoBackupPaused: true }).autoBackupPaused, true);
       assert.equal(normalizeStoredAccount({ sub: '' }), null);
       assert.equal(normalizeStoredAccount(null), null);
+    },
+  },
+  {
+    /**
+     * Whose data reaches whose cloud, over every order of events.
+     *
+     * The account switch was fixed four times in one day (break round and
+     * rechecks, 2026-09-28): a switched account uploading unasked, a mark
+     * overwritten by an unanswered sign-in, an offline sign-in retried
+     * unattended, "Not now" forgetting the mark, restore-or-keep not saying
+     * the data was someone else's. Each was one path. This walks hundreds of
+     * seeded random sequences of sign-in, sign-out, logging, answers,
+     * automatic and manual backups, offline spells and resets across three
+     * accounts, and after every step checks one rule:
+     *
+     *   account S's cloud copy holds a workout logged by another account
+     *   only if the reader said yes to a question that told them so.
+     *
+     * A failure prints the seed and the steps, which replay exactly.
+     */
+    name: 'account hook: over any order of events, no account\'s cloud copy gets another account\'s workouts without a yes to a question that said so',
+    async run() {
+      const ACCOUNTS = ['acct-a', 'acct-b', 'acct-c'];
+      const SEQUENCES = 150;
+      const STEPS = 16;
+
+      // mulberry32: small, seeded, the same sequence on every machine.
+      const rng = (seed) => () => {
+        seed |= 0;
+        seed = (seed + 0x6d2b79f5) | 0;
+        let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+      const ownerOf = (sessionId) => sessionId.split(':')[0];
+
+      for (let seed = 1; seed <= SEQUENCES; seed += 1) {
+        const random = rng(seed);
+        const pick = (list) => list[Math.floor(random() * list.length)];
+        const steps = [];
+        await withHook({ local: database() }, async (env) => {
+          /** Each account's cloud copy; the fake server holds whichever is signed in. */
+          const clouds = { 'acct-a': null, 'acct-b': null, 'acct-c': null };
+          /** Owners whose workouts an account was told about and said yes to. */
+          const allowed = { 'acct-a': new Set(), 'acct-b': new Set(), 'acct-c': new Set() };
+          let serverOwner = null;
+          let pending = null;
+          let logged = 0;
+
+          const signedIn = () => env.store.account?.sub ?? null;
+          const localOwners = () => new Set(env.app.database.workoutSessions.map((session) => ownerOf(session.id)));
+          const syncCloud = () => {
+            if (serverOwner) {
+              clouds[serverOwner] = env.server.blob;
+            }
+          };
+          const check = () => {
+            syncCloud();
+            for (const account of ACCOUNTS) {
+              const blob = clouds[account];
+              for (const session of blob?.database?.workoutSessions ?? []) {
+                const owner = ownerOf(session.id);
+                if (owner !== account && owner !== 'anon' && !allowed[account].has(owner)) {
+                  assert.fail(
+                    `seed ${seed}: ${account}'s cloud holds ${owner}'s workout ${session.id} with no yes\n  ` +
+                      steps.join('\n  '),
+                  );
+                }
+              }
+            }
+          };
+          const consent = (account) => {
+            for (const owner of localOwners()) {
+              allowed[account].add(owner);
+            }
+          };
+          const take = (outcome) => {
+            if (outcome && (outcome.kind === 'confirm_upload' || outcome.kind === 'choice')) {
+              pending = outcome;
+            }
+          };
+
+          for (let step = 0; step < STEPS; step += 1) {
+            const who = signedIn();
+            const roll = random();
+            if (pending && roll < 0.7) {
+              // The reader answers the question in front of them.
+              const account = who;
+              if (pending.kind === 'confirm_upload') {
+                const answer = pick(['upload', 'skip']);
+                steps.push(`answer confirm_upload: ${answer}`);
+                if (answer === 'upload' && account) {
+                  consent(account);
+                }
+                await env.api.resolveUploadChoice(answer);
+              } else {
+                const answer = pick(['restore', 'keep_local']);
+                steps.push(`answer choice (otherAccount=${pending.summary.localFromOtherAccount}): ${answer}`);
+                // "Use the phone's data" is a yes to someone else's data only
+                // when the question said the data was someone else's.
+                if (answer === 'keep_local' && account && pending.summary.localFromOtherAccount) {
+                  consent(account);
+                }
+                await env.api.resolveRestoreChoice(answer);
+              }
+              pending = null;
+            } else if (!who && roll < 0.85) {
+              const account = pick(ACCOUNTS);
+              steps.push(`sign in ${account}`);
+              if (serverOwner !== account) {
+                syncCloud();
+                env.server.blob = clouds[account];
+                serverOwner = account;
+              }
+              env.google.signIn = { status: 'signed_in', account: { sub: account, email: `${account}@example.com`, name: account, idToken: `token-${account}` } };
+              pending = null;
+              // Sometimes the server cannot be reached at sign-in: the phone is
+              // signed in without having looked, and a later backup does it.
+              const offline = random() < 0.3;
+              if (offline) {
+                steps[steps.length - 1] += ' (offline)';
+                env.server.downloadError = 'NETWORK';
+              }
+              take(await env.api.signIn());
+              env.server.downloadError = null;
+            } else {
+              const action = pick(who ? ['log', 'log', 'auto', 'backup', 'signout', 'offline', 'reset'] : ['log', 'auto', 'reset']);
+              steps.push(action);
+              if (action === 'log') {
+                logged += 1;
+                const id = `${who ?? 'anon'}:${seed}-${logged}`;
+                await env.edit((db) => ({ ...db, workoutSessions: [...db.workoutSessions, workout(id)] }));
+              } else if (action === 'auto') {
+                await env.advance(QUIET_MS);
+                await env.foreground();
+                await env.advance(QUIET_MS);
+              } else if (action === 'backup') {
+                take(await env.api.backUpOrAsk());
+              } else if (action === 'signout') {
+                pending = null;
+                await env.api.signOut();
+              } else if (action === 'offline') {
+                env.server.downloadError = 'NETWORK';
+                env.server.uploadError = 'NETWORK';
+                await env.advance(QUIET_MS);
+                env.server.downloadError = null;
+                env.server.uploadError = null;
+              } else if (action === 'reset') {
+                // Settings → Reset all data: signs out first, then wipes.
+                pending = null;
+                await env.api.signOut();
+                env.app.database = database();
+                await env.settle();
+              }
+            }
+            await env.settle();
+            check();
+          }
+        });
+      }
     },
   },
 ];

@@ -298,13 +298,56 @@ function isUntouchedOnboardingTemplate(
  * log went to the new one with "backed up" on screen (break round,
  * 2026-09-28; user decision: ask). The same account signing back in, or a
  * phone never signed in before, is not asked.
+ *
+ * `signedOutSubs` is every account signed out of since the data was last
+ * settled: one of them other than this one is enough to ask, because the
+ * phone may hold that account's workouts beside this one's.
  */
+/**
+ * Whether everything logged on this phone is already in an account's own
+ * cloud copy — workouts, runs, weigh-ins and measurements, by id.
+ *
+ * Then the phone holds nothing of anyone else, whoever signed out last. A
+ * reader's own log that another account had adopted ("use the phone's data")
+ * was flagged "another account's data" when its owner signed back in
+ * (third break round, 2026-09-28): the signed-out list says who LEFT, not
+ * whose the rows are, and the rows answer that better when there is a copy
+ * to compare with.
+ */
+export function phoneDataIsInCopy(
+  local: AppDatabase,
+  copy: Partial<AppDatabase> | null | undefined,
+  liveSession = false,
+): boolean {
+  // A workout in progress is in no copy, and programmes and plans are what
+  // "worth keeping" also counts: compared on the logged rows alone, a phone
+  // whose only foreign data was another account's programme passed as the
+  // reader's own (review of the third-round fix, 2026-09-28).
+  if (!copy || liveSession) {
+    return false;
+  }
+  const idsOf = (rows: ReadonlyArray<{ id?: unknown }> | undefined) =>
+    new Set((Array.isArray(rows) ? rows : []).map((row) => row?.id).filter((id): id is string => typeof id === 'string'));
+  const pairs: Array<[ReadonlyArray<{ id?: unknown }> | undefined, ReadonlyArray<{ id?: unknown }> | undefined]> = [
+    [local.workoutSessions, copy.workoutSessions],
+    [local.cardioSessions, copy.cardioSessions],
+    [local.bodyweightEntries, copy.bodyweightEntries],
+    [local.measurementEntries, copy.measurementEntries],
+    [local.workoutTemplates, copy.workoutTemplates],
+    [local.workoutPlans, copy.workoutPlans],
+  ];
+  return pairs.every(([mine, theirs]) => {
+    const inCopy = idsOf(theirs);
+    return [...idsOf(mine)].every((id) => inCopy.has(id));
+  });
+}
+
 export function uploadNeedsConsent(input: {
-  signedOutSub: string | null;
+  signedOutSubs: readonly string[];
   sub: string;
   localWorthKeeping: boolean;
 }): boolean {
-  return input.localWorthKeeping && input.signedOutSub !== null && input.signedOutSub !== input.sub;
+  return input.localWorthKeeping && input.signedOutSubs.some((signedOut) => signedOut !== input.sub);
 }
 
 export function hasLocalDataWorthKeeping(database: AppDatabase, liveSession = false): boolean {

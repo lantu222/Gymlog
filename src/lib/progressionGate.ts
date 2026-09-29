@@ -180,6 +180,18 @@ function clearsCeilingBy(entry: WorkoutSlotHistoryEntry, repsMax: number, target
   );
 }
 
+/**
+ * Sessions that count toward the baseline: entries with a logged set.
+ *
+ * An entry left with no sets — a skipped day, or one whose sets were junk and
+ * dropped on load — was counted, so one real session and one empty entry met
+ * a beginner's two-session baseline and moved the load (third break round,
+ * 2026-09-28).
+ */
+function countedSessions(history: readonly WorkoutSlotHistoryEntry[]): number {
+  return history.filter((entry) => entry.sets.length > 0).length;
+}
+
 export function evaluateProgression(input: ProgressionGateInput): ProgressionDecision {
   const { history, repsMin, repsMax, targetSets, fatigueSignal, trackingMode } = input;
   const params = PROGRESSION_LEVEL_PARAMS[getProgressionTier(input.level)];
@@ -194,7 +206,7 @@ export function evaluateProgression(input: ProgressionGateInput): ProgressionDec
   if (trackingMode === 'bodyweight' || trackingMode === 'hold') {
     return { recommendation: 'silent' };
   }
-  if (history.length < params.minSessions) {
+  if (countedSessions(history) < params.minSessions) {
     // Short of the baseline, one exception: a weight so light that every
     // set went well past the ceiling. The holds below still apply to it.
     // And only off a recent session. The break rule needs a session before
@@ -205,7 +217,10 @@ export function evaluateProgression(input: ProgressionGateInput): ProgressionDec
       typeof input.nowMs === 'number' &&
       Number.isFinite(input.nowMs) &&
       history.length >= 1 &&
-      !isAtLeastDaysBefore(history[0].performedAt, new Date(input.nowMs).toISOString(), GAP_DAYS);
+      !isAtLeastDaysBefore(history[0].performedAt, new Date(input.nowMs).toISOString(), GAP_DAYS) &&
+      // Not in the future either: a session dated ahead by a wrong phone
+      // clock stayed "recent" for good (third break round, 2026-09-28).
+      Date.parse(history[0].performedAt) <= input.nowMs;
     const early =
       recent &&
       params.earlyJumpRepsOver !== null &&
@@ -382,7 +397,7 @@ function evaluateRepsProgression(input: ProgressedRepsInput): RepsRecommendation
   if (!(templateTargetReps > 0) || !(targetSets > 0)) {
     return 'silent';
   }
-  if (history.length < params.minSessions) {
+  if (countedSessions(history) < params.minSessions) {
     return 'silent';
   }
 

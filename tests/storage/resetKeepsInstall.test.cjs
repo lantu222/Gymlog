@@ -62,34 +62,54 @@ module.exports = [
     // Recheck of #221: the reset blob was written, and the old preferences
     // key removed four writes later. A kill in between laid the old
     // preferences — setup done, the old language — over the reset data.
-    name: 'reset: the reset preferences land with the reset blob, so a kill right after cannot bring the old ones back',
+    // A kill after any step of a reset leaves either the old install or the
+    // reset one, never a mix. Recheck of #221: the preferences key was removed
+    // after the reset blob landed, and old preferences came back over reset
+    // data. Third round: the coach's memory was erased after it, and a kill
+    // in between kept it for a reader whose data was gone.
+    name: 'reset: a kill after any step leaves the old install or the reset one, never old preferences or coach memory over reset data',
     async run() {
-      const fake = createFakeAsyncStorage();
-      const database = loadDatabaseModule(fake, 'fi_FI');
-      const before = usedInstall('fi');
-      await database.saveDatabase(before);
-      await database.savePreferences(before.preferences);
+      const COACH_KEY = '@vinha/coach/memory/v1';
+      let sawReset = false;
+      for (let killAfter = 0; killAfter <= 8; killAfter += 1) {
+        const fake = createFakeAsyncStorage();
+        const database = loadDatabaseModule(fake, 'fi_FI');
+        const before = usedInstall('fi');
+        await database.saveDatabase(before);
+        await database.savePreferences(before.preferences);
+        fake.rows.set(COACH_KEY, JSON.stringify([{ at: '2026-09-20T10:00:00.000Z', takeaway: 'Penkki junnaa.' }]));
 
-      // Kill the process after the first write of the reset: every later
-      // call throws, as a dead process writes nothing more.
-      const alive = { ...fake };
-      let writes = 0;
-      for (const method of ['setItem', 'removeItem', 'multiSet', 'multiRemove']) {
-        const real = fake[method];
-        fake[method] = async (...args) => {
-          writes += 1;
-          if (writes > 1) {
-            throw new Error('killed');
-          }
-          return real.apply(fake, args);
-        };
+        // Every write after the first `killAfter` throws, as a dead process
+        // writes nothing more.
+        const alive = { ...fake };
+        let writes = 0;
+        for (const method of ['setItem', 'removeItem', 'multiSet', 'multiRemove']) {
+          const real = fake[method];
+          fake[method] = async (...args) => {
+            writes += 1;
+            if (writes > killAfter) {
+              throw new Error('killed');
+            }
+            return real.apply(fake, args);
+          };
+        }
+        try {
+          await database.resetDatabase(before.preferences);
+        } catch {
+          // Killed.
+        }
+        Object.assign(fake, { setItem: alive.setItem, removeItem: alive.removeItem, multiSet: alive.multiSet, multiRemove: alive.multiRemove });
+
+        const reloaded = await database.loadDatabase();
+        if (reloaded.workoutSessions.length === 0) {
+          sawReset = true;
+          assert.equal(reloaded.preferences.onboardingCompleted, false, `kill after ${killAfter}: old preferences over reset data`);
+          assert.equal(fake.rows.has(COACH_KEY), false, `kill after ${killAfter}: the coach remembers a reader whose data was reset`);
+        } else {
+          assert.equal(reloaded.preferences.onboardingCompleted, true, `kill after ${killAfter}: reset preferences over old data`);
+        }
       }
-      await assert.rejects(database.resetDatabase(before.preferences));
-      Object.assign(fake, { setItem: alive.setItem, removeItem: alive.removeItem, multiSet: alive.multiSet, multiRemove: alive.multiRemove });
-
-      const reloaded = await database.loadDatabase();
-      assert.equal(reloaded.workoutSessions.length, 0, 'the reset blob did not land first');
-      assert.equal(reloaded.preferences.onboardingCompleted, false, 'the old preferences were laid over the reset data');
+      assert.ok(sawReset, 'no kill point let the reset finish');
     },
   },
   {
