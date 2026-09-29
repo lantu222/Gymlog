@@ -187,6 +187,42 @@ module.exports = [
     },
   },
   {
+    name: 'hevyImport: an assisted set is filed under a name that says so, never merged into the unassisted lift',
+    run() {
+      // Hevy writes assistance as a NEGATIVE weight_kg, sometimes under its own
+      // "Assisted ..." title and sometimes under the reader's ordinary title
+      // for the lift. Clamped to 0, a -20 kg assisted set reads exactly like a
+      // real bodyweight set — and every downstream grouping (Records,
+      // Progress) keys purely on exercise name, so it would silently become a
+      // reps record for the unassisted lift (#bugs).
+      const csv = [
+        HEADER,
+        // Logged against the reader's ordinary "Pull Up" entry, assisted.
+        '"Back","10 Jun 2024, 08:00",,,"Pull Up",,,0,normal,-20,10,,,',
+        // A real weighted pull-up, same day, same title.
+        '"Back","10 Jun 2024, 08:00",,,"Pull Up",,,1,normal,8,5,,,',
+        // Already named as assisted — must not become "... (assisted) (assisted)".
+        '"Back","10 Jun 2024, 08:00",,,"Assisted Pull-Up",,,0,normal,-15,12,,,',
+      ].join('\n');
+      const preview = parseHevyCsv(csv);
+      assert.equal(preview.workouts.length, 1);
+      const names = preview.workouts[0].exercises.map((exercise) => exercise.name);
+      assert.deepEqual(names.sort(), ['Assisted Pull-Up', 'Pull Up', 'Pull Up (assisted)']);
+
+      const byName = Object.fromEntries(preview.workouts[0].exercises.map((exercise) => [exercise.name, exercise]));
+      // The unassisted bucket only ever sees the real weighted set.
+      assert.deepEqual(byName['Pull Up'].sets.map((set) => set.reps), [5]);
+      assert.equal(byName['Pull Up'].sets[0].weightKg, 8);
+      // The assisted set landed in its own bucket, weight clamped like any
+      // other, but under a name Records and Progress will never confuse with
+      // plain Pull Up (both group purely by exerciseNameSnapshot).
+      assert.deepEqual(byName['Pull Up (assisted)'].sets.map((set) => set.reps), [10]);
+      assert.equal(byName['Pull Up (assisted)'].sets[0].weightKg, 0);
+      // A title that already says "assisted" is not suffixed again.
+      assert.deepEqual(byName['Assisted Pull-Up'].sets.map((set) => set.reps), [12]);
+    },
+  },
+  {
     name: 'hevyImport: an imported lift is tracked, so Records and Progress read it',
     run() {
       const provider = require('node:fs')

@@ -121,6 +121,17 @@ export const workoutSessionRepository = {
       workoutSessions: [session, ...database.workoutSessions],
     };
   },
+  /**
+   * Many sessions in one copy of the array, for a batch import: calling
+   * `append` once per session re-copies the (growing) array every time, which
+   * is quadratic for a multi-year history.
+   */
+  appendMany(database: AppDatabase, sessions: WorkoutSession[]): AppDatabase {
+    return {
+      ...database,
+      workoutSessions: [...sessions, ...database.workoutSessions],
+    };
+  },
   update(
     database: AppDatabase,
     sessionId: string,

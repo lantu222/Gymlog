@@ -43,6 +43,31 @@ module.exports = [
     },
   },
   {
+    name: 'csv import detects the delimiter past a leading blank line',
+    run() {
+      // A pasted/uploaded CSV can start with a blank line (or one that is only
+      // whitespace) before the header. Delimiter detection must still look at
+      // the first non-blank line, not the literal first raw line, or a
+      // semicolon file falls back to the comma default and every header cell
+      // fails to match (#bugs).
+      const leadingBlank = parseCsvProgram(
+        '\nDay;Exercise;Sets;Reps\nDay 1;Bench Press;4;6-10',
+        LIBRARY,
+      );
+      assert.equal(leadingBlank.errors.length, 0);
+      assert.equal(leadingBlank.rows.length, 1);
+      assert.equal(leadingBlank.rows[0].libraryItemId, 'lib_bench');
+
+      const leadingWhitespaceLine = parseCsvProgram(
+        '   \nDay;Exercise;Sets;Reps\nDay 1;Bench Press;4;6-10',
+        LIBRARY,
+      );
+      assert.equal(leadingWhitespaceLine.errors.length, 0);
+      assert.equal(leadingWhitespaceLine.rows.length, 1);
+      assert.equal(leadingWhitespaceLine.rows[0].libraryItemId, 'lib_bench');
+    },
+  },
+  {
     name: 'csv import matches spacing variants and flags near-misses with a suggestion',
     run() {
       const preview = parseCsvProgram(
@@ -142,6 +167,64 @@ module.exports = [
         'utf8',
       );
       assert.match(sheet, /parseCsvProgram\(csvText, exerciseLibrary, nameBook, language\)/);
+    },
+  },
+  {
+    name: 'csv import: a quoted cell with a line break keeps its row, and errors name the reader\'s actual rows',
+    run() {
+      // An Excel cell wrapped with Alt+Enter, quoted as CSV requires. Splitting
+      // on every raw line break tore this into two lines — the exercise name
+      // vanished into "Bench" and a phantom extra row appeared — and every
+      // error after it pointed at a row number one too high (#bugs).
+      const csv = [
+        'Day,Exercise,Sets,Reps',
+        'Day 1,"Bench\nPress",4,6-10',
+        'Day 1,Back Squat,four,10',
+      ].join('\n');
+      const preview = parseCsvProgram(csv, LIBRARY);
+
+      // Only the row with the bad set count is an error — not two rows split
+      // out of the wrapped cell.
+      assert.equal(preview.errors.length, 1);
+      // Row 3: header is row 1, the wrapped cell is row 2 (one record, not
+      // two), so Back Squat is genuinely the reader's third row.
+      assert.match(preview.errors[0], /^Row 3:/);
+
+      assert.equal(preview.rows.length, 1, 'the wrapped-cell row must survive as one row');
+      // The embedded line break is collapsed, not left in the name.
+      assert.equal(preview.rows[0].exerciseName, 'Bench Press');
+      assert.equal(preview.rows[0].matchedName, 'Bench Press');
+    },
+  },
+  {
+    name: 'csv import: a generic name ambiguous across the library is left for the reader, not silently guessed',
+    run() {
+      // "Deadlift" is a whole-word substring of every one of these, and
+      // picking whichever came first used to hand back a specific variant the
+      // reader never typed (#bugs).
+      const DEADLIFTS = [
+        { id: 'ex_axle', name: 'Axle Deadlift' },
+        { id: 'ex_rdl', name: 'Romanian Deadlift' },
+        { id: 'ex_sumo', name: 'Sumo Deadlift' },
+      ];
+      const ambiguous = parseCsvProgram('Day,Exercise,Sets,Reps\nDay 1,Deadlift,4,5', DEADLIFTS);
+      assert.equal(ambiguous.rows[0].matchedName, null);
+      assert.equal(ambiguous.unmatchedCount, 1);
+      // Left unmatched exactly the way any other near-miss is: with a
+      // suggestion to pick from or correct, never silently substituted.
+      assert.notEqual(ambiguous.rows[0].suggestion, null);
+
+      // Unambiguous is still accepted: exactly one entry contains the term.
+      const NARROW = [{ id: 'ex_ohp', name: 'Overhead Press' }];
+      const single = parseCsvProgram('Day,Exercise,Sets,Reps\nDay 1,Press,3,5', NARROW);
+      assert.equal(single.rows[0].matchedName, 'Overhead Press');
+      assert.equal(single.rows[0].libraryItemId, 'ex_ohp');
+
+      // Whole words, not merely a run of the same letters: "Pull Up" is not
+      // "Pull Ups" ("up" inside "ups" is not "up").
+      const PLURAL_ONLY = [{ id: 'ex_wpu', name: 'Weighted Pull Ups' }];
+      const plural = parseCsvProgram('Day,Exercise,Sets,Reps\nDay 1,Pull Up,3,5', PLURAL_ONLY);
+      assert.equal(plural.rows[0].matchedName, null);
     },
   },
 ];

@@ -17,6 +17,8 @@
  * and the validation the answer passes through cannot drift apart.
  */
 
+import { collapseCellWhitespace } from './csvRecords';
+
 export interface ProgramTableRow {
   day: string;
   exercise: string;
@@ -124,8 +126,13 @@ export function validateProgramTable(payload: unknown): ProgramTableRow[] | null
     return null;
   }
   return rows.filter(isUsableRow).map((row) => ({
-    day: row.day.trim(),
-    exercise: row.exercise.trim(),
+    // Collapsed, not just trimmed: a wrapped spreadsheet cell the model
+    // copied verbatim is one name with a line break in it, not two lines of
+    // one — and an uncollapsed break, once quoted into CSV, is exactly the
+    // kind of embedded newline the CSV parser now has to treat as one row
+    // (#bugs). Handled here so it never reaches the CSV text at all.
+    day: collapseCellWhitespace(row.day),
+    exercise: collapseCellWhitespace(row.exercise),
     sets: Math.round(row.sets),
     reps: row.reps.trim(),
   }));

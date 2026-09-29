@@ -15,6 +15,8 @@
  * same file twice cannot duplicate a single workout.
  */
 
+import { splitCsvRecords } from './csvRecords';
+
 export interface HevyImportedSet {
   weightKg: number;
   reps: number;
@@ -59,59 +61,6 @@ export function isHevyHistoryCsv(text: string): boolean {
   const firstLine = text.trimStart().split(/\r?\n/, 1)[0] ?? '';
   const header = firstLine.toLowerCase();
   return header.includes('exercise_title') && header.includes('start_time');
-}
-
-/**
- * The file → records, where a record ends at a line break outside quotes.
- *
- * It split on every line break first, so a workout description or an exercise
- * note written on two lines tore each of that workout's rows in half: neither
- * half parsed, every set of the workout was dropped, and the import counted
- * them under "cardio and duration-only blocks".
- *
- * A quote opens a quoted field only where a field starts. Every quote used to
- * flip the state, so one inside an unquoted field — a note reading
- * `6" box jump` — left the scan "inside quotes" for the rest of the file:
- * every following row joined one record, which did not parse (2026-09-16).
- */
-function splitCsvRecords(text: string, delimiter: CsvDelimiter): string[] {
-  const records: string[] = [];
-  let current = '';
-  let inQuotes = false;
-  let atFieldStart = true;
-  for (let i = 0; i < text.length; i += 1) {
-    const char = text[i];
-    if (inQuotes) {
-      current += char;
-      if (char === '"') {
-        if (text[i + 1] === '"') {
-          current += '"';
-          i += 1;
-        } else {
-          inQuotes = false;
-        }
-      }
-      continue;
-    }
-    if (char === '\n' || char === '\r') {
-      if (char === '\r' && text[i + 1] === '\n') {
-        i += 1;
-      }
-      records.push(current);
-      current = '';
-      atFieldStart = true;
-      continue;
-    }
-    if (char === '"' && atFieldStart) {
-      inQuotes = true;
-    }
-    current += char;
-    // Spaces after the separator still count as the start: some writers put
-    // one before a quoted field.
-    atFieldStart = char === delimiter || (atFieldStart && isCsvBlank(char));
-  }
-  records.push(current);
-  return records;
 }
 
 /**
@@ -299,12 +248,26 @@ export function parseHevyCsv(text: string): HevyImportPreview {
       workoutsByKey.set(key, workout);
     }
 
+    // Hevy writes an assisted set (a band or a machine doing part of the
+    // work) as a NEGATIVE weight_kg — sometimes under its own "Assisted ..."
+    // title, sometimes under the reader's ordinary title for the lift if
+    // that is the exercise entry they logged it against. Below, the negative
+    // weight is clamped to 0, which then reads exactly like a real bodyweight
+    // set of the unassisted lift; grouping it under a name that SAYS assisted
+    // is what keeps a 20 kg assisted pull-up from becoming a reps record or
+    // history entry of plain Pull Up (#bugs). Every downstream grouping keys
+    // on this name (getTrackedExerciseProgress and friends), so a different
+    // name is enough to keep the two apart — nothing else needs to change.
+    const assisted = weightKg !== null && weightKg < 0;
+    const exerciseGroupName =
+      assisted && !/assist/i.test(exerciseName) ? `${exerciseName} (assisted)` : exerciseName;
+
     let exercise = workout.exercises[workout.exercises.length - 1];
-    if (!exercise || exercise.name !== exerciseName) {
+    if (!exercise || exercise.name !== exerciseGroupName) {
       // Non-consecutive repeats (straight sets split around a superset) still
       // belong to one entry — find the existing group before opening another.
-      exercise = workout.exercises.find((candidate) => candidate.name === exerciseName) ?? {
-        name: exerciseName,
+      exercise = workout.exercises.find((candidate) => candidate.name === exerciseGroupName) ?? {
+        name: exerciseGroupName,
         sets: [],
       };
       if (!workout.exercises.includes(exercise)) {

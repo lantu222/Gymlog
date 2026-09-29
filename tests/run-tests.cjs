@@ -282,6 +282,7 @@ const suites = [
   ...require('./api/backupEndpoint.test.cjs'),
   ...require('./state/accountBackupWiring.test.cjs'),
   ...require('./lib/hevyImport.test.cjs'),
+  ...require('./lib/csvRecords.test.cjs'),
   ...require('./lib/measurementIntent.test.cjs'),
   ...require('./lib/goalIntent.test.cjs'),
   ...require('./lib/aiCoachBody.test.cjs'),

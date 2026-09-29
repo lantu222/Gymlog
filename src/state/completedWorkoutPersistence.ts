@@ -2,7 +2,7 @@ import { createId } from '../lib/ids';
 import { normalizeExerciseLogDraft } from '../lib/exerciseLog';
 import { getSessionTotals } from '../lib/sessionTotals';
 import { exerciseLogRepository, workoutSessionRepository } from '../storage/repositories';
-import { AppDatabase, ExerciseLog, ExerciseLogDraft } from '../types/models';
+import { AppDatabase, ExerciseLog, ExerciseLogDraft, WorkoutSession } from '../types/models';
 
 export interface SessionSaveSummary {
   sessionId: string | null;
@@ -44,6 +44,19 @@ export interface PersistCompletedWorkoutResult {
   database: AppDatabase;
   didPersist: boolean;
   summary: SessionSaveSummary;
+}
+
+/** The pure result of building one completed workout: no database involved. */
+export interface CompletedWorkoutRecord {
+  session: WorkoutSession;
+  logs: ExerciseLog[];
+  summary: SessionSaveSummary;
+}
+
+export interface BatchImportResult {
+  database: AppDatabase;
+  imported: number;
+  duplicates: number;
 }
 
 function createEmptySummary(): SessionSaveSummary {
@@ -136,32 +149,28 @@ function buildSummary(
   };
 }
 
-export function persistCompletedWorkoutSessionToDatabase(
-  database: AppDatabase,
+/**
+ * The pure half of persisting a completed workout: the session row and its
+ * logs, built from the input alone. No database in, none out — so a caller
+ * writing many of these does not have to hand back a growing database just to
+ * get the next one built.
+ *
+ * Null when there is nothing worth a row: `persistCompletedWorkoutSessionToDatabase`
+ * reads this as "didn't persist", same as it always has.
+ */
+export function buildCompletedWorkoutRecord(
   input: PersistCompletedWorkoutInput,
   createIdFn: (prefix: string) => string = createId,
-): PersistCompletedWorkoutResult {
+): CompletedWorkoutRecord | null {
   const performedAt = input.performedAt ?? new Date().toISOString();
   const logsToPersist = buildPersistedLogs(input.sessionId, input.logs, createIdFn);
 
   if (logsToPersist.length === 0) {
-    return {
-      database,
-      didPersist: false,
-      summary: createEmptySummary(),
-    };
+    return null;
   }
 
   const summary = buildSummary(input, logsToPersist, performedAt);
-  if (workoutSessionRepository.findById(database, input.sessionId)) {
-    return {
-      database,
-      didPersist: false,
-      summary,
-    };
-  }
-
-  const nextSession = {
+  const session = {
     id: input.sessionId,
     workoutTemplateId: input.workoutTemplateId,
     workoutTemplateSessionId: input.workoutTemplateSessionId ?? null,
@@ -185,12 +194,88 @@ export function persistCompletedWorkoutSessionToDatabase(
     legacyShapeMismatches: Array.isArray(input.legacyShapeMismatches) ? input.legacyShapeMismatches : [],
   };
 
-  let nextDatabase = workoutSessionRepository.append(database, nextSession);
-  nextDatabase = exerciseLogRepository.appendMany(nextDatabase, logsToPersist);
+  return { session, logs: logsToPersist, summary };
+}
+
+export function persistCompletedWorkoutSessionToDatabase(
+  database: AppDatabase,
+  input: PersistCompletedWorkoutInput,
+  createIdFn: (prefix: string) => string = createId,
+): PersistCompletedWorkoutResult {
+  const record = buildCompletedWorkoutRecord(input, createIdFn);
+  if (!record) {
+    return {
+      database,
+      didPersist: false,
+      summary: createEmptySummary(),
+    };
+  }
+
+  if (workoutSessionRepository.findById(database, input.sessionId)) {
+    return {
+      database,
+      didPersist: false,
+      summary: record.summary,
+    };
+  }
+
+  let nextDatabase = workoutSessionRepository.append(database, record.session);
+  nextDatabase = exerciseLogRepository.appendMany(nextDatabase, record.logs);
 
   return {
     database: nextDatabase,
     didPersist: true,
-    summary,
+    summary: record.summary,
   };
+}
+
+/**
+ * Many completed workouts, applied to the database in one pass and one write.
+ *
+ * Calling `persistCompletedWorkoutSessionToDatabase` once per workout, each
+ * time handing back the just-grown database for the next call, re-copies the
+ * session and log arrays and linear-scans them for a duplicate on every
+ * workout — fine for one, quadratic for a multi-year history import (Hevy,
+ * 1000+ workouts) that froze the app (#bugs). This builds every new session
+ * and its logs against a Set of ids instead of a growing database, then
+ * writes once. Same duplicate counting (a workout with nothing loggable
+ * counts as a duplicate here too, as it always has), same per-workout shape,
+ * one commit — so a caller's success message still follows one resolved
+ * write, not the last of many.
+ */
+export function persistCompletedWorkoutSessionsToDatabase(
+  database: AppDatabase,
+  inputs: readonly PersistCompletedWorkoutInput[],
+  createIdFn: (prefix: string) => string = createId,
+): BatchImportResult {
+  const seenSessionIds = new Set(database.workoutSessions.map((session) => session.id));
+  const newSessions: WorkoutSession[] = [];
+  const newLogs: ExerciseLog[] = [];
+  let imported = 0;
+  let duplicates = 0;
+
+  for (const input of inputs) {
+    if (seenSessionIds.has(input.sessionId)) {
+      duplicates += 1;
+      continue;
+    }
+    const record = buildCompletedWorkoutRecord(input, createIdFn);
+    if (!record) {
+      duplicates += 1;
+      continue;
+    }
+    seenSessionIds.add(input.sessionId);
+    newSessions.push(record.session);
+    newLogs.push(...record.logs);
+    imported += 1;
+  }
+
+  if (newSessions.length === 0) {
+    return { database, imported, duplicates };
+  }
+
+  let nextDatabase = workoutSessionRepository.appendMany(database, newSessions);
+  nextDatabase = exerciseLogRepository.appendMany(nextDatabase, newLogs);
+
+  return { database: nextDatabase, imported, duplicates };
 }

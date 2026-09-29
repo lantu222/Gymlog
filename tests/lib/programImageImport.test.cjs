@@ -90,6 +90,29 @@ module.exports = [
     },
   },
   {
+    name: 'image import: a name copied with the spreadsheet cell\'s own line wrap is one name',
+    run() {
+      // The model is told to copy a cell exactly; a cell wrapped across two
+      // lines in the sheet is still one exercise name, not two lines of one.
+      // validateProgramTable is the choke point every row passes through
+      // before it ever becomes CSV text.
+      const validated = validateProgramTable({
+        rows: [{ day: 'Ma\ntreeni', exercise: 'Barbell\nBench Press', sets: 4, reps: '6-10' }],
+      });
+      assert.deepEqual(validated, [{ day: 'Ma treeni', exercise: 'Barbell Bench Press', sets: 4, reps: '6-10' }]);
+
+      // And so the CSV it becomes never carries the line break into the
+      // parser that treats a break as a record boundary.
+      const csv = programTableToCsv(validated);
+      assert.equal(csv.split('\n').length, 2, 'one header line and one data line, not three');
+
+      const preview = parseCsvProgram(csv, LIBRARY);
+      assert.equal(preview.rows.length, 1);
+      assert.equal(preview.rows[0].exerciseName, 'Barbell Bench Press');
+      assert.equal(preview.rows[0].matchedName, 'Barbell Bench Press');
+    },
+  },
+  {
     name: 'image import: unmatched names reach the correction flow intact',
     run() {
       // The reader's own word must arrive at the preview UNTRANSLATED, or the
