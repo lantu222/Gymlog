@@ -670,5 +670,122 @@ module.exports = [
       assert.equal(cleared.freestyleDraft, null);
       assert.equal(workoutReducer(cleared, { type: 'freestyle/clear' }), cleared, 'clearing nothing is the same state');
     },
-  }
+  },
+  {
+    /**
+     * Recheck round 2026-09-29: the guided player's cooldown-only sessions
+     * (`exercises = []`, no main block) had nowhere to anchor a mid-workout
+     * add — `insertExerciseAfter(anchor.slotId, …)` needs an `anchor`, and
+     * there is no last exercise when there was never a first one. A null
+     * anchor now means "insert at the front", which for an empty list is the
+     * only place there is.
+     */
+    name: 'inserting after a null anchor appends into an empty session',
+    run() {
+      const activeSession = createCompletedSession({
+        status: 'active',
+        completedAt: undefined,
+        exercises: [],
+      });
+
+      const insertInput = {
+        exerciseName: 'Standing Calf Stretch',
+        trackingMode: 'hold',
+        sets: 1,
+        repsMin: 0,
+        repsMax: 0,
+        restSecondsMin: 0,
+        restSecondsMax: 0,
+        substitutionGroup: 'lib_calf_stretch',
+        libraryItemId: 'lib_calf_stretch',
+      };
+
+      const nextState = workoutReducer(
+        { ...workoutInitialState, activeSession },
+        { type: 'exercise/insertAfter', payload: { afterSlotId: null, exercise: insertInput } },
+      );
+
+      assert.equal(nextState.activeSession.exercises.length, 1);
+      const inserted = nextState.activeSession.exercises[0];
+      assert.equal(inserted.exerciseName, 'Standing Calf Stretch');
+      assert.equal(inserted.orderIndex, 0);
+      // A real slot id, not the null anchor echoed back — the guided
+      // player's own effect resolves the new lift by finding the ONE slot
+      // id that was not already known (see GuidedPlayerScreen's
+      // pendingInsertKnownSlotsRef), so this has to actually mint one.
+      assert.equal(typeof inserted.slotId, 'string');
+      assert.ok(inserted.slotId.length > 0);
+    },
+  },
+  {
+    name: 'inserting after a real anchor still lands right after it, null anchor unaffected',
+    run() {
+      const first = createExercise({ slotId: 'slot_a', exerciseName: 'Back Squat', orderIndex: 0 });
+      const activeSession = createCompletedSession({
+        status: 'active',
+        completedAt: undefined,
+        exercises: [first],
+      });
+
+      const insertInput = {
+        exerciseName: 'Leg Extension',
+        trackingMode: 'load_and_reps',
+        sets: 3,
+        repsMin: 10,
+        repsMax: 12,
+        restSecondsMin: 60,
+        restSecondsMax: 60,
+        substitutionGroup: 'lib_leg_extension',
+        libraryItemId: 'lib_leg_extension',
+      };
+
+      const nextState = workoutReducer(
+        { ...workoutInitialState, activeSession },
+        { type: 'exercise/insertAfter', payload: { afterSlotId: 'slot_a', exercise: insertInput } },
+      );
+
+      assert.equal(nextState.activeSession.exercises.length, 2);
+      assert.equal(nextState.activeSession.exercises[0].slotId, 'slot_a');
+      assert.equal(nextState.activeSession.exercises[1].exerciseName, 'Leg Extension');
+      assert.equal(nextState.activeSession.exercises[1].orderIndex, 1);
+    },
+  },
+  {
+    name: 'inserting after a slot id that no longer exists is a no-op, not a front-of-list insert',
+    run() {
+      // Only an explicit `null` means "insert at the front". A stale or
+      // mistyped slot id must not silently fall back to the same place —
+      // that would hide a real bug (a slot removed between the button being
+      // shown and the button being pressed) as a successful insert.
+      const activeSession = createCompletedSession({
+        status: 'active',
+        completedAt: undefined,
+        exercises: [createExercise({ slotId: 'slot_a' })],
+      });
+
+      const initialState = { ...workoutInitialState, activeSession };
+      const nextState = workoutReducer(initialState, {
+        type: 'exercise/insertAfter',
+        payload: {
+          afterSlotId: 'slot_that_does_not_exist',
+          exercise: {
+            exerciseName: 'Leg Extension',
+            trackingMode: 'load_and_reps',
+            sets: 3,
+            repsMin: 10,
+            repsMax: 12,
+            restSecondsMin: 60,
+            restSecondsMax: 60,
+            substitutionGroup: 'lib_leg_extension',
+            libraryItemId: 'lib_leg_extension',
+          },
+        },
+      });
+
+      // The reducer's early-return path hands back the very state it was
+      // given — nothing cloned, nothing inserted.
+      assert.equal(nextState, initialState);
+      assert.equal(nextState.activeSession.exercises.length, 1);
+    },
+  },
 ];
