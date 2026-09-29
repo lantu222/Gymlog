@@ -114,4 +114,43 @@ module.exports = [
       assert.match(handle, /void requestPermission\(\)\.then\(\(granted\) => \{\s*setSystemBlocked\(!granted\);/);
     },
   },
+  {
+    // The same race as readScheduledAccess above, in the function right below
+    // it: readWorkoutAccess is driven by the identical AppState 'active'
+    // listener, and its two calls (checkWorkoutAlerts, checkExactAlarms) had
+    // no ordering guard at all — a slower stale "denied" resolving after a
+    // fresher "granted" silently overwrote it, exactly the bug class just
+    // fixed one function above (recheck round, 2026-09-29).
+    name: 'notifications: a stale workout-access answer cannot act once a newer check has started',
+    run() {
+      const code = strip(screen);
+      const readStart = code.indexOf('const readWorkoutAccess = useCallback(');
+      assert.ok(readStart >= 0, 'readWorkoutAccess is gone');
+      const readEnd = code.indexOf('}, [checkWorkoutAlerts, checkExactAlarms]);', readStart);
+      assert.ok(readEnd >= 0, 'readWorkoutAccess no longer closes over checkWorkoutAlerts/checkExactAlarms');
+      const read = code.slice(readStart, readEnd);
+
+      // A generation is taken before either async check starts, and each of
+      // the two results is only applied if it is still the latest generation
+      // once it resolves.
+      assert.match(
+        read,
+        /const generation = \+\+workoutAccessGenerationRef\.current;/,
+        'readWorkoutAccess takes no generation before starting its checks',
+      );
+      assert.match(
+        read,
+        /void checkWorkoutAlerts\?\.\(\)\.then\(\(result\) => \{\s*if \(workoutAccessGenerationRef\.current === generation\) \{\s*setAccess\(result\);\s*\}\s*\}\);/,
+        'checkWorkoutAlerts can still set access after a newer check has started',
+      );
+      assert.match(
+        read,
+        /void checkExactAlarms\?\.\(\)\.then\(\(result\) => \{\s*if \(workoutAccessGenerationRef\.current === generation\) \{\s*setExactAllowed\(result\);\s*\}\s*\}\);/,
+        'checkExactAlarms can still set exactAllowed after a newer check has started',
+      );
+      // The guard sits above the ref declaration, outside any effect
+      // dependency array — every call bumps the same counter.
+      assert.match(code, /const workoutAccessGenerationRef = useRef\(0\);/);
+    },
+  },
 ];

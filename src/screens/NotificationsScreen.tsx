@@ -207,9 +207,24 @@ export function NotificationsScreen({
    */
   const [access, setAccess] = useState<NotificationAccessState | null>(null);
   const [exactAllowed, setExactAllowed] = useState<boolean | null>(null);
+  // Same race as readScheduledAccess above, and the same fix: AppState firing
+  // 'active' twice in quick succession can start two of these together, and a
+  // slower stale answer resolving after a fresher one must not overwrite it —
+  // exactly the bug that guard was added for one function up (recheck round,
+  // 2026-09-29).
+  const workoutAccessGenerationRef = useRef(0);
   const readWorkoutAccess = useCallback(() => {
-    void checkWorkoutAlerts?.().then(setAccess);
-    void checkExactAlarms?.().then(setExactAllowed);
+    const generation = ++workoutAccessGenerationRef.current;
+    void checkWorkoutAlerts?.().then((result) => {
+      if (workoutAccessGenerationRef.current === generation) {
+        setAccess(result);
+      }
+    });
+    void checkExactAlarms?.().then((result) => {
+      if (workoutAccessGenerationRef.current === generation) {
+        setExactAllowed(result);
+      }
+    });
   }, [checkWorkoutAlerts, checkExactAlarms]);
   useEffect(() => {
     readWorkoutAccess();

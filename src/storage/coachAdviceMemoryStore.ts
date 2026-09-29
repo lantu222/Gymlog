@@ -24,6 +24,16 @@ const STORAGE_KEY = '@vinha/coach/memory/v1';
  * the erase could not be retried indefinitely without holding up the "done"
  * the reader is shown. `loadCoachAdviceMemory` honours it before the coach
  * reads anything (recheck round, 2026-09-29).
+ *
+ * Cleared by `saveCoachAdviceMemory` too, not only by a landed erase: a write
+ * is the coach's own fresh, legitimate memory for whoever is signed in now,
+ * and it supersedes any erase queued before it. Without that,
+ * `finishPendingErase` could not tell "the stale memory the flag was set
+ * for" apart from "memory the app wrote after the flag was set" — both just
+ * look like STORAGE_KEY holding something with the flag still up — and on
+ * the next launch it deleted whichever one was actually on disk, including a
+ * legitimate write the reader had already chatted with the coach to produce
+ * (found in recheck, 2026-09-29).
  */
 const PENDING_ERASE_KEY = '@vinha/coach/memory/pendingerase/v1';
 
@@ -70,14 +80,23 @@ async function finishPendingErase(): Promise<void> {
  * rendered, and a full disk must not turn a coach reply the reader is already
  * reading into an error — the worst case is that the next question arrives
  * without one line of context.
+ *
+ * Also clears a pending erase once the write itself has landed: this memory
+ * is for whoever is signed in right now, and it is what should be on disk
+ * from here on, so any erase queued before it (an earlier account's cleanup
+ * that could not verify twice) no longer applies to what this write just
+ * put there. See PENDING_ERASE_KEY's own comment. Cleared only after the
+ * write succeeds — a write that itself throws leaves the pending flag
+ * standing, exactly as before.
  */
 export async function saveCoachAdviceMemory(memory: CoachAdviceMemoryEntry[]): Promise<void> {
   try {
     if (memory.length === 0) {
       await AsyncStorage.removeItem(STORAGE_KEY);
-      return;
+    } else {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(memory));
     }
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(memory));
+    await AsyncStorage.removeItem(PENDING_ERASE_KEY).catch(() => undefined);
   } catch {
     // Intentionally silent — see above.
   }

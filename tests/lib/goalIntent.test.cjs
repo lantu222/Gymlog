@@ -159,6 +159,42 @@ module.exports = [
     },
   },
   {
+    // Recheck round, 2026-09-29: the destination check above was matched
+    // against the whole message, not anchored to the number it was overriding
+    // RELATIVE_WORDS for. "asti" ("kesäkuuhun asti", until June — a date, not
+    // a weight) and English "to" ("1 to 10", a scale, not the number being
+    // lost) both said "destination" for a number they had nothing to do
+    // with, flipping a genuinely relative delta into a false absolute target.
+    name: 'goalIntent: a destination word elsewhere in the sentence does not turn an unrelated relative number absolute',
+    run() {
+      const stillRelativeCases = [
+        // "asti" belongs to "kesäkuuhun" (until June), not to "5 kg" — the
+        // number stays a relative delta, exactly like "nosta painoa 5 kg".
+        { text: 'nosta painoa 5 kg asti kesäkuuhun', language: 'fi' },
+        // "to 10" is an unrelated scale reference; the number actually named
+        // is "5 kg", stated as a loss with no destination marker on it.
+        { text: 'on a scale of 1 to 10 I want to lose 5 kg of my weight', language: 'en' },
+      ];
+      for (const { text, language } of stillRelativeCases) {
+        const goal = parseGoalIntent(text, language, { declared: true });
+        assert.ok(goal, `${text} should still be a goal`);
+        assert.equal(goal.targetValue, null, `${text} read an unrelated destination word as the number's own`);
+        assert.equal(goal.unit, null, text);
+      }
+
+      // The same markers still work when they actually sit on the number.
+      const stillAbsoluteCases = [
+        { text: 'haluan nostaa painoni 90 kg:aan asti kesäkuuhun', language: 'fi', value: 90 },
+        { text: 'I want to raise my weight to 90 kg by June', language: 'en', value: 90 },
+      ];
+      for (const { text, language, value } of stillAbsoluteCases) {
+        const goal = parseGoalIntent(text, language, { declared: true });
+        assert.ok(goal, `${text} should be a goal`);
+        assert.equal(goal.targetValue, value, `${text} dropped a destination the sentence actually named`);
+      }
+    },
+  },
+  {
     name: 'goalIntent: a goal with a number never leaks into the measurement logger',
     run() {
       // Was swapped to "tavoite rinnanympärys 104 cm" during the

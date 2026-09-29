@@ -72,6 +72,61 @@ module.exports = [
     },
   },
   {
+    // Recheck round, 2026-09-29: a failed erase leaves the pending flag set,
+    // and finishPendingErase used to delete STORAGE_KEY unconditionally
+    // whenever that flag was still up — with no way to tell "the stale
+    // memory the erase was meant to reach" apart from "a legitimate write
+    // that landed afterward". A restore (or reset) whose own erase failed
+    // twice, followed in the same session by the reader chatting with the
+    // coach under the new account, wrote fresh memory that the very next
+    // launch then destroyed.
+    name: 'coach memory store: a legitimate save after a failed erase survives the next load',
+    async run() {
+      const { fake, saveCoachAdviceMemory, clearCoachAdviceMemory, loadCoachAdviceMemory } = load();
+      await saveCoachAdviceMemory([{ takeaway: "old account's tip", at: '2026-09-01T00:00:00.000Z' }]);
+      failRemoveItem(fake, MEMORY_KEY, 2);
+
+      // The old account's erase fails twice and is left pending.
+      await clearCoachAdviceMemory();
+      assert.equal(fake.rows.get(PENDING_KEY), '1', 'the failed erase should mark the pending flag');
+
+      // In the same session, the reader chats with the coach under the new
+      // (post-restore) account, and its answer is saved for real.
+      await saveCoachAdviceMemory([{ takeaway: "new account's real tip", at: '2026-09-02T00:00:00.000Z' }]);
+      assert.equal(fake.rows.has(PENDING_KEY), false, 'a fresh save should clear a pending erase it supersedes');
+
+      // The next launch must load exactly the new account's memory, not [].
+      const loaded = await loadCoachAdviceMemory();
+      assert.deepEqual(
+        loaded.map((entry) => entry.takeaway),
+        ["new account's real tip"],
+        'a finished pending erase destroyed a legitimate write that landed after it was queued',
+      );
+    },
+  },
+  {
+    // The write itself can still fail (e.g. the disk is still full) — in
+    // that case nothing changed, so the pending flag from the earlier erase
+    // must still stand for the next load to finish.
+    name: 'coach memory store: a save that itself fails does not clear a pending erase',
+    async run() {
+      const { fake, saveCoachAdviceMemory, clearCoachAdviceMemory } = load();
+      await saveCoachAdviceMemory([{ takeaway: "old account's tip", at: '2026-09-01T00:00:00.000Z' }]);
+      failRemoveItem(fake, MEMORY_KEY, 2);
+      await clearCoachAdviceMemory();
+      assert.equal(fake.rows.get(PENDING_KEY), '1');
+
+      const originalSetItem = fake.setItem.bind(fake);
+      fake.setItem = async () => {
+        throw new Error('database or disk is full');
+      };
+      await saveCoachAdviceMemory([{ takeaway: "new account's tip", at: '2026-09-02T00:00:00.000Z' }]);
+      fake.setItem = originalSetItem;
+
+      assert.equal(fake.rows.get(PENDING_KEY), '1', 'a failed write must not clear the pending erase it never earned');
+    },
+  },
+  {
     name: 'coach memory store: a load with nothing pending still reads the memory it always did',
     async run() {
       const { saveCoachAdviceMemory, loadCoachAdviceMemory } = load();
