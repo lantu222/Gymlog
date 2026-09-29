@@ -89,6 +89,7 @@ const suites = [
   ...require('./features/workout/repeatLastAfterSwap.test.cjs'),
   ...require('./features/workout/guidedPlayerReliability.test.cjs'),
   ...require('./features/workout/resetClearsHistory.test.cjs'),
+  ...require('./features/workout/setWeightInvariant.test.cjs'),
   ...require('./state/completedWorkoutPersistence.test.cjs'),
   ...require('./state/commitSavesPreferences.test.cjs'),
   ...require('./state/writesWaitForLoad.test.cjs'),
