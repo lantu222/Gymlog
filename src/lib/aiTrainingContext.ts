@@ -922,8 +922,63 @@ function isHistoryLift(value: unknown): value is AICoachHistoryLift {
   return typeof lift.name === 'string' && Array.isArray(lift.weightSeriesKg) && lift.weightSeriesKg.every(isFiniteNumber);
 }
 
-function isHistorySession(value: unknown): value is AICoachHistorySession {
-  return !!value && typeof value === 'object' && typeof (value as Record<string, unknown>).performedAt === 'string';
+/**
+ * A lift row's own scalar fields, sanitised the same way its arrays already
+ * are. `isHistoryLift` above requires only `name` and `weightSeriesKg` to be
+ * well-shaped, so every other field this type promises — `latestReps`,
+ * `stalledSessions`, `spanDays`, `sessions`, the weight fields — reached the
+ * renderer as whatever the client posted. Three of them (`latestReps`,
+ * `stalledSessions`, `spanDays`) are spliced straight into a trajectory line
+ * in aiCoachSystemContext.ts with no guard of their own, so a giant string in
+ * any one of them rendered a line the same size — the exact class of bug this
+ * file's cap on `weightSeriesKg` closed, just on a scalar (recheck round,
+ * 2026-09-29).
+ */
+function normalizeHistoryLiftRow(lift: AICoachHistoryLift): AICoachHistoryLift {
+  const num = (value: unknown, fallback: number): number => (isFiniteNumber(value) ? value : fallback);
+  return {
+    name: clipText(lift.name, MAX_NAME_CHARS),
+    sessions: num(lift.sessions, 0),
+    firstWeightKg: num(lift.firstWeightKg, 0),
+    latestWeightKg: num(lift.latestWeightKg, 0),
+    latestReps: num(lift.latestReps, 0),
+    bestWeightKg: num(lift.bestWeightKg, 0),
+    changeKg: num(lift.changeKg, 0),
+    spanDays: num(lift.spanDays, 0),
+    stalledSessions: num(lift.stalledSessions, 0),
+    weightSeriesKg: lift.weightSeriesKg.slice(-MAX_LIFT_SERIES_POINTS),
+  };
+}
+
+/**
+ * One history session row, repaired the same way a lift row above is.
+ * `isHistorySession` used to require only `performedAt` to be a string, so
+ * `name` — rendered through `singleLine`, which only collapses whitespace and
+ * has no length cap of its own — and the numeric fields spliced straight into
+ * the same line (`durationMinutes`, `setCount`, `exerciseCount`) reached the
+ * renderer as whatever the client posted: the sibling of
+ * `recentCompletedSessions`, which this file already caps and clips, left
+ * uncapped (recheck round, 2026-09-29).
+ */
+function normalizeHistorySessionRow(value: unknown): AICoachHistorySession | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const row = value as Record<string, unknown>;
+  if (typeof row.performedAt !== 'string') {
+    return null;
+  }
+  const num = (v: unknown, fallback: number): number => (isFiniteNumber(v) ? v : fallback);
+  return {
+    sessionId: typeof row.sessionId === 'string' ? row.sessionId.slice(0, MAX_NAME_CHARS) : '',
+    name: typeof row.name === 'string' ? clipText(row.name, MAX_NAME_CHARS) : '',
+    performedAt: row.performedAt.slice(0, MAX_SHORT_TEXT_CHARS),
+    ...(typeof row.day === 'string' ? { day: row.day.slice(0, MAX_SHORT_TEXT_CHARS) } : {}),
+    durationMinutes: isFiniteNumber(row.durationMinutes) ? row.durationMinutes : null,
+    volumeKg: isFiniteNumber(row.volumeKg) ? row.volumeKg : null,
+    setCount: num(row.setCount, 0),
+    exerciseCount: num(row.exerciseCount, 0),
+  };
 }
 
 function isHistoryWeek(value: unknown): value is AICoachHistoryWeek {
@@ -1016,7 +1071,10 @@ function normalizeHistory(input: Partial<AICoachHistory> | null | undefined): AI
   // to catch that runs on the rendered text these arrays feed, so an
   // oversized array is still cheap here and expensive only after it is
   // written out (server audit, 2026-09-29).
-  const sessions = list<unknown>(input.sessions, empty.sessions).filter(isHistorySession).slice(-MAX_HISTORY_SESSIONS);
+  const sessions = list<unknown>(input.sessions, empty.sessions)
+    .map(normalizeHistorySessionRow)
+    .filter((session): session is AICoachHistorySession => session !== null)
+    .slice(-MAX_HISTORY_SESSIONS);
   return {
     windowDays:
       typeof input.windowDays === 'number' && Number.isFinite(input.windowDays) ? input.windowDays : empty.windowDays,
@@ -1034,11 +1092,7 @@ function normalizeHistory(input: Partial<AICoachHistory> | null | undefined): AI
     lifts: list<unknown>(input.lifts, empty.lifts)
       .filter(isHistoryLift)
       .slice(0, MAX_HISTORY_LIFTS)
-      .map((lift) => ({
-        ...lift,
-        name: clipText(lift.name, MAX_NAME_CHARS),
-        weightSeriesKg: lift.weightSeriesKg.slice(-MAX_LIFT_SERIES_POINTS),
-      })),
+      .map(normalizeHistoryLiftRow),
     // Shape-checked and capped row by row — see normalizeRepsLift above — an
     // older app sends none.
     repsLifts: list(input.repsLifts, [])
@@ -1506,11 +1560,13 @@ export function normalizeAiCoachTrainingContext(
   // in this file would ever send (see the MAX_* constants' own comments);
   // where the builder has no cap of its own, it is a small documented one
   // instead (recheck round, 2026-09-29).
-  const boundedList = <T>(value: unknown, normalize: (row: unknown) => T | null, max: number): T[] =>
-    (Array.isArray(value) ? value : [])
-      .slice(0, max)
-      .map(normalize)
-      .filter((row): row is T => row !== null);
+  const boundedList = <T>(value: unknown, normalize: (row: unknown) => T | null, max: number, fromEnd = false): T[] => {
+    const rows = Array.isArray(value) ? value : [];
+    // Which end survives a cut matters for a list the client appends to: the
+    // head is the oldest entry, not a row worth keeping over the newest.
+    const sliced = fromEnd ? rows.slice(-max) : rows.slice(0, max);
+    return sliced.map(normalize).filter((row): row is T => row !== null);
+  };
   const number = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) ? value : 0);
   const fatigueRow = candidate.fatigue && typeof candidate.fatigue === 'object' ? (candidate.fatigue as unknown as Record<string, unknown>) : null;
   const knownFatigueSignal = new Set(['undertrained', 'optimal', 'elevated', 'high']);
@@ -1563,8 +1619,12 @@ export function normalizeAiCoachTrainingContext(
     // goals without the flag, and it keeps sending them until the reader
     // updates. Rather than leaving the list headless, the newest goal — last
     // in the order the client appends them — takes the lead, which is what a
-    // null stored choice resolves to anyway.
-    goals: withPrimaryGoal(boundedList(candidate.goals, normalizeGoal, MAX_GOALS)),
+    // null stored choice resolves to anyway. That only holds if a cut over
+    // the cap drops from the head: sliced from the front, a posted list
+    // longer than MAX_GOALS kept the oldest goals and crowned goal number
+    // MAX_GOALS primary, dropping the true newest one entirely (recheck
+    // round, 2026-09-29).
+    goals: withPrimaryGoal(boundedList(candidate.goals, normalizeGoal, MAX_GOALS, true)),
     profile: normalizeProfile(candidate.profile),
     homeState: normalizeHomeState(candidate.homeState),
     // Re-parsed rather than trusted. This runs on the endpoint, where the

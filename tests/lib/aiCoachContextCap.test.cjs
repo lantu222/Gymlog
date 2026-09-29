@@ -428,6 +428,112 @@ module.exports = [
       assert.deepEqual(normalized.body, context.body);
       assert.deepEqual(normalized.profile, context.profile);
       assert.deepEqual(normalized.history.lifts, context.history.lifts);
+      assert.deepEqual(normalized.history.sessions, context.history.sessions);
+    },
+  },
+  {
+    // `isHistoryLift` only requires `name` and `weightSeriesKg` to be
+    // well-shaped; every other field a lift row carries — `latestReps`,
+    // `stalledSessions`, `spanDays` among them — passed through the old
+    // `{ ...lift, name, weightSeriesKg }` spread untouched. Three of those
+    // are spliced straight into a trajectory line in aiCoachSystemContext.ts
+    // with no guard of their own (recheck round, 2026-09-29).
+    name: 'a single history lift\'s scalar fields are sanitised, not only its weight series',
+    run() {
+      const hugeReps = 'R'.repeat(5_000_000);
+      const hugeStalled = 'S'.repeat(5_000_000);
+      const hugeSpan = 'D'.repeat(5_000_000);
+      const context = {
+        history: {
+          lifts: [
+            {
+              name: 'Bench Press',
+              weightSeriesKg: [80],
+              latestReps: hugeReps,
+              stalledSessions: hugeStalled,
+              spanDays: hugeSpan,
+            },
+          ],
+        },
+      };
+      const normalized = normalizeAiCoachTrainingContext(context);
+      const lift = normalized.history.lifts[0];
+      assert.equal(typeof lift.latestReps, 'number', `latestReps not sanitised: ${typeof lift.latestReps}`);
+      assert.equal(typeof lift.stalledSessions, 'number', `stalledSessions not sanitised: ${typeof lift.stalledSessions}`);
+      assert.equal(typeof lift.spanDays, 'number', `spanDays not sanitised: ${typeof lift.spanDays}`);
+      const text = buildAiCoachContextText(normalized, 'fi');
+      assert.ok(text.length < DEFAULT_BUDGET_LIMITS.maxContextChars, `an oversized lift scalar still rendered ${text.length} chars`);
+
+      // Mutation check (recheck round, 2026-09-29): reverting normalizeHistory's
+      // `lifts.map(normalizeHistoryLiftRow)` back to
+      // `{ ...lift, name: clipText(...), weightSeriesKg: ... }` makes this fail —
+      // latestReps/stalledSessions/spanDays come back as multi-megabyte strings
+      // and the rendered trajectory line runs well past the context cap.
+    },
+  },
+  {
+    // The sibling of `recentCompletedSessions`, which this file already caps
+    // and clips (`normalizeRecentSession`, `clipText` on `title`):
+    // `isHistorySession` only required `performedAt` to be a string, so a
+    // session's `name` (rendered through `singleLine`, which has no length
+    // cap) and the numeric fields spliced straight into the same line
+    // (`durationMinutes`, `setCount`, `exerciseCount`) reached the renderer
+    // as whatever the client posted (recheck round, 2026-09-29).
+    name: 'a single history session\'s name and counts are sanitised, not only how many rows there are',
+    run() {
+      const hugeName = 'N'.repeat(2_000_000);
+      const hugeCount = 'S'.repeat(2_000_000);
+      const context = {
+        history: {
+          sessions: [
+            { performedAt: '2026-01-01T00:00:00.000Z', name: hugeName, setCount: hugeCount, exerciseCount: 1 },
+          ],
+        },
+      };
+      const normalized = normalizeAiCoachTrainingContext(context);
+      const session = normalized.history.sessions[0];
+      assert.ok(session.name.length <= 120, `session name not capped: ${session.name.length}`);
+      assert.equal(typeof session.setCount, 'number', `setCount not sanitised: ${typeof session.setCount}`);
+      const text = buildAiCoachContextText(normalized, 'fi');
+      assert.ok(text.length < DEFAULT_BUDGET_LIMITS.maxContextChars, `an oversized session field still rendered ${text.length} chars`);
+
+      // Mutation check (recheck round, 2026-09-29): reverting normalizeHistory's
+      // `sessions` step back to
+      // `list(input.sessions, empty.sessions).filter(isHistorySession).slice(-MAX_HISTORY_SESSIONS)`
+      // with no per-row normalizer makes this fail — the session name and
+      // setCount come back as multi-megabyte strings.
+    },
+  },
+  {
+    // `boundedList` sliced a posted array from the head before this fix. For
+    // most fields that is fine — the device sorts its own lists so the head
+    // is what matters — but goals are appended in the order the reader states
+    // them, oldest first, and the surrounding comment already says the newest
+    // one (last in that order) should lead. Slicing the head over the cap kept
+    // the oldest goals and crowned an old one primary instead (recheck round,
+    // 2026-09-29).
+    name: 'the newest goal survives an oversized goal list, and stays primary',
+    run() {
+      const goals = Array.from({ length: 25 }, (unused, index) => ({
+        text: `goal ${index}`,
+        kind: `k${index}`,
+        targetValue: 1,
+        unit: 'kg',
+        startValue: 1,
+        currentValue: 1,
+        setAt: `2026-01-${String(index + 1).padStart(2, '0')}`,
+        // No isPrimary posted, the way an app that predates the flag would send.
+      }));
+      const normalized = normalizeAiCoachTrainingContext({ goals });
+      assert.equal(normalized.goals.length, 20, `goals not capped: ${normalized.goals.length}`);
+      const last = normalized.goals[normalized.goals.length - 1];
+      assert.equal(last.text, 'goal 24', 'the true newest goal was dropped in favour of an older one');
+      assert.ok(last.isPrimary, 'the newest goal did not lead');
+
+      // Mutation check (recheck round, 2026-09-29): reverting the `goals`
+      // call back to `boundedList(candidate.goals, normalizeGoal, MAX_GOALS)`
+      // (dropping the trailing `true`) makes this fail — goal 19 leads
+      // instead of goal 24.
     },
   },
 ];
