@@ -7,7 +7,7 @@ import {
   AICoachTrainingContext,
 } from '../types/aiCoach';
 import { AppLanguage } from '../types/models';
-import { renderAiCoachProgramme } from './aiCoachProgramme';
+import { renderAiCoachProgramme, singleLine } from './aiCoachProgramme';
 import { CARDIO_ACTIVITIES } from './cardio';
 import { exerciseNameLabel } from './exerciseNameLabel';
 import { localizeSessionName } from './sessionNameLabel';
@@ -164,10 +164,13 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
   const u = context.unitPreference;
   const blocks: string[] = [];
   // Tolerant: on the endpoint a posted history row may carry no name at all.
+  // singleLine here is what keeps every name this resolves to — a custom
+  // exercise, a custom session, a custom programme's own day name — to one
+  // line wherever it is used below (see singleLine's own comment).
   const liftName = (name: unknown) =>
-    typeof name !== 'string' ? '' : language ? exerciseNameLabel(language, name) : name;
+    typeof name !== 'string' ? '' : singleLine(language ? exerciseNameLabel(language, name) : name);
   const sessionName = (name: unknown) =>
-    typeof name !== 'string' ? '' : language ? localizeSessionName(name, language) : name;
+    typeof name !== 'string' ? '' : singleLine(language ? localizeSessionName(name, language) : name);
   // Cardio counts as a session on Home and in the 30-day figure, and nowhere
   // in the strength blocks. With runs on record, every count says which kind
   // it is — unqualified, "3 sessions" beside "No sessions logged" read as a
@@ -208,8 +211,8 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
 
   // Active session
   if (context.activeSession) {
-    const next = context.activeSession.nextExercise ? ` → ${context.activeSession.nextExercise} next` : '';
-    blocks.push(section('Active session', [`${context.activeSession.title}${next}`])!);
+    const next = context.activeSession.nextExercise ? ` → ${singleLine(context.activeSession.nextExercise)} next` : '';
+    blocks.push(section('Active session', [`${singleLine(context.activeSession.title)}${next}`])!);
   }
 
   const lastSession = context.lastSession ?? null;
@@ -461,7 +464,7 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
     // The flag has to reach the text or it does not exist: the model reads
     // this rendering, not the object.
     const lead = goal.isPrimary ? '[primary] ' : '';
-    return `- ${lead}"${goal.text}"${setAt}${detail}`;
+    return `- ${lead}"${singleLine(goal.text)}"${setAt}${detail}`;
   });
   const goalBlock = section(
     'Goals — stated by the user; tie advice to these. [primary] is the one a general question is answered against',
@@ -512,8 +515,8 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
 
   // Plans
   const planParts: string[] = [];
-  if (context.recommendedProgramTitle) planParts.push(`recommended: ${context.recommendedProgramTitle}`);
-  if (context.customProgramTitle) planParts.push(`custom: ${context.customProgramTitle}`);
+  if (context.recommendedProgramTitle) planParts.push(`recommended: ${singleLine(context.recommendedProgramTitle)}`);
+  if (context.customProgramTitle) planParts.push(`custom: ${singleLine(context.customProgramTitle)}`);
   planParts.push(`${context.readyProgramCount} ready programs available`);
   blocks.push(section('Plans', [planParts.join(' | ')])!);
 
@@ -527,17 +530,17 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
   if (context.plannerSetup) {
     const s = context.plannerSetup;
     const setupParts: string[] = [];
-    if (s.goal) setupParts.push(`goal: ${s.goal}`);
+    if (s.goal) setupParts.push(`goal: ${singleLine(s.goal)}`);
     if (s.daysPerWeek) setupParts.push(`${s.daysPerWeek}d/week`);
-    if (s.experience) setupParts.push(s.experience);
-    if (s.equipment) setupParts.push(s.equipment);
-    if (s.recovery) setupParts.push(`recovery: ${s.recovery}`);
+    if (s.experience) setupParts.push(singleLine(s.experience));
+    if (s.equipment) setupParts.push(singleLine(s.equipment));
+    if (s.recovery) setupParts.push(`recovery: ${singleLine(s.recovery)}`);
 
     const setupLines: string[] = [];
     if (setupParts.length > 0) setupLines.push(setupParts.join(' | '));
-    if (s.mustInclude.length > 0) setupLines.push(`must include: ${s.mustInclude.join(', ')}`);
-    if (s.avoid.length > 0) setupLines.push(`avoid: ${s.avoid.join(', ')}`);
-    if (s.limitations.length > 0) setupLines.push(`limitations: ${s.limitations.join(', ')}`);
+    if (s.mustInclude.length > 0) setupLines.push(`must include: ${s.mustInclude.map(singleLine).join(', ')}`);
+    if (s.avoid.length > 0) setupLines.push(`avoid: ${s.avoid.map(singleLine).join(', ')}`);
+    if (s.limitations.length > 0) setupLines.push(`limitations: ${s.limitations.map(singleLine).join(', ')}`);
 
     const setupBlock = section('Athlete profile', setupLines);
     if (setupBlock) blocks.push(setupBlock);

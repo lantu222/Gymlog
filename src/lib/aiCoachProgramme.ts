@@ -17,6 +17,20 @@ import { AICoachProgramme, AICoachProgrammeDay } from '../types/aiCoach';
  * chance to disagree with the screen.
  */
 
+/**
+ * A reader-authored string (a goal, a custom programme, day or exercise name)
+ * rendered as one line inside the system prompt. Posted straight from the
+ * phone into a payload the endpoint otherwise trusts the shape of, a goal or
+ * a name carrying a blank line and a line starting with `#` opens what reads
+ * to the model as a new section — its own heading, in the middle of the
+ * reader's data. Collapsing every run of whitespace, including newlines, to
+ * one space keeps it what it is: a line of the reader's data, never a
+ * section of instructions.
+ */
+export function singleLine(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
 /** Sessions past this are named but not listed — see MAX_EXERCISES. */
 const MAX_DAYS = 7;
 /**
@@ -93,7 +107,7 @@ export function renderAiCoachProgramme(
   sessionName: (name: string) => string = (name) => name,
 ): string[] {
   const lines = [
-    `${programme.title} (${programme.source === 'ready' ? 'ready-made' : 'the reader authored it'}) | ${programme.daysPerWeek} days per week`,
+    `${singleLine(programme.title)} (${programme.source === 'ready' ? 'ready-made' : 'the reader authored it'}) | ${programme.daysPerWeek} days per week`,
   ];
   for (const day of programme.days) {
     const head = [day.dayLabel, day.name ? sessionName(day.name) : day.name].filter(Boolean).join(' · ');

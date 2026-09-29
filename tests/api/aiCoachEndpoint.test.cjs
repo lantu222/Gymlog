@@ -312,4 +312,18 @@ module.exports = [
       assert.match(source, /MISSING_API_KEY/);
     },
   },
+  {
+    name: 'a failed chat call keeps no answer text, only the error code',
+    run() {
+      // The fallback shown to the reader is built locally from their own
+      // training context (buildAiCoachPreviewAnswer) — the model never said
+      // it. Storing it as `answer` on a kept transcript would write down
+      // context the file elsewhere promises is "never written down on any of
+      // these paths", under a field that reads as something Claude answered.
+      const handler = source.slice(source.indexOf('export default async function handler('));
+      const keptChat = handler.slice(handler.indexOf("kind: 'chat',"), handler.indexOf("kind: 'chat',") + 400);
+      assert.match(keptChat, /answer: result\.ok \? result\.answer : null,/);
+      assert.doesNotMatch(keptChat, /result\.fallback/);
+    },
+  },
 ];

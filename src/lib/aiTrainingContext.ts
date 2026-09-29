@@ -52,6 +52,12 @@ import type { TrainingSchedule } from './trainingSchedule';
  */
 const MAX_HISTORY_SESSIONS = 24;
 const MAX_HISTORY_LIFTS = 10;
+/**
+ * The 56-day default window produces at most eight or nine calendar weeks
+ * (buildWeeks in trainingHistory.ts); this leaves slack above that so a
+ * normal payload always passes through whole.
+ */
+const MAX_HISTORY_WEEKS = 12;
 const MAX_LAST_SESSION_EXERCISES = 12;
 const MAX_LAST_SESSION_SETS = 8;
 /** A cardio line is short, but it is still a line per session. */
@@ -897,7 +903,13 @@ function normalizeHistory(input: Partial<AICoachHistory> | null | undefined): AI
   }
   const empty = emptyAiCoachHistory();
   const list = <T,>(value: unknown, fallback: T[]): T[] => (Array.isArray(value) ? (value as T[]) : fallback);
-  const sessions = list<unknown>(input.sessions, empty.sessions).filter(isHistorySession);
+  // Capped the same way buildHistoryBlock caps the device's own payload
+  // (MAX_HISTORY_SESSIONS / MAX_HISTORY_LIFTS / MAX_HISTORY_WEEKS above): a
+  // posted context is otherwise unbounded, and the size check that is meant
+  // to catch that runs on the rendered text these arrays feed, so an
+  // oversized array is still cheap here and expensive only after it is
+  // written out (server audit, 2026-09-29).
+  const sessions = list<unknown>(input.sessions, empty.sessions).filter(isHistorySession).slice(-MAX_HISTORY_SESSIONS);
   return {
     windowDays:
       typeof input.windowDays === 'number' && Number.isFinite(input.windowDays) ? input.windowDays : empty.windowDays,
@@ -908,11 +920,11 @@ function normalizeHistory(input: Partial<AICoachHistory> | null | undefined): AI
     totalVolumeKg:
       typeof input.totalVolumeKg === 'number' && Number.isFinite(input.totalVolumeKg) ? input.totalVolumeKg : 0,
     sessions,
-    lifts: list<unknown>(input.lifts, empty.lifts).filter(isHistoryLift),
+    lifts: list<unknown>(input.lifts, empty.lifts).filter(isHistoryLift).slice(0, MAX_HISTORY_LIFTS),
     // Shape-checked entry by entry where it is rendered (readRepsLifts); an
     // older app sends none.
-    repsLifts: list(input.repsLifts, []),
-    weeks: list<unknown>(input.weeks, empty.weeks).filter(isHistoryWeek),
+    repsLifts: list(input.repsLifts, []).slice(0, MAX_HISTORY_LIFTS),
+    weeks: list<unknown>(input.weeks, empty.weeks).filter(isHistoryWeek).slice(-MAX_HISTORY_WEEKS),
     schedule: normalizeHistorySchedule(input.schedule),
     truncated: input.truncated === true,
     // An older app sends a history with no confidence in it. Falling back to

@@ -1459,7 +1459,10 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   const result = await requestClaude(input);
   // The question and its answer, kept only for a reader who allowed it, and
   // only for a question the model saw. The training context is never written
-  // down on any of these paths.
+  // down on any of these paths — and on a failed call the "answer" is the
+  // preview fallback built locally from that same context, never something
+  // the model said, so an error path keeps the code and nothing the reader
+  // would recognise as an answer.
   if (!refusedBeforeModel(result)) {
     await keepTranscript(input.keepConsent, input.logId, {
       kind: 'chat',
@@ -1468,7 +1471,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       durationMs: Date.now() - startedAt,
       prompt: input.prompt,
       source: result.ok ? result.source : `error:${result.error.code}`,
-      answer: result.ok ? result.answer : result.fallback ?? null,
+      answer: result.ok ? result.answer : null,
     });
   }
   if (result.ok) {
