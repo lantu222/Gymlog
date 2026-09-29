@@ -465,6 +465,21 @@ module.exports = [
      * — judging it as the squat it was — refused the save. The sheet asks the
      * reducer's rule, liftOfSet.
      */
+    /**
+     * The swap sheet's library heading claimed "All exercises" even once a
+     * browse chip had narrowed the list to one body part — a completeness
+     * the row no longer had (break round 2026-09-29). Selecting a chip other
+     * than "all" swaps the heading for the chip's own label.
+     */
+    name: 'guided swap: the library heading names the chip once one narrows the list',
+    run() {
+      assert.match(
+        playerSource,
+        /swapBrowseOpen && swapBodyPartFilter !== 'all'\s*\?\s*libraryLabel\(swapBodyPartFilter, language\)\s*:\s*t\(language, 'guided\.swap\.library'\)/,
+      );
+    },
+  },
+  {
     name: 'guided swap: a logged set is corrected as the lift it was logged as',
     run() {
       const source = playerSource.replace(/\r\n/g, '\n');

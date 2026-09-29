@@ -4267,6 +4267,9 @@ function GuidedPlayer({
               exerciseBrowseFilter.ts) rather than a second copy of either.
             */}
             {!swapBrowseOpen ? (
+              // minHeight takes the link itself to 44 (accessibility audit,
+              // 2026-09-21 pattern) — a single row, not a scrolling rail, so
+              // there is no sibling padding to hold a hitSlop instead.
               <Pressable
                 accessibilityRole="button"
                 onPress={() => {
@@ -4291,6 +4294,11 @@ function GuidedPlayer({
                       key={option}
                       accessibilityRole="button"
                       accessibilityState={{ selected }}
+                      // 34 drawn, 44 to the thumb — the row's own vertical
+                      // padding holds the slop, the same as CatalogScreen's
+                      // and ExerciseLibraryBrowser's chip rails (accessibility
+                      // audit, 2026-09-21; Android clips a slop to its parent).
+                      hitSlop={{ top: 5, bottom: 5 }}
                       onPress={() => setSwapBodyPartFilter(option)}
                       style={[styles.swapBrowseChip, selected && styles.swapBrowseChipActive]}
                     >
@@ -4303,7 +4311,17 @@ function GuidedPlayer({
               </ScrollView>
             )}
 
-            <Text style={styles.swapSectionLabel}>{t(language, 'guided.swap.library')}</Text>
+            {/*
+              "All exercises" over a list a chip just narrowed to one body
+              part claimed a completeness the row no longer had (break round
+              2026-09-29). The chip's own label replaces it while one is
+              picked; "guided.swap.library" is only the unfiltered heading.
+            */}
+            <Text style={styles.swapSectionLabel}>
+              {swapBrowseOpen && swapBodyPartFilter !== 'all'
+                ? libraryLabel(swapBodyPartFilter, language)
+                : t(language, 'guided.swap.library')}
+            </Text>
             {swapLibrary.length > 0 ? (
               <View style={{ gap: 10 }}>
                 {swapLibrary.map((item) => (
@@ -6168,16 +6186,20 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   swapBrowseToggle: {
     marginTop: 4,
-    paddingVertical: 6,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   swapBrowseToggleText: {
     color: theme.purple,
     fontSize: 13,
     fontWeight: '800',
   },
+  // 5 above and below, not 4: the chips' 5 of hitSlop needs to sit inside
+  // this row, or Android clips the slop to it (accessibility audit,
+  // 2026-09-21 pattern).
   swapBrowseChipRow: {
     gap: 8,
-    paddingBottom: 4,
+    paddingVertical: 5,
   },
   swapBrowseChip: {
     minHeight: 34,

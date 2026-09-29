@@ -152,6 +152,15 @@ const SEARCH_PHRASE_ALIASES: ReadonlyArray<readonly [phrase: string, target: str
 ];
 
 /**
+ * A stand-in for the space inside a phrase-alias target, so the target's
+ * words survive `applyPhraseAliases`'s output being split on `' '` into
+ * per-term pieces further down. Never typed by a reader and never produced
+ * by `normalizeSearchText` (which only ever emits plain spaces), so it
+ * cannot collide with a real query.
+ */
+const PHRASE_JOIN = '\u0000';
+
+/**
  * The query with every known phrase swapped for the word the library
  * carries, applied before the per-term aliasing below (and before the query
  * is split into terms) so a two-word gym phrase is one hit instead of two
@@ -165,12 +174,26 @@ const SEARCH_PHRASE_ALIASES: ReadonlyArray<readonly [phrase: string, target: str
  * (review of #bugs 2026-09-29). A boundary check leaves an un-listed
  * inflected form as plain, unaliased text instead of a corrupted one; the
  * inflected forms this app has actually seen are their own entries above.
+ *
+ * The target's own words are joined with `PHRASE_JOIN`, not a space: "jalan
+ * ojennus" → "leg extension" used to become the two independent terms "leg"
+ * and "extension" once split, and "extension" alone is a substring of
+ * "Reverse Hyperextension" (bodyPart "legs" supplied the other term) — a
+ * lift the phrase never meant to reach showed up for it (#bugs 2026-09-29,
+ * caught reviewing the case-ending fix above). Kept as one token, the target
+ * can only match where "leg extension" sits together as a phrase.
  */
 function applyPhraseAliases(normalizedQuery: string): string {
   return SEARCH_PHRASE_ALIASES.reduce((text, [phrase, target]) => {
     const boundary = new RegExp(`\\b${phrase.replace(/ /g, '\\s+')}\\b`, 'g');
-    return boundary.test(text) ? text.replace(boundary, target) : text;
+    const joinedTarget = target.split(' ').join(PHRASE_JOIN);
+    return boundary.test(text) ? text.replace(boundary, joinedTarget) : text;
   }, normalizedQuery);
+}
+
+/** A phrase-alias token's words, back to a plain space; a no-op on anything else. */
+function dephrase(term: string): string {
+  return term.split(PHRASE_JOIN).join(' ');
 }
 
 /** A term and the words it also stands for. */
@@ -191,7 +214,10 @@ function termVariants(term: string): string[] {
 export function exerciseMatchesQuery(haystack: string, query: string): boolean {
   const hay = normalizeSearchText(haystack);
   const terms = applyPhraseAliases(normalizeSearchText(query)).split(' ').filter(Boolean);
-  return terms.every((term) => termVariants(term).some((variant) => hay.includes(variant)));
+  // dephrase: a phrase-alias term ("leg[JOIN]extension") must be found as
+  // the whole phrase "leg extension", never as its words "leg" and
+  // "extension" checked apart — see applyPhraseAliases above.
+  return terms.every((term) => termVariants(term).some((variant) => hay.includes(dephrase(variant))));
 }
 
 /**
@@ -255,7 +281,8 @@ function queryVariants(normalized: string): string[] {
     .split(' ')
     .filter(Boolean)
     .reduce<string[]>(
-      (variants, term) => variants.flatMap((head) => termVariants(term).map((variant) => (head ? `${head} ${variant}` : variant))),
+      (variants, term) =>
+        variants.flatMap((head) => termVariants(term).map(dephrase).map((variant) => (head ? `${head} ${variant}` : variant))),
       [''],
     );
 }

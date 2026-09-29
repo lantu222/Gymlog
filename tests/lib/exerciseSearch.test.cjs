@@ -143,4 +143,34 @@ module.exports = [
       assert.ok(search('jalan ojennus').some((item) => /leg extension/i.test(item.name)));
     },
   },
+  {
+    name:
+      'a phrase alias matches its target as a whole phrase, not two words checked apart ("Reverse Hyperextension" review, #bugs 2026-09-29)',
+    run() {
+      // "jalan ojennus" aliases to "leg extension", but the per-term matcher
+      // used to check "leg" and "extension" separately once the alias text
+      // was split on the space — and "extension" alone is a substring of
+      // "Reverse Hyperextension", with bodyPart "legs" supplying the other
+      // term. None of these phrasings mean that lift.
+      const extensionPhrasings = [
+        'jalan ojennus',
+        'jalan ojennusta',
+        'polven ojennus',
+        'polven ojennuksesta',
+        'quad extension',
+      ];
+      for (const phrasing of extensionPhrasings) {
+        const names = search(phrasing).map((item) => item.name);
+        assert.ok(!names.some((name) => /hyperextension|back extension/i.test(name)), `"${phrasing}" wrongly found: ${names.join(', ')}`);
+        // Still finds the lift it is meant to.
+        assert.ok(names.some((name) => /leg extension/i.test(name)), `"${phrasing}" found nothing for Leg Extension`);
+      }
+
+      const curlPhrasings = ['jalan koukistus', 'jalan koukistusta', 'hamstring curl'];
+      for (const phrasing of curlPhrasings) {
+        const names = search(phrasing).map((item) => item.name);
+        assert.ok(names.every((name) => /leg curl|hamstring curl/i.test(name)), `"${phrasing}" found an unrelated lift: ${names.join(', ')}`);
+      }
+    },
+  },
 ];
