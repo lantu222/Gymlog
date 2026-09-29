@@ -53,9 +53,12 @@ module.exports = [
         /\{pauseSheetOpen && \(\s*<GPSheet\s*onClose=\{\(\) => \{\s*setPauseSheetOpen\(false\);\s*unpause\(\);/,
         'closing the actions sheet resumes',
       );
+      // Updated 2026-09-29 (#bugs, swap sheet v2): the close handler now also
+      // resets the sheet's browse-all state (setSwapBrowseOpen/setSwapBodyPartFilter)
+      // between the query reset and unpause — still one path out, unpause still last.
       assert.match(
         player,
-        /\{swapOpen && actionExercise && \(\s*<GPSheet\s*onClose=\{\(\) => \{\s*setSwapOpen\(false\);\s*setSwapQuery\(''\);\s*unpause\(\);/,
+        /\{swapOpen && actionExercise && \(\s*<GPSheet\s*onClose=\{\(\) => \{\s*setSwapOpen\(false\);\s*setSwapQuery\(''\);\s*setSwapBrowseOpen\(false\);\s*setSwapBodyPartFilter\('all'\);\s*unpause\(\);/,
         'closing the swap sheet resumes',
       );
       const applySwap = player.slice(player.indexOf('const applySwap = ('), player.indexOf('const resyncTargetRef'));

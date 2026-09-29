@@ -209,6 +209,12 @@ module.exports = [
       const library = read('src', 'components', 'ExerciseLibraryBrowser.tsx');
       assert.match(library, /hitSlop=\{\{ top: 5, bottom: 5 \}\}\s*onPress=\{\(\) => setBodyPartFilter/);
       assert.match(library, /categoryRail: \{[^}]*paddingBottom: 5,/);
+      // The swap sheet's own browse toggle and body-part chips (new,
+      // break round 2026-09-29): the toggle reaches 44 by minHeight, the
+      // chip rail by the same hitSlop + padded-row pattern as above.
+      assert.match(player, /swapBrowseToggle: \{[^}]*minHeight: 44,/);
+      assert.match(player, /hitSlop=\{\{ top: 5, bottom: 5 \}\}\s*onPress=\{\(\) => setSwapBodyPartFilter\(option\)\}/);
+      assert.match(player, /swapBrowseChipRow: \{[^}]*paddingVertical: 5,/);
     },
   },
   {

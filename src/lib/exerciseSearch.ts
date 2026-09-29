@@ -108,7 +108,93 @@ const SEARCH_ALIASES: Record<string, readonly string[]> = {
   // The stem, not the word: alaote / alaotteella differ in the consonant.
   vastaote: ['alaot'],
   vastaotteella: ['alaot'],
+  // "Jalankoukistus ja ojennus ei löydy" (#bugs 2026-09-29): the gym's one
+  // compound word for these two machines, where the library's own English
+  // name — carried in the haystack alongside the Finnish label — is the
+  // target, so the match holds whichever language the reader is in.
+  jalankoukistus: ['leg curl'],
+  jalkakoukistus: ['leg curl'],
+  jalanojennus: ['leg extension'],
+  jalkaojennus: ['leg extension'],
+  polvenojennus: ['leg extension'],
 };
+
+/**
+ * Gym phrases that split into two words the library's name does not carry
+ * either half of on its own — "jalan ojennus" (#bugs 2026-09-29) has no
+ * "jalka" anywhere near "Leg Extension" or "Reiden ojennus", so aliasing only
+ * "ojennus" would still leave "jalan" unmatched and the whole query would
+ * fail (every term must land). Replaced as a phrase, before the query is
+ * split into terms, so the two words resolve together to the one the
+ * library uses.
+ *
+ * The English forms ("hamstring curl", "quad extension") are gym words too —
+ * a reader who trained abroad or read them off a machine plaque types the
+ * muscle, not the library's "leg". Kept to phrases that would otherwise miss
+ * entirely; a single English word like "curl" or "extension" already lands
+ * on its own.
+ *
+ * The partitive/elative forms ("jalan ojennusta", "jalan koukistusta",
+ * "polven ojennuksesta") are their own entries rather than a suffix the code
+ * strips: Finnish case endings sometimes change the stem itself
+ * ("ojennus" → "ojennukse-" before "-sta"), so there is no fixed suffix to
+ * peel off. Listed exactly like "leuka"/"leuat" above.
+ */
+const SEARCH_PHRASE_ALIASES: ReadonlyArray<readonly [phrase: string, target: string]> = [
+  ['jalan koukistus', 'leg curl'],
+  ['jalan koukistusta', 'leg curl'],
+  ['jalan ojennus', 'leg extension'],
+  ['jalan ojennusta', 'leg extension'],
+  ['polven ojennus', 'leg extension'],
+  ['polven ojennuksesta', 'leg extension'],
+  ['hamstring curl', 'leg curl'],
+  ['quad extension', 'leg extension'],
+];
+
+/**
+ * A stand-in for the space inside a phrase-alias target, so the target's
+ * words survive `applyPhraseAliases`'s output being split on `' '` into
+ * per-term pieces further down. Never typed by a reader and never produced
+ * by `normalizeSearchText` (which only ever emits plain spaces), so it
+ * cannot collide with a real query.
+ */
+const PHRASE_JOIN = '\u0000';
+
+/**
+ * The query with every known phrase swapped for the word the library
+ * carries, applied before the per-term aliasing below (and before the query
+ * is split into terms) so a two-word gym phrase is one hit instead of two
+ * separate ones that both have to land.
+ *
+ * Matched on a word boundary, not a bare substring: "jalan ojennus" sits
+ * inside "jalan ojennusta" (the partitive case) with no space, and the old
+ * `text.split(phrase).join(target)` glued the target straight onto that
+ * leftover "ta", turning the query into "leg extensionta" — a term that then
+ * failed to match anything and made the whole search come back empty
+ * (review of #bugs 2026-09-29). A boundary check leaves an un-listed
+ * inflected form as plain, unaliased text instead of a corrupted one; the
+ * inflected forms this app has actually seen are their own entries above.
+ *
+ * The target's own words are joined with `PHRASE_JOIN`, not a space: "jalan
+ * ojennus" → "leg extension" used to become the two independent terms "leg"
+ * and "extension" once split, and "extension" alone is a substring of
+ * "Reverse Hyperextension" (bodyPart "legs" supplied the other term) — a
+ * lift the phrase never meant to reach showed up for it (#bugs 2026-09-29,
+ * caught reviewing the case-ending fix above). Kept as one token, the target
+ * can only match where "leg extension" sits together as a phrase.
+ */
+function applyPhraseAliases(normalizedQuery: string): string {
+  return SEARCH_PHRASE_ALIASES.reduce((text, [phrase, target]) => {
+    const boundary = new RegExp(`\\b${phrase.replace(/ /g, '\\s+')}\\b`, 'g');
+    const joinedTarget = target.split(' ').join(PHRASE_JOIN);
+    return boundary.test(text) ? text.replace(boundary, joinedTarget) : text;
+  }, normalizedQuery);
+}
+
+/** A phrase-alias token's words, back to a plain space; a no-op on anything else. */
+function dephrase(term: string): string {
+  return term.split(PHRASE_JOIN).join(' ');
+}
 
 /** A term and the words it also stands for. */
 function termVariants(term: string): string[] {
@@ -127,8 +213,11 @@ function termVariants(term: string): string[] {
  */
 export function exerciseMatchesQuery(haystack: string, query: string): boolean {
   const hay = normalizeSearchText(haystack);
-  const terms = normalizeSearchText(query).split(' ').filter(Boolean);
-  return terms.every((term) => termVariants(term).some((variant) => hay.includes(variant)));
+  const terms = applyPhraseAliases(normalizeSearchText(query)).split(' ').filter(Boolean);
+  // dephrase: a phrase-alias term ("leg[JOIN]extension") must be found as
+  // the whole phrase "leg extension", never as its words "leg" and
+  // "extension" checked apart — see applyPhraseAliases above.
+  return terms.every((term) => termVariants(term).some((variant) => hay.includes(dephrase(variant))));
 }
 
 /**
@@ -148,7 +237,7 @@ export function rankExerciseMatch(
   query: string,
   language: AppLanguage,
 ): number {
-  const normalized = normalizeSearchText(query);
+  const normalized = applyPhraseAliases(normalizeSearchText(query));
   if (!normalized) {
     return 0;
   }
@@ -192,7 +281,8 @@ function queryVariants(normalized: string): string[] {
     .split(' ')
     .filter(Boolean)
     .reduce<string[]>(
-      (variants, term) => variants.flatMap((head) => termVariants(term).map((variant) => (head ? `${head} ${variant}` : variant))),
+      (variants, term) =>
+        variants.flatMap((head) => termVariants(term).map(dephrase).map((variant) => (head ? `${head} ${variant}` : variant))),
       [''],
     );
 }
