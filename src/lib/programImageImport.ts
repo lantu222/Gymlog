@@ -85,6 +85,7 @@ export const PROGRAM_TABLE_RULES = [
   'Return one row per exercise, in the order they appear in the image.',
   'Copy exercise names EXACTLY as written, in the original language. Never translate, expand an abbreviation, or correct a spelling — the reader has their own names for lifts and the app resolves them separately.',
   'A day label written once against a block of rows belongs to every row in that block: repeat it.',
+  'A tag beside an exercise that names its role (ANCHOR, SUPPORT, EXTRA, ANKKURI, TUKI, LISÄ, or similar) is not a day label. If the image shows no day label at all, use "Day 1" for every row.',
   'If a row has no sets or no reps, leave it out rather than inventing a number.',
   'Ignore columns you were not asked for (rest time, weight, last time, notes) and any row that is a heading or a total.',
   'If the image is not a training programme, return an empty rows array.',

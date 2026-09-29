@@ -517,7 +517,16 @@ export function NewProgramSheet({
                     <Text style={styles.sampleLink}>
                       {readingImage ? t(language, 'csv.photo.reading') : t(language, 'csv.photo.cta')}
                     </Text>
-                    {photoLocked ? <ProPill /> : null}
+                    {/* Beta, said once (user 2026-09-29): one photo is one
+                        read, and a name or a row can still come back wrong.
+                        A locked link carries the Pro pill instead, not both. */}
+                    {photoLocked ? (
+                      <ProPill />
+                    ) : (
+                      <View style={styles.betaPill}>
+                        <Text style={styles.betaPillText}>{t(language, 'csv.photo.beta')}</Text>
+                      </View>
+                    )}
                   </Pressable>
                 ) : null}
               </View>
@@ -602,8 +611,12 @@ export function NewProgramSheet({
                         <Text style={[styles.previewHeaderCell, styles.previewName]}>
                           {t(language, 'csv.col.exercise')}
                         </Text>
-                        <Text style={[styles.previewHeaderCell, styles.previewSets]}>{t(language, 'csv.col.sets')}</Text>
-                        <Text style={[styles.previewHeaderCell, styles.previewReps]}>{t(language, 'csv.col.reps')}</Text>
+                        <Text style={[styles.previewHeaderCell, styles.previewSets]} numberOfLines={1}>
+                          {t(language, 'csv.col.sets')}
+                        </Text>
+                        <Text style={[styles.previewHeaderCell, styles.previewReps]} numberOfLines={1}>
+                          {t(language, 'csv.col.reps')}
+                        </Text>
                       </View>
                       {preview.rows.map((row, index) => {
                         const teachable = !row.matchedName && Boolean(onTeachName);
@@ -627,7 +640,7 @@ export function NewProgramSheet({
                           </Text>
                           <View style={styles.previewName}>
                             <Text style={[styles.previewCellName, !row.matchedName && styles.previewCellNameUnmatched]} numberOfLines={1}>
-                              {row.matchedName ?? row.exerciseName}
+                              {row.matchedName ? exerciseNameLabel(language, row.matchedName) : row.exerciseName}
                             </Text>
                             {row.viaNameBook ? (
                               // Say which of the two happened. "We guessed" and
@@ -642,7 +655,7 @@ export function NewProgramSheet({
                                 {teachable
                                   ? t(language, 'csv.teach.prompt')
                                   : row.suggestion
-                                    ? t(language, 'csv.didYouMean', { name: row.suggestion })
+                                    ? t(language, 'csv.didYouMean', { name: exerciseNameLabel(language, row.suggestion) })
                                     : t(language, 'csv.willSkip')}
                               </Text>
                             ) : null}
@@ -902,6 +915,20 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
+  // Outlined and muted: violet fill is Pro's, and this is a caveat, not a tier.
+  betaPill: {
+    borderWidth: 1,
+    borderColor: theme.muted,
+    borderRadius: 6,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+  },
+  betaPillText: {
+    color: theme.muted,
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
   resultBanner: {
     borderRadius: 13,
     borderWidth: 1,
@@ -966,12 +993,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   previewName: {
     flex: 1,
   },
+  // Wide enough for the Finnish headers on one line: "SARJAT" and "TOISTOT"
+  // broke mid-word at 34 and 52 (#bugs 2026-09-29).
   previewSets: {
-    width: 34,
+    width: 58,
     textAlign: 'center',
   },
   previewReps: {
-    width: 52,
+    width: 64,
     textAlign: 'right',
   },
   previewCellDay: {

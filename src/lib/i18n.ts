@@ -2870,6 +2870,7 @@ const EN = {
   'csv.catalogA11y': 'Browse all ready programs',
   'csv.aiLockedA11y': 'AI-assisted, a Pro feature — opens Pro',
   'csv.photo.lockedA11y': 'Read from a photo, a Pro feature — opens Pro',
+  'csv.photo.beta': 'BETA',
   'csv.aiUnlock': 'Unlock this feature in Pro',
   // The Learn rail, moved out of the library and onto the tab: the library is
   // 876 rows, a course is an order.
@@ -5908,6 +5909,7 @@ const FI: Record<I18nKey, string> = {
   'csv.catalogA11y': 'Selaa kaikkia valmiita ohjelmia',
   'csv.aiLockedA11y': 'Tekoälyavusteinen, Pro-ominaisuus — avaa Pron',
   'csv.photo.lockedA11y': 'Lue kuvasta, Pro-ominaisuus — avaa Pron',
+  'csv.photo.beta': 'BETA',
   'csv.aiUnlock': 'Avaa tämä ominaisuus Prolla',
   // Learn-kisko, siirretty kirjastosta välilehdelle: kirjasto on 876 riviä,
   // kurssi on järjestys.

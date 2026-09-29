@@ -203,7 +203,8 @@ module.exports = [
         /if \(photoLocked\) \{\s*handleClose\(\);\s*onOpenPaywall\?\.\(\);\s*return;\s*\}\s*void handlePickImage\(\);/,
         'a locked link opens Pro instead of the picker',
       );
-      assert.match(sheet, /\{photoLocked \? <ProPill \/> : null\}/);
+      // Since the beta badge (2026-09-29) the unlocked side carries that pill.
+      assert.match(sheet, /\{photoLocked \? \(\s*<ProPill \/>/);
 
       // The sheet defaults proUnlocked to true, so the paid call checks the
       // entitlement itself before anything else, notice included.
@@ -219,6 +220,23 @@ module.exports = [
       const settingsProps = settings.slice(0, settings.indexOf('/>'));
       assert.match(settingsProps, /proUnlocked=\{resolveProEntitlement\(preferences\)\.unlocked\}/);
       assert.match(settingsProps, /onOpenPaywall=\{/);
+    },
+  },
+  {
+    name: 'the photo link says beta, and the preview shows names in the reader\'s language',
+    run() {
+      // #bugs 2026-09-29: the user asked for a beta badge rather than polish;
+      // the preview printed the stored English name of a lift the reader had
+      // written in Finnish; SARJAT and TOISTOT broke mid-word.
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const sheet = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'components', 'NewProgramSheet.tsx'), 'utf8');
+      assert.match(sheet, /\{photoLocked \? \(\s*<ProPill \/>\s*\) : \(\s*<View style=\{styles\.betaPill\}>/);
+      assert.match(sheet, /row\.matchedName \? exerciseNameLabel\(language, row\.matchedName\) : row\.exerciseName/);
+      assert.doesNotMatch(sheet, /\{row\.matchedName \?\? row\.exerciseName\}/);
+      const width = (name) => Number(sheet.match(new RegExp(`${name}: \\{\\s*width: (\\d+)`))[1]);
+      assert.ok(width('previewSets') >= 56, 'SARJAT fits on one line');
+      assert.ok(width('previewReps') >= 62, 'TOISTOT fits on one line');
     },
   },
 ];

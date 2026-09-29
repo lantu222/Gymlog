@@ -1,6 +1,7 @@
 import type { AppLanguage, ExerciseNameBookEntry, WorkoutTemplateDraft } from '../types/models';
 import { collapseCellWhitespace, splitCsvRecords } from './csvRecords';
 import { lookupNameBook } from './exerciseNameBook';
+import { PLAIN_EXERCISE_NAMES, TRANSLATED_EXERCISE_NAMES } from './exerciseNameLabel';
 import { t } from './i18n';
 
 /**
@@ -143,6 +144,66 @@ function tokenOverlapScore(left: string, right: string) {
   return shared / Math.max(leftTokens.size, rightTokens.size);
 }
 
+/**
+ * A name as the app itself shows it, folded for lookup. `normalizeName` keeps
+ * only a-z, so "Hauiskääntö" and "Hauiskaanto" would both lose letters there;
+ * the app's own labels are matched on their exact spelling instead.
+ */
+function foldLabel(value: string) {
+  return value.normalize('NFC').toLocaleLowerCase('fi').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Every label the app displays for a lift, back to the stored English names
+ * it stands for. A reader who writes, or photographs, the programme the way
+ * the app shows it — "Istuen taljasoutu" — got "0 recognised" for names the
+ * app had printed itself (#bugs 2026-09-29). Several stored names can share
+ * one label ("Seated Cable Row" and "Seated Cable Rows"), so each keeps all.
+ */
+const LABEL_TO_STORED_NAMES: ReadonlyMap<string, readonly string[]> = (() => {
+  const map = new Map<string, string[]>();
+  for (const labels of [TRANSLATED_EXERCISE_NAMES, PLAIN_EXERCISE_NAMES]) {
+    for (const [stored, label] of Object.entries(labels)) {
+      const key = foldLabel(label);
+      const names = map.get(key) ?? [];
+      if (!names.includes(stored)) {
+        names.push(stored);
+      }
+      map.set(key, names);
+    }
+  }
+  return map;
+})();
+
+function matchAppLabel(rawName: string, library: CsvLibraryEntry[]): CsvLibraryEntry | null {
+  const storedNames = LABEL_TO_STORED_NAMES.get(foldLabel(rawName));
+  if (!storedNames) {
+    return null;
+  }
+  // The first stored name the library actually has, in the order the label
+  // table lists them — the table puts the canonical lift first.
+  for (const stored of storedNames) {
+    const key = normalizeName(stored);
+    const entry = library.find((candidate) => normalizeName(candidate.name) === key);
+    if (entry) {
+      return entry;
+    }
+  }
+  return null;
+}
+
+/**
+ * The words the app prints beside a lift for its role in the day. A photo of
+ * the app's own programme screen put "TUKI" in the day column of every row,
+ * and the import made a day called TUKI (#bugs 2026-09-29). A role is not a
+ * day: the row keeps the day above it, or the first day when there is none.
+ */
+const ROLE_WORDS = new Set(['anchor', 'support', 'extra', 'accessory', 'ankkuri', 'tuki', 'lisä', 'lisa']);
+
+function isRoleWord(value: string) {
+  return ROLE_WORDS.has(foldLabel(value));
+}
+
 function matchExercise(
   rawName: string,
   library: CsvLibraryEntry[],
@@ -170,6 +231,18 @@ function matchExercise(
   }
 
   const compact = normalized.replace(/ /g, '');
+
+  // The app's own name for the lift, in either language, before guessing —
+  // but after a library name written out exactly, which is never a label for
+  // some other lift.
+  const exact = library.some((entry) => {
+    const entryNormalized = normalizeName(entry.name);
+    return entryNormalized === normalized || entryNormalized.replace(/ /g, '') === compact;
+  });
+  const labelled = exact ? null : matchAppLabel(rawName, library);
+  if (labelled) {
+    return { matchedName: labelled.name, libraryItemId: labelled.id, suggestion: null, viaNameBook: false };
+  }
 
   const containsMatches: CsvLibraryEntry[] = [];
   let bestOverlap: { entry: CsvLibraryEntry; score: number } | null = null;
@@ -260,12 +333,14 @@ export function parseCsvProgram(
   const rows: CsvProgramRow[] = [];
   const seenDayKeys = new Set<string>();
   const skippedDayKeys = new Set<string>();
+  let lastDay: string | null = null;
   for (let index = 1; index < lines.length; index += 1) {
     const cells = splitCsvLine(lines[index], delimiter);
     // Collapsed, not just trimmed: a quoted cell can carry the line break it
     // was wrapped with (Alt+Enter, or a photographed cell copied verbatim),
     // and that wrap is not part of the name.
-    const day = collapseCellWhitespace(cells[dayIndex] ?? '');
+    const writtenDay = collapseCellWhitespace(cells[dayIndex] ?? '');
+    const day: string = isRoleWord(writtenDay) ? lastDay ?? t(language, 'tpl.day', { index: 1 }) : writtenDay;
     const exerciseName = collapseCellWhitespace(cells[exerciseIndex] ?? '');
     // A whole number, all of it. parseInt read "2,5" as 2 and "3-4" as 3 and
     // reported nothing (decimal audit, 2026-09-21); a count of sets that is
@@ -298,6 +373,7 @@ export function parseCsvProgram(
       }
       seenDayKeys.add(dayKey);
     }
+    lastDay = day;
 
     rows.push({
       day,
