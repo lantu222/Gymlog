@@ -227,4 +227,90 @@ module.exports = [
       assert.equal(plural.rows[0].matchedName, null);
     },
   },
+  {
+    name: 'a name written the way the app shows it, in Finnish, is the lift it names',
+    run() {
+      // #bugs 2026-09-29: a photo of the app's own programme came back as
+      // four rows, 0 recognised, though every name was the app's own label.
+      const library = [
+        { id: 'lib_cable_row', name: 'Seated Cable Row' },
+        { id: 'lib_kneeling_row', name: 'Kneeling Single-Arm High Pulley Row' },
+        { id: 'lib_curl', name: 'Barbell Curl' },
+        { id: 'lib_reverse_curl', name: 'Reverse Cable Curl' },
+      ];
+      const csv = [
+        'Day,Exercise,Sets,Reps',
+        'Päivä 1,Istuen taljasoutu,3,10',
+        'Päivä 1,Polvillaan yhden käden soutu ylätaljasta,3,12',
+        'Päivä 1,hauiskääntö  TANGOLLA,3,8',
+        'Päivä 1,Käänteinen hauiskääntö taljassa,3,12',
+      ].join('\n');
+      const preview = parseCsvProgram(csv, library, [], 'fi');
+      assert.equal(preview.matchedCount, 4);
+      assert.deepEqual(
+        preview.rows.map((row) => row.libraryItemId),
+        ['lib_cable_row', 'lib_kneeling_row', 'lib_curl', 'lib_reverse_curl'],
+      );
+      assert.equal(preview.rows[0].matchedName, 'Seated Cable Row', 'stored under the English id, shown through the label');
+    },
+  },
+  {
+    name: 'a Finnish label shared by two different lifts in the real library resolves to the right one',
+    run() {
+      // Muscle Snatch was labelled Voimatempaus, Power Snatch's name, and
+      // came first in the table: a written "Voimatempaus" would have imported
+      // as the wrong lift, silently (review of the 2026-09-29 fix).
+      const { GENERATED_EXERCISE_LIBRARY } = require('../../.test-dist/data/generatedExerciseLibrary.js');
+      const library = GENERATED_EXERCISE_LIBRARY.map((item) => ({ id: item.id, name: item.name }));
+      const preview = parseCsvProgram('Day,Exercise,Sets,Reps\nPäivä 1,Voimatempaus,5,3', library, [], 'fi');
+      assert.equal(preview.rows[0].matchedName, 'Power Snatch');
+    },
+  },
+  {
+    name: "a library name written out exactly is never read as another lift's label",
+    run() {
+      // "Machine Chest Press" is the plain label the app shows for Leverage
+      // Chest Press. A library with a Machine Chest Press of its own keeps it.
+      const library = [
+        { id: 'lib_leverage', name: 'Leverage Chest Press' },
+        { id: 'lib_machine', name: 'Machine Chest Press' },
+      ];
+      const csv = 'Day,Exercise,Sets,Reps\nDay 1,Machine Chest Press,3,10';
+      assert.equal(parseCsvProgram(csv, library).rows[0].libraryItemId, 'lib_machine');
+      assert.equal(
+        parseCsvProgram(csv, [library[0]]).rows[0].libraryItemId,
+        'lib_leverage',
+        'with no such entry, the label finds the lift it names',
+      );
+    },
+  },
+  {
+    name: 'a role tag in the day column is not a day',
+    run() {
+      // #bugs 2026-09-29: every row of a photographed programme had TUKI as
+      // its day, and the import made a day called TUKI.
+      const library = [
+        { id: 'lib_curl', name: 'Barbell Curl' },
+        { id: 'lib_row', name: 'Barbell Row' },
+      ];
+      const tagged = parseCsvProgram(
+        'Day,Exercise,Sets,Reps\nTUKI,Barbell Curl,3,8\nankkuri,Barbell Row,3,8',
+        library,
+        [],
+        'fi',
+      );
+      assert.deepEqual(tagged.rows.map((row) => row.day), ['Päivä 1', 'Päivä 1']);
+      assert.equal(tagged.dayCount, 1);
+      assert.deepEqual(tagged.errors, []);
+
+      const mixed = parseCsvProgram('Day,Exercise,Sets,Reps\nPush,Barbell Row,3,8\nSUPPORT,Barbell Curl,3,8', library);
+      assert.deepEqual(mixed.rows.map((row) => row.day), ['Push', 'Push'], 'a tagged row keeps the day above it');
+
+      assert.equal(parseCsvProgram('Day,Exercise,Sets,Reps\nExtra,Barbell Curl,3,8', library).rows[0].day, 'Day 1');
+
+      // A day that merely contains the word is still a day.
+      const named = parseCsvProgram('Day,Exercise,Sets,Reps\nTuki ja liikkuvuus,Barbell Curl,3,8', library, [], 'fi');
+      assert.equal(named.rows[0].day, 'Tuki ja liikkuvuus');
+    },
+  },
 ];
