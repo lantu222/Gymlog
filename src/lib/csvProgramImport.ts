@@ -305,13 +305,19 @@ export function parseCsvProgram(
   // cell wrapped with Alt+Enter, or a model-returned name that copied a
   // spreadsheet's own wrap — into two rows: the exercise vanished and the
   // error below named a row the reader's sheet does not have (#bugs).
-  const lines = splitCsvRecords(text, delimiter)
-    .map((line) => line.trim())
-    .filter(Boolean);
+  const split = splitCsvRecords(text, delimiter);
+  const lines = split.records.map((line) => line.trim()).filter(Boolean);
   const errors: string[] = [];
 
   if (!lines.length) {
     return { rows: [], matchedCount: 0, unmatchedCount: 0, dayCount: 0, errors: [t(language, 'csv.error.empty')] };
+  }
+
+  // Named before the header/row errors below, so the reader sees the actual
+  // cause — a stray quote in their sheet — rather than a wall of "missing
+  // name" errors for rows that were merely misread as a consequence of it.
+  if (split.unterminatedQuoteRow !== null) {
+    errors.push(t(language, 'csv.error.unclosedQuote', { row: split.unterminatedQuoteRow }));
   }
 
   const header = splitCsvLine(lines[0], delimiter).map((cell) => normalizeName(cell));

@@ -280,7 +280,10 @@ const EXERCISE_NAME_FI: Record<string, string> = {
   'Toes-to-Bar': 'Varpaat tankoon',
   'Rows (Bar or Rings)': 'Kehonpainosoutu (tanko tai renkaat)',
   'Inverted Row (Table)': 'Kehonpainosoutu pöydän alla',
-  'Bodyweight Mid Row': 'Kehonpainosoutu',
+  // Not the same starting position as 'Inverted Row' above: the legs hook
+  // over the bar itself rather than staying grounded, so both shared
+  // 'Kehonpainosoutu' until the sweep in the recheck round 2026-09-29.
+  'Bodyweight Mid Row': 'Kehonpainosoutu jalat tangon päällä',
   'Bent-Over Row': 'Tankosoutu',
   'Bent Over Two-Dumbbell Row': 'Käsipainosoutu kumarrettuna',
   'Single-Arm Dumbbell Row': 'Yhden käden käsipainosoutu',
@@ -569,7 +572,11 @@ const EXERCISE_NAME_FI: Record<string, string> = {
   'Carioca Quick Step': 'Carioca-sivuaskellus',
   'Catch and Overhead Throw': 'Kiinniotto ja heitto pään yli',
   'Chain Handle Extension': 'Ojentajapunnerrus ketjukahvalla',
-  'Chain Press': 'Penkkipunnerrus ketjuilla',
+  // Cable chain handles, lying like a dumbbell press — a different lift and
+  // a different piece of equipment from the barbell 'Bench Press with
+  // Chains' below, which shared this label until the sweep in the recheck
+  // round 2026-09-29.
+  'Chain Press': 'Punnerrus ketjukahvoilla',
   'Chair Leg Extended Stretch': 'Takareiden venytys tuolilla jalka suorana',
   'Chair Lower Back Stretch': 'Alaselän venytys tuolilla',
   'Chair Upper Body Stretch': 'Ylävartalon venytys tuolilla',
@@ -817,7 +824,13 @@ const EXERCISE_NAME_FI: Record<string, string> = {
   'Low Cable Crossover': 'Ristikkäisveto alataljasta',
   'Low Cable Triceps Extension': 'Ojentajapunnerrus alataljasta',
   'Low Pulley Row To Neck': 'Soutu alataljasta niskaan',
-  'Lower Back Curl': 'Alaselän rullaus',
+  // A prone floor back extension (lift the chest with the lower back
+  // muscles, no bench) — a different lift from the -SMR entry below it,
+  // which is a foam-roller massage drill. Both shared 'Alaselän rullaus'
+  // ("lower back rolling") until the recheck round 2026-09-29, so
+  // matchAppLabel always resolved this label to whichever of the two the
+  // stored-name map listed first.
+  'Lower Back Curl': 'Selän ojennus lattialla',
   'Lower Back-SMR': 'Alaselän rullaus',
   'Lunge Pass Through': 'Askelkyykky pallon siirrolla',
   'Lunge Sprint': 'Askelkyykkysprintti',
@@ -1094,13 +1107,19 @@ const EXERCISE_NAME_FI: Record<string, string> = {
   'Split Jerk': 'Askeltyöntö',
   'Split Jump': 'Askelhyppy',
   'Split Snatch': 'Askeltempaus',
-  'Split Squat with Dumbbells': 'Askelkyykky käsipainoilla',
+  // Rear foot elevated, not a step: a different stance from the plain
+  // 'Dumbbell Lunges' ("Askelkyykky käsipainoilla") above, which shared this
+  // label until the sweep in the recheck round 2026-09-29.
+  'Split Squat with Dumbbells': 'Askelkyykky käsipainoilla takajalka koholla',
   'Split Squats': 'Askelkyykky paikallaan',
   'Squat Jerk': 'Kyykkytyöntö',
   'Squat with Bands': 'Kyykky kuminauhoilla',
   'Squat with Chains': 'Kyykky ketjuilla',
   'Squat with Plate Movers': 'Kyykky levypainon siirrolla',
-  'Squats - With Bands': 'Kyykky kuminauhoilla',
+  // Bodyweight, band held in the hands (no bar) — a different exercise from
+  // the barbell 'Squat with Bands' above, which shared this label until the
+  // sweep in the recheck round 2026-09-29.
+  'Squats - With Bands': 'Kehonpainokyykky kuminauhalla',
   Stairmaster: 'Porraskone',
   'Standing Alternating Dumbbell Press': 'Seisten vuorottainen punnerrus käsipainoilla',
   'Standing Barbell Calf Raise': 'Seisten pohjenosto tangolla',
@@ -1148,7 +1167,11 @@ const EXERCISE_NAME_FI: Record<string, string> = {
   'Standing Towel Triceps Extension': 'Seisten ojentajapunnerrus pyyhkeellä',
   'Standing Two-Arm Overhead Throw': 'Seisten kahden käden heitto pään yli',
   'Star Jump': 'Tähtihyppy',
-  'Step Mill': 'Porraskone',
+  // An actual moving staircase you climb, not the pedal stepper above
+  // ('Stairmaster' — its own instructions say "driving the pedals down", vs.
+  // this one's "climb the stairs"). Both shared 'Porraskone' until the
+  // sweep in the recheck round 2026-09-29.
+  'Step Mill': 'Porrasmylly',
   'Stiff Leg Barbell Good Morning': 'Aamunavaus tangolla suorin jaloin',
   'Stiff-Legged Barbell Deadlift': 'Suorin jaloin maastaveto tangolla',
   'Stiff-Legged Dumbbell Deadlift': 'Suorin jaloin maastaveto käsipainoilla',

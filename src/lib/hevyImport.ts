@@ -184,10 +184,17 @@ export function parseHevyCsv(text: string): HevyImportPreview {
   // two (CI review of #174). The header has neither quotes nor line breaks.
   const trimmed = text.trim();
   const delimiter = detectCsvDelimiter(trimmed.split(/\r?\n/, 1)[0] ?? '');
-  const lines = splitCsvRecords(trimmed, delimiter);
+  const split = splitCsvRecords(trimmed, delimiter);
+  const lines = split.records;
   if (lines.length < 2) {
     return { ...empty, errors: ['EMPTY'] };
   }
+  // A stray quote with no close swallowed every row after it into one record
+  // before recovery below confined the damage — the offending row itself is
+  // still unreliable, so it is counted out like any other unusable row
+  // rather than surfaced as its own error (#228 regression, recheck round
+  // 2026-09-29).
+  const unterminatedQuoteRowIndex = split.unterminatedQuoteRow !== null ? split.unterminatedQuoteRow - 1 : -1;
 
   const header = splitCsvLine(lines[0], delimiter).map((column) => column.trim().toLowerCase());
   const col = (name: string) => header.indexOf(name);
@@ -214,6 +221,10 @@ export function parseHevyCsv(text: string): HevyImportPreview {
 
   for (let i = 1; i < lines.length; i += 1) {
     if (!lines[i].trim()) {
+      continue;
+    }
+    if (i === unterminatedQuoteRowIndex) {
+      skippedRowCount += 1;
       continue;
     }
     const fields = splitCsvLine(lines[i], delimiter);

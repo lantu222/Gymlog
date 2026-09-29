@@ -285,6 +285,55 @@ module.exports = [
     },
   },
   {
+    // The #228 regression: an opening quote with no matching close used to
+    // stay "inside quotes" to EOF, joining every row after it into one
+    // record — the whole rest of the programme silently vanished (recheck
+    // round 2026-09-29).
+    name: 'csv import: an unterminated quote in one row does not lose the rows after it',
+    run() {
+      const lines = ['Day,Exercise,Sets,Reps'];
+      lines.push('Day 1,"Unclosed note,4,6-10'); // row 2: stray opening quote, never closed
+      // All on the same day — this proves rows survive the earlier break, not
+      // the (separately tested) 7-day cap.
+      for (let row = 2; row <= 19; row += 1) {
+        lines.push('Day 1,Back Squat,4,5');
+      }
+      const preview = parseCsvProgram(lines.join('\n'), LIBRARY);
+
+      // Rows 3-20 (the 18 Back Squat rows) all survive and match.
+      const squats = preview.rows.filter((row) => row.exerciseName === 'Back Squat');
+      assert.equal(squats.length, 18, 'rows 3-20 must all survive the earlier broken row');
+      assert.ok(squats.every((row) => row.matchedName === 'Back Squat'));
+
+      // The broken row itself is named, not silently swallowed.
+      assert.ok(
+        preview.errors.some((error) => /^Row 2:/.test(error)),
+        `expected an error naming row 2, got: ${JSON.stringify(preview.errors)}`,
+      );
+    },
+  },
+  {
+    // Recovery only fires when the file's ONLY quoting problem leaves the
+    // scanner "inside quotes" all the way to true EOF (splitCsvRecords.test
+    // explains why that means no other quote character exists later in the
+    // file). A file whose quoting is otherwise fine keeps parsing its
+    // legitimately quoted multi-line cell exactly as
+    // "a quoted cell with a line break keeps its row" above already proves.
+    name: 'csv import: recovery leaves an ordinary quoted multi-line cell alone when nothing is actually broken',
+    run() {
+      const csv = [
+        'Day,Exercise,Sets,Reps',
+        'Day 1,"Bench\nPress",4,6-10',
+        'Day 2,Back Squat,4,5',
+      ].join('\n');
+      const preview = parseCsvProgram(csv, LIBRARY);
+      assert.equal(preview.errors.length, 0);
+      const bench = preview.rows.find((row) => row.exerciseName === 'Bench Press');
+      assert.ok(bench, 'the wrapped cell still parses as one row');
+      assert.equal(bench.matchedName, 'Bench Press');
+    },
+  },
+  {
     name: 'a role tag in the day column is not a day',
     run() {
       // #bugs 2026-09-29: every row of a photographed programme had TUKI as

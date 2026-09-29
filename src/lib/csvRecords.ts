@@ -10,6 +10,19 @@
  * does not have. One record boundary, used by both.
  */
 
+/** `splitCsvRecords`'s result: the records, plus where recovery kicked in. */
+export interface CsvRecordSplit {
+  records: string[];
+  /**
+   * 1-based position in `records` (matching the "row" numbers callers already
+   * report) where a quote was opened but never closed, or null when every
+   * quote closed. Set only for the first such quote — a file with more than
+   * one is already broken enough that naming the first is what lets the
+   * reader find their sheet's actual mistake.
+   */
+  unterminatedQuoteRow: number | null;
+}
+
 /**
  * The file → records, where a record ends at a line break outside quotes.
  *
@@ -18,12 +31,26 @@
  * space before a quoted field) after leading spaces there. A quote inside an
  * unquoted field, `6" box jump`, is part of its text and must not flip the
  * scanner into "inside quotes" for the rest of the file.
+ *
+ * A quote that DOES open a field but never closes — a stray `"` typed where
+ * one wasn't meant, a copy-paste that dropped the closing mark — used to do
+ * exactly that anyway: reaching EOF still "inside quotes" swallowed every
+ * following line into one record, so the CSV programme import and the Hevy
+ * import silently lost every row after it, one line's damage turned into the
+ * whole file's (#228 regression, recheck round 2026-09-29). Recovery below
+ * confines it back to the one record: the record where the quote opened is
+ * re-split on raw line breaks (the quote becomes a literal character), and
+ * ordinary quote-aware splitting resumes right after it — so a LATER,
+ * legitimately quoted multi-line cell still parses correctly.
  */
-export function splitCsvRecords(text: string, delimiter: string): string[] {
+export function splitCsvRecords(text: string, delimiter: string): CsvRecordSplit {
   const records: string[] = [];
   let current = '';
   let inQuotes = false;
   let atFieldStart = true;
+  let recordStart = 0;
+  let openQuoteRecordStart = -1;
+  let openQuoteRow = -1;
   for (let i = 0; i < text.length; i += 1) {
     const char = text[i];
     if (inQuotes) {
@@ -45,16 +72,37 @@ export function splitCsvRecords(text: string, delimiter: string): string[] {
       records.push(current);
       current = '';
       atFieldStart = true;
+      recordStart = i + 1;
       continue;
     }
     if (char === '"' && atFieldStart) {
       inQuotes = true;
+      openQuoteRecordStart = recordStart;
+      openQuoteRow = records.length + 1;
     }
     current += char;
     atFieldStart = char === delimiter || (atFieldStart && (char === ' ' || char === '\t'));
   }
+
+  if (inQuotes) {
+    // The record holding the unclosed quote, and everything after it, raw —
+    // split on real line breaks instead of trusting quotes at all, since the
+    // one quote we trusted here is exactly the one that lied.
+    const rest = text.slice(openQuoteRecordStart);
+    const rawLines = rest.split(/\r\n|\r|\n/);
+    records.push(rawLines[0]);
+    // Everything past the offending line may still hold a genuine quoted
+    // field (including one that wraps a line) — hand it back through the
+    // ordinary quote-aware parser rather than staying in raw-line mode for
+    // the rest of the file.
+    const remainder = rawLines.slice(1).join('\n');
+    const recovered = splitCsvRecords(remainder, delimiter);
+    records.push(...recovered.records);
+    return { records, unterminatedQuoteRow: openQuoteRow };
+  }
+
   records.push(current);
-  return records;
+  return { records, unterminatedQuoteRow: null };
 }
 
 /**

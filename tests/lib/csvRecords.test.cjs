@@ -14,9 +14,10 @@ module.exports = [
     name: 'splitCsvRecords: a quoted line break stays inside its record',
     run() {
       const text = 'Day,Exercise,Sets,Reps\nDay 1,"Bench\nPress",4,6-10\nDay 2,Back Squat,4,5';
-      const records = splitCsvRecords(text, ',');
+      const { records, unterminatedQuoteRow } = splitCsvRecords(text, ',');
       assert.equal(records.length, 3, 'the wrapped cell must not add a phantom record');
       assert.equal(records[1], 'Day 1,"Bench\nPress",4,6-10');
+      assert.equal(unterminatedQuoteRow, null);
     },
   },
   {
@@ -25,31 +26,75 @@ module.exports = [
       // A stray inch mark ("6\" box jump") must not flip the scanner into
       // "inside quotes" for every record after it.
       const text = 'A,B\nNotes: 6" box,1\nRow two,2';
-      const records = splitCsvRecords(text, ',');
+      const { records, unterminatedQuoteRow } = splitCsvRecords(text, ',');
       assert.deepEqual(records, ['A,B', 'Notes: 6" box,1', 'Row two,2']);
+      assert.equal(unterminatedQuoteRow, null);
     },
   },
   {
     name: 'splitCsvRecords: CRLF, bare CR and bare LF all end a record once',
     run() {
-      assert.deepEqual(splitCsvRecords('a,1\r\nb,2', ','), ['a,1', 'b,2']);
-      assert.deepEqual(splitCsvRecords('a,1\rb,2', ','), ['a,1', 'b,2']);
-      assert.deepEqual(splitCsvRecords('a,1\nb,2', ','), ['a,1', 'b,2']);
+      assert.deepEqual(splitCsvRecords('a,1\r\nb,2', ',').records, ['a,1', 'b,2']);
+      assert.deepEqual(splitCsvRecords('a,1\rb,2', ',').records, ['a,1', 'b,2']);
+      assert.deepEqual(splitCsvRecords('a,1\nb,2', ',').records, ['a,1', 'b,2']);
     },
   },
   {
     name: 'splitCsvRecords: a space before a quoted field still lets the quote open',
     run() {
       const text = 'a, "line one\nline two",1';
-      const records = splitCsvRecords(text, ',');
+      const { records } = splitCsvRecords(text, ',');
       assert.equal(records.length, 1, 'the leading space must not stop the quote from opening');
     },
   },
   {
     name: 'splitCsvRecords: works with the semicolon and tab delimiters the importers detect',
     run() {
-      assert.deepEqual(splitCsvRecords('a;"x\ny";1\nb;z;2', ';'), ['a;"x\ny";1', 'b;z;2']);
-      assert.deepEqual(splitCsvRecords('a\t"x\ny"\t1\nb\tz\t2', '\t'), ['a\t"x\ny"\t1', 'b\tz\t2']);
+      assert.deepEqual(splitCsvRecords('a;"x\ny";1\nb;z;2', ';').records, ['a;"x\ny";1', 'b;z;2']);
+      assert.deepEqual(splitCsvRecords('a\t"x\ny"\t1\nb\tz\t2', '\t').records, ['a\t"x\ny"\t1', 'b\tz\t2']);
+    },
+  },
+  {
+    // The #228 regression: an opening quote with no matching close used to
+    // stay "inside quotes" to EOF, joining every following line into one
+    // record — the importers then lost every row after it (recheck round
+    // 2026-09-29).
+    name: 'splitCsvRecords: an unterminated quote is confined to its own record, not the rest of the file',
+    run() {
+      const lines = ['Day,Exercise,Sets,Reps'];
+      lines.push('Day 1,"Unclosed note,4,6-10'); // row 2: stray opening quote, never closed
+      for (let day = 2; day <= 19; day += 1) {
+        lines.push(`Day ${day},Back Squat,4,5`);
+      }
+      const text = lines.join('\n');
+      const { records, unterminatedQuoteRow } = splitCsvRecords(text, ',');
+
+      assert.equal(unterminatedQuoteRow, 2, 'names the row where the unclosed quote opens');
+      assert.equal(records.length, 20, 'every row, including the broken one, survives as one record each');
+      assert.equal(records[1], 'Day 1,"Unclosed note,4,6-10', 'the offending row keeps its own raw text');
+      // Rows 3-20 (indices 2-19, "Day 2"-"Day 19") are untouched by the
+      // earlier failure.
+      for (let index = 2; index < 20; index += 1) {
+        assert.equal(records[index], `Day ${index},Back Squat,4,5`);
+      }
+    },
+  },
+  {
+    // Recovery only fires when the scanner is still "inside quotes" at true
+    // EOF — which, by construction, means no quote character of any kind
+    // appears anywhere after the stray one (the very next quote, wherever it
+    // is, always closes the runaway state, whether it "meant" to or not).
+    // A file whose ONLY quoting problem is this one stray, unterminated
+    // quote therefore still parses every other quoted cell normally, exactly
+    // as the pre-existing "a quoted line break stays inside its record" case
+    // above proves for a file with no stray quote at all.
+    name: 'splitCsvRecords: recovery leaves ordinary quote handling alone when nothing is actually broken',
+    run() {
+      const text = 'Day,Exercise,Sets,Reps\nDay 1,"Bench\nPress",4,6-10\nDay 2,Back Squat,4,5';
+      const { records, unterminatedQuoteRow } = splitCsvRecords(text, ',');
+      assert.equal(unterminatedQuoteRow, null);
+      assert.equal(records.length, 3);
+      assert.equal(records[1], 'Day 1,"Bench\nPress",4,6-10');
     },
   },
   {
