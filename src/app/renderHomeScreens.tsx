@@ -65,8 +65,9 @@ export interface HomeScreensDeps {
   upsertWorkoutTemplate: (draft: WorkoutTemplateDraft) => Promise<string>;
   workoutSessions: HistoryScreenProps['sessions'];
   getSessionLogs: HistoryScreenProps['getSessionLogs'];
-  /** Where the list was scrolled before opening a session; see App.tsx. */
-  historyScrollOffsetRef: React.MutableRefObject<number>;
+  /** Where the list was scrolled before opening a session, and under what
+   * search/filter; see App.tsx and `historyScrollMemoryMatches`. */
+  historyScrollOffsetRef: React.MutableRefObject<HistoryScreenProps['initialScrollMemory']>;
   deleteCompletedWorkoutSession: (sessionId: string) => Promise<unknown>;
   deleteCardioSession: (sessionId: string) => Promise<unknown>;
   unitPreference: HistoryScreenProps['unitPreference'];
@@ -267,9 +268,9 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
         language={preferences.appLanguage}
         selectedSessionId={route.screen === 'session' ? route.sessionId : undefined}
         getSessionLogs={getSessionLogs}
-        initialScrollOffset={historyScrollOffsetRef.current}
-        onScrollOffsetChange={(offsetY) => {
-          historyScrollOffsetRef.current = offsetY;
+        initialScrollMemory={historyScrollOffsetRef.current}
+        onScrollOffsetChange={(memory) => {
+          historyScrollOffsetRef.current = memory;
         }}
         onSelectSession={(sessionId) => navigate({ tab: 'home', screen: 'session', sessionId })}
         // A refused delete rolls memory back, so the row reappears — and with

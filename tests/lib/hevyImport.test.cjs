@@ -187,6 +187,35 @@ module.exports = [
     },
   },
   {
+    // The #228 regression: an opening quote with no matching close used to
+    // stay "inside quotes" to EOF, joining every row after it into one
+    // record that failed to parse — every set after the broken row vanished
+    // as "no importable sets" (recheck round 2026-09-29).
+    name: 'hevyImport: an unterminated quote in one row does not lose the rows after it',
+    run() {
+      // ISO timestamps here (no embedded comma) so none of these rows need
+      // quoting at all — the only quote character anywhere in the file is
+      // the stray, unclosed one below, which is what actually proves the
+      // recovery reaches true EOF rather than being closed early by some
+      // later field's own quotes.
+      const lines = [HEADER];
+      // Row 2 (index 1 into the data rows): a stray opening quote, never
+      // closed.
+      lines.push('Legs,2024-06-12T17:30:00.000Z,,,"Unclosed note,,,0,normal,100,5,,,');
+      for (let set = 1; set <= 18; set += 1) {
+        lines.push(`Legs,2024-06-12T17:30:00.000Z,,,Squat (Barbell),,,${set},normal,100,5,,,`);
+      }
+      const preview = parseHevyCsv(lines.join('\n'));
+
+      assert.equal(preview.workouts.length, 1);
+      const squat = preview.workouts[0].exercises.find((exercise) => /squat/i.test(exercise.name));
+      assert.ok(squat, 'the squat rows after the broken row are read');
+      assert.equal(squat.sets.length, 18, 'every squat row after the broken one survives');
+      // The broken row itself is counted out, not guessed at.
+      assert.equal(preview.skippedRowCount, 1);
+    },
+  },
+  {
     name: 'hevyImport: an assisted set is filed under a name that says so, never merged into the unassisted lift',
     run() {
       // Hevy writes assistance as a NEGATIVE weight_kg, sometimes under its own

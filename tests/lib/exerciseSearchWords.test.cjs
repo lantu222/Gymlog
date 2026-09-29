@@ -74,13 +74,22 @@ module.exports = [
   {
     name: 'the swap list shows one row per name the reader sees; the library keeps both rows',
     run() {
-      const chains = labels('penkkipunnerrus ketjuilla').filter((label) => label === 'Penkkipunnerrus ketjuilla');
-      assert.equal(chains.length, 1);
+      // The chains pair no longer shares a label (label sweep, recheck round
+      // 2026-09-29), so the collision this checks is one that still exists:
+      // two library rows shown as "Takakyykky".
+      const shared = library.filter((item) => exerciseNameLabel('fi', item.name) === 'Takakyykky');
+      assert.ok(shared.length >= 2, 'the collision this case needs is gone; pick another shared label');
+      const squats = labels('takakyykky').filter((label) => label === 'Takakyykky');
+      assert.equal(squats.length, 1);
       const swap = labels('penkkipunnerrus');
       assert.equal(new Set(swap).size, swap.length, 'a label repeated in the swap list');
       // Browsing is not choosing a replacement: both rows, each with its own
-      // pictures and steps, stay findable (review, 2026-09-27).
-      const browsed = rankExerciseMatches(library, 'ketjuilla', 'fi').map((item) => item.name);
+      // pictures and steps, stay findable (review, 2026-09-27). They no
+      // longer share one label ('Chain Press' — a cable exercise — got its
+      // own distinct label from 'Bench Press with Chains' — a barbell one —
+      // in the label sweep, recheck round 2026-09-29), so the shared term
+      // both their labels still carry is "ketju", not the exact old label.
+      const browsed = rankExerciseMatches(library, 'ketju', 'fi').map((item) => item.name);
       assert.ok(browsed.includes('Bench Press with Chains') && browsed.includes('Chain Press'));
     },
   },

@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const {
   exerciseNameLabel,
   TRANSLATED_EXERCISE_NAMES,
+  PLAIN_EXERCISE_NAMES,
 } = require('../../.test-dist/lib/exerciseNameLabel');
 const {
   WORKOUT_TEMPLATES_V1,
@@ -149,6 +150,109 @@ module.exports = [
         .map(([english]) => english);
 
       assert.deepEqual(unchanged, [], `left in English: ${unchanged.join(', ')}`);
+    },
+  },
+  {
+    // #231's label matcher (matchAppLabel in csvProgramImport.ts) resolves a
+    // written-out Finnish name straight to the FIRST stored name that shares
+    // its label. Two entries sharing a label is only safe when they are the
+    // same lift — otherwise the matcher silently imports the wrong one, the
+    // way 'Lower Back-SMR' (a foam-roller drill) used to steal every import
+    // of 'Lower Back Curl' (a floor back extension), and 'Chain Press' (a
+    // cable exercise) used to steal every import of 'Bench Press with
+    // Chains' (a barbell one) (recheck round 2026-09-29).
+    //
+    // "Same lift" here means the library agrees: same bodyPart, category and
+    // primary muscles. A pair that shares a label without sharing those is a
+    // bug to fix (split the label), not a coincidence to ignore. A pair that
+    // DOES share all of those but is still, in the real world, two different
+    // exercises has to be named here explicitly, with the reason it is kept
+    // — so a future reviewer can tell "reviewed and accepted" apart from
+    // "nobody has looked at this yet".
+    name: 'a Finnish or plain-English label shared by more than one stored name always names one lift',
+    run() {
+      function foldLabel(value) {
+        return value.normalize('NFC').toLocaleLowerCase('fi').replace(/\s+/g, ' ').trim();
+      }
+
+      const byName = new Map(GENERATED_EXERCISE_LIBRARY.map((item) => [item.name, item]));
+
+      function signature(item) {
+        return JSON.stringify([
+          item.bodyPart,
+          item.category,
+          (item.primaryMuscles ?? []).slice().sort(),
+        ]);
+      }
+
+      // Present in the real library, sharing a label, and — checked below —
+      // genuinely the same lift by bodyPart/category/primary muscles: kept
+      // deliberately, not by accident. Keyed by the pair's stored names,
+      // sorted, so the assertion below can tell "this exact known pair" from
+      // "a new pair that happens to share a label".
+      const SAME_LIFT_EXCEPTIONS = {
+        'Barbell Full Squat|Barbell Squat':
+          'the same barbell back squat under the library\'s two names for it (already noted where the plain-English table keeps "Barbell Squat" rather than relabelling it "Back Squat")',
+        'Clean|Power Clean':
+          "the library's own instructions differ only in catch depth (a full-squat catch vs. a quarter-squat catch); this app does not train or track that distinction separately, and both are 'rinnalleveto' in ordinary Finnish gym use",
+        'Alternating Kettlebell Press|Kettlebell Seesaw Press':
+          '"seesaw press" is kettlebell training\'s own name for the alternating overhead press — same movement, not a variant',
+        'Double Kettlebell Jerk|Two-Arm Kettlebell Jerk':
+          '"double" and "two-arm" name the same count of kettlebells jerked overhead together',
+        'Decline Smith Press|Smith Machine Decline Press':
+          'the same decline press in a Smith machine, described by two contributors to the source database',
+        'Hammer Grip Incline DB Bench Press|Incline Dumbbell Bench With Palms Facing In':
+          "the source database's own instructions for these two are verbatim identical — a hammer grip IS palms facing in",
+      };
+
+      function sweep(tableName, table) {
+        const byLabel = new Map();
+        for (const [stored, label] of Object.entries(table)) {
+          const key = foldLabel(label);
+          const list = byLabel.get(key) ?? [];
+          if (!list.includes(stored)) {
+            list.push(stored);
+          }
+          byLabel.set(key, list);
+        }
+
+        const problems = [];
+        for (const [label, storedNames] of byLabel.entries()) {
+          if (storedNames.length < 2) {
+            continue;
+          }
+          // Only names the reader can actually be shown matter — a label
+          // shared with a name that never made it into the generated
+          // library cannot resolve to the wrong lift.
+          const present = storedNames.filter((n) => byName.has(n));
+          if (present.length < 2) {
+            continue;
+          }
+          const sigs = new Set(present.map((n) => signature(byName.get(n))));
+          const pairKey = present.slice().sort().join('|');
+          if (sigs.size > 1) {
+            problems.push(
+              `[${tableName}] "${label}" resolves to different lifts: ${present.join(' vs ')}`,
+            );
+            continue;
+          }
+          // Same signature, still needs a reviewed reason on file — an
+          // unreviewed collision is exactly the bug this test exists to catch.
+          if (present.length > 2 || !SAME_LIFT_EXCEPTIONS[pairKey]) {
+            problems.push(
+              `[${tableName}] "${label}" is shared by ${present.join(', ')} with no reviewed reason on file — `
+              + 'add it to SAME_LIFT_EXCEPTIONS if it is genuinely one lift, or give one of them its own label if not',
+            );
+          }
+        }
+        return problems;
+      }
+
+      const problems = [
+        ...sweep('TRANSLATED_EXERCISE_NAMES', TRANSLATED_EXERCISE_NAMES),
+        ...sweep('PLAIN_EXERCISE_NAMES', PLAIN_EXERCISE_NAMES),
+      ];
+      assert.deepEqual(problems, []);
     },
   },
 ];

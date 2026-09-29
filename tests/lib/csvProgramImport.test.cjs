@@ -285,6 +285,141 @@ module.exports = [
     },
   },
   {
+    // The #228 regression: an opening quote with no matching close used to
+    // stay "inside quotes" to EOF, joining every row after it into one
+    // record — the whole rest of the programme silently vanished (recheck
+    // round 2026-09-29).
+    name: 'csv import: an unterminated quote in one row does not lose the rows after it',
+    run() {
+      const lines = ['Day,Exercise,Sets,Reps'];
+      lines.push('Day 1,"Unclosed note,4,6-10'); // row 2: stray opening quote, never closed
+      // All on the same day — this proves rows survive the earlier break, not
+      // the (separately tested) 7-day cap.
+      for (let row = 2; row <= 19; row += 1) {
+        lines.push('Day 1,Back Squat,4,5');
+      }
+      const preview = parseCsvProgram(lines.join('\n'), LIBRARY);
+
+      // Rows 3-20 (the 18 Back Squat rows) all survive and match.
+      const squats = preview.rows.filter((row) => row.exerciseName === 'Back Squat');
+      assert.equal(squats.length, 18, 'rows 3-20 must all survive the earlier broken row');
+      assert.ok(squats.every((row) => row.matchedName === 'Back Squat'));
+
+      // The broken row itself is named, not silently swallowed.
+      assert.ok(
+        preview.errors.some((error) => /^Row 2:/.test(error)),
+        `expected an error naming row 2, got: ${JSON.stringify(preview.errors)}`,
+      );
+    },
+  },
+  {
+    // Recovery only fires when the file's ONLY quoting problem leaves the
+    // scanner "inside quotes" all the way to true EOF (splitCsvRecords.test
+    // explains why that means no other quote character exists later in the
+    // file). A file whose quoting is otherwise fine keeps parsing its
+    // legitimately quoted multi-line cell exactly as
+    // "a quoted cell with a line break keeps its row" above already proves.
+    name: 'csv import: recovery leaves an ordinary quoted multi-line cell alone when nothing is actually broken',
+    run() {
+      const csv = [
+        'Day,Exercise,Sets,Reps',
+        'Day 1,"Bench\nPress",4,6-10',
+        'Day 2,Back Squat,4,5',
+      ].join('\n');
+      const preview = parseCsvProgram(csv, LIBRARY);
+      assert.equal(preview.errors.length, 0);
+      const bench = preview.rows.find((row) => row.exerciseName === 'Bench Press');
+      assert.ok(bench, 'the wrapped cell still parses as one row');
+      assert.equal(bench.matchedName, 'Bench Press');
+    },
+  },
+  {
+    // Recheck round 2026-09-29: a row that combines a legitimate wrapped
+    // cell with a LATER stray, never-closed quote used to be split into two
+    // garbled records, dropping the row itself from preview.rows and
+    // shifting every following row's reported number by one.
+    name: 'csv import: a row with both a legitimate wrapped cell and a later stray quote breaks only that row',
+    run() {
+      const csv = [
+        'Day,Exercise,Notes,Sets,Reps',
+        'Day 1,"Bench\nPress","Unclosed note here,4,5',
+        'Day 2,Squat,Fine,4,5',
+        'Day 3,Deadlift,Fine,4,5',
+      ].join('\n');
+      const library = [
+        { id: 'lib_bench', name: 'Bench Press' },
+        { id: 'lib_squat', name: 'Squat' },
+        { id: 'lib_deadlift', name: 'Deadlift' },
+      ];
+      const preview = parseCsvProgram(csv, library);
+
+      // Rows 2 and 3 in the FILE are "Day 2,Squat" and "Day 3,Deadlift" —
+      // they must survive with their own physical row numbers, not shifted.
+      const squat = preview.rows.find((row) => row.exerciseName === 'Squat');
+      const deadlift = preview.rows.find((row) => row.exerciseName === 'Deadlift');
+      assert.ok(squat, 'the Squat row must survive');
+      assert.ok(deadlift, 'the Deadlift row must survive');
+      assert.equal(squat.matchedName, 'Squat');
+      assert.equal(deadlift.matchedName, 'Deadlift');
+      assert.equal(
+        preview.errors.some((error) => /^Row 3:/.test(error)),
+        false,
+        `no error should be misnumbered onto row 3 (the Squat row), got: ${JSON.stringify(preview.errors)}`,
+      );
+      assert.ok(
+        preview.errors.some((error) => /^Row 2:/.test(error)),
+        `expected the broken row to be named as row 2, got: ${JSON.stringify(preview.errors)}`,
+      );
+    },
+  },
+  {
+    // Recheck round 2026-09-29: the unclosedQuote error was pushed onto
+    // `errors` before the header check, but the header-failure branch used
+    // to return a brand-new `errors` array, silently discarding it — in
+    // exactly the case the surrounding comment says it should survive.
+    name: 'csv import: an unusable header does not discard the unclosed-quote error that was already found',
+    run() {
+      const csv = [
+        'Day,Exercise,Sets', // missing the required Reps column
+        'Day 1,"Unclosed note,4',
+        'Day 2,Squat,4',
+      ].join('\n');
+      const preview = parseCsvProgram(csv, []);
+      assert.ok(
+        preview.errors.some((error) => /never closed/i.test(error) || /lainausmerkki/i.test(error)),
+        `the unclosed-quote error must still reach the caller, got: ${JSON.stringify(preview.errors)}`,
+      );
+      assert.ok(
+        preview.errors.some((error) => error === 'The first row must name the columns Day, Exercise, Sets and Reps.'),
+        `the header error must also be present, got: ${JSON.stringify(preview.errors)}`,
+      );
+    },
+  },
+  {
+    // Recheck round 2026-09-29: `unterminatedQuoteRow` is 1-based into the
+    // UNFILTERED `split.records`, but every other row-numbered error used
+    // `index + 1` into `lines` AFTER blank lines were filtered out. A blank
+    // line at or before the offending row desynced the two, so the same
+    // physical row got two different numbers in two different errors.
+    name: 'csv import: a leading blank line does not desync the unclosed-quote row number from other row errors',
+    run() {
+      const csv = [
+        '   ', // row 1: leading blank line
+        'Day,Exercise,Sets,Reps', // row 2: header
+        'Day 1,"Unclosed note,,', // row 3: stray unclosed quote, also missing sets/reps
+        'Day 1,Back Squat,4,5', // row 4
+      ].join('\n');
+      const library = [{ id: 'lib_squat', name: 'Back Squat' }];
+      const preview = parseCsvProgram(csv, library);
+
+      const rowNumbers = preview.errors.map((error) => {
+        const match = error.match(/^Row (\d+):/);
+        return match ? Number(match[1]) : null;
+      });
+      assert.ok(rowNumbers.every((row) => row === 3), `both errors must name row 3, got: ${JSON.stringify(preview.errors)}`);
+    },
+  },
+  {
     name: 'a role tag in the day column is not a day',
     run() {
       // #bugs 2026-09-29: every row of a photographed programme had TUKI as

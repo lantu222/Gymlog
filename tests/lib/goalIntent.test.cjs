@@ -116,6 +116,85 @@ module.exports = [
     },
   },
   {
+    // Recheck round, 2026-09-29: RELATIVE_WORDS treated "nosta"/"nostaa"/
+    // "laske"/"laskea" as relative even when the sentence names the number as
+    // its own destination rather than a change from now — the illative/
+    // allative case on the unit ("90 kg:aan", "90 kiloon"), the "asti"
+    // postposition, or English "to 90 kg" all say so, and none of them
+    // changed RELATIVE_WORDS' answer before this fix.
+    name: 'goalIntent: a destination the number itself names overrides a growth/shrink verb that would otherwise drop it',
+    run() {
+      const absoluteDestinationCases = [
+        { text: 'Tavoitteeni on nostaa painoni 90 kg:aan', kind: 'bodyweight', value: 90 },
+        { text: 'haluan nostaa painon 90 kiloon', kind: 'bodyweight', value: 90 },
+        { text: 'laskea painoni 80 kg:aan', kind: 'bodyweight', value: 80 },
+        { text: 'haluan nostaa painoni 90 kg:aan asti', kind: 'bodyweight', value: 90 },
+        { text: 'I want to raise my weight to 90 kg', kind: 'bodyweight', value: 90 },
+      ];
+      for (const { text, kind, value } of absoluteDestinationCases) {
+        const goal = parseGoalIntent(text, 'fi', { declared: true });
+        assert.ok(goal, `${text} should be a goal`);
+        assert.equal(goal.kind, kind, text);
+        assert.equal(goal.targetValue, value, `${text} dropped a destination the sentence named`);
+        assert.equal(goal.unit, 'kg', text);
+      }
+
+      // The same verbs, with no destination marker, stay relative — the fix
+      // must not swallow the cases it was already getting right. (A body or
+      // weight word is required for any of these to be read as a goal at
+      // all, so "lisää 10 kg" and "5 kg lisää" carry "painoa" the way the
+      // existing relative cases above do.)
+      const stillRelativeCases = [
+        'nosta painoa 5 kg',
+        'haluan lisää painoa 10 kg',
+        'I want to gain 10 kg of weight',
+        'I want to lose 5 kg of weight',
+        'haluan painoa 5 kg lisää',
+      ];
+      for (const text of stillRelativeCases) {
+        const goal = parseGoalIntent(text, 'fi', { declared: true });
+        assert.ok(goal, `${text} should still be a goal`);
+        assert.equal(goal.targetValue, null, `${text} should stay relative (no target)`);
+      }
+    },
+  },
+  {
+    // Recheck round, 2026-09-29: the destination check above was matched
+    // against the whole message, not anchored to the number it was overriding
+    // RELATIVE_WORDS for. "asti" ("kesäkuuhun asti", until June — a date, not
+    // a weight) and English "to" ("1 to 10", a scale, not the number being
+    // lost) both said "destination" for a number they had nothing to do
+    // with, flipping a genuinely relative delta into a false absolute target.
+    name: 'goalIntent: a destination word elsewhere in the sentence does not turn an unrelated relative number absolute',
+    run() {
+      const stillRelativeCases = [
+        // "asti" belongs to "kesäkuuhun" (until June), not to "5 kg" — the
+        // number stays a relative delta, exactly like "nosta painoa 5 kg".
+        { text: 'nosta painoa 5 kg asti kesäkuuhun', language: 'fi' },
+        // "to 10" is an unrelated scale reference; the number actually named
+        // is "5 kg", stated as a loss with no destination marker on it.
+        { text: 'on a scale of 1 to 10 I want to lose 5 kg of my weight', language: 'en' },
+      ];
+      for (const { text, language } of stillRelativeCases) {
+        const goal = parseGoalIntent(text, language, { declared: true });
+        assert.ok(goal, `${text} should still be a goal`);
+        assert.equal(goal.targetValue, null, `${text} read an unrelated destination word as the number's own`);
+        assert.equal(goal.unit, null, text);
+      }
+
+      // The same markers still work when they actually sit on the number.
+      const stillAbsoluteCases = [
+        { text: 'haluan nostaa painoni 90 kg:aan asti kesäkuuhun', language: 'fi', value: 90 },
+        { text: 'I want to raise my weight to 90 kg by June', language: 'en', value: 90 },
+      ];
+      for (const { text, language, value } of stillAbsoluteCases) {
+        const goal = parseGoalIntent(text, language, { declared: true });
+        assert.ok(goal, `${text} should be a goal`);
+        assert.equal(goal.targetValue, value, `${text} dropped a destination the sentence actually named`);
+      }
+    },
+  },
+  {
     name: 'goalIntent: a goal with a number never leaks into the measurement logger',
     run() {
       // Was swapped to "tavoite rinnanympärys 104 cm" during the

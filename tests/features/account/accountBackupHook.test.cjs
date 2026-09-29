@@ -197,8 +197,15 @@ async function withHook({ local, stored = null, cloud = null }, scenario) {
       app.history = history;
       return history;
     },
-    onRestored() {
+    async onRestored() {
       calls.restored += 1;
+      // A gate lets a test hold this open — proving the restore waits for it
+      // — and an injected error lets a test prove that failure never reaches
+      // the reader as a failed restore.
+      await pass(app.gates, 'restored');
+      if (app.restoredError) {
+        throw app.restoredError;
+      }
     },
   });
 
@@ -941,6 +948,67 @@ module.exports = [
           env.app.historyWriteError = new Error('database or disk is full');
           assert.equal((await env.api.signIn()).kind, 'restore_failed');
           assert.equal(env.calls.restored, 0, 'a restore that failed and rolled back still cleared the coach memory');
+        });
+      } finally {
+        console.error = originalError;
+      }
+    },
+  },
+  {
+    // Recheck round, 2026-09-29: onRestored erased the coach's memory
+    // fire-and-forget — applyRestore called it without awaiting, so the
+    // restore could resolve ('restored'/'done', the success UI shown) before
+    // the erase had even started, let alone finished. A process kill in that
+    // window left another account's coach memory on disk for the next
+    // account. onRestored is now awaited before the restore resolves, and a
+    // rejection from it — the erase already retries on its own side — must
+    // never turn an already-landed restore into a reported failure.
+    name: 'account hook: the restore does not resolve until onRestored settles, and a failure in it does not fail the restore',
+    async run() {
+      // A fresh phone, restored without asking: onRestored is held open, and
+      // the restore must not resolve while it is.
+      await withHook({ local: database(), cloud: cloudCopy(database({ workoutSessions: workouts(3) })) }, async (env) => {
+        env.app.gates.restored = deferred();
+        let settled = false;
+        const pending = env.api.signIn().then((outcome) => {
+          settled = true;
+          return outcome;
+        });
+        await env.settle();
+        assert.equal(env.calls.restored, 1, 'onRestored was never called');
+        assert.equal(settled, false, 'the restore resolved before onRestored settled');
+        env.app.gates.restored.resolve();
+        assert.equal((await pending).kind, 'restored', 'onRestored settling did not let the restore resolve');
+        assert.equal(settled, true);
+      });
+
+      // The reader's own "restore" answer, same ordering.
+      await withHook({ local: database({ workoutSessions: workouts(3) }), cloud: cloudCopy(database({ workoutSessions: workouts(2) })) }, async (env) => {
+        assert.equal((await env.api.signIn()).kind, 'choice');
+        env.app.gates.restored = deferred();
+        let settled = false;
+        const pending = env.api.resolveRestoreChoice('restore').then((outcome) => {
+          settled = true;
+          return outcome;
+        });
+        await env.settle();
+        assert.equal(settled, false, 'resolveRestoreChoice resolved before onRestored settled');
+        env.app.gates.restored.resolve();
+        assert.equal(await pending, 'done');
+        assert.equal(settled, true);
+      });
+
+      // onRestored rejecting (its own erase failed twice, on its own side)
+      // must not report the landed restore as failed.
+      const originalError = console.error;
+      console.error = () => undefined;
+      try {
+        await withHook({ local: database(), cloud: cloudCopy(database({ workoutSessions: workouts(3) })) }, async (env) => {
+          env.app.restoredError = new Error('coach memory erase failed twice');
+          const outcome = await env.api.signIn();
+          assert.equal(outcome.kind, 'restored', 'a failed onRestored reported the landed restore as failed');
+          // Nothing rolled back: the restored data is still there.
+          assert.equal(env.app.database.workoutSessions.length, 3);
         });
       } finally {
         console.error = originalError;

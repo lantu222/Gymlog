@@ -194,6 +194,15 @@ const SPLASH_MS = 2300;
 const SET_DOT_CAP = 9;
 
 /**
+ * The rest a mid-workout add falls back to when there is no last exercise to
+ * inherit one from — a cooldown-only session with no main block, added after
+ * (recheck round 2026-09-29). Same number `AppProvider` seeds a fresh
+ * install's preferences with, so a lift added here without one rests the
+ * same as any lift would before the reader ever set a preference.
+ */
+const NO_ANCHOR_DEFAULT_REST_SECONDS = 120;
+
+/**
  * A phase splash that offers the "do it yourself" fork. Those wait for a
  * tap; the work splash is a beat between phases and passes on its own.
  */
@@ -1637,6 +1646,24 @@ function GuidedPlayer({
    * which the reducer already had — nothing dispatched it (#bugs 2026-09-29).
    */
   const [addExerciseOpen, setAddExerciseOpen] = useState(false);
+  /**
+   * One insert per open of the sheet.
+   *
+   * `AddExerciseSheet`'s single-select guard checks `selectedIds`, which this
+   * caller never passes (there is nothing to preselect — the lift just added
+   * is not "in" the sheet's own list, it left the sheet). So a fast double
+   * tap on a card fired `onSelectItem` twice before the close set in
+   * `addMidWorkoutExercise` below reached a render, and the second call
+   * inserted the same lift again. The ref catches what the prop cannot: it
+   * locks on the first call and only unlocks when the sheet is opened again
+   * (recheck round 2026-09-29, #bugs).
+   */
+  const addExerciseInFlightRef = useRef(false);
+  useEffect(() => {
+    if (addExerciseOpen) {
+      addExerciseInFlightRef.current = false;
+    }
+  }, [addExerciseOpen]);
   // The rest screen's "fix the set you just logged" sheet. Declared here,
   // with the other overlays, because `frozen` below has to see it.
   /**
@@ -2361,16 +2388,35 @@ function GuidedPlayer({
    * substitution group is the library id alone — nothing else is IN this
    * lift's group, so it offers no swap suggestions of its own, which is
    * right for a lift nobody planned.
+   *
+   * Guarded on `addExerciseInFlightRef` (declared above with `addExerciseOpen`):
+   * `AddExerciseSheet` calls this straight from a card's `onPress`, and a fast
+   * double tap fired it twice before `setAddExerciseOpen(false)` below had
+   * rendered — the sheet's own single-select guard checks `selectedIds`, which
+   * this call site has no id to pass (the lift just inserted has a slot id,
+   * not a library id "selected" in the sheet's list). Two dispatches from one
+   * open used to mean two lifts inserted (recheck round 2026-09-29, #bugs).
+   *
+   * A session with no main block — cooldown-only, `exercises` empty — has no
+   * last exercise to add after either. `insertExerciseAfter` takes a null
+   * anchor for exactly that: the reducer inserts at the front instead of
+   * requiring a slot that does not exist (recheck round 2026-09-29). Without
+   * it the link sat on the cooldown intro of a stretch-only session and did
+   * nothing when tapped.
    */
   const addMidWorkoutExercise = (item: ExerciseLibraryItem) => {
-    setAddExerciseOpen(false);
-    const anchor = exercises[exercises.length - 1];
-    if (!anchor) {
+    if (addExerciseInFlightRef.current) {
       return;
     }
-    const defaults = getExerciseTemplateDefaults(item, anchor.restSecondsMin);
+    addExerciseInFlightRef.current = true;
+    setAddExerciseOpen(false);
+    const anchor = exercises[exercises.length - 1] ?? null;
+    const defaults = getExerciseTemplateDefaults(
+      item,
+      anchor ? anchor.restSecondsMin : NO_ANCHOR_DEFAULT_REST_SECONDS,
+    );
     pendingInsertKnownSlotsRef.current = new Set(exercises.map((exercise) => exercise.slotId));
-    workout.insertExerciseAfter(anchor.slotId, {
+    workout.insertExerciseAfter(anchor ? anchor.slotId : null, {
       exerciseName: item.name,
       trackingMode: getCatalogTrackingMode(item.name),
       sets: defaults.targetSets,

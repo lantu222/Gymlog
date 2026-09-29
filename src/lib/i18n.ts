@@ -2620,6 +2620,11 @@ const EN = {
   'csv.error.sets': 'Row {row}: sets must be a whole number above zero.',
   'csv.error.reps': 'Row {row}: reps must be a number or a range like 6-10.',
   'csv.error.dayCap': 'Row {row}: "{day}" was left out. A programme has at most {max} training days.',
+  // recheck round 2026-09-29: an opening quote with no matching close used to
+  // swallow every row after it into one record (#228 regression). Recovery
+  // confines the damage to this one row, but the reader still needs to know
+  // which row to fix in their sheet.
+  'csv.error.unclosedQuote': 'Row {row}: a quote (") is opened but never closed — the rest of that row may be read wrong.',
   'csv.rowSummary': '{rows} rows · {matched} matched',
   'csv.unmatchedSuffix': ' · {count} unmatched',
   'csv.allMatchedSuffix': ', all matched',
@@ -5683,6 +5688,7 @@ const FI: Record<I18nKey, string> = {
   'csv.error.sets': 'Rivi {row}: sarjojen pitää olla kokonaisluku, vähintään 1.',
   'csv.error.reps': 'Rivi {row}: toistojen pitää olla luku tai väli, esim. 6-10.',
   'csv.error.dayCap': 'Rivi {row}: "{day}" jätettiin pois. Ohjelmassa voi olla enintään {max} treenipäivää.',
+  'csv.error.unclosedQuote': 'Rivi {row}: lainausmerkki (") avataan mutta ei suljeta — rivin loppuosa saatetaan lukea väärin.',
   'csv.rowSummary': '{rows} riviä · {matched} tunnistettu',
   'csv.unmatchedSuffix': ' · {count} tunnistamatta',
   'csv.allMatchedSuffix': ', kaikki tunnistettu',
