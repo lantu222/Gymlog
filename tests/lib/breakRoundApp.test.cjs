@@ -2,8 +2,6 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { switchBar } = require('../../.test-dist/lib/barChoice.js');
-const { WEIGHT_DIAL_MAX_KG } = require('../../.test-dist/lib/weightLimits.js');
 const { canCompleteSet } = require('../../.test-dist/features/workout/workoutState.js');
 const { formatPlanSessionTitle, isReaderNamedSession } = require('../../.test-dist/lib/sessionNameLabel.js');
 const { createExercise, createSet } = require('../helpers/workoutFixtures.cjs');
@@ -19,15 +17,18 @@ const strip = (source) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.
  * into the rule that now holds.
  */
 module.exports = [
+  // The bar-tap case went with the bar row itself (user 2026-09-29: "ei se
+  // toimi, sekoittaa vain omaa päätä kun treenaa").
   {
-    name: 'break round: a bar tap never lifts the total past the dial ceiling',
+    name: 'a phone that remembered bar choices loads without them, and the set screen has no bar row',
     run() {
-      assert.equal(switchBar(500, null, 20), WEIGHT_DIAL_MAX_KG);
-      assert.equal(switchBar(495, 7.5, 20), WEIGHT_DIAL_MAX_KG);
-      // Everything under the ceiling moves by the difference, as before.
-      assert.equal(switchBar(100, 20, 15), 95);
-      assert.equal(switchBar(27.5, 7.5, null), 20);
-      assert.equal(switchBar(5, 20, null), 0);
+      const fake = createFakeAsyncStorage();
+      const { normalizeDatabase } = loadAgainstFake(fake, (requireDist) => requireDist('storage/database.js'));
+      const loaded = normalizeDatabase({ preferences: { barChoiceByExercise: { 'sumo deadlift': 20 } } });
+      assert.equal('barChoiceByExercise' in loaded.preferences, false);
+      const player = read('src', 'screens', 'GuidedPlayerScreen.tsx');
+      assert.doesNotMatch(player, /barChoice|switchBar|guided\.bar\./);
+      assert.match(player, /const \[kg, setKg\] = useState\(target\?\.loadKg \?\? 0\);/, 'the dial opens on the target alone');
     },
   },
   {

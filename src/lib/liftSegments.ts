@@ -53,6 +53,26 @@ type SegmentableExercise = Pick<
   'exerciseName' | 'trackingMode' | 'sourceExerciseName' | 'swappedAfterSetIndex' | 'sets'
 >;
 
+/**
+ * What `liftBeforeSwap`/`liftOfSet` actually need from a set: its identity
+ * fields, not the whole logged-set shape. Widened from `WorkoutSetInstance`
+ * so a caller that only carries a row's identity — the rest screen's
+ * correction sheet, one row at a time — can ask this without first
+ * assembling a full set (break round 2026-09-29).
+ */
+export type LiftIdentitySource = Pick<WorkoutSetInstance, 'setIndex' | 'status' | 'loggedAs'>;
+
+/**
+ * What `liftBeforeSwap`/`liftOfSet` actually need from the exercise: the
+ * fields that answer "what lift was this", not `sets` — the same widening as
+ * `LiftIdentitySource`, for the same caller, so it can hand in one row's own
+ * exercise-level facts without owning that exercise's whole set array.
+ */
+type LiftIdentityExercise = Pick<
+  SegmentableExercise,
+  'exerciseName' | 'trackingMode' | 'sourceExerciseName' | 'swappedAfterSetIndex'
+>;
+
 const TRACKING_MODES: readonly WorkoutTrackingMode[] = ['load_and_reps', 'reps_first', 'bodyweight', 'hold'];
 
 function normalizeName(name: string) {
@@ -90,7 +110,7 @@ function readStamp(value: unknown): WorkoutLiftIdentity | null {
  * then a swap never changed the exercise's mode, so the lift before the line
  * was logged the way the exercise still is.
  */
-export function liftBeforeSwap(exercise: SegmentableExercise, set: WorkoutSetInstance): WorkoutLiftIdentity | null {
+export function liftBeforeSwap(exercise: LiftIdentityExercise, set: LiftIdentitySource): WorkoutLiftIdentity | null {
   const stamp = readStamp(set.loggedAs);
   if (stamp) {
     return normalizeName(stamp.exerciseName) === normalizeName(exercise.exerciseName) ? null : stamp;
@@ -119,7 +139,7 @@ export function liftBeforeSwap(exercise: SegmentableExercise, set: WorkoutSetIns
  * was offered no weight and then refused for having none (review of #170).
  * One answer, here, for both.
  */
-export function liftOfSet(exercise: SegmentableExercise, set: WorkoutSetInstance): WorkoutLiftIdentity {
+export function liftOfSet(exercise: LiftIdentityExercise, set: LiftIdentitySource): WorkoutLiftIdentity {
   return liftBeforeSwap(exercise, set) ?? { exerciseName: exercise.exerciseName, trackingMode: exercise.trackingMode };
 }
 

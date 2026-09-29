@@ -30,17 +30,23 @@ module.exports = [
     run() {
       setNumberLanguage('fi');
       assert.equal(
-        exerciseCardAccessibilityLabel('fi', 'Penkkipunnerrus', { heaviestKg: 62.5, reps: [8, 8, 6], borrowed: false }),
+        exerciseCardAccessibilityLabel('fi', 'Penkkipunnerrus', {
+          sets: [{ loadKg: 62.5, reps: 8 }, { loadKg: 62.5, reps: 8 }, { loadKg: 62.5, reps: 6 }],
+          borrowed: false,
+        }),
         'Penkkipunnerrus. Viime kerralla: 62,5 kg, toistot 8, 8, 6',
       );
       // Borrowed history is a different claim, as it is on the card.
       assert.equal(
-        exerciseCardAccessibilityLabel('fi', 'Kyykky', { heaviestKg: 100, reps: [5], borrowed: true }),
+        exerciseCardAccessibilityLabel('fi', 'Kyykky', { sets: [{ loadKg: 100, reps: 5 }], borrowed: true }),
         'Kyykky. Viime kerralla, eri päivänä: 100 kg, toistot 5',
       );
       // No weight on any set: the card prints a dash, the label says nothing.
       assert.equal(
-        exerciseCardAccessibilityLabel('fi', 'Leuanveto', { heaviestKg: 0, reps: [10, 9], borrowed: false }),
+        exerciseCardAccessibilityLabel('fi', 'Leuanveto', {
+          sets: [{ loadKg: 0, reps: 10 }, { loadKg: 0, reps: 9 }],
+          borrowed: false,
+        }),
         'Leuanveto. Viime kerralla: toistot 10, 9',
       );
       // Never done: the card's own first-time line.
@@ -50,7 +56,10 @@ module.exports = [
       );
       setNumberLanguage('en');
       assert.equal(
-        exerciseCardAccessibilityLabel('en', 'Bench press', { heaviestKg: 62.5, reps: [8, 8, 6], borrowed: false }),
+        exerciseCardAccessibilityLabel('en', 'Bench press', {
+          sets: [{ loadKg: 62.5, reps: 8 }, { loadKg: 62.5, reps: 8 }, { loadKg: 62.5, reps: 6 }],
+          borrowed: false,
+        }),
         'Bench press. Last time: 62.5 kg, reps 8, 8, 6',
       );
       setNumberLanguage('fi');
@@ -59,6 +68,53 @@ module.exports = [
         exerciseCardAccessibilityLabel('fi', 'Kyykky', null),
         new RegExp(t('fi', 'guided.panelsToggle')),
       );
+    },
+  },
+  {
+    name: 'a11y labels: a ramp is spoken per set, not smoothed to one heaviest weight',
+    run() {
+      setNumberLanguage('fi');
+      // The exact reported case (#bugs 2026-09-29): Lantionnosto laitteessa
+      // 16,25×8, 16,25×8, 30×6, 30×6, 30×6. The card's own heading hides the
+      // single "30 kg" number for this ramp and shows per-set chips instead
+      // (decision "a") — the spoken label must not fall back to the old
+      // single-heaviest-weight-plus-reps summary ("30 kg, toistot 8 8 6 6 6"),
+      // since that is the exact bug the visual fix stops showing.
+      const label = exerciseCardAccessibilityLabel('fi', 'Lantionnosto laitteessa', {
+        sets: [
+          { loadKg: 16.25, reps: 8 },
+          { loadKg: 16.25, reps: 8 },
+          { loadKg: 30, reps: 6 },
+          { loadKg: 30, reps: 6 },
+          { loadKg: 30, reps: 6 },
+        ],
+        borrowed: false,
+      });
+      assert.equal(label, 'Lantionnosto laitteessa. Viime kerralla: 16,25×8, 16,25×8, 30×6, 30×6, 30×6 kg');
+      assert.doesNotMatch(label, /toistot/);
+      assert.doesNotMatch(label, /^Lantionnosto laitteessa\. Viime kerralla: 30 kg/);
+      // Borrowed + ramp: the borrowed lead still applies.
+      assert.equal(
+        exerciseCardAccessibilityLabel('fi', 'Maastaveto', {
+          sets: [{ loadKg: 55, reps: 8 }, { loadKg: 60, reps: 8 }],
+          borrowed: true,
+        }),
+        'Maastaveto. Viime kerralla, eri päivänä: 55×8, 60×8 kg',
+      );
+      // A uniform session is unaffected: same words as before.
+      setNumberLanguage('en');
+      assert.equal(
+        exerciseCardAccessibilityLabel('en', 'Hip thrust machine', {
+          sets: [
+            { loadKg: 16.25, reps: 8 },
+            { loadKg: 16.25, reps: 8 },
+            { loadKg: 30, reps: 6 },
+          ],
+          borrowed: false,
+        }),
+        'Hip thrust machine. Last time: 16.25×8, 16.25×8, 30×6 kg',
+      );
+      setNumberLanguage('fi');
     },
   },
   {

@@ -26,7 +26,6 @@ import {
   normalizeLearnedExerciseIds,
   normalizeTechniqueChecks,
 } from '../lib/exerciseLearning';
-import { normalizeBarChoices } from '../lib/barChoice';
 import { normalizeSupersetGroups } from '../lib/supersetGrouping';
 import { savedPrescription } from '../lib/singleRepTarget';
 import { reconcileRunningSet } from '../lib/activeProgramSet';
@@ -1287,8 +1286,6 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
         input?.preferences?.learnedExerciseLibraryItemIds,
       ),
       exerciseTechniqueChecks: normalizeTechniqueChecks(input?.preferences?.exerciseTechniqueChecks),
-      // Missing on every install from before the bar row; a bad entry is dropped, not read.
-      barChoiceByExercise: normalizeBarChoices(input?.preferences?.barChoiceByExercise),
       // Hand-typed numbers in stored JSON: normalised rather than trusted,
       // so a corrupt entry cannot make a progress bar draw past its box.
       strengthGoals: normalizeStrengthGoals(input?.preferences?.strengthGoals),

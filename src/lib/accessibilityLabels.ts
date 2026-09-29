@@ -12,14 +12,14 @@
  */
 import { AppLanguage } from '../types/models';
 import { removeTrailingZeros } from './format';
+import { summarizeHistoricalSetChips } from './guidedSetWeightSummary';
 import { t } from './i18n';
 import { WEIGHT_DIAL_STEP_KG } from './weightDial';
 
 export interface LastTimeSummary {
-  /** The heaviest load of last time's sets; 0 when none carried a weight. */
-  heaviestKg: number;
-  /** Reps of each set, in order. */
-  reps: number[];
+  /** Each set's load and reps, in order — the same data the card's own
+   *  per-set chips are built from (decision "a", #bugs 2026-09-29). */
+  sets: readonly { loadKg: number; reps: number }[];
   /** From this lift in another program or an empty workout, not this slot. */
   borrowed: boolean;
 }
@@ -27,6 +27,13 @@ export interface LastTimeSummary {
 /**
  * The lift card on the set screen: the name, then last time, in the order the
  * card draws them. A lift never done reads the card's own first-time line.
+ *
+ * A ramp reads as a ramp here too: when the sets did not all carry the same
+ * weight, the card's heading hides its single "heaviest" number and shows
+ * per-set weight×reps chips instead — the spoken label follows the same
+ * split (`summarizeHistoricalSetChips`), so TalkBack/VoiceOver users are not
+ * told the old single-heaviest-weight-plus-reps summary the visual change
+ * was written to stop showing.
  */
 export function exerciseCardAccessibilityLabel(
   language: AppLanguage,
@@ -36,11 +43,17 @@ export function exerciseCardAccessibilityLabel(
   if (!lastTime) {
     return `${name}. ${t(language, 'guided.card.firstTime')}`;
   }
-  const details = [
-    lastTime.heaviestKg > 0 ? `${removeTrailingZeros(lastTime.heaviestKg)} kg` : null,
-    lastTime.reps.length > 0 ? t(language, 'guided.a11y.lastTimeReps', { reps: lastTime.reps.join(', ') }) : null,
-  ].filter((part): part is string => part !== null);
   const lead = t(language, lastTime.borrowed ? 'guided.a11y.lastTimeBorrowed' : 'guided.a11y.lastTime');
+  const { uniform, chips } = summarizeHistoricalSetChips(lastTime.sets);
+  if (!uniform) {
+    return chips.length > 0 ? `${name}. ${lead}: ${chips.join(', ')} kg` : `${name}. ${lead}`;
+  }
+  const heaviestKg = Math.max(0, ...lastTime.sets.map((set) => set.loadKg));
+  const reps = lastTime.sets.map((set) => set.reps);
+  const details = [
+    heaviestKg > 0 ? `${removeTrailingZeros(heaviestKg)} kg` : null,
+    reps.length > 0 ? t(language, 'guided.a11y.lastTimeReps', { reps: reps.join(', ') }) : null,
+  ].filter((part): part is string => part !== null);
   return details.length > 0 ? `${name}. ${lead}: ${details.join(', ')}` : `${name}. ${lead}`;
 }
 
