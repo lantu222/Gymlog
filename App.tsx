@@ -161,7 +161,7 @@ import { resolveObservedRate } from './src/lib/strengthGoalPlan';
 import type { GoalFlowLift, GoalFlowProposal } from './src/screens/StrengthGoalFlowScreen';
 import { CoachChatMemory } from './src/lib/coachChatMemory';
 import { CoachAdviceMemoryEntry, mergeCoachAdviceMemory, rememberCoachAdvice } from './src/lib/coachAdviceMemory';
-import { loadCoachAdviceMemory, saveCoachAdviceMemory } from './src/storage/coachAdviceMemoryStore';
+import { clearCoachAdviceMemory, loadCoachAdviceMemory, saveCoachAdviceMemory } from './src/storage/coachAdviceMemoryStore';
 import type { ChatMessage } from './src/screens/AICoachChatScreen';
 import {
   applyProgramSessionEdit,
@@ -446,6 +446,18 @@ function VinhaApp() {
     workoutHistory: workout.history,
     restoreDatabase: restoreDatabaseFromBackup,
     restoreWorkoutHistory: workout.restoreHistoryFromBackup,
+    // A landed restore replaces the database and the workout history — but
+    // not the coach's own memory, which lives outside both (this component's
+    // state, plus its own AsyncStorage key). Left alone, it would survive a
+    // restore that just replaced everything else, another account's data
+    // included. Same reasoning as handleResetAllData below, which clears it
+    // for the reset path; not fired on "keep this phone's data" or a failed
+    // restore, since useAccountBackup only calls this once both stores land.
+    onRestored: () => {
+      setCoachAdviceMemory([]);
+      setCoachChatMemory(null);
+      void clearCoachAdviceMemory();
+    },
   });
 
   /**

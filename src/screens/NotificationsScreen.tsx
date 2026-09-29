@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
@@ -161,24 +161,27 @@ export function NotificationsScreen({
   const [memos, setMemos] = useState<Partial<Record<NotificationGroupKey, NotificationGroupMemo>>>({});
 
   // Permission can be revoked while the app is closed, so trust the OS over
-  // what we stored. Runs once: re-running on every prefs change would fight
-  // the user's own toggling.
-  useEffect(() => {
-    if (!prefs.pushEnabled || !checkPermission) {
-      return undefined;
+  // what we stored — and not only once on mount: the workout-alerts card
+  // below already re-checks on every return to the foreground, but this
+  // master card and every scheduled-notification toggle under it did not, so
+  // revoking permission in Android settings and coming back left them all
+  // still showing On (#bugs, 2026-09-29). Read through a ref rather than a
+  // dependency array, so re-checking on every foreground does not also mean
+  // re-checking on every prefs change the reader's own toggling causes.
+  const latestScheduledRef = useRef({ pushEnabled: prefs.pushEnabled, checkPermission, onChange });
+  latestScheduledRef.current = { pushEnabled: prefs.pushEnabled, checkPermission, onChange };
+  const readScheduledAccess = useCallback(() => {
+    const { pushEnabled, checkPermission, onChange } = latestScheduledRef.current;
+    if (!pushEnabled || !checkPermission) {
+      return;
     }
-    let cancelled = false;
     void checkPermission().then((granted) => {
-      if (cancelled || granted) {
+      if (granted) {
         return;
       }
       setSystemBlocked(true);
       onChange({ pushEnabled: false });
     });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /**
@@ -197,13 +200,15 @@ export function NotificationsScreen({
   }, [checkWorkoutAlerts, checkExactAlarms]);
   useEffect(() => {
     readWorkoutAccess();
+    readScheduledAccess();
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         readWorkoutAccess();
+        readScheduledAccess();
       }
     });
     return () => subscription.remove();
-  }, [readWorkoutAccess]);
+  }, [readWorkoutAccess, readScheduledAccess]);
 
   const handleMasterChange = (next: boolean) => {
     if (!next) {
