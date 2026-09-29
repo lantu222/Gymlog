@@ -51,7 +51,13 @@ interface WorkoutContextValue {
   setActiveExercise: (slotId: string, setIndex?: number) => void;
   expandExercise: (slotId: string) => void;
   collapseExercise: (slotId: string) => void;
-  insertExerciseAfter: (afterSlotId: string, exercise: WorkoutExerciseInsertInput) => void;
+  /**
+   * `afterSlotId` is null for a session with no main-block exercise to
+   * anchor after — a cooldown-only session's mid-workout add. The reducer
+   * inserts at the front of the (empty) list instead (recheck round
+   * 2026-09-29).
+   */
+  insertExerciseAfter: (afterSlotId: string | null, exercise: WorkoutExerciseInsertInput) => void;
   updateSetDraft: (slotId: string, setIndex: number, patch: { loadText?: string; repsText?: string }) => void;
   completeSet: (slotId: string, setIndex: number, unitPreference: UnitPreference) => void;
   /** Correct a set that is already logged, without moving the session on. */

@@ -130,7 +130,12 @@ export type WorkoutAction =
    */
   | { type: 'history/forgetSession'; payload: { sessionId: string } }
   | { type: 'exercise/skip'; payload: { slotId: string; reason?: string } }
-  | { type: 'exercise/insertAfter'; payload: { afterSlotId: string; exercise: WorkoutExerciseInsertInput } }
+  | {
+      type: 'exercise/insertAfter';
+      // null when the session has no main-block exercise to insert after — a
+      // cooldown-only session's mid-workout add (recheck round 2026-09-29).
+      payload: { afterSlotId: string | null; exercise: WorkoutExerciseInsertInput };
+    }
   | {
       type: 'exercise/swap';
       payload: {
@@ -1701,12 +1706,23 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
       }
 
       const session = cloneSession(state.activeSession);
-      const exerciseIndex = findExerciseIndex(session, action.payload.afterSlotId);
-      if (exerciseIndex < 0) {
-        return state;
+      // `afterSlotId` is null for a session with no main-block exercise to
+      // anchor after (a cooldown-only session's mid-workout add) — insert at
+      // the front of the list rather than requiring a slot that cannot
+      // exist. A named anchor still has to resolve: a stale or unknown slot
+      // id is not a request to insert at the front (recheck round
+      // 2026-09-29).
+      let insertIndex: number;
+      if (action.payload.afterSlotId === null) {
+        insertIndex = 0;
+      } else {
+        const exerciseIndex = findExerciseIndex(session, action.payload.afterSlotId);
+        if (exerciseIndex < 0) {
+          return state;
+        }
+        insertIndex = exerciseIndex + 1;
       }
 
-      const insertIndex = exerciseIndex + 1;
       const insertedExercise = materializeInsertedExercise(action.payload.exercise, insertIndex);
       session.exercises.splice(insertIndex, 0, insertedExercise);
       session.exercises = session.exercises.map((exercise, index) => ({
