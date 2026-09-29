@@ -85,7 +85,6 @@ module.exports = [
         'haluan lisätä painoa 10 kg',
         'haluan pudottaa painoa 8 kg',
         'nosta painoa 5 kg',
-        'haluan kasvattaa rinnanympärystä 10 cm',
         'I want to gain 10 kg of weight',
         'I want to lose 10 kg of weight',
       ];
@@ -100,6 +99,13 @@ module.exports = [
         { text: 'tavoite paino 95 kg', kind: 'bodyweight', value: 95 },
         { text: 'haluan painaa 80 kg', kind: 'bodyweight', value: 80 },
         { text: 'rinnanympärys 104 cm', kind: 'chest', value: 104 },
+        // "kasvattaa" is also a change verb ("kasvattaa painoa 10 kg" reads
+        // as a delta), but it is left out of RELATIVE_WORDS on purpose: it is
+        // also the ordinary way to name a measurement target itself, and
+        // "haluan kasvattaa rinnanympärystä 104 cm" has always kept its
+        // number (see the suite below). Matching "kasvat" as relative would
+        // silently drop that number — the regression this suite guards.
+        { text: 'haluan kasvattaa rinnanympärystä 104 cm', kind: 'chest', value: 104 },
       ];
       for (const { text, kind, value } of absoluteCases) {
         const goal = parseGoalIntent(text, 'fi', { declared: true });
@@ -112,10 +118,12 @@ module.exports = [
   {
     name: 'goalIntent: a goal with a number never leaks into the measurement logger',
     run() {
-      // Not "kasvattaa …", which the suite above now reads as a relative
-      // amount and drops: this case is about the number reaching the goal at
-      // all, not about which phrasing keeps it.
-      const text = 'tavoite rinnanympärys 104 cm';
+      // Was swapped to "tavoite rinnanympärys 104 cm" during the
+      // relative/absolute fix, worked around a regression instead of fixing
+      // it (caught in review, 2026-09-29): with "kasvat" ever treated as a
+      // relative word this exact sentence loses its number. Restored to the
+      // original growth-verb phrasing so this suite still guards it.
+      const text = 'haluan kasvattaa rinnanympärystä 104 cm';
       assert.equal(parseMeasurementIntent(text, 'fi'), null, 'measurement parser must reject goal sentences');
       const goal = parseGoalIntent(text, 'fi');
       assert.ok(goal);
