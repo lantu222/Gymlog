@@ -173,4 +173,131 @@ module.exports = [
       }
     },
   },
+  {
+    name:
+      'the alias TARGET typed literally is routed through the same whole-phrase check as its aliases ("leg extension" review, recheck round 2026-09-29)',
+    run() {
+      // "leg extension" is the right-hand side of several SEARCH_ALIASES /
+      // SEARCH_PHRASE_ALIASES entries, but never itself the left-hand side of
+      // one — so it never went through applyPhraseAliases's boundary + join,
+      // and reached exerciseMatchesQuery as two bare terms: "leg" (matched
+      // by bodyPart "legs") and "extension" (matched by the unrelated
+      // "Reverse Hyperextension", which also carries bodyPart "legs"). Both
+      // terms landed, so the whole query did.
+      for (const query of ['leg extension', 'Leg Extension', 'leg extensions']) {
+        const names = search(query, 'en').map((item) => item.name);
+        assert.ok(names.length > 0, `"${query}" found nothing`);
+        assert.ok(
+          !names.some((name) => /hyperextension/i.test(name)),
+          `"${query}" wrongly found a hyperextension lift: ${names.join(', ')}`,
+        );
+        assert.ok(
+          names.every((name) => /leg extension/i.test(name)),
+          `"${query}" found something outside the Leg Extension family: ${names.join(', ')}`,
+        );
+        assert.ok(names.includes('Leg Extensions'), `"${query}" missed the plain Leg Extensions machine`);
+      }
+
+      // The plural must find the whole family the singular finds, not just
+      // whichever row's stored name happens to literally contain "s" (recheck
+      // of the recheck, 2026-09-29): the singular phrase alias's boundary
+      // check (`\bleg\s+extension\b`) never matches "leg extensions" — there
+      // is no word boundary between "extension" and its own trailing "s" —
+      // so the plural used to skip applyPhraseAliases entirely and fall back
+      // to the pre-fix two-bare-terms path. That path happened to surface
+      // "Leg Extensions" (its stored name literally contains "extensions"),
+      // which made the assertions above pass without ever exercising the
+      // plural through the phrase-join machinery, and silently dropped
+      // "Single-Leg Leg Extension" — a real, incomplete result the whole-
+      // phrase fix exists to prevent.
+      assert.deepEqual(
+        search('leg extensions', 'en').map((item) => item.name).sort(),
+        search('leg extension', 'en').map((item) => item.name).sort(),
+        '"leg extensions" must find exactly the same rows as "leg extension"',
+      );
+
+      // The other alias target, "leg curl", only had bodyPart "legs" plus a
+      // "curl" name to coincide on — no lift in the library actually
+      // collides on it today, but the same bare-terms path was live for it
+      // too, so it is pinned here rather than left to luck.
+      for (const query of ['leg curl', 'Leg Curl']) {
+        const names = search(query, 'en').map((item) => item.name);
+        assert.ok(names.length > 0, `"${query}" found nothing`);
+        assert.ok(
+          names.every((name) => /leg curl/i.test(name)),
+          `"${query}" found something outside the Leg Curl family: ${names.join(', ')}`,
+        );
+      }
+
+      // Same completeness check for "leg curls": the pre-fix bare-terms path
+      // matched only "Lying Leg Curls" (the one row whose stored name is
+      // itself plural) and dropped "Ball Leg Curl", "Seated Leg Curl" and
+      // "Standing Leg Curl" — every one of which the singular query finds.
+      const curlSingular = search('leg curl', 'en').map((item) => item.name).sort();
+      assert.ok(curlSingular.length > 1, 'expected more than one Leg Curl family member to pin this against');
+      assert.deepEqual(
+        search('leg curls', 'en').map((item) => item.name).sort(),
+        curlSingular,
+        '"leg curls" must find exactly the same rows as "leg curl"',
+      );
+
+      // A query that merely contains the target phrase, not just the exact
+      // phrase alone, is joined too — the boundary check runs the same way
+      // applyPhraseAliases already runs it for every gym-phrase alias above.
+      assert.ok(exerciseMatchesQuery('single leg leg extension machine', 'leg extension'));
+    },
+  },
+  {
+    name: 'routing the alias targets through the phrase check leaves every other multi-word query exactly as it was',
+    run() {
+      // A frozen top-3 (and count) for 30 everyday multi-word queries that
+      // have nothing to do with "leg extension"/"leg curl" — captured from
+      // this same file before the phrase-target fix and diffed against the
+      // fixed code with a throwaway script; identical both times. Recorded
+      // here so a future change to the phrase/alias machinery has to answer
+      // to them too (recheck round 2026-09-29).
+      const baseline = [
+        ['bench press', 'en', 21, ['Barbell Bench Press - Medium Grip', 'Bench Press with Chains', 'Bench Press - With Bands']],
+        ['squat barbell', 'en', 32, ['Barbell Full Squat', 'Front Barbell Squat', 'Barbell Squat']],
+        ['bicep curl', 'en', 64, ['Machine Bicep Curl', 'Dumbbell Bicep Curl', 'Incline Inner Biceps Curl']],
+        ['shoulder press', 'en', 87, ['Shoulder Press - With Bands', 'Cable Shoulder Press', 'Barbell Shoulder Press']],
+        ['leg press', 'en', 6, ['Leg Press', 'Leg-Over Floor Press', 'Narrow Stance Leg Press']],
+        ['hip thrust', 'en', 1, ['Barbell Hip Thrust']],
+        ['cable row', 'en', 9, ['Seated Cable Rows', 'Upright Cable Row', 'Elevated Cable Rows']],
+        ['lat pulldown', 'en', 10, ['Wide-Grip Lat Pulldown', 'One Arm Lat Pulldown', 'Close-Grip Front Lat Pulldown']],
+        ['tricep extension', 'en', 28, ['Machine Triceps Extension', 'Low Cable Triceps Extension', 'Cable Lying Triceps Extension']],
+        ['overhead press', 'en', 2, ['Standing Military Press', 'Smith Machine Overhead Shoulder Press']],
+        ['front squat', 'en', 4, ['Front Barbell Squat', 'Front Squat (Clean Grip)', 'Front Squats With Two Kettlebells']],
+        ['back squat', 'en', 22, ['Barbell Full Squat', 'Box Squat', 'Speed Squats']],
+        ['seated row', 'en', 2, ['Seated Cable Rows', 'Seated One-arm Cable Pulley Rows']],
+        ['chest fly', 'en', 9, ['Butterfly', 'Dumbbell Flyes', 'Bodyweight Flyes']],
+        ['calf raise', 'en', 12, ['Calf Raise On A Dumbbell', 'Calf Raises - With Bands', 'Seated Calf Raise']],
+        ['face pull', 'en', 1, ['Face Pull']],
+        ['goblet squat', 'en', 1, ['Goblet Squat']],
+        ['romanian deadlift', 'en', 2, ['Romanian Deadlift', 'Romanian Deadlift from Deficit']],
+        ['incline press', 'en', 6, ['Barbell Incline Bench Press - Medium Grip', 'Incline Dumbbell Press', 'Incline Cable Chest Press']],
+        ['decline press', 'en', 6, ['Decline Smith Press', 'Decline Barbell Bench Press', 'Smith Machine Decline Press']],
+        ['hack squat', 'en', 3, ['Hack Squat', 'Barbell Hack Squat', 'Narrow Stance Hack Squats']],
+        ['glute bridge', 'en', 4, ['Barbell Glute Bridge', 'Single Leg Glute Bridge', 'Butt Lift (Bridge)']],
+        ['wrist curl', 'en', 13, ['Cable Wrist Curl', 'Seated Palm-Up Barbell Wrist Curl', 'Palms-Down Wrist Curl Over A Bench']],
+        ['preacher curl', 'en', 8, ['Preacher Curl', 'Cable Preacher Curl', 'Zottman Preacher Curl']],
+        ['hammer curl', 'en', 6, ['Hammer Curls', 'Incline Hammer Curls', 'Alternate Hammer Curl']],
+        ['sumo deadlift', 'en', 4, ['Sumo Deadlift', 'Sumo Deadlift with Bands', 'Sumo Deadlift with Chains']],
+        ['trap bar', 'en', 45, ['Trap Bar Deadlift', 'Clean', 'Snatch']],
+        ['kyykky tanko', 'fi', 34, ['Overhead Squat', 'Barbell Full Squat', 'Barbell Squat']],
+        ['penkki punnerrus', 'fi', 30, ['Barbell Bench Press - Medium Grip', 'Barbell Incline Bench Press - Medium Grip', 'Board Press']],
+        ['leg raise', 'en', 20, ['Rear Leg Raises', 'Side Leg Raises', 'Front Leg Raises']],
+        ['reverse hyperextension', 'en', 1, ['Reverse Hyperextension']],
+      ];
+      for (const [query, language, count, top3] of baseline) {
+        const ranked = rankExerciseMatches(library, query, language);
+        assert.equal(ranked.length, count, `"${query}" (${language}) found ${ranked.length}, expected ${count}`);
+        assert.deepEqual(
+          ranked.slice(0, 3).map((item) => item.name),
+          top3,
+          `"${query}" (${language}) top results changed`,
+        );
+      }
+    },
+  },
 ];

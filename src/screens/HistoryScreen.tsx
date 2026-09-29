@@ -21,7 +21,7 @@ import {
   filterHistorySessionViewModels,
   HistorySessionViewModel,
 } from '../lib/historyView';
-import { clampHistoryScrollOffset } from '../lib/historyScrollMemory';
+import { clampHistoryScrollOffset, historyScrollMemoryMatches, HistoryScrollMemory } from '../lib/historyScrollMemory';
 import { SessionFeelSummary, sessionFeelColor, summariseSessionFeel } from '../lib/sessionFeel';
 import { groupByMonth } from '../lib/monthGroups';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -54,10 +54,14 @@ interface HistoryScreenProps {
   language?: AppLanguage;
   selectedSessionId?: string;
   getSessionLogs: (sessionId: string) => AppDatabase['exerciseLogs'];
-  /** Where the list was left scrolled last time; see App.tsx. Absent = top. */
-  initialScrollOffset?: number;
-  /** Fired as the list scrolls, so the caller can remember where. */
-  onScrollOffsetChange?: (offsetY: number) => void;
+  /**
+   * Where the list was left scrolled last time, and what it was showing
+   * then; see App.tsx. Absent, or captured under a different search/filter
+   * than this visit, means top — see `historyScrollMemoryMatches`.
+   */
+  initialScrollMemory?: HistoryScrollMemory | null;
+  /** Fired as the list scrolls, so the caller can remember where and under what. */
+  onScrollOffsetChange?: (memory: HistoryScrollMemory) => void;
   onSelectSession: (sessionId: string) => void;
   /** Absent hides the delete affordance entirely rather than inerting it. */
   onDeleteSession?: (sessionId: string) => void;
@@ -299,7 +303,7 @@ export function HistoryScreen({
   language = 'en',
   selectedSessionId,
   getSessionLogs,
-  initialScrollOffset = 0,
+  initialScrollMemory = null,
   onScrollOffsetChange,
   onSelectSession,
   onDeleteSession,
@@ -340,8 +344,12 @@ export function HistoryScreen({
         .sort((left, right) => new Date(right.performedAt).getTime() - new Date(left.performedAt).getTime()),
     [getSessionLogs, sessions],
   );
+  // No chip on screen sets this to anything else yet; kept as its own name
+  // rather than a literal repeated at every scroll-memory call site, so the
+  // day a filter chip lands there is exactly one place to wire it in.
+  const historyFilter = 'all';
   const filteredSessions = useMemo(
-    () => filterHistorySessionViewModels(sessionViewModels, { query: searchQuery, filter: 'all' }),
+    () => filterHistorySessionViewModels(sessionViewModels, { query: searchQuery, filter: historyFilter }),
     [searchQuery, sessionViewModels],
   );
   const filtersActive = searchQuery.trim().length > 0;
@@ -532,15 +540,36 @@ export function HistoryScreen({
           listViewportHeightRef.current = event.nativeEvent.layout.height;
         }}
         scrollEventThrottle={64}
-        onScroll={(event) => onScrollOffsetChange?.(event.nativeEvent.contentOffset.y)}
+        onScroll={(event) =>
+          onScrollOffsetChange?.({
+            offsetY: event.nativeEvent.contentOffset.y,
+            searchQuery,
+            filter: historyFilter,
+          })
+        }
         onContentSizeChange={(_width, height) => {
           // contentOffset is iOS-only, so the restore is a one-time scrollTo
-          // once the list is tall enough to hold the old position again.
-          if (!listRestoredRef.current && initialScrollOffset > 0) {
-            listRestoredRef.current = true;
-            const target = clampHistoryScrollOffset(initialScrollOffset, height, listViewportHeightRef.current);
-            listScrollRef.current?.scrollTo({ y: target, animated: false });
+          // once the list is tall enough to hold the old position again. Only
+          // once: a search keystroke also changes the content size, and by
+          // then the decision to restore (or not) has already been made.
+          if (listRestoredRef.current) {
+            return;
           }
+          listRestoredRef.current = true;
+          if (!historyScrollMemoryMatches(initialScrollMemory, { searchQuery, filter: historyFilter })) {
+            // A different search or filter than the one this offset was
+            // recorded under — most often a fresh mount after a tab switch,
+            // which reset the search box to "" — so this is not the list the
+            // reader was scrolled through. Start at the top, same as #232
+            // always allowed for a visit that did not round-trip a session.
+            return;
+          }
+          const target = clampHistoryScrollOffset(
+            initialScrollMemory!.offsetY,
+            height,
+            listViewportHeightRef.current,
+          );
+          listScrollRef.current?.scrollTo({ y: target, animated: false });
         }}
       >
         <Text style={styles.pageTitle}>{t(language, 'history.title')}</Text>
