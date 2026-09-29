@@ -139,6 +139,8 @@ module.exports = [
     name: 'logged sets of a lift are every completed set, oldest first, by their own setIndex',
     run() {
       const lift = {
+        exerciseName: 'Back Squat',
+        trackingMode: 'load_and_reps',
         sets: [
           { setIndex: 0, status: 'completed', actualReps: 8, actualLoadKg: 60 },
           { setIndex: 1, status: 'skipped' },
@@ -147,8 +149,8 @@ module.exports = [
         ],
       };
       assert.deepEqual(loggedSetsOf(lift), [
-        { setIndex: 0, reps: 8, loadKg: 60 },
-        { setIndex: 2, reps: 6, loadKg: 65 },
+        { setIndex: 0, reps: 8, loadKg: 60, trackingMode: 'load_and_reps' },
+        { setIndex: 2, reps: 6, loadKg: 65, trackingMode: 'load_and_reps' },
       ]);
 
       // Read by the field the reducer and findSetByIndex both key off —
@@ -156,19 +158,72 @@ module.exports = [
       // back sorted, and a set logged with no weight (bodyweight) reads as
       // null rather than as a number.
       const outOfOrder = {
+        exerciseName: 'Goblet Squat',
+        trackingMode: 'bodyweight',
         sets: [
           { setIndex: 2, status: 'completed', actualReps: 10 },
           { setIndex: 0, status: 'completed', actualReps: 12 },
         ],
       };
       assert.deepEqual(loggedSetsOf(outOfOrder), [
-        { setIndex: 0, reps: 12, loadKg: null },
-        { setIndex: 2, reps: 10, loadKg: null },
+        { setIndex: 0, reps: 12, loadKg: null, trackingMode: 'bodyweight' },
+        { setIndex: 2, reps: 10, loadKg: null, trackingMode: 'bodyweight' },
       ]);
 
       // No lift, or nothing logged yet: no rows, not a throw.
       assert.deepEqual(loggedSetsOf(null), []);
-      assert.deepEqual(loggedSetsOf({ sets: [{ setIndex: 0, status: 'pending' }] }), []);
+      assert.deepEqual(
+        loggedSetsOf({ exerciseName: 'Row', trackingMode: 'load_and_reps', sets: [{ setIndex: 0, status: 'pending' }] }),
+        [],
+      );
+    },
+  },
+  {
+    /**
+     * A mid-exercise swap between a loaded lift and an unloaded/timed one
+     * leaves sets on either side of the line logged as different lifts
+     * (`loggedAs` stamps, liftSegments.ts `liftOfSet`). The correction
+     * sheet used to read ONE mode — the currently selected row's — and
+     * apply it to every row, so a 100 kg squat set was shown as bare reps
+     * once a bodyweight row was selected (break round 2026-09-29). Each
+     * row must answer for its own set, via the same `liftOfSet` the reducer
+     * and the single-set editor both trust — not a mode borrowed from
+     * whichever row happens to be selected.
+     */
+    name: 'logged sets of a lift after a swap: each row keeps the tracking mode it was logged under',
+    run() {
+      // Back Squat (loaded) for two sets, swapped to Plank Hold (timed,
+      // unloaded) for the third — the shape liftOfSet reads: the swapped-to
+      // lift is the exercise's CURRENT identity, and the pre-swap sets carry
+      // their own `loggedAs` stamp.
+      const exercise = {
+        exerciseName: 'Plank Hold',
+        trackingMode: 'hold',
+        sourceExerciseName: 'Back Squat',
+        swappedAfterSetIndex: 1,
+        sets: [
+          {
+            setIndex: 0,
+            status: 'completed',
+            actualReps: 8,
+            actualLoadKg: 100,
+            loggedAs: { exerciseName: 'Back Squat', trackingMode: 'load_and_reps' },
+          },
+          {
+            setIndex: 1,
+            status: 'completed',
+            actualReps: 5,
+            actualLoadKg: 100,
+            loggedAs: { exerciseName: 'Back Squat', trackingMode: 'load_and_reps' },
+          },
+          { setIndex: 2, status: 'completed', actualReps: 30 },
+        ],
+      };
+      assert.deepEqual(loggedSetsOf(exercise), [
+        { setIndex: 0, reps: 8, loadKg: 100, trackingMode: 'load_and_reps' },
+        { setIndex: 1, reps: 5, loadKg: 100, trackingMode: 'load_and_reps' },
+        { setIndex: 2, reps: 30, loadKg: null, trackingMode: 'hold' },
+      ]);
     },
   },
   {

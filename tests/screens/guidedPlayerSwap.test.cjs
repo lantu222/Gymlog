@@ -567,4 +567,79 @@ module.exports = [
       assert.match(i18nSource, /'guided\.rest\.editTitleFor': 'Korjaa sarja \{index\}'/);
     },
   },
+  {
+    /**
+     * Each row of the correction sheet must judge itself by its OWN set's
+     * tracking mode, not by the sheet's single `unloaded` flag — that flag
+     * is derived from `restEditLift`, i.e. from whichever row is currently
+     * SELECTED (`restEdit.setIndex`). After a mid-exercise swap between a
+     * loaded and an unloaded/timed lift, the other rows' sets were logged
+     * as a different lift than the one currently selected, so borrowing the
+     * selected row's flag for every row's text showed a 100 kg squat set as
+     * bare reps, or a bodyweight set with a weight (break round 2026-09-29).
+     */
+    name: 'guided rest edit: each row reads its own trackingMode, not the sheet-wide unloaded flag',
+    run() {
+      const editorFn = playerSource.slice(
+        playerSource.indexOf('function LoggedSetEditor('),
+        playerSource.indexOf('function SetStepView('),
+      );
+      // The per-row detail string is decided from a value derived off
+      // `row.trackingMode` — never straight off the sheet-wide `unloaded`
+      // parameter, which is only correct for the one row it was computed
+      // from.
+      assert.match(editorFn, /isUnloadedTrackingMode\(row\.trackingMode\)/);
+      assert.doesNotMatch(
+        editorFn,
+        /const detail = unloaded\s*\n\s*\? t\(language, 'guided\.rest\.setRowUnloaded'/,
+      );
+
+      // loggedSetsOf, the pure helper, is the one place that stamps each
+      // row with its own mode — via liftOfSet, the same rule the reducer's
+      // set/editLogged and the single-set editor's `unloaded` prop both
+      // already trust for the SELECTED set. A row must not be able to
+      // disagree with what Save itself would judge that same set as.
+      const libSource = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'lib', 'guidedPlayer.ts'),
+        'utf8',
+      );
+      assert.match(libSource, /trackingMode: liftOfSet\(lift, set\)\.trackingMode/);
+    },
+  },
+  {
+    /**
+     * `restEditLift` — which feeds the editor's `unloaded` prop, its reps
+     * ceiling, AND (via `findSetByIndex`) the reps/weight fields it opens
+     * on — must be recomputed from `restEdit.setIndex`, the field that
+     * moves when the reader taps another row. Tying it to
+     * `justLoggedSetIndex` (which never moves) or to a value computed once
+     * at open time would leave the fields showing the set the sheet opened
+     * on instead of the one tapped, across the swap boundary or not.
+     */
+    name: 'guided rest edit: restEditLift and the editor fields follow restEdit.setIndex, not a value fixed at open time',
+    run() {
+      assert.match(
+        playerSource,
+        /const restEditLift = \(\(\) => \{\s*const exercise = restEdit \? exerciseBySlot\.get\(restEdit\.slotId\) : undefined;\s*const set = exercise && restEdit \? findSetByIndex\(exercise, restEdit\.setIndex\) : null;\s*return exercise \? \(set \? liftOfSet\(exercise, set\) : exercise\) : null;\s*\}\)\(\);/,
+      );
+      // The reps/weight fields the editor opens on read the SAME call —
+      // findSetByIndex keyed on restEdit.setIndex — so a tap that moves
+      // setIndex moves these too, not just the title.
+      assert.match(
+        playerSource,
+        /reps=\{findSetByIndex\(exerciseBySlot\.get\(restEdit\.slotId\), restEdit\.setIndex\)\?\.actualReps \?\? 0\}/,
+      );
+      assert.match(
+        playerSource,
+        /loadKg=\{findSetByIndex\(exerciseBySlot\.get\(restEdit\.slotId\), restEdit\.setIndex\)\?\.actualLoadKg \?\? 0\}/,
+      );
+      // Never justLoggedSetIndex for any of these three — that field is
+      // frozen at open time and exists only to word the title.
+      const restEditBlock = playerSource.slice(
+        playerSource.indexOf('const restEditLift ='),
+        playerSource.indexOf('const restEditSets ='),
+      );
+      assert.doesNotMatch(restEditBlock, /justLoggedSetIndex/);
+    },
+  },
 ];

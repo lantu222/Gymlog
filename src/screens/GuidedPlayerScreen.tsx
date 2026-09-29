@@ -4523,7 +4523,14 @@ function LoggedSetEditor({
             <View style={{ gap: 6 }}>
               {sets.map((row) => {
                 const selected = row.setIndex === selectedSetIndex;
-                const detail = unloaded
+                // Each row judges itself — `unloaded` above is the sheet's
+                // currently SELECTED set, and after a mid-exercise swap
+                // between a loaded and an unloaded lift that is not every
+                // row's own answer. A 100 kg squat set shown as bare reps,
+                // or a bodyweight set shown with a weight, is the bug this
+                // guards (break round 2026-09-29).
+                const rowUnloaded = isUnloadedTrackingMode(row.trackingMode);
+                const detail = rowUnloaded
                   ? t(language, 'guided.rest.setRowUnloaded', { reps: row.reps })
                   : t(language, 'guided.rest.setRow', {
                       weight: formatWeight(row.loadKg, unitPreference),
