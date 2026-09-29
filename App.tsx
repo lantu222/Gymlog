@@ -124,7 +124,9 @@ import {
   buildPlateauMoment,
   buildWeeklyRead,
   detectPlateau,
+  findPlateauDetection,
   pickCompletionLift,
+  plateauEpisodeKey,
 } from './src/lib/proInsights';
 import { markCoachDemoMomentUsed, resolveDueCoachDemoMoment } from './src/lib/coachDemoMoments';
 import { blockWeekOfSession, blockWeekTally, buildHomePlanProgress } from './src/lib/homePlanProgress';
@@ -1491,21 +1493,34 @@ function VinhaApp() {
     () => toProgressionFatigueSignal(proFatigue),
     [proFatigue],
   );
-  const proPlateauLift = useMemo(() => detectPlateau(proLiftHistories), [proLiftHistories]);
+  // Episodes the reader already said "selvä" to — one tap on Home, kept
+  // through database.ts normalisation like every other dismiss list. Read
+  // only here: the in-workout reminder (findPlateauDetection below) ignores
+  // it on purpose, per the owner's "muistutus kun seuraavalla kerralla on
+  // sumo" (#bugs 2026-09-29).
+  const dismissedPlateauEpisodes = useMemo(
+    () => new Set(preferences.dismissedPlateauEpisodes),
+    [preferences.dismissedPlateauEpisodes],
+  );
+  const proPlateauLift = useMemo(
+    () => detectPlateau(proLiftHistories, dismissedPlateauEpisodes),
+    [proLiftHistories, dismissedPlateauEpisodes],
+  );
   const proPlateau = useMemo(
     () =>
       proPlateauLift
         ? {
             detection: buildPlateauDetection(proPlateauLift, preferences.appLanguage),
-            conclusion: buildPlateauConclusion(proPlateauLift, preferences.appLanguage),
+            conclusion: buildPlateauConclusion(proPlateauLift, preferences.appLanguage, preferences.setupLevel),
             moment: buildPlateauMoment(proPlateauLift, preferences.appLanguage, preferences.setupLevel),
+            episodeKey: plateauEpisodeKey(proPlateauLift),
           }
         : null,
     [preferences.appLanguage, preferences.setupLevel, proPlateauLift],
   );
   const proWeeklyRead = useMemo(
-    () => buildWeeklyRead(proLiftHistories, proFatigue, preferences.appLanguage),
-    [preferences.appLanguage, proFatigue, proLiftHistories],
+    () => buildWeeklyRead(proLiftHistories, proFatigue, preferences.appLanguage, preferences.setupLevel),
+    [preferences.appLanguage, preferences.setupLevel, proFatigue, proLiftHistories],
   );
   const proCompletionLift = useMemo(() => pickCompletionLift(proLiftHistories), [proLiftHistories]);
   const proCompletionMoment = useMemo(
@@ -6577,6 +6592,17 @@ function VinhaApp() {
     return (exerciseName: string) => byName.get(exerciseName.trim().toLowerCase()) ?? null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [database.exerciseLogs, database.exerciseTemplates, database.workoutSessions]);
+  /**
+   * The plateau reminder for whichever lift the guided player is walking to
+   * next — the same detection Home shows, found by name rather than picked
+   * as the single best, and never filtered by Home's dismiss list: putting
+   * that card away must not silence the in-workout nudge too (user
+   * 2026-09-29, "muistutus kun seuraavalla kerralla on sumo").
+   */
+  const plateauNotice = useMemo(
+    () => (exerciseName: string) => findPlateauDetection(proLiftHistories, exerciseName, preferences.appLanguage),
+    [proLiftHistories, preferences.appLanguage],
+  );
   const personalRecords = useMemo(
     () => ({
       weight: resolveRecords(recordSources, 'weight'),
@@ -7574,6 +7600,7 @@ function VinhaApp() {
       finishLoggedWorkoutSave,
       exerciseLibrary,
       liftHistory,
+      plateauNotice,
       sameLibraryRow,
       guidedEntryEyebrow,
       guidedWeekProgress,
@@ -7878,7 +7905,22 @@ function VinhaApp() {
         onOpenCardio={() => navigate({ tab: 'home', screen: 'cardio' })}
         activeCardioActivity={workout.activeCardio?.activityType ?? null}
         onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
-        plateau={proPlateau ? { headline: proPlateau.detection.headline, meta: proPlateau.detection.meta, locked: proPlateau.conclusion, moment: proPlateau.moment } : null}
+        plateau={
+          proPlateau
+            ? {
+                headline: proPlateau.detection.headline,
+                meta: proPlateau.detection.meta,
+                locked: proPlateau.conclusion,
+                moment: proPlateau.moment,
+                episodeKey: proPlateau.episodeKey,
+              }
+            : null
+        }
+        onDismissPlateau={(episodeKey) =>
+          void updatePreferences((current) => ({
+            dismissedPlateauEpisodes: [...current.dismissedPlateauEpisodes, episodeKey],
+          }))
+        }
         proUnlocked={coachProUnlocked}
         onSetTrainingDays={() =>
           navigate({ tab: 'profile', screen: 'training_plan', editSchedule: true })

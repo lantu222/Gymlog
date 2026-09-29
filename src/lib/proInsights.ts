@@ -4,7 +4,7 @@ import { formatShortDate, formatWeight } from './format';
 import { exerciseNameLabel } from './exerciseNameLabel';
 import { t } from './i18n';
 import { PROGRESSION_LEVEL_PARAMS, getProgressionTier } from './progressionGate';
-import { LiftHistory } from './trainingHistory';
+import { LiftHistory, normalizedName } from './trainingHistory';
 import { AppLanguage, SetupLevel } from '../types/models';
 
 /**
@@ -120,10 +120,37 @@ function stallReason(lift: LiftHistory): 'recovery' | 'reps_hold' {
   return 'reps_hold';
 }
 
-export function detectPlateau(lifts: LiftHistory[]): LiftHistory | null {
+/** Is this lift, right now, the plateau the paywall moments would find? */
+export function isLiftPlateaued(lift: LiftHistory): boolean {
+  return lift.stalledSessions >= PLATEAU_STALL_SESSIONS && lift.latest.topSetWeightKg > 0;
+}
+
+/**
+ * Identifies one plateau RUN — this lift, stuck at this weight — rather than
+ * the lift itself. A dismissal is keyed to this, so it stays put once the
+ * lift moves to a new weight and stalls again there: that is a different
+ * finding, not the one the reader already said "selvä" to (#bugs 2026-09-29).
+ */
+export function plateauEpisodeKey(lift: LiftHistory): string {
+  return `${lift.key}::${lift.latest.topSetWeightKg}`;
+}
+
+/**
+ * The single stalled lift Home leads with — the longest-running plateau,
+ * ties broken by the heavier one — skipping any episode already dismissed.
+ * Dismissing one lift's episode never hides another lift's: the set the
+ * caller excludes is exactly the episodes it names, nothing wider.
+ */
+export function detectPlateau(
+  lifts: LiftHistory[],
+  dismissedEpisodeKeys?: ReadonlySet<string>,
+): LiftHistory | null {
   let best: LiftHistory | null = null;
   for (const lift of lifts) {
-    if (lift.stalledSessions < PLATEAU_STALL_SESSIONS || lift.latest.topSetWeightKg <= 0) {
+    if (!isLiftPlateaued(lift)) {
+      continue;
+    }
+    if (dismissedEpisodeKeys?.has(plateauEpisodeKey(lift))) {
       continue;
     }
     if (
@@ -135,6 +162,23 @@ export function detectPlateau(lifts: LiftHistory[]): LiftHistory | null {
     }
   }
   return best;
+}
+
+/**
+ * The same detection, found by exercise name instead of picked as the single
+ * best — for the in-workout reminder. Ignores any dismiss list on purpose:
+ * putting Home's card away must not also silence the reminder the owner
+ * asked for as the alternative (user 2026-09-29, "muistutus kun seuraavalla
+ * kerralla on sumo"). Reuses buildPlateauDetection rather than a second rule.
+ */
+export function findPlateauDetection(
+  lifts: LiftHistory[],
+  exerciseName: string,
+  language: AppLanguage,
+): PlateauDetection | null {
+  const key = normalizedName(exerciseName);
+  const lift = lifts.find((candidate) => candidate.key === key && isLiftPlateaued(candidate));
+  return lift ? buildPlateauDetection(lift, language) : null;
 }
 
 export function buildPlateauDetection(lift: LiftHistory, language: AppLanguage): PlateauDetection {
@@ -157,12 +201,20 @@ export function buildPlateauDetection(lift: LiftHistory, language: AppLanguage):
   };
 }
 
-export function buildPlateauConclusion(lift: LiftHistory, language: AppLanguage): LockedConclusion {
+export function buildPlateauConclusion(
+  lift: LiftHistory,
+  language: AppLanguage,
+  level: SetupLevel | null | undefined,
+): LockedConclusion {
   const weight = formatWeight(lift.latest.topSetWeightKg, 'kg');
+  // The reps path told a reader already AT this weight to earn a rep "before
+  // raising" it — the same weight the headline just said they were stuck at.
+  // The honest target is the next step up, the same number the progression
+  // gate itself would take (#bugs 2026-09-29).
   const body =
     stallReason(lift) === 'recovery'
       ? t(language, 'pro.fix.recovery', { weight })
-      : t(language, 'pro.fix.reps', { weight });
+      : t(language, 'pro.fix.reps', { weight: formatWeight(nextStepKg(lift, level), 'kg') });
   return {
     teaser: t(language, 'pro.fix.teaser', { count: lift.stalledSessions }),
     body,
@@ -294,7 +346,7 @@ export function buildCompletionConclusion(
 ): LockedConclusion {
   const liftLabel = exerciseNameLabel(language, lift.name);
   if (lift.stalledSessions >= PLATEAU_STALL_SESSIONS) {
-    return buildPlateauConclusion(lift, language);
+    return buildPlateauConclusion(lift, language, level);
   }
   return {
     teaser: t(language, 'pro.completion.teaser'),
@@ -313,6 +365,7 @@ export function buildWeeklyRead(
   lifts: LiftHistory[],
   fatigue: FatigueResult | null,
   language: AppLanguage,
+  level: SetupLevel | null | undefined,
 ): WeeklyReadRow[] {
   const rows: WeeklyReadRow[] = [];
 
@@ -330,7 +383,7 @@ export function buildWeeklyRead(
         status: t(language, 'pro.read.stalled'),
         meta: t(language, 'pro.read.stalledMeta', { count: lift.stalledSessions }),
         bars,
-        locked: buildPlateauConclusion(lift, language),
+        locked: buildPlateauConclusion(lift, language, level),
       });
     } else if (lift.weightChangeKg > 0) {
       rows.push({
@@ -355,7 +408,7 @@ export function buildWeeklyRead(
           change: formatWeight(Math.abs(lift.weightChangeKg), 'kg'),
         }),
         bars,
-        locked: buildPlateauConclusion(lift, language),
+        locked: buildPlateauConclusion(lift, language, level),
       });
     } else {
       rows.push({

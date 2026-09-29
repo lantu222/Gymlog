@@ -1313,6 +1313,14 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
               (value: unknown): value is string => typeof value === 'string',
             )
           : fallback.preferences.dismissedCardSuggestionKeys,
+      // Missing on every install from before the plateau card could be
+      // dismissed; a bad entry is dropped rather than trusted (#bugs 2026-09-29).
+      dismissedPlateauEpisodes:
+        Array.isArray(input?.preferences?.dismissedPlateauEpisodes)
+          ? input.preferences.dismissedPlateauEpisodes.filter(
+              (value: unknown): value is string => typeof value === 'string',
+            )
+          : fallback.preferences.dismissedPlateauEpisodes,
       activePlanIds: normalizeActivePlanIds(
         input?.preferences?.activePlanIds,
         input?.preferences?.activePlanId,

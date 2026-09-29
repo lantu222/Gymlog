@@ -790,4 +790,50 @@ module.exports = [
       assert.match(preview, /scrim/);
     },
   },
+  {
+    /*
+     * The plateau card (#bugs 2026-09-29, owner: "positiivinen huomio saako
+     * vielä ruksin että selvä"): a dismiss that only hides THIS lift's run at
+     * THIS weight, and a reminder inside the guided player that survives the
+     * dismissal — the alternative the owner asked for.
+     */
+    name: 'the plateau card can be dismissed per episode, and the guided player reminds independently of that dismissal',
+    run() {
+      // App.tsx reads the dismiss list before calling detectPlateau, so a
+      // dismissed episode is skipped rather than trusted straight from
+      // proLiftHistories.
+      assert.match(appSource, /dismissedPlateauEpisodes/);
+      assert.match(appSource, /detectPlateau\(proLiftHistories, dismissedPlateauEpisodes\)/);
+      assert.match(appSource, /episodeKey: plateauEpisodeKey\(proPlateauLift\)/);
+      // Dismissing writes the episode key, appended — never a wholesale
+      // replace that could drop another lift's earlier dismissal.
+      assert.match(
+        appSource,
+        /onDismissPlateau=\{\(episodeKey\) =>[\s\S]{0,160}dismissedPlateauEpisodes: \[\.\.\.current\.dismissedPlateauEpisodes, episodeKey\]/,
+      );
+
+      // Home renders a dismiss control only when the caller wired one, and
+      // hands back the episode's own key — never the lift name alone, which
+      // would keep the card hidden after the same lift stalls again higher up.
+      assert.match(homeSource, /onDismissPlateau\(plateau\.episodeKey\)/);
+      assert.match(homeSource, /episodeKey: string;/);
+
+      // The in-workout reminder is a SEPARATE read of the same lifts, by
+      // name, that does not consult the dismiss list at all — dismissing
+      // Home's card must not silence it.
+      assert.match(appSource, /findPlateauDetection\(proLiftHistories, exerciseName, preferences\.appLanguage\)/);
+      assert.doesNotMatch(
+        appSource,
+        /findPlateauDetection\([^)]*dismissedPlateauEpisodes[^)]*\)/,
+        'the in-workout reminder must not be filtered by the dismiss list',
+      );
+
+      // The reminder shows once, on the beat where the lift is introduced
+      // (the 'position' step), reusing proInsights' own text rather than a
+      // second rule.
+      assert.match(guidedSource, /const walkPlateau = step\.type === 'position' \? plateauNotice\?\.\(step\.exerciseName\)/);
+      assert.match(guidedSource, /\{walkPlateau \? \(/);
+      assert.match(guidedSource, /\{walkPlateau\.headline\}/);
+    },
+  },
 ];

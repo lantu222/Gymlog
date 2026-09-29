@@ -2070,13 +2070,14 @@ const EN = {
   // ── Paywall moments (the finding is free, the conclusion is Pro) ──────
   'pro.locked.cta': 'See the recommendation',
   'pro.plateau.eyebrow': 'PLATEAU DETECTED',
+  'pro.plateau.dismiss': 'Got it',
   'pro.plateau.headline': "Your {lift} hasn't moved in {count} sessions.",
   'pro.plateau.meta': '{weight} × {reps}, {count} sessions running · {from} – {to}',
   'pro.fix.teaser': 'One fix, from your own {count} sessions',
   'pro.fix.recovery': "It's recovery, not load — your later-set reps drop every session. "
     + 'Hold {weight} and cut one set.',
   'pro.fix.reps':
-    'Your reps are holding at this weight — earn the next step: add one rep per set before raising {weight}.',
+    'Your reps are holding at this weight — earn the next step: add one rep per set before moving up to {weight}.',
   'pro.completion.teaser': 'Your coach has one change for next time',
   'pro.completion.body':
     '{lift} is ready to try {weight} next session, if every set reaches the top of its rep range.',
@@ -5172,6 +5173,7 @@ const FI: Record<I18nKey, string> = {
 
   'pro.locked.cta': 'Katso suositus',
   'pro.plateau.eyebrow': 'TASANNE HAVAITTU',
+  'pro.plateau.dismiss': 'Selvä',
   'pro.plateau.headline': '{lift} ei ole liikkunut {count} treeniin.',
   'pro.plateau.meta': '{weight} × {reps}, {count} treeniä putkeen · {from} – {to}',
   'pro.fix.teaser': 'Yksi korjaus, omista {count} treenistäsi',
