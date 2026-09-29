@@ -274,7 +274,7 @@ module.exports = [
       assert.doesNotMatch(playerSource, /restingLogged/);
       assert.match(
         playerSource,
-        /setRunSheetOpen\(false\);\s*setRestEdit\(\{ slotId: lift\.slotId, setIndex \}\);/,
+        /setRunSheetOpen\(false\);\s*setRestEdit\(\{ slotId: lift\.slotId, setIndex, justLoggedSetIndex: setIndex \}\);/,
       );
       // One NextLine left in the file: the drills'. The rest screen's is gone.
       assert.equal((playerSource.match(/<NextLine /g) ?? []).length, 1);
@@ -465,12 +465,30 @@ module.exports = [
      * — judging it as the squat it was — refused the save. The sheet asks the
      * reducer's rule, liftOfSet.
      */
+    /**
+     * The swap sheet's library heading claimed "All exercises" even once a
+     * browse chip had narrowed the list to one body part — a completeness
+     * the row no longer had (break round 2026-09-29). Selecting a chip other
+     * than "all" swaps the heading for the chip's own label.
+     */
+    name: 'guided swap: the library heading names the chip once one narrows the list',
+    run() {
+      assert.match(
+        playerSource,
+        /swapBrowseOpen && swapBodyPartFilter !== 'all'\s*\?\s*libraryLabel\(swapBodyPartFilter, language\)\s*:\s*t\(language, 'guided\.swap\.library'\)/,
+      );
+    },
+  },
+  {
     name: 'guided swap: a logged set is corrected as the lift it was logged as',
     run() {
       const source = playerSource.replace(/\r\n/g, '\n');
       assert.match(source, /return exercise \? \(set \? liftOfSet\(exercise, set\) : exercise\) : null;/);
       const editor = source.slice(source.indexOf('<LoggedSetEditor'), source.indexOf('onCancel={() => setRestEdit(null)}'));
-      assert.ok(editor.length > 0 && editor.length < 2000, 'the correction sheet moved');
+      // Grew past 2000 once the sheet gained the set list and a title that
+      // follows the selection (#bugs 2026-09-29) — still a loose bound, just
+      // one that catches the wiring moving somewhere else entirely.
+      assert.ok(editor.length > 0 && editor.length < 2600, 'the correction sheet moved');
       assert.match(editor, /unloaded=\{isUnloadedTrackingMode\(restEditLift\?\.trackingMode \?\? 'load_and_reps'\)\}/);
       assert.match(editor, /repsCeilingFor\(restEditLift, /);
       assert.doesNotMatch(editor, /exerciseBySlot\.get\(restEdit\.slotId\)\?\.trackingMode/);
@@ -482,6 +500,161 @@ module.exports = [
       assert.ok(edit.length > 0 && edit.length < 4000, 'set/editLogged moved');
       assert.match(edit, /const lift = liftOfSet\(exercise, set\);/);
       assert.match(edit, /isUnloadedTrackingMode\(lift\.trackingMode\)/);
+    },
+  },
+  {
+    /**
+     * #bugs 2026-09-29, "Olisiko järkevä jos näkyis kaikki tehdyt sarjat" —
+     * the sheet used to open on the just-logged set with no way to reach any
+     * other. It now lists every logged set of the lift, the just-logged one
+     * preselected, and edits whichever one the reader taps.
+     */
+    name: 'guided rest edit: every logged set is offered, the just-logged one preselected, and the title follows the tap',
+    run() {
+      const source = playerSource.replace(/\r\n/g, '\n');
+
+      // The state remembers which set was just logged separately from which
+      // one is currently selected — the title reads the first, Save and the
+      // reducer read the second.
+      assert.match(
+        source,
+        /const \[restEdit, setRestEdit\] = useState<\s*\{ slotId: string; setIndex: number; justLoggedSetIndex: number \} \| null\s*>\(null\);/,
+      );
+      // Opened from the round-corrections chip with both fields equal: the
+      // sheet always opens on the set it names, selected.
+      assert.match(
+        source,
+        /setRestEdit\(\{ slotId: lift\.slotId, setIndex, justLoggedSetIndex: setIndex \}\);/,
+      );
+
+      // Every completed set of that lift, computed once per render from the
+      // pure helper tests/lib/guidedPlayer covers.
+      assert.match(
+        source,
+        /const restEditSets = restEdit \? loggedSetsOf\(exerciseBySlot\.get\(restEdit\.slotId\)\) : \[\];/,
+      );
+
+      const editor = source.slice(source.indexOf('<LoggedSetEditor'), source.indexOf('onCancel={() => setRestEdit(null)}'));
+      // The rows and the title both come from the outer state, not from a
+      // copy the editor keeps of its own.
+      assert.match(editor, /sets=\{restEditSets\}/);
+      assert.match(editor, /selectedSetIndex=\{restEdit\.setIndex\}/);
+      assert.match(
+        editor,
+        /onSelectSet=\{\(setIndex\) => setRestEdit\(\(current\) => \(current \? \{ \.\.\.current, setIndex \} : current\)\)\}/,
+      );
+      // Tapping a row must not touch justLoggedSetIndex — only that keeps
+      // the title able to tell "still on the one just logged" from "now
+      // correcting a different one".
+      assert.doesNotMatch(editor, /justLoggedSetIndex: setIndex/);
+      assert.match(
+        editor,
+        /restEdit\.setIndex === restEdit\.justLoggedSetIndex\s*\? t\(language, 'guided\.rest\.editTitle'\)\s*: t\(language, 'guided\.rest\.editTitleFor', \{ index: restEdit\.setIndex \+ 1 \}\)/,
+      );
+      // A fresh key per selected set: the reps/weight drafts must reset to
+      // the newly picked set's own numbers, not keep the previous typing.
+      assert.match(editor, /key=\{`rest-edit-\$\{restEdit\.slotId\}-\$\{restEdit\.setIndex\}`\}/);
+
+      // Inside the editor itself: the list renders only once there is a
+      // choice (a lone row would only repeat the title), each row selects
+      // by its own setIndex, and the two detail strings — loaded and
+      // unloaded — are both used.
+      const editorFn = source.slice(
+        source.indexOf('function LoggedSetEditor('),
+        source.indexOf('function SetStepView('),
+      );
+      assert.match(editorFn, /sets\.length > 1 \? \(/);
+      assert.match(editorFn, /onPress=\{\(\) => onSelectSet\(row\.setIndex\)\}/);
+      assert.match(editorFn, /t\(language, 'guided\.rest\.setRowUnloaded', \{ reps: row\.reps \}\)/);
+      assert.match(
+        editorFn,
+        /t\(language, 'guided\.rest\.setRow', \{\s*weight: formatWeight\(row\.loadKg, unitPreference\),\s*reps: row\.reps,\s*\}\)/,
+      );
+      assert.match(editorFn, /<Text style=\{styles\.editTitle\}>\{title\}<\/Text>/);
+
+      // New copy in both languages, real translations rather than the
+      // English text repeated (i18n: every EN key has an FI translation is
+      // covered generically by tests/lib/i18n; this pins the words).
+      for (const key of ['guided.rest.editTitleFor', 'guided.rest.setRowLabel', 'guided.rest.setRow', 'guided.rest.setRowUnloaded']) {
+        assert.ok(i18nSource.includes(`'${key}'`), `${key} missing from i18n.ts`);
+      }
+      assert.match(i18nSource, /'guided\.rest\.editTitleFor': 'Correct set \{index\}'/);
+      assert.match(i18nSource, /'guided\.rest\.editTitleFor': 'Korjaa sarja \{index\}'/);
+    },
+  },
+  {
+    /**
+     * Each row of the correction sheet must judge itself by its OWN set's
+     * tracking mode, not by the sheet's single `unloaded` flag — that flag
+     * is derived from `restEditLift`, i.e. from whichever row is currently
+     * SELECTED (`restEdit.setIndex`). After a mid-exercise swap between a
+     * loaded and an unloaded/timed lift, the other rows' sets were logged
+     * as a different lift than the one currently selected, so borrowing the
+     * selected row's flag for every row's text showed a 100 kg squat set as
+     * bare reps, or a bodyweight set with a weight (break round 2026-09-29).
+     */
+    name: 'guided rest edit: each row reads its own trackingMode, not the sheet-wide unloaded flag',
+    run() {
+      const editorFn = playerSource.slice(
+        playerSource.indexOf('function LoggedSetEditor('),
+        playerSource.indexOf('function SetStepView('),
+      );
+      // The per-row detail string is decided from a value derived off
+      // `row.trackingMode` — never straight off the sheet-wide `unloaded`
+      // parameter, which is only correct for the one row it was computed
+      // from.
+      assert.match(editorFn, /isUnloadedTrackingMode\(row\.trackingMode\)/);
+      assert.doesNotMatch(
+        editorFn,
+        /const detail = unloaded\s*\n\s*\? t\(language, 'guided\.rest\.setRowUnloaded'/,
+      );
+
+      // loggedSetsOf, the pure helper, is the one place that stamps each
+      // row with its own mode — via liftOfSet, the same rule the reducer's
+      // set/editLogged and the single-set editor's `unloaded` prop both
+      // already trust for the SELECTED set. A row must not be able to
+      // disagree with what Save itself would judge that same set as.
+      const libSource = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'lib', 'guidedPlayer.ts'),
+        'utf8',
+      );
+      assert.match(libSource, /trackingMode: liftOfSet\(lift, set\)\.trackingMode/);
+    },
+  },
+  {
+    /**
+     * `restEditLift` — which feeds the editor's `unloaded` prop, its reps
+     * ceiling, AND (via `findSetByIndex`) the reps/weight fields it opens
+     * on — must be recomputed from `restEdit.setIndex`, the field that
+     * moves when the reader taps another row. Tying it to
+     * `justLoggedSetIndex` (which never moves) or to a value computed once
+     * at open time would leave the fields showing the set the sheet opened
+     * on instead of the one tapped, across the swap boundary or not.
+     */
+    name: 'guided rest edit: restEditLift and the editor fields follow restEdit.setIndex, not a value fixed at open time',
+    run() {
+      assert.match(
+        playerSource,
+        /const restEditLift = \(\(\) => \{\s*const exercise = restEdit \? exerciseBySlot\.get\(restEdit\.slotId\) : undefined;\s*const set = exercise && restEdit \? findSetByIndex\(exercise, restEdit\.setIndex\) : null;\s*return exercise \? \(set \? liftOfSet\(exercise, set\) : exercise\) : null;\s*\}\)\(\);/,
+      );
+      // The reps/weight fields the editor opens on read the SAME call —
+      // findSetByIndex keyed on restEdit.setIndex — so a tap that moves
+      // setIndex moves these too, not just the title.
+      assert.match(
+        playerSource,
+        /reps=\{findSetByIndex\(exerciseBySlot\.get\(restEdit\.slotId\), restEdit\.setIndex\)\?\.actualReps \?\? 0\}/,
+      );
+      assert.match(
+        playerSource,
+        /loadKg=\{findSetByIndex\(exerciseBySlot\.get\(restEdit\.slotId\), restEdit\.setIndex\)\?\.actualLoadKg \?\? 0\}/,
+      );
+      // Never justLoggedSetIndex for any of these three — that field is
+      // frozen at open time and exists only to word the title.
+      const restEditBlock = playerSource.slice(
+        playerSource.indexOf('const restEditLift ='),
+        playerSource.indexOf('const restEditSets ='),
+      );
+      assert.doesNotMatch(restEditBlock, /justLoggedSetIndex/);
     },
   },
 ];

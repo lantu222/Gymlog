@@ -202,6 +202,13 @@ module.exports = [
       const template = read('src', 'screens', 'CreateTemplateScreen.tsx');
       assert.match(template, /accessibilityLabel=\{t\(language, 'emptyWorkout\.a11y\.remove', \{[\s\S]{0,200}?\}\)\}\s*hitSlop=\{6\}\s*onPress=\{\(\) => removeExercise/);
       assert.match(read('src', 'screens', 'TrainingPlanScreen.tsx'), /stepperButton: \{\s*width: 44,\s*height: 44,/);
+      // The plateau card's "Selvä"/"Got it": sized on the control itself, no
+      // hitSlop the amber head row would clip (break round, 2026-09-29).
+      assert.match(home, /plateauDismiss: \{\s*minHeight: 44,/);
+      assert.doesNotMatch(
+        home.slice(home.indexOf('onPress={() => onDismissPlateau(plateau.episodeKey)}') - 200, home.indexOf('onPress={() => onDismissPlateau(plateau.episodeKey)}')),
+        /hitSlop=/,
+      );
       // Catalog and library chips.
       const catalog = read('src', 'screens', 'CatalogScreen.tsx');
       assert.match(catalog, /hitSlop=\{\{ top: 5, bottom: 5 \}\}/);
@@ -209,6 +216,12 @@ module.exports = [
       const library = read('src', 'components', 'ExerciseLibraryBrowser.tsx');
       assert.match(library, /hitSlop=\{\{ top: 5, bottom: 5 \}\}\s*onPress=\{\(\) => setBodyPartFilter/);
       assert.match(library, /categoryRail: \{[^}]*paddingBottom: 5,/);
+      // The swap sheet's own browse toggle and body-part chips (new,
+      // break round 2026-09-29): the toggle reaches 44 by minHeight, the
+      // chip rail by the same hitSlop + padded-row pattern as above.
+      assert.match(player, /swapBrowseToggle: \{[^}]*minHeight: 44,/);
+      assert.match(player, /hitSlop=\{\{ top: 5, bottom: 5 \}\}\s*onPress=\{\(\) => setSwapBodyPartFilter\(option\)\}/);
+      assert.match(player, /swapBrowseChipRow: \{[^}]*paddingVertical: 5,/);
     },
   },
   {

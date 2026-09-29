@@ -16,8 +16,14 @@ import { parseNumberInput, removeTrailingZeros } from './format';
 import type { SessionRoutineBlock } from './homeSessionHero';
 import { t } from './i18n';
 import { IntervalRecoveryKind, IntervalScheme, parseIntervalScheme } from './intervalScheme';
+import { liftOfSet } from './liftSegments';
 import { buildSupersetRuns, normalizeSupersetGroups, supersetRoundOrder } from './supersetGrouping';
-import type { GuidedResumeAnchor } from '../features/workout/workoutTypes';
+import type {
+  GuidedResumeAnchor,
+  WorkoutLiftIdentity,
+  WorkoutSetStatus,
+  WorkoutTrackingMode,
+} from '../features/workout/workoutTypes';
 import { AppLanguage } from '../types/models';
 
 export type GuidedPhase = 'warmup' | 'work' | 'cooldown';
@@ -1393,6 +1399,73 @@ export function restRoundCorrections<
     }
   }
   return corrections;
+}
+
+/** One logged set, as the rest screen's correction sheet lists it. */
+export interface LoggedSetRow {
+  setIndex: number;
+  reps: number;
+  loadKg: number | null;
+  /**
+   * The lift THIS set was logged as, not the exercise's current mode.
+   *
+   * A mid-exercise swap between a loaded and an unloaded/timed lift leaves
+   * earlier rows logged as one lift and later rows as another
+   * (`loggedAs` stamps, see liftSegments.ts). The sheet used to read a
+   * single mode off the row the reader had selected and apply it to every
+   * row, so a 100 kg squat set showed as bare reps once a bodyweight lift
+   * was selected, and vice versa (break round 2026-09-29). Each row carries
+   * its own answer to `liftOfSet` instead, so the screen never has to borrow
+   * one row's mode for another's text.
+   */
+  trackingMode: WorkoutTrackingMode;
+}
+
+/**
+ * Every set already logged for a lift, oldest first.
+ *
+ * The rest screen's correction sheet used to open on the just-logged set
+ * alone — the only one its "Fix the set you just logged" title admitted to.
+ * A reader who mis-typed set 1 while resting after set 3 had no way back to
+ * it from here (#bugs 2026-09-29, "Olisiko järkevä jos näkyis kaikki tehdyt
+ * sarjat"). This reads the same field `findSetByIndex` does — `setIndex`,
+ * not array position — so a set removed from the middle some day cannot make
+ * this list disagree with what Save writes to.
+ */
+export function loggedSetsOf<
+  S extends {
+    setIndex: number;
+    status: WorkoutSetStatus;
+    actualReps?: number;
+    actualLoadKg?: number;
+    loggedAs?: WorkoutLiftIdentity;
+  },
+>(
+  lift:
+    | {
+        exerciseName: string;
+        trackingMode: WorkoutTrackingMode;
+        sourceExerciseName?: string;
+        swappedAfterSetIndex?: number;
+        sets: ReadonlyArray<S>;
+      }
+    | null
+    | undefined,
+): LoggedSetRow[] {
+  if (!lift) {
+    return [];
+  }
+  return lift.sets
+    .filter((set) => set.status === 'completed')
+    .map((set) => ({
+      setIndex: set.setIndex,
+      reps: set.actualReps ?? 0,
+      loadKg: set.actualLoadKg ?? null,
+      // liftOfSet, not lift.trackingMode: a set logged before a swap answers
+      // for the lift it was done as, whatever the exercise holds now.
+      trackingMode: liftOfSet(lift, set).trackingMode,
+    }))
+    .sort((a, b) => a.setIndex - b.setIndex);
 }
 
 /**

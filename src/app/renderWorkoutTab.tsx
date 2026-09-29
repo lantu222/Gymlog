@@ -28,7 +28,6 @@ import {
   resolveCollectionProgress,
 } from '../lib/exerciseCollections';
 import { toggleTechniqueStatement } from '../lib/exerciseLearning';
-import { withBarChoice } from '../lib/barChoice';
 import { getExerciseProgressForName, SameLiftMatcher } from '../lib/progression';
 import { catalogLevelForSetup } from '../lib/goalProgramme';
 import { getReadyProgramContent } from '../lib/readyProgramContent';
@@ -185,6 +184,8 @@ export interface WorkoutTabDeps {
   exerciseLibrary: AppDatabase['exerciseLibrary'];
   /** The lift's logged history by name, for the player's History tab. */
   liftHistory: React.ComponentProps<typeof GuidedPlayerScreen>['liftHistory'];
+  /** The plateau reminder for whichever lift is walked to next, by name. */
+  plateauNotice: React.ComponentProps<typeof GuidedPlayerScreen>['plateauNotice'];
   /** Whether a log is one library row's history — see isSameLiftAsLibraryRow. */
   sameLibraryRow: SameLiftMatcher;
   guidedEntryEyebrow: GuidedProps['entryEyebrow'];
@@ -288,6 +289,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     finishLoggedWorkoutSave,
     exerciseLibrary,
     liftHistory,
+    plateauNotice,
     freestyleDraft,
     saveFreestyleDraft,
     clearFreestyleDraft,
@@ -1045,6 +1047,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         tailoringPreferences={tailoringPreferences}
         exerciseLibrary={exerciseLibrary}
         liftHistory={liftHistory}
+        plateauNotice={plateauNotice}
         soundCuesEnabled={preferences.soundCuesEnabled}
         onToggleSoundCues={(next) => void updatePreferences({ soundCuesEnabled: next })}
         language={preferences.appLanguage}
@@ -1057,12 +1060,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         }
         learnedExerciseIds={preferences.learnedExerciseLibraryItemIds}
         techniqueChecks={preferences.exerciseTechniqueChecks}
-        barChoices={preferences.barChoiceByExercise}
-        onBarChoice={(exerciseName, bar) =>
-          void updatePreferences((current) => ({
-            barChoiceByExercise: withBarChoice(current.barChoiceByExercise, exerciseName, bar),
-          }))
-        }
         onToggleTechniqueStatement={(libraryItemId, index) =>
           void updatePreferences((current) => ({
             exerciseTechniqueChecks: toggleTechniqueStatement(

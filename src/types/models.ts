@@ -1,4 +1,3 @@
-import type { BarWeightKg } from '../lib/barChoice';
 import type { TourSurface } from '../lib/firstRunTour';
 import type { LegalAcceptance } from '../lib/legalAcceptance';
 import type { LightNextSession } from '../lib/recoverySheet';
@@ -744,11 +743,6 @@ export interface AppPreferences {
    */
   exerciseTechniqueChecks: Record<string, number[]>;
   /**
-   * The bar each barbell lift is loaded on, by lift name (lib/barChoice). The
-   * set screen's weight is the total with this bar in it; absent = not chosen.
-   */
-  barChoiceByExercise: Record<string, BarWeightKg>;
-  /**
    * "Bench 100 kg" targets. Empty until the user sets one — the onboarding
    * goal is a category ('strength'), not a number, and a progress bar needs
    * a number.
@@ -776,6 +770,15 @@ export interface AppPreferences {
    * card key, so an offer declined once never returns.
    */
   dismissedCardSuggestionKeys: string[];
+  /**
+   * Plateau episodes — one lift, stuck at one weight — the reader has said
+   * "selvä" to on Home. Keyed `${liftKey}::${topSetKg}` (lib/proInsights
+   * plateauEpisodeKey) so the card returns the moment that weight changes:
+   * the plateau resolved, or the same lift stalled again somewhere new.
+   * Missing on every install from before this card could be dismissed
+   * (#bugs 2026-09-29).
+   */
+  dismissedPlateauEpisodes: string[];
   /**
    * The programme Home leads with. Kept as the primary while `activePlanIds`
    * carries the full set, so every screen that only ever wanted one still has

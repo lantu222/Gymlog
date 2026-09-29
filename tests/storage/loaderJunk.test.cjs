@@ -122,4 +122,44 @@ module.exports = [
       assert.equal(countAuthoredPrograms(out.workoutTemplates), 1);
     },
   },
+  {
+    // Missing on every install from before the plateau card could be
+    // dismissed (#bugs 2026-09-29) — an old install's stored preferences has
+    // no dismissedPlateauEpisodes key at all, which must load as [], not throw.
+    name: 'loader: dismissedPlateauEpisodes defaults to empty on an old install and drops junk entries',
+    run() {
+      const normalizeDatabase = loadNormalize();
+      const oldInstall = normalizeDatabase({ preferences: { appLanguage: 'fi' } });
+      assert.deepEqual(oldInstall.preferences.dismissedPlateauEpisodes, []);
+
+      const withJunk = normalizeDatabase({
+        preferences: { dismissedPlateauEpisodes: ['barbell back squat::82.5', null, 7, {}] },
+      });
+      assert.deepEqual(withJunk.preferences.dismissedPlateauEpisodes, ['barbell back squat::82.5']);
+    },
+  },
+  {
+    // A double tap before the App.tsx guard shipped (or a write from an
+    // older build without it) could have landed the same episode twice on
+    // disk. De-duplicated the same way normalizeActivePlanIds is, so a
+    // stored repeat does not cost more than one entry (break round,
+    // 2026-09-29).
+    name: 'loader: a repeated dismissedPlateauEpisodes entry on disk collapses to one',
+    run() {
+      const normalizeDatabase = loadNormalize();
+      const out = normalizeDatabase({
+        preferences: {
+          dismissedPlateauEpisodes: [
+            'barbell back squat::82.5',
+            'barbell back squat::82.5',
+            'incline dumbbell press::24',
+          ],
+        },
+      });
+      assert.deepEqual(out.preferences.dismissedPlateauEpisodes, [
+        'barbell back squat::82.5',
+        'incline dumbbell press::24',
+      ]);
+    },
+  },
 ];

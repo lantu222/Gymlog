@@ -1409,10 +1409,21 @@ const EN = {
   // that button's own label back at the reader.
   'guided.own.warmup': 'Warm up your own way',
   'guided.own.cooldown': 'Recover your own way',
+  // The cooldown intro's third, quieter door — one more lift before recovery
+  // (#bugs 2026-09-29, "jouduin palautumiseen ilman että halusin").
+  'guided.own.addExercise': 'Add an exercise',
   // -- The set screen's exercise sheet: one sheet, three tabs.
   // -- Rest (session flow, screen 7).
   'guided.rest.edit': 'Edit',
   'guided.rest.editTitle': 'Fix the set you just logged',
+  // Shown once the reader has tapped a different set of the sheet's own
+  // list — "Fix the set you just logged" no longer describes which one is
+  // selected (#bugs 2026-09-29).
+  'guided.rest.editTitleFor': 'Correct set {index}',
+  // One row of the sheet's set list: "Set 2 · 60 kg × 8".
+  'guided.rest.setRowLabel': 'Set {index} · {detail}',
+  'guided.rest.setRow': '{weight} × {reps}',
+  'guided.rest.setRowUnloaded': '{reps} reps',
   'guided.finish.saveFailed.title': 'Not saved yet',
   'guided.finish.saveFailed.body': 'The phone refused to save this workout. Your sets are still here.',
   'guided.finish.saveFailed.retry': 'Save workout',
@@ -1477,13 +1488,10 @@ const EN = {
   'guided.swap.search': 'Search exercises',
   'guided.swap.suggested': 'Suggested',
   'guided.swap.library': 'All exercises',
+  'guided.swap.browseAll': 'Browse all exercises',
   'guided.swap.noMatch': 'No exercise matches that.',
   'guided.swap.footnote': 'Your logged sets stay on the exercise you did them on.',
   'guided.weight': 'WEIGHT',
-  'guided.bar.ez': 'EZ bar 7.5',
-  'guided.bar.15': 'Bar 15',
-  'guided.bar.20': 'Bar 20',
-  'guided.bar.a11y': 'Bar in the weight: {bar} kg',
   // Automated progression (Pro) raised this set's load; the badge names the
   // step it took so the number is not a mystery. The down variants wait for a
   // rule that lowers — the rendering is sign-aware so they cannot misprint.
@@ -2070,13 +2078,14 @@ const EN = {
   // ── Paywall moments (the finding is free, the conclusion is Pro) ──────
   'pro.locked.cta': 'See the recommendation',
   'pro.plateau.eyebrow': 'PLATEAU DETECTED',
+  'pro.plateau.dismiss': 'Got it',
   'pro.plateau.headline': "Your {lift} hasn't moved in {count} sessions.",
   'pro.plateau.meta': '{weight} × {reps}, {count} sessions running · {from} – {to}',
   'pro.fix.teaser': 'One fix, from your own {count} sessions',
   'pro.fix.recovery': "It's recovery, not load — your later-set reps drop every session. "
     + 'Hold {weight} and cut one set.',
   'pro.fix.reps':
-    'Your reps are holding at this weight — earn the next step: add one rep per set before raising {weight}.',
+    'Your reps are holding at this weight — earn the next step: add one rep per set before moving up to {weight}.',
   'pro.completion.teaser': 'Your coach has one change for next time',
   'pro.completion.body':
     '{lift} is ready to try {weight} next session, if every set reaches the top of its rep range.',
@@ -4576,8 +4585,13 @@ const FI: Record<I18nKey, string> = {
   'guided.own.start.cooldown': 'Aloita palautuminen',
   'guided.own.warmup': 'Lämmittele omatoimisesti',
   'guided.own.cooldown': 'Palaudu omatoimisesti',
+  'guided.own.addExercise': 'Lisää liike',
   'guided.rest.edit': 'Muokkaa',
   'guided.rest.editTitle': 'Korjaa juuri kirjattu sarja',
+  'guided.rest.editTitleFor': 'Korjaa sarja {index}',
+  'guided.rest.setRowLabel': 'Sarja {index} · {detail}',
+  'guided.rest.setRow': '{weight} × {reps}',
+  'guided.rest.setRowUnloaded': '{reps} toistoa',
   'guided.finish.saveFailed.title': 'Ei vielä tallennettu',
   'guided.finish.saveFailed.body': 'Puhelin ei suostunut tallentamaan treeniä. Sarjasi ovat yhä tallessa.',
   'guided.finish.saveFailed.retry': 'Tallenna treeni',
@@ -4636,13 +4650,10 @@ const FI: Record<I18nKey, string> = {
   'guided.swap.search': 'Hae liikkeitä',
   'guided.swap.suggested': 'Ehdotetut',
   'guided.swap.library': 'Kaikki liikkeet',
+  'guided.swap.browseAll': 'Selaa kaikkia liikkeitä',
   'guided.swap.noMatch': 'Yksikään liike ei osu hakuun.',
   'guided.swap.footnote': 'Jo kirjaamasi sarjat jäävät sille liikkeelle, jolla ne teit.',
   'guided.weight': 'PAINO',
-  'guided.bar.ez': 'Z-tanko 7,5',
-  'guided.bar.15': 'Tanko 15',
-  'guided.bar.20': 'Tanko 20',
-  'guided.bar.a11y': 'Tanko painossa: {bar} kg',
   'guided.autoLoad': 'AUTOMAATTINEN +{kg} KG',
   'guided.autoLoadDown': 'AUTOMAATTINEN −{kg} KG',
   'guided.autoReps': 'AUTOMAATTINEN +{count}',
@@ -5172,6 +5183,7 @@ const FI: Record<I18nKey, string> = {
 
   'pro.locked.cta': 'Katso suositus',
   'pro.plateau.eyebrow': 'TASANNE HAVAITTU',
+  'pro.plateau.dismiss': 'Selvä',
   'pro.plateau.headline': '{lift} ei ole liikkunut {count} treeniin.',
   'pro.plateau.meta': '{weight} × {reps}, {count} treeniä putkeen · {from} – {to}',
   'pro.fix.teaser': 'Yksi korjaus, omista {count} treenistäsi',

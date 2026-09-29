@@ -14,6 +14,8 @@ const {
   horizonStepKg,
   liftCadenceDays,
   HORIZON_DAYS,
+  plateauEpisodeKey,
+  findPlateauDetection,
 } = require('../../.test-dist/lib/proInsights.js');
 const { buildLiftHistories } = require('../../.test-dist/lib/trainingHistory.js');
 
@@ -89,8 +91,9 @@ module.exports = [
         weights: [82.5, 82.5, 82.5, 82.5],
         reps: [[8, 8, 8], [8, 8, 7], [8, 7, 6], [8, 6, 5]],
       });
-      const decliningFix = buildPlateauConclusion(detectPlateau(declining), 'en');
+      const decliningFix = buildPlateauConclusion(detectPlateau(declining), 'en', 'beginner');
       assert.match(decliningFix.body, /recovery, not load/);
+      // Recovery says HOLD — the weight the reader is already at is correct here.
       assert.match(decliningFix.body, /82\.5 kg/);
 
       // Reps hold → the reps path. Same weight appears in the real text.
@@ -98,8 +101,15 @@ module.exports = [
         weights: [82.5, 82.5, 82.5, 82.5],
         reps: [[8, 8, 8], [8, 8, 8], [8, 8, 8], [8, 8, 8]],
       });
-      const holdingFix = buildPlateauConclusion(detectPlateau(holding), 'en');
+      const holdingFix = buildPlateauConclusion(detectPlateau(holding), 'en', 'beginner');
       assert.match(holdingFix.body, /add one rep per set/);
+      // The reader is already AT 82.5 kg — telling them to earn a rep "before
+      // raising 82.5 kg" asks them to do it before something already true.
+      // The honest target is the next step the progression gate would take
+      // (beginner: +2.5 kg), never the weight the headline just said they
+      // were stuck at (#bugs 2026-09-29).
+      assert.match(holdingFix.body, /85 kg/);
+      assert.ok(!holdingFix.body.includes('82.5 kg'), 'the reps fix must not name the stuck weight as the target');
     },
   },
   {
@@ -246,6 +256,69 @@ module.exports = [
       const plateauMoment = buildPlateauMoment(stalled, 'en', null);
       assert.equal(plateauMoment.horizonValue, horizonStepKg(stalled, null).kg);
       assert.ok(plateauMoment.horizonValue > plateauMoment.nextValue);
+    },
+  },
+  {
+    name: 'plateauEpisodeKey names the lift AND the weight it is stuck at',
+    run() {
+      const stalled = history({ weights: [80, 82.5, 82.5, 82.5] })[0];
+      const key = plateauEpisodeKey(stalled);
+      assert.equal(key, `${stalled.key}::82.5`);
+
+      // The same lift stalled at a different weight is a different episode:
+      // resolving one stall and re-stalling higher up must not stay hidden
+      // behind an old dismissal (#bugs 2026-09-29).
+      const stalledHigher = history({ weights: [82.5, 85, 85, 85] })[0];
+      assert.notEqual(plateauEpisodeKey(stalledHigher), key);
+    },
+  },
+  {
+    name: 'detectPlateau skips a dismissed episode but never a different lift\'s',
+    run() {
+      const squat = history({ name: 'Barbell Back Squat', weights: [80, 82.5, 82.5, 82.5] });
+      const bench = history({ name: 'Barbell Bench Press', weights: [55, 57.5, 57.5, 57.5] });
+      const both = [...squat, ...bench];
+
+      const undismissed = detectPlateau(both);
+      assert.ok(undismissed, 'a plateau exists with nothing dismissed');
+
+      const dismissed = new Set([plateauEpisodeKey(undismissed)]);
+      const next = detectPlateau(both, dismissed);
+      assert.ok(next, 'dismissing one episode still finds the other lift\'s plateau');
+      assert.notEqual(next.key, undismissed.key, 'the dismissed lift itself must not come back');
+
+      // Dismissing both leaves nothing to show.
+      const bothDismissed = new Set([plateauEpisodeKey(squat[0]), plateauEpisodeKey(bench[0])]);
+      assert.equal(detectPlateau(both, bothDismissed), null);
+    },
+  },
+  {
+    name: 'findPlateauDetection finds a specific lift by name for the in-workout reminder, ignoring any dismiss list',
+    run() {
+      const squat = history({ name: 'Barbell Back Squat', weights: [80, 82.5, 82.5, 82.5] });
+      const bench = history({ name: 'Barbell Bench Press', weights: [55, 57.5, 60, 62.5] });
+      const both = [...squat, ...bench];
+
+      // Case-insensitive, trims whitespace like normalizedName does — the
+      // guided player hands over the exercise name as it names the slot.
+      const found = findPlateauDetection(both, '  barbell back squat  ', 'en');
+      assert.ok(found, 'the stalled lift is found by name');
+      assert.match(found.headline, /hasn't moved in 3 sessions/);
+
+      // A lift that is improving is not a plateau — no reminder to show.
+      assert.equal(findPlateauDetection(both, 'Barbell Bench Press', 'en'), null);
+
+      // detectPlateau is the Home card's SINGLE best pick and honours a
+      // dismiss list; findPlateauDetection is the in-workout reminder and
+      // must keep answering for this lift even after Home's card is put
+      // away — that is the whole point of the reminder as the alternative
+      // to dismissing (user 2026-09-29).
+      const homeDismissed = new Set([plateauEpisodeKey(squat[0])]);
+      assert.equal(detectPlateau(squat, homeDismissed), null, 'Home stops showing the dismissed episode');
+      assert.ok(
+        findPlateauDetection(squat, 'Barbell Back Squat', 'en'),
+        'but the in-workout reminder still finds it',
+      );
     },
   },
 ];

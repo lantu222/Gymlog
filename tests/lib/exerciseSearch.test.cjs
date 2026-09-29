@@ -79,4 +79,98 @@ module.exports = [
       assert.deepEqual(rankExerciseMatches(library.slice(0, 5), '  ', 'fi').map((i) => i.name), library.slice(0, 5).map((i) => i.name));
     },
   },
+  {
+    name: 'the gym\'s own words for Leg Curl and Leg Extension find them ("jalankoukistus ja ojennus ei löydy", #bugs 2026-09-29)',
+    run() {
+      // The library calls them Takareisikoukistus and Reiden ojennus; the gym
+      // says "jalan koukistus"/"jalan ojennus" — English words with no reason
+      // for a Finnish keyboard to know them.
+      const curlPhrasings = ['jalankoukistus', 'jalan koukistus', 'jalkakoukistus'];
+      for (const phrasing of curlPhrasings) {
+        const hits = search(phrasing);
+        assert.ok(hits.length > 0, `"${phrasing}" found nothing`);
+        assert.ok(
+          hits.some((item) => /leg curl/i.test(item.name)),
+          `"${phrasing}" found ${hits.length} but none of them a Leg Curl: ${hits.map((h) => h.name).join(', ')}`,
+        );
+      }
+
+      const extensionPhrasings = ['jalan ojennus', 'jalkaojennus', 'polven ojennus'];
+      for (const phrasing of extensionPhrasings) {
+        const hits = search(phrasing);
+        assert.ok(hits.length > 0, `"${phrasing}" found nothing`);
+        assert.ok(
+          hits.some((item) => /leg extension/i.test(item.name)),
+          `"${phrasing}" found ${hits.length} but none of them a Leg Extension: ${hits.map((h) => h.name).join(', ')}`,
+        );
+      }
+
+      // The ä/ö fold (#222/#225) still runs first: a typed "jalankoukistus"
+      // with an accidental "ä" nowhere near it is unaffected either way, but
+      // the phrase alias must not have skipped folding — "polven öjennus"
+      // (a stray ä/ö) should still answer.
+      assert.ok(search('polven ojennus', 'fi').length > 0);
+
+      // English gym words, not just Finnish ones.
+      assert.ok(search('hamstring curl', 'en').some((item) => /leg curl/i.test(item.name)));
+      assert.ok(search('quad extension', 'en').some((item) => /leg extension/i.test(item.name)));
+
+      // A plain, unaliased query is unaffected by any of this.
+      assert.equal(exerciseMatchesQuery('barbell full squat takakyykky', 'jalan koukistus'), false);
+    },
+  },
+  {
+    name:
+      'a case-inflected phrase still finds the lift instead of a phrase glued to its suffix ("jalan ojennusta" review, #bugs 2026-09-29)',
+    run() {
+      // The naive `text.split(phrase).join(target)` treated "jalan ojennus"
+      // as a bare substring of "jalan ojennusta" (the partitive case) and
+      // glued the target straight onto the leftover "ta", producing "leg
+      // extensionta" — a term nothing in the haystack contains, so the
+      // search came back empty even though the reader typed a real Finnish
+      // word for the machine.
+      const inflected = ['jalan ojennusta', 'jalan koukistusta', 'polven ojennuksesta'];
+      for (const phrasing of inflected) {
+        const hits = search(phrasing);
+        assert.ok(hits.length > 0, `"${phrasing}" found nothing`);
+      }
+      assert.ok(search('jalan ojennusta').some((item) => /leg extension/i.test(item.name)));
+      assert.ok(search('jalan koukistusta').some((item) => /leg curl/i.test(item.name)));
+      assert.ok(search('polven ojennuksesta').some((item) => /leg extension/i.test(item.name)));
+
+      // The un-listed exact phrasing still works: the boundary check must
+      // not have stopped the plain, un-inflected form from matching.
+      assert.ok(search('jalan ojennus').some((item) => /leg extension/i.test(item.name)));
+    },
+  },
+  {
+    name:
+      'a phrase alias matches its target as a whole phrase, not two words checked apart ("Reverse Hyperextension" review, #bugs 2026-09-29)',
+    run() {
+      // "jalan ojennus" aliases to "leg extension", but the per-term matcher
+      // used to check "leg" and "extension" separately once the alias text
+      // was split on the space — and "extension" alone is a substring of
+      // "Reverse Hyperextension", with bodyPart "legs" supplying the other
+      // term. None of these phrasings mean that lift.
+      const extensionPhrasings = [
+        'jalan ojennus',
+        'jalan ojennusta',
+        'polven ojennus',
+        'polven ojennuksesta',
+        'quad extension',
+      ];
+      for (const phrasing of extensionPhrasings) {
+        const names = search(phrasing).map((item) => item.name);
+        assert.ok(!names.some((name) => /hyperextension|back extension/i.test(name)), `"${phrasing}" wrongly found: ${names.join(', ')}`);
+        // Still finds the lift it is meant to.
+        assert.ok(names.some((name) => /leg extension/i.test(name)), `"${phrasing}" found nothing for Leg Extension`);
+      }
+
+      const curlPhrasings = ['jalan koukistus', 'jalan koukistusta', 'hamstring curl'];
+      for (const phrasing of curlPhrasings) {
+        const names = search(phrasing).map((item) => item.name);
+        assert.ok(names.every((name) => /leg curl|hamstring curl/i.test(name)), `"${phrasing}" found an unrelated lift: ${names.join(', ')}`);
+      }
+    },
+  },
 ];

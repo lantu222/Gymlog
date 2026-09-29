@@ -152,9 +152,11 @@ module.exports = [
       assert.equal(rawCalls, 1, 'the raw sync is called from the wrapper only');
       // The sheet freezes the step, so a short rest cannot expire behind the
       // ask; unfreezing re-runs the step effect, which mirrors the rest.
+      // addExerciseOpen joined the list 2026-09-29: the cooldown intro's
+      // "Lisää liike" sheet is the same kind of overlay as the others here.
       assert.match(
         guided,
-        /const frozen =\s*paused\s*\|\| howtoOpen\s*\|\| exitOpen\s*\|\| pauseSheetOpen\s*\|\| swapOpen\s*\|\| restEditOpen\s*\|\| runSheetHolds\s*\|\| ownBlock !== null\s*\|\| restAsk\.sheetOpen;/,
+        /const frozen =\s*paused\s*\|\| howtoOpen\s*\|\| exitOpen\s*\|\| pauseSheetOpen\s*\|\| swapOpen\s*\|\| addExerciseOpen\s*\|\| restEditOpen\s*\|\| runSheetHolds\s*\|\| ownBlock !== null\s*\|\| restAsk\.sheetOpen;/,
       );
       assert.match(guided, /restAlerts\?: \{ alerts: boolean; warning: boolean; ongoing: boolean; asked: boolean \};/);
     },
