@@ -31,6 +31,17 @@ const DIRECTION_WORDS =
 const NUMBER = /(\d{1,3}(?:[.,]\d{1,2})?)\s*(cm|kg|%)/i;
 
 /**
+ * A number phrased as a change from wherever the reader is now — "lisää
+ * painoa 10 kg", "gain 10 kg" — rather than as the goal's own number. Saved
+ * as a target, "nosta painoa 5 kg" from an 85 kg reader became a goal of
+ * 5 kg. The goal is still worth keeping; the number just is not one, the
+ * same conservative call already made for a unit that does not match the
+ * kind.
+ */
+const RELATIVE_WORDS =
+  /lisä|nosta|kasvat|pudot|laske|vähemmän|enemmän|[+-]\s*\d|\badd\b|\bgain\b|\blose\b|\bdrop\b|\braise\b|\blower\b|\bmore\b|\bless\b/i;
+
+/**
  * Goal sentences inflect: "kasvattaa rintaa", "laskea painoa". The reading
  * parser's KIND_WORDS match nominative forms only, so goals add the
  * partitives on top rather than loosening the logger's matching.
@@ -94,7 +105,7 @@ export function parseGoalIntent(
   // a bench press dream and keeps the goal without the number.
   const number = message.match(NUMBER);
   let targetValue: number | null = null;
-  if (number) {
+  if (number && !RELATIVE_WORDS.test(message)) {
     const value = Number(number[1].replace(',', '.'));
     if (Number.isFinite(value) && number[2].toLowerCase() === unitFor(match.kind)) {
       targetValue = Math.round(value * 10) / 10;

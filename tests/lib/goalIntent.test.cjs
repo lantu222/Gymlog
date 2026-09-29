@@ -18,11 +18,14 @@ module.exports = [
       assert.equal(withTarget.targetValue, 104);
       assert.equal(withTarget.unit, 'cm');
 
+      // "laskea painoa 78 kg" lowers by 78 kg, not to it — a relative
+      // phrasing, so the number is not kept (was pinned at 78 kg before the
+      // relative/absolute fix; see the suite below).
       const weight = parseGoalIntent('haluan laskea painoa 78 kg', 'fi');
       assert.ok(weight);
       assert.equal(weight.kind, 'bodyweight');
-      assert.equal(weight.targetValue, 78);
-      assert.equal(weight.unit, 'kg');
+      assert.equal(weight.targetValue, null);
+      assert.equal(weight.unit, null);
 
       const english = parseGoalIntent('I want to grow my chest to 104 cm', 'en');
       assert.ok(english);
@@ -72,9 +75,47 @@ module.exports = [
     },
   },
   {
+    // A relative phrasing states a change from wherever the reader is now,
+    // not the goal's own number: "nosta painoa 5 kg" from an 85 kg reader is
+    // not a 5 kg goal. The goal survives; the number does not — the same
+    // conservative call a unit mismatch already gets.
+    name: 'goalIntent: a number phrased as a change from now, not as the target, is kept as a goal without a number',
+    run() {
+      const relativeCases = [
+        'haluan lisätä painoa 10 kg',
+        'haluan pudottaa painoa 8 kg',
+        'nosta painoa 5 kg',
+        'haluan kasvattaa rinnanympärystä 10 cm',
+        'I want to gain 10 kg of weight',
+        'I want to lose 10 kg of weight',
+      ];
+      for (const text of relativeCases) {
+        const goal = parseGoalIntent(text, 'fi', { declared: true });
+        assert.ok(goal, `${text} should still be a goal`);
+        assert.equal(goal.targetValue, null, `${text} kept a relative amount as an absolute target`);
+        assert.equal(goal.unit, null, `${text}`);
+      }
+
+      const absoluteCases = [
+        { text: 'tavoite paino 95 kg', kind: 'bodyweight', value: 95 },
+        { text: 'haluan painaa 80 kg', kind: 'bodyweight', value: 80 },
+        { text: 'rinnanympärys 104 cm', kind: 'chest', value: 104 },
+      ];
+      for (const { text, kind, value } of absoluteCases) {
+        const goal = parseGoalIntent(text, 'fi', { declared: true });
+        assert.ok(goal, `${text} should be a goal`);
+        assert.equal(goal.kind, kind, text);
+        assert.equal(goal.targetValue, value, `${text} dropped an absolute target`);
+      }
+    },
+  },
+  {
     name: 'goalIntent: a goal with a number never leaks into the measurement logger',
     run() {
-      const text = 'haluan kasvattaa rinnanympärystä 104 cm';
+      // Not "kasvattaa …", which the suite above now reads as a relative
+      // amount and drops: this case is about the number reaching the goal at
+      // all, not about which phrasing keeps it.
+      const text = 'tavoite rinnanympärys 104 cm';
       assert.equal(parseMeasurementIntent(text, 'fi'), null, 'measurement parser must reject goal sentences');
       const goal = parseGoalIntent(text, 'fi');
       assert.ok(goal);

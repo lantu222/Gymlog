@@ -142,6 +142,14 @@ export interface AccountBackupInput {
    */
   restoreDatabase: (input: Partial<AppDatabase>) => Promise<AppDatabase>;
   restoreWorkoutHistory: (history: WorkoutHistoryStore) => Promise<WorkoutHistoryStore>;
+  /**
+   * Called once a restore has actually landed — both stores committed, never
+   * on a rollback or a refused write. The coach's own memory (App.tsx state,
+   * plus its AsyncStorage key — see storage/coachAdviceMemoryStore) sits
+   * outside both of the stores above, so without this a restore that replaced
+   * everything else, another account's data included, would leave it behind.
+   */
+  onRestored?: () => void;
 }
 
 /** How long the data has to stay still before the automatic backup looks at it. */
@@ -329,6 +337,11 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       throw error;
     }
     ensureCurrent(generation);
+    // Both stores are on disk now: this is the one place a restore actually
+    // lands, shared by a fresh phone's automatic restore and the reader's own
+    // "restore" answer — so it is the one place that clears state neither
+    // store above carries (see onRestored's own comment).
+    latestRef.current.onRestored?.();
     return accountBackupFingerprint(database, history);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

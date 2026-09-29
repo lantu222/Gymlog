@@ -91,7 +91,7 @@ async function withHook({ local, stored = null, cloud = null }, scenario) {
   const clock = createClock();
   const runtime = createHookRuntime();
   const listeners = new Set();
-  const calls = { upload: 0, download: 0, delete: 0, restoreDatabase: 0, restoreHistory: 0, expected: [] };
+  const calls = { upload: 0, download: 0, delete: 0, restoreDatabase: 0, restoreHistory: 0, restored: 0, expected: [] };
   const server = Object.assign(versionedStore(cloud), { uploadError: null, downloadError: null, deleteOk: true, gates: {} });
   const google = {
     silent: { status: 'ok', idToken: 'token' },
@@ -196,6 +196,9 @@ async function withHook({ local, stored = null, cloud = null }, scenario) {
       }
       app.history = history;
       return history;
+    },
+    onRestored() {
+      calls.restored += 1;
     },
   });
 
@@ -901,6 +904,47 @@ module.exports = [
           assert.equal(env.server.blob.database.workoutSessions.length, 40);
         },
       );
+    },
+  },
+  {
+    // Privacy fix: the coach's own memory sits outside both stores a restore
+    // touches (App.tsx state, plus its own AsyncStorage key), so it is only
+    // ever cleared through onRestored — fired once a restore has actually
+    // landed, never on "keep this phone's data" or a failed write.
+    name: 'account hook: onRestored fires once a restore lands, and only then',
+    async run() {
+      // A fresh phone, restored without asking.
+      await withHook({ local: database(), cloud: cloudCopy(database({ workoutSessions: workouts(3) })) }, async (env) => {
+        assert.equal((await env.api.signIn()).kind, 'restored');
+        assert.equal(env.calls.restored, 1, 'a landed automatic restore did not clear the coach memory');
+      });
+
+      // Both sides hold data: "keep this phone's data" never restores.
+      await withHook({ local: database({ workoutSessions: workouts(3) }), cloud: cloudCopy(database({ workoutSessions: workouts(2) })) }, async (env) => {
+        assert.equal((await env.api.signIn()).kind, 'choice');
+        assert.equal(await env.api.resolveRestoreChoice('keep_local'), 'done');
+        assert.equal(env.calls.restored, 0, '"keep this phone\'s data" cleared memory that still belongs to the phone');
+      });
+
+      // Both sides hold data, and the reader chooses the backup.
+      await withHook({ local: database({ workoutSessions: workouts(3) }), cloud: cloudCopy(database({ workoutSessions: workouts(2) })) }, async (env) => {
+        assert.equal((await env.api.signIn()).kind, 'choice');
+        assert.equal(await env.api.resolveRestoreChoice('restore'), 'done');
+        assert.equal(env.calls.restored, 1, 'the reader\'s own "restore" did not clear the coach memory');
+      });
+
+      // The workout history write fails: rolled back, so "restored" never happened.
+      const originalError = console.error;
+      console.error = () => undefined;
+      try {
+        await withHook({ local: database(), cloud: cloudCopy(database({ workoutSessions: workouts(3) })) }, async (env) => {
+          env.app.historyWriteError = new Error('database or disk is full');
+          assert.equal((await env.api.signIn()).kind, 'restore_failed');
+          assert.equal(env.calls.restored, 0, 'a restore that failed and rolled back still cleared the coach memory');
+        });
+      } finally {
+        console.error = originalError;
+      }
     },
   },
   {

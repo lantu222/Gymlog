@@ -388,6 +388,7 @@ const suites = [
   ...require('./lib/milestoneLedger.test.cjs'),
   ...require('./lib/notificationGroups.test.cjs'),
   ...require('./screens/notificationGroups.test.cjs'),
+  ...require('./screens/notificationsScheduledRecheck.test.cjs'),
   ...require('./screens/searchRankingReachesTheList.test.cjs'),
   ...require('./screens/profileMilestoneSection.test.cjs'),
   ...require('./screens/milestonesScreen.test.cjs'),
