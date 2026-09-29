@@ -1,4 +1,5 @@
 import type { AppLanguage, ExerciseNameBookEntry, WorkoutTemplateDraft } from '../types/models';
+import { collapseCellWhitespace, splitCsvRecords } from './csvRecords';
 import { lookupNameBook } from './exerciseNameBook';
 import { t } from './i18n';
 
@@ -110,6 +111,23 @@ function parseReps(value: string): { repMin: number; repMax: number } | null {
   return { repMin: Math.min(first, second), repMax: Math.max(first, second) };
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Whether `needle` occurs in `haystack` as whole words, not merely as a run of
+ * characters — "up" inside "ups" is not "up". Both sides have already been
+ * through `normalizeName`, which leaves tokens separated by single spaces, so
+ * a boundary is simply the string's edge or a space.
+ */
+function containsWholeWords(haystack: string, needle: string): boolean {
+  if (!needle) {
+    return false;
+  }
+  return new RegExp(`(^|\\s)${escapeRegExp(needle)}(\\s|$)`).test(haystack);
+}
+
 function tokenOverlapScore(left: string, right: string) {
   const leftTokens = new Set(left.split(' ').filter(Boolean));
   const rightTokens = new Set(right.split(' ').filter(Boolean));
@@ -153,7 +171,7 @@ function matchExercise(
 
   const compact = normalized.replace(/ /g, '');
 
-  let containsCandidate: CsvLibraryEntry | null = null;
+  const containsMatches: CsvLibraryEntry[] = [];
   let bestOverlap: { entry: CsvLibraryEntry; score: number } | null = null;
 
   for (const entry of library) {
@@ -163,11 +181,10 @@ function matchExercise(
       return { matchedName: entry.name, libraryItemId: entry.id, suggestion: null, viaNameBook: false };
     }
     if (
-      !containsCandidate
-      && normalized.length >= 5
-      && (entryNormalized.includes(normalized) || normalized.includes(entryNormalized))
+      normalized.length >= 5
+      && (containsWholeWords(entryNormalized, normalized) || containsWholeWords(normalized, entryNormalized))
     ) {
-      containsCandidate = entry;
+      containsMatches.push(entry);
     }
     const score = tokenOverlapScore(normalized, entryNormalized);
     if (score > (bestOverlap?.score ?? 0)) {
@@ -175,8 +192,16 @@ function matchExercise(
     }
   }
 
-  if (containsCandidate) {
-    return { matchedName: containsCandidate.name, libraryItemId: containsCandidate.id, suggestion: null, viaNameBook: false };
+  // A generic name — "Deadlift", "Pull Up", "Press" — is a whole-word
+  // substring of dozens of more specific library entries. Taking the first
+  // one found used to turn a photographed or CSV "Deadlift" into e.g.
+  // "Romanian Deadlift" or a machine variant with no way for the reader to
+  // notice (#bugs). A contains-match is only trustworthy when it names
+  // exactly one entry; an ambiguous one falls through to the ordinary
+  // suggestion path below, same as any other near-miss.
+  if (containsMatches.length === 1) {
+    const match = containsMatches[0];
+    return { matchedName: match.name, libraryItemId: match.id, suggestion: null, viaNameBook: false };
   }
   if (bestOverlap && bestOverlap.score >= 0.5) {
     return { matchedName: null, libraryItemId: null, suggestion: bestOverlap.entry.name, viaNameBook: false };
@@ -192,8 +217,16 @@ export function parseCsvProgram(
   // the app's language; English was the only one until 2026-09-26.
   language: AppLanguage = 'en',
 ): CsvProgramPreview {
-  const lines = text
-    .split(/\r?\n/)
+  // The separator off the raw first line, before any quote-aware splitting:
+  // the record splitter needs it to know where a quoted field can open, and
+  // the header itself is never quoted or wrapped across lines.
+  const delimiter = detectDelimiter((text.split(/\r?\n/, 1)[0] ?? '').trim());
+  // A record ends at a line break OUTSIDE an open quote. Splitting on every
+  // raw line break instead tore a quoted cell that itself held one — an Excel
+  // cell wrapped with Alt+Enter, or a model-returned name that copied a
+  // spreadsheet's own wrap — into two rows: the exercise vanished and the
+  // error below named a row the reader's sheet does not have (#bugs).
+  const lines = splitCsvRecords(text, delimiter)
     .map((line) => line.trim())
     .filter(Boolean);
   const errors: string[] = [];
@@ -202,7 +235,6 @@ export function parseCsvProgram(
     return { rows: [], matchedCount: 0, unmatchedCount: 0, dayCount: 0, errors: [t(language, 'csv.error.empty')] };
   }
 
-  const delimiter = detectDelimiter(lines[0]);
   const header = splitCsvLine(lines[0], delimiter).map((cell) => normalizeName(cell));
   const dayIndex = header.findIndex((cell) => cell === 'day' || cell === 'session');
   const exerciseIndex = header.findIndex((cell) => cell === 'exercise' || cell === 'exercise name' || cell === 'lift');
@@ -224,8 +256,11 @@ export function parseCsvProgram(
   const skippedDayKeys = new Set<string>();
   for (let index = 1; index < lines.length; index += 1) {
     const cells = splitCsvLine(lines[index], delimiter);
-    const day = (cells[dayIndex] ?? '').trim();
-    const exerciseName = (cells[exerciseIndex] ?? '').trim();
+    // Collapsed, not just trimmed: a quoted cell can carry the line break it
+    // was wrapped with (Alt+Enter, or a photographed cell copied verbatim),
+    // and that wrap is not part of the name.
+    const day = collapseCellWhitespace(cells[dayIndex] ?? '');
+    const exerciseName = collapseCellWhitespace(cells[exerciseIndex] ?? '');
     // A whole number, all of it. parseInt read "2,5" as 2 and "3-4" as 3 and
     // reported nothing (decimal audit, 2026-09-21); a count of sets that is
     // not one is the reader's to fix, like a missing name.

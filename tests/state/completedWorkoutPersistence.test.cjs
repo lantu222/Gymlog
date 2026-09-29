@@ -1,7 +1,10 @@
 const assert = require('node:assert/strict');
 
 const { createEmptyDatabase } = require('../../.test-dist/data/seed.js');
-const { persistCompletedWorkoutSessionToDatabase } = require('../../.test-dist/state/completedWorkoutPersistence.js');
+const {
+  persistCompletedWorkoutSessionToDatabase,
+  persistCompletedWorkoutSessionsToDatabase,
+} = require('../../.test-dist/state/completedWorkoutPersistence.js');
 const { exerciseLogRepository } = require('../../.test-dist/storage/repositories.js');
 
 function createLog(overrides = {}) {
@@ -157,6 +160,124 @@ module.exports = [
 
       assert.equal(result.didPersist, true);
       assert.equal(result.database.workoutSessions[0].workoutTemplateSessionId, 'day_b');
+    },
+  },
+  {
+    // A multi-year Hevy history import called persistCompletedWorkoutSessionToDatabase
+    // once per workout, each time handing the just-grown database to the next
+    // call: every call re-copied the growing session/log arrays and
+    // linear-scanned them for a duplicate — quadratic, and it froze the app
+    // on a real export (#bugs). persistCompletedWorkoutSessionsToDatabase
+    // replaces the per-workout loop with one pass and one write; this proves
+    // it agrees with the old loop on a small, mixed batch.
+    name: 'batch import: one pass over many workouts agrees with the old per-workout loop',
+    run() {
+      const buildInput = (sessionId, name, overrides = {}) => ({
+        sessionId,
+        workoutTemplateId: 'hevy_import',
+        workoutTemplateSessionId: null,
+        workoutNameSnapshot: name,
+        startedAt: `2026-0${sessionId.slice(-1)}-01T08:00:00.000Z`,
+        performedAt: `2026-0${sessionId.slice(-1)}-01T08:45:00.000Z`,
+        logs: [createLog({ exerciseNameSnapshot: name })],
+        ...overrides,
+      });
+
+      // A mix the single-workout path already has to get right: two distinct
+      // workouts, the same workout appearing twice in one file, and a row
+      // with nothing loggable (which persists nothing and is counted as a
+      // duplicate, exactly as the single-workout path already does).
+      const inputs = [
+        buildInput('hevy_1', 'Push Day'),
+        buildInput('hevy_2', 'Leg Day'),
+        buildInput('hevy_1', 'Push Day'), // re-listed within the same import
+        buildInput('hevy_3', 'Rest Notes', { logs: [] }), // nothing to persist
+        buildInput('hevy_4', 'Pull Day'),
+      ];
+
+      // The old path: fold each input through the single-workout function,
+      // threading the growing database from one call to the next.
+      let oldDatabase = createEmptyDatabase();
+      let oldImported = 0;
+      let oldDuplicates = 0;
+      for (const input of inputs) {
+        const result = persistCompletedWorkoutSessionToDatabase(oldDatabase, input);
+        if (result.didPersist) {
+          oldImported += 1;
+          oldDatabase = result.database;
+        } else {
+          oldDuplicates += 1;
+        }
+      }
+
+      const batch = persistCompletedWorkoutSessionsToDatabase(createEmptyDatabase(), inputs);
+
+      assert.deepEqual(
+        { imported: batch.imported, duplicates: batch.duplicates },
+        { imported: oldImported, duplicates: oldDuplicates },
+      );
+      assert.equal(oldImported, 3);
+      assert.equal(oldDuplicates, 2);
+
+      // Session rows are compared in full: their id is the input's own
+      // sessionId, not anything createIdFn touches, so this also proves the
+      // two paths picked the same workouts.
+      const sortById = (rows) => [...rows].sort((a, b) => a.id.localeCompare(b.id));
+      assert.deepEqual(sortById(batch.database.workoutSessions), sortById(oldDatabase.workoutSessions));
+
+      // Logs get a fresh id per call in both paths; compare everything else,
+      // grouped the way a caller actually reads them back.
+      const logsWithoutId = (database) =>
+        [...database.exerciseLogs]
+          .map(({ id, ...rest }) => rest)
+          .sort((a, b) => `${a.sessionId}:${a.orderIndex}`.localeCompare(`${b.sessionId}:${b.orderIndex}`));
+      assert.deepEqual(logsWithoutId(batch.database), logsWithoutId(oldDatabase));
+    },
+  },
+  {
+    // 1500 is roughly a real multi-year Hevy history, and the fixed, linear
+    // path clears it in well under a tenth of a second on ordinary hardware —
+    // but the old per-workout loop is only mildly slow there too (tens of
+    // milliseconds), so a 1-second budget would not actually catch a
+    // regression back to it. 9000 keeps the same shape of import (a few
+    // exercises per workout) while pushing the old O(n²) loop past 1.5
+    // seconds on this machine, so this stays a real regression guard rather
+    // than a number that merely sounds large.
+    name: 'batch import: 9000 workouts persist in one pass, well under a second',
+    run() {
+      const workoutCount = 9000;
+      const inputs = [];
+      for (let i = 0; i < workoutCount; i += 1) {
+        const iso = new Date(2020, 0, 1 + i).toISOString();
+        inputs.push({
+          sessionId: `hevy_${i}`,
+          workoutTemplateId: 'hevy_import',
+          workoutTemplateSessionId: null,
+          workoutNameSnapshot: `Workout ${i}`,
+          startedAt: iso,
+          performedAt: iso,
+          logs: [
+            createLog({ exerciseNameSnapshot: 'Bench Press', orderIndex: 0 }),
+            createLog({ exerciseNameSnapshot: 'Barbell Row', orderIndex: 1 }),
+            createLog({ exerciseNameSnapshot: 'Back Squat', orderIndex: 2 }),
+          ],
+        });
+      }
+      // A handful of re-listed workouts, the way a re-exported file would
+      // repeat a session — exercised so the duplicate path is not free to be
+      // slow either.
+      inputs.push({ ...inputs[0] });
+      inputs.push({ ...inputs[1] });
+
+      const startedAt = Date.now();
+      const result = persistCompletedWorkoutSessionsToDatabase(createEmptyDatabase(), inputs);
+      const elapsedMs = Date.now() - startedAt;
+
+      assert.equal(result.imported, workoutCount);
+      assert.equal(result.duplicates, 2);
+      assert.equal(result.database.workoutSessions.length, workoutCount);
+      assert.equal(result.database.exerciseLogs.length, workoutCount * 3);
+      assert.ok(elapsedMs < 1000, `expected well under a second, took ${elapsedMs}ms`);
     },
   },
 ];

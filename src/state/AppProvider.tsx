@@ -20,7 +20,12 @@ import { findReadyProgrammeCopyId } from '../lib/programmeCopyLink';
 import { plansChanged, renamePlansForTemplate } from '../lib/programRename';
 import { createSerialTaskQueue, RunExclusive } from '../lib/serialTaskQueue';
 import { buildWorkoutTemplateSessions } from '../lib/workoutTemplateSessions';
-import { persistCompletedWorkoutSessionToDatabase, PersistCompletedWorkoutInput, SessionSaveSummary } from './completedWorkoutPersistence';
+import {
+  persistCompletedWorkoutSessionsToDatabase,
+  persistCompletedWorkoutSessionToDatabase,
+  PersistCompletedWorkoutInput,
+  SessionSaveSummary,
+} from './completedWorkoutPersistence';
 import type { HevyImportedWorkout } from '../lib/hevyImport';
 import { planIdsHoldingTemplate, stopProgramme } from '../lib/runningProgrammes';
 import {
@@ -1251,12 +1256,15 @@ export function AppProvider({ children }: React.PropsWithChildren) {
 
   function importWorkoutHistory(workouts: HevyImportedWorkout[]) {
     return runExclusive(async () => {
-      let current = databaseRef.current;
-      let imported = 0;
-      let duplicates = 0;
-      for (const workout of workouts) {
+      const current = databaseRef.current;
+      // Every workout's input, built before touching the database at all —
+      // see persistCompletedWorkoutSessionsToDatabase for why one pass and
+      // one write replaced a call per workout (a multi-year Hevy history was
+      // quadratic and froze the app, #bugs). Duplicate counting, the "already
+      // existed" number and every field below are unchanged.
+      const inputs: PersistCompletedWorkoutInput[] = workouts.map((workout) => {
         const startedMs = Date.parse(workout.startedAt);
-        const result = persistCompletedWorkoutSessionToDatabase(current, {
+        return {
           sessionId: `hevy_${startedMs}`,
           // Not a template that exists, and does not need to be: ready
           // programme sessions reference ids outside the database too, and
@@ -1286,18 +1294,14 @@ export function AppProvider({ children }: React.PropsWithChildren) {
             tracked: true,
             orderIndex,
           })),
-        });
-        if (result.didPersist) {
-          imported += 1;
-          current = result.database;
-        } else {
-          duplicates += 1;
-        }
+        };
+      });
+
+      const result = persistCompletedWorkoutSessionsToDatabase(current, inputs, createId);
+      if (result.imported > 0) {
+        await commit(result.database);
       }
-      if (imported > 0) {
-        await commit(current);
-      }
-      return { imported, duplicates };
+      return { imported: result.imported, duplicates: result.duplicates };
     });
   }
 
