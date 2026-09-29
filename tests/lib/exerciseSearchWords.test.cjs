@@ -74,8 +74,13 @@ module.exports = [
   {
     name: 'the swap list shows one row per name the reader sees; the library keeps both rows',
     run() {
-      const chains = labels('penkkipunnerrus ketjuilla').filter((label) => label === 'Penkkipunnerrus ketjuilla');
-      assert.equal(chains.length, 1);
+      // The chains pair no longer shares a label (label sweep, recheck round
+      // 2026-09-29), so the collision this checks is one that still exists:
+      // two library rows shown as "Takakyykky".
+      const shared = library.filter((item) => exerciseNameLabel('fi', item.name) === 'Takakyykky');
+      assert.ok(shared.length >= 2, 'the collision this case needs is gone; pick another shared label');
+      const squats = labels('takakyykky').filter((label) => label === 'Takakyykky');
+      assert.equal(squats.length, 1);
       const swap = labels('penkkipunnerrus');
       assert.equal(new Set(swap).size, swap.length, 'a label repeated in the swap list');
       // Browsing is not choosing a replacement: both rows, each with its own
