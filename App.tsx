@@ -509,6 +509,11 @@ function VinhaApp() {
   // Where Settings was scrolled when a sub-screen opened; the screen
   // unmounts on navigation, so the position survives here.
   const settingsScrollOffsetRef = useRef(0);
+  // Where History's list was scrolled before opening a session. Browsing
+  // old workouts landed back at the top of the list every time — the same
+  // row you had just opened, then a re-scroll down past everything you had
+  // already seen (#bugs 2026-09-29).
+  const historyScrollOffsetRef = useRef(0);
   const [completionSummary, setCompletionSummary] = useState<CompletionSummaryState | null>(null);
   const [ratingSheetVisible, setRatingSheetVisible] = useState(false);
   const [finishSaveState, setFinishSaveState] = useState<FinishSaveState>({
@@ -7444,6 +7449,7 @@ function VinhaApp() {
       upsertWorkoutTemplate,
       workoutSessions,
       getSessionLogs,
+      historyScrollOffsetRef,
       deleteCompletedWorkoutSession: handleDeleteCompletedSession,
       deleteCardioSession,
       unitPreference,
