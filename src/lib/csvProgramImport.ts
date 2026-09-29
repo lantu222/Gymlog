@@ -217,10 +217,16 @@ export function parseCsvProgram(
   // the app's language; English was the only one until 2026-09-26.
   language: AppLanguage = 'en',
 ): CsvProgramPreview {
-  // The separator off the raw first line, before any quote-aware splitting:
-  // the record splitter needs it to know where a quoted field can open, and
-  // the header itself is never quoted or wrapped across lines.
-  const delimiter = detectDelimiter((text.split(/\r?\n/, 1)[0] ?? '').trim());
+  // The separator off the first line, before any quote-aware splitting: the
+  // record splitter needs it to know where a quoted field can open, and the
+  // header itself is never quoted or wrapped across lines. The whole text is
+  // trimmed first, not just the extracted substring — a pasted/uploaded CSV
+  // can start with a blank (or whitespace-only) line, and slicing that raw
+  // first line off an untrimmed string reads it as empty, falling back to the
+  // comma default and failing every header cell for an otherwise valid
+  // semicolon or tab file (#bugs). hevyImport.ts's detectCsvDelimiter call
+  // avoids this the same way, off `text.trim()`.
+  const delimiter = detectDelimiter(text.trim().split(/\r?\n/, 1)[0] ?? '');
   // A record ends at a line break OUTSIDE an open quote. Splitting on every
   // raw line break instead tore a quoted cell that itself held one — an Excel
   // cell wrapped with Alt+Enter, or a model-returned name that copied a

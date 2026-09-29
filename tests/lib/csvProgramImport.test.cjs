@@ -43,6 +43,31 @@ module.exports = [
     },
   },
   {
+    name: 'csv import detects the delimiter past a leading blank line',
+    run() {
+      // A pasted/uploaded CSV can start with a blank line (or one that is only
+      // whitespace) before the header. Delimiter detection must still look at
+      // the first non-blank line, not the literal first raw line, or a
+      // semicolon file falls back to the comma default and every header cell
+      // fails to match (#bugs).
+      const leadingBlank = parseCsvProgram(
+        '\nDay;Exercise;Sets;Reps\nDay 1;Bench Press;4;6-10',
+        LIBRARY,
+      );
+      assert.equal(leadingBlank.errors.length, 0);
+      assert.equal(leadingBlank.rows.length, 1);
+      assert.equal(leadingBlank.rows[0].libraryItemId, 'lib_bench');
+
+      const leadingWhitespaceLine = parseCsvProgram(
+        '   \nDay;Exercise;Sets;Reps\nDay 1;Bench Press;4;6-10',
+        LIBRARY,
+      );
+      assert.equal(leadingWhitespaceLine.errors.length, 0);
+      assert.equal(leadingWhitespaceLine.rows.length, 1);
+      assert.equal(leadingWhitespaceLine.rows[0].libraryItemId, 'lib_bench');
+    },
+  },
+  {
     name: 'csv import matches spacing variants and flags near-misses with a suggestion',
     run() {
       const preview = parseCsvProgram(
