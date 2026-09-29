@@ -119,4 +119,28 @@ module.exports = [
       assert.equal(exerciseMatchesQuery('barbell full squat takakyykky', 'jalan koukistus'), false);
     },
   },
+  {
+    name:
+      'a case-inflected phrase still finds the lift instead of a phrase glued to its suffix ("jalan ojennusta" review, #bugs 2026-09-29)',
+    run() {
+      // The naive `text.split(phrase).join(target)` treated "jalan ojennus"
+      // as a bare substring of "jalan ojennusta" (the partitive case) and
+      // glued the target straight onto the leftover "ta", producing "leg
+      // extensionta" — a term nothing in the haystack contains, so the
+      // search came back empty even though the reader typed a real Finnish
+      // word for the machine.
+      const inflected = ['jalan ojennusta', 'jalan koukistusta', 'polven ojennuksesta'];
+      for (const phrasing of inflected) {
+        const hits = search(phrasing);
+        assert.ok(hits.length > 0, `"${phrasing}" found nothing`);
+      }
+      assert.ok(search('jalan ojennusta').some((item) => /leg extension/i.test(item.name)));
+      assert.ok(search('jalan koukistusta').some((item) => /leg curl/i.test(item.name)));
+      assert.ok(search('polven ojennuksesta').some((item) => /leg extension/i.test(item.name)));
+
+      // The un-listed exact phrasing still works: the boundary check must
+      // not have stopped the plain, un-inflected form from matching.
+      assert.ok(search('jalan ojennus').some((item) => /leg extension/i.test(item.name)));
+    },
+  },
 ];

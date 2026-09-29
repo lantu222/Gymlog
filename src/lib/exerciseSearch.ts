@@ -133,11 +133,20 @@ const SEARCH_ALIASES: Record<string, readonly string[]> = {
  * muscle, not the library's "leg". Kept to phrases that would otherwise miss
  * entirely; a single English word like "curl" or "extension" already lands
  * on its own.
+ *
+ * The partitive/elative forms ("jalan ojennusta", "jalan koukistusta",
+ * "polven ojennuksesta") are their own entries rather than a suffix the code
+ * strips: Finnish case endings sometimes change the stem itself
+ * ("ojennus" → "ojennukse-" before "-sta"), so there is no fixed suffix to
+ * peel off. Listed exactly like "leuka"/"leuat" above.
  */
 const SEARCH_PHRASE_ALIASES: ReadonlyArray<readonly [phrase: string, target: string]> = [
   ['jalan koukistus', 'leg curl'],
+  ['jalan koukistusta', 'leg curl'],
   ['jalan ojennus', 'leg extension'],
+  ['jalan ojennusta', 'leg extension'],
   ['polven ojennus', 'leg extension'],
+  ['polven ojennuksesta', 'leg extension'],
   ['hamstring curl', 'leg curl'],
   ['quad extension', 'leg extension'],
 ];
@@ -147,12 +156,21 @@ const SEARCH_PHRASE_ALIASES: ReadonlyArray<readonly [phrase: string, target: str
  * carries, applied before the per-term aliasing below (and before the query
  * is split into terms) so a two-word gym phrase is one hit instead of two
  * separate ones that both have to land.
+ *
+ * Matched on a word boundary, not a bare substring: "jalan ojennus" sits
+ * inside "jalan ojennusta" (the partitive case) with no space, and the old
+ * `text.split(phrase).join(target)` glued the target straight onto that
+ * leftover "ta", turning the query into "leg extensionta" — a term that then
+ * failed to match anything and made the whole search come back empty
+ * (review of #bugs 2026-09-29). A boundary check leaves an un-listed
+ * inflected form as plain, unaliased text instead of a corrupted one; the
+ * inflected forms this app has actually seen are their own entries above.
  */
 function applyPhraseAliases(normalizedQuery: string): string {
-  return SEARCH_PHRASE_ALIASES.reduce(
-    (text, [phrase, target]) => (text.includes(phrase) ? text.split(phrase).join(target) : text),
-    normalizedQuery,
-  );
+  return SEARCH_PHRASE_ALIASES.reduce((text, [phrase, target]) => {
+    const boundary = new RegExp(`\\b${phrase.replace(/ /g, '\\s+')}\\b`, 'g');
+    return boundary.test(text) ? text.replace(boundary, target) : text;
+  }, normalizedQuery);
 }
 
 /** A term and the words it also stands for. */
