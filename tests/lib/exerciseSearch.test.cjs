@@ -198,6 +198,24 @@ module.exports = [
         assert.ok(names.includes('Leg Extensions'), `"${query}" missed the plain Leg Extensions machine`);
       }
 
+      // The plural must find the whole family the singular finds, not just
+      // whichever row's stored name happens to literally contain "s" (recheck
+      // of the recheck, 2026-09-29): the singular phrase alias's boundary
+      // check (`\bleg\s+extension\b`) never matches "leg extensions" — there
+      // is no word boundary between "extension" and its own trailing "s" —
+      // so the plural used to skip applyPhraseAliases entirely and fall back
+      // to the pre-fix two-bare-terms path. That path happened to surface
+      // "Leg Extensions" (its stored name literally contains "extensions"),
+      // which made the assertions above pass without ever exercising the
+      // plural through the phrase-join machinery, and silently dropped
+      // "Single-Leg Leg Extension" — a real, incomplete result the whole-
+      // phrase fix exists to prevent.
+      assert.deepEqual(
+        search('leg extensions', 'en').map((item) => item.name).sort(),
+        search('leg extension', 'en').map((item) => item.name).sort(),
+        '"leg extensions" must find exactly the same rows as "leg extension"',
+      );
+
       // The other alias target, "leg curl", only had bodyPart "legs" plus a
       // "curl" name to coincide on — no lift in the library actually
       // collides on it today, but the same bare-terms path was live for it
@@ -210,6 +228,18 @@ module.exports = [
           `"${query}" found something outside the Leg Curl family: ${names.join(', ')}`,
         );
       }
+
+      // Same completeness check for "leg curls": the pre-fix bare-terms path
+      // matched only "Lying Leg Curls" (the one row whose stored name is
+      // itself plural) and dropped "Ball Leg Curl", "Seated Leg Curl" and
+      // "Standing Leg Curl" — every one of which the singular query finds.
+      const curlSingular = search('leg curl', 'en').map((item) => item.name).sort();
+      assert.ok(curlSingular.length > 1, 'expected more than one Leg Curl family member to pin this against');
+      assert.deepEqual(
+        search('leg curls', 'en').map((item) => item.name).sort(),
+        curlSingular,
+        '"leg curls" must find exactly the same rows as "leg curl"',
+      );
 
       // A query that merely contains the target phrase, not just the exact
       // phrase alone, is joined too — the boundary check runs the same way
