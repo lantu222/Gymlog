@@ -854,7 +854,7 @@ const EXERCISE_NAME_FI: Record<string, string> = {
   'Mixed Grip Chin': 'Leuanveto sekaotteella',
   'Monster Walk': 'Hirviökävely kuminauhalla',
   'Moving Claw Series': 'Liikkuva raapaisuharjoite',
-  'Muscle Snatch': 'Voimatempaus',
+  'Muscle Snatch': 'Muscle snatch',
   'Muscle Up': 'Muscle up',
   'Narrow Stance Hack Squats': 'Hack squat kapealla haara-asennolla',
   'Narrow Stance Leg Press': 'Jalkaprässi kapealla haara-asennolla',

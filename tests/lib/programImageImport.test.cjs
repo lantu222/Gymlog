@@ -235,7 +235,7 @@ module.exports = [
       assert.match(sheet, /row\.matchedName \? exerciseNameLabel\(language, row\.matchedName\) : row\.exerciseName/);
       assert.doesNotMatch(sheet, /\{row\.matchedName \?\? row\.exerciseName\}/);
       const width = (name) => Number(sheet.match(new RegExp(`${name}: \\{\\s*width: (\\d+)`))[1]);
-      assert.ok(width('previewSets') >= 56, 'SARJAT fits on one line');
+      assert.ok(width('previewSets') >= 50, 'SARJAT fits on one line');
       assert.ok(width('previewReps') >= 62, 'TOISTOT fits on one line');
     },
   },

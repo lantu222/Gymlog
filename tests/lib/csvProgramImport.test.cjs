@@ -255,6 +255,18 @@ module.exports = [
     },
   },
   {
+    name: 'a Finnish label shared by two different lifts in the real library resolves to the right one',
+    run() {
+      // Muscle Snatch was labelled Voimatempaus, Power Snatch's name, and
+      // came first in the table: a written "Voimatempaus" would have imported
+      // as the wrong lift, silently (review of the 2026-09-29 fix).
+      const { GENERATED_EXERCISE_LIBRARY } = require('../../.test-dist/data/generatedExerciseLibrary.js');
+      const library = GENERATED_EXERCISE_LIBRARY.map((item) => ({ id: item.id, name: item.name }));
+      const preview = parseCsvProgram('Day,Exercise,Sets,Reps\nPäivä 1,Voimatempaus,5,3', library, [], 'fi');
+      assert.equal(preview.rows[0].matchedName, 'Power Snatch');
+    },
+  },
+  {
     name: "a library name written out exactly is never read as another lift's label",
     run() {
       // "Machine Chest Press" is the plain label the app shows for Leverage

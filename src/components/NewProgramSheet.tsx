@@ -994,9 +994,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flex: 1,
   },
   // Wide enough for the Finnish headers on one line: "SARJAT" and "TOISTOT"
-  // broke mid-word at 34 and 52 (#bugs 2026-09-29).
+  // broke mid-word at 34 and 52 (#bugs 2026-09-29). No wider than that: the
+  // name column is what pays for it.
   previewSets: {
-    width: 58,
+    width: 52,
     textAlign: 'center',
   },
   previewReps: {

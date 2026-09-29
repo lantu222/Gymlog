@@ -138,6 +138,10 @@ module.exports = [
         'Dragon Flag',
         'Muscle Up',
         'London Bridges',
+        // Was "Voimatempaus", which is Power Snatch — a different lift, and
+        // since the CSV import reads the app's own labels back (2026-09-29) a
+        // written "Voimatempaus" would have imported as this one.
+        'Muscle Snatch',
       ];
       const unchanged = Object.entries(TRANSLATED_EXERCISE_NAMES)
         .filter(([english, finnish]) => english.toLowerCase() === finnish.toLowerCase())
