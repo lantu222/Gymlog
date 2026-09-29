@@ -79,8 +79,12 @@ module.exports = [
       const swap = labels('penkkipunnerrus');
       assert.equal(new Set(swap).size, swap.length, 'a label repeated in the swap list');
       // Browsing is not choosing a replacement: both rows, each with its own
-      // pictures and steps, stay findable (review, 2026-09-27).
-      const browsed = rankExerciseMatches(library, 'ketjuilla', 'fi').map((item) => item.name);
+      // pictures and steps, stay findable (review, 2026-09-27). They no
+      // longer share one label ('Chain Press' — a cable exercise — got its
+      // own distinct label from 'Bench Press with Chains' — a barbell one —
+      // in the label sweep, recheck round 2026-09-29), so the shared term
+      // both their labels still carry is "ketju", not the exact old label.
+      const browsed = rankExerciseMatches(library, 'ketju', 'fi').map((item) => item.name);
       assert.ok(browsed.includes('Bench Press with Chains') && browsed.includes('Chain Press'));
     },
   },
