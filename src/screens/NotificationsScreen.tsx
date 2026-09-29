@@ -170,12 +170,25 @@ export function NotificationsScreen({
   // re-checking on every prefs change the reader's own toggling causes.
   const latestScheduledRef = useRef({ pushEnabled: prefs.pushEnabled, checkPermission, onChange });
   latestScheduledRef.current = { pushEnabled: prefs.pushEnabled, checkPermission, onChange };
+  // Bumped by every call, and read back once its own answer lands. AppState
+  // fired 'active' twice in quick succession started two checks together; a
+  // slower "denied" resolving after a fresher "granted" flipped the master
+  // off under a permission that was actually still there (recheck round,
+  // 2026-09-29). Only the call that is still the latest when it resolves may
+  // act.
+  const scheduledAccessGenerationRef = useRef(0);
   const readScheduledAccess = useCallback(() => {
     const { pushEnabled, checkPermission, onChange } = latestScheduledRef.current;
     if (!pushEnabled || !checkPermission) {
       return;
     }
+    const generation = ++scheduledAccessGenerationRef.current;
     void checkPermission().then((granted) => {
+      if (scheduledAccessGenerationRef.current !== generation) {
+        // A newer check has started since this one; its answer, not this
+        // stale one, is what the card must act on.
+        return;
+      }
       if (granted) {
         return;
       }
@@ -194,9 +207,24 @@ export function NotificationsScreen({
    */
   const [access, setAccess] = useState<NotificationAccessState | null>(null);
   const [exactAllowed, setExactAllowed] = useState<boolean | null>(null);
+  // Same race as readScheduledAccess above, and the same fix: AppState firing
+  // 'active' twice in quick succession can start two of these together, and a
+  // slower stale answer resolving after a fresher one must not overwrite it —
+  // exactly the bug that guard was added for one function up (recheck round,
+  // 2026-09-29).
+  const workoutAccessGenerationRef = useRef(0);
   const readWorkoutAccess = useCallback(() => {
-    void checkWorkoutAlerts?.().then(setAccess);
-    void checkExactAlarms?.().then(setExactAllowed);
+    const generation = ++workoutAccessGenerationRef.current;
+    void checkWorkoutAlerts?.().then((result) => {
+      if (workoutAccessGenerationRef.current === generation) {
+        setAccess(result);
+      }
+    });
+    void checkExactAlarms?.().then((result) => {
+      if (workoutAccessGenerationRef.current === generation) {
+        setExactAllowed(result);
+      }
+    });
   }, [checkWorkoutAlerts, checkExactAlarms]);
   useEffect(() => {
     readWorkoutAccess();

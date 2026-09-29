@@ -132,7 +132,8 @@ module.exports = [
       // own page. The channel read itself is tested in
       // tests/utils/sessionNotifications.test.cjs; this is the wiring.
       const read = between(screen, 'const readWorkoutAccess = useCallback(', '}, [');
-      assert.match(read, /void checkWorkoutAlerts\?\.\(\)\.then\(setAccess\);/);
+      assert.match(read, /void checkWorkoutAlerts\?\.\(\)\.then\(\(result\) => \{/);
+      assert.match(read, /setAccess\(result\)/);
       assert.doesNotMatch(read, /checkPermission/, 'the card reads the permission alone again');
       assert.match(tab, /checkWorkoutAlerts=\{getRestAlertAccessState\}/);
       // Turning the master on reads the card's answer rather than assuming it.

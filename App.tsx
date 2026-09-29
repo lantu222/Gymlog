@@ -455,10 +455,13 @@ function VinhaApp() {
     // included. Same reasoning as handleResetAllData below, which clears it
     // for the reset path; not fired on "keep this phone's data" or a failed
     // restore, since useAccountBackup only calls this once both stores land.
-    onRestored: () => {
+    onRestored: async () => {
       setCoachAdviceMemory([]);
       setCoachChatMemory(null);
-      void clearCoachAdviceMemory();
+      // Awaited: useAccountBackup's applyRestore holds the restore open
+      // until this settles, so a process kill cannot land the restore while
+      // the erase is still on disk (recheck round, 2026-09-29).
+      await clearCoachAdviceMemory();
     },
   });
 
