@@ -92,6 +92,7 @@ import {
 import { getExerciseInstructions } from '../lib/exerciseInstructions';
 import { getExerciseTeaching } from '../lib/exerciseTeaching';
 import { buildExerciseSheetHistory, LastTimeView } from '../lib/exerciseSheetHistory';
+import { formatLoadOrRange, summarizeHistoricalSetChips } from '../lib/guidedSetWeightSummary';
 import type { LiftHistoryEntry } from '../lib/progression';
 import { ExerciseSheet } from '../components/ExerciseSheet';
 import { CtaShimmer } from '../components/CtaShimmer';
@@ -119,7 +120,9 @@ import { elapsedSecondsOf } from '../features/workout/workoutState';
 import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailoringFit';
 import { exerciseMatchesQuery, oneRowPerShownName, rankExerciseMatches } from '../lib/exerciseSearch';
 import { sessionLiftsMatchingQuery } from '../lib/swapShortlist';
-import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
+import { getExerciseTemplateDefaults, getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
+import { getCatalogTrackingMode } from '../lib/catalogExercisePools';
+import { AddExerciseSheet } from '../components/AddExerciseSheet';
 import { useKeepScreenAwake } from '../utils/keepAwake';
 import { queryReduceMotion } from '../utils/reduceMotion';
 import {
@@ -1612,6 +1615,13 @@ function GuidedPlayer({
   const [runSheetOpen, setRunSheetOpen] = useState(false);
   const [confirmingSkipExercise, setConfirmingSkipExercise] = useState(false);
   const [swapOpen, setSwapOpen] = useState(false);
+  /**
+   * The cooldown intro's third door: on to the work block for one more lift,
+   * rather than only "start" or "recover your own way" (user 2026-09-29,
+   * "jouduin palautumiseen ilman että halusin"). Reuses insertExerciseAfter,
+   * which the reducer already had — nothing dispatched it (#bugs 2026-09-29).
+   */
+  const [addExerciseOpen, setAddExerciseOpen] = useState(false);
   // The rest screen's "fix the set you just logged" sheet. Declared here,
   // with the other overlays, because `frozen` below has to see it.
   /**
@@ -1674,7 +1684,7 @@ function GuidedPlayer({
   const intervalRunning =
     (step.type === 'set' && step.interval !== undefined) || (step.type === 'rest' && Boolean(step.recoveryKind));
   const runSheetHolds = runSheetOpen && !intervalRunning;
-  const frozen = paused || howtoOpen || exitOpen || pauseSheetOpen || swapOpen || restEditOpen || runSheetHolds || ownBlock !== null || restAsk.sheetOpen;
+  const frozen = paused || howtoOpen || exitOpen || pauseSheetOpen || swapOpen || addExerciseOpen || restEditOpen || runSheetHolds || ownBlock !== null || restAsk.sheetOpen;
   // Seconds since the reader said they would do it themselves. Derived from
   // the session clock's tick so it needs no timer of its own.
   const ownElapsedSeconds = ownBlock ? Math.max(0, Math.floor((clockNowMs - ownBlock.startedAt) / 1000)) : 0;
@@ -2245,6 +2255,69 @@ function GuidedPlayer({
     unpause();
   };
 
+  /**
+   * Where to land once a mid-workout add lands its new exercise.
+   *
+   * `insertExerciseAfter` mints the new slot id itself, so the caller cannot
+   * name a target step the way `handleSkipExercise` above does. What is known
+   * before the dispatch is every slot id that already exists; once the
+   * rebuilt steps arrive, the one slot id that was not in that set is the
+   * lift just added.
+   */
+  const pendingInsertKnownSlotsRef = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    const known = pendingInsertKnownSlotsRef.current;
+    if (!known) {
+      return;
+    }
+    const insertedSlotId = exercises.map((exercise) => exercise.slotId).find((slotId) => !known.has(slotId));
+    if (!insertedSlotId) {
+      // Not landed yet — the effect above this one may fire on the same
+      // render as the dispatch, before the provider's own update arrives.
+      return;
+    }
+    pendingInsertKnownSlotsRef.current = null;
+    const target = steps.findIndex(
+      (candidate) =>
+        (candidate.type === 'position' || candidate.type === 'set') && candidate.slotId === insertedSlotId,
+    );
+    if (target >= 0) {
+      goToRef.current(target);
+    }
+  }, [exercises, steps]);
+
+  /**
+   * "Lisää liike" on the cooldown intro: the escape the reader asked for
+   * (2026-09-29) when there was one more lift in them and the app had already
+   * moved on to recovery. Added after the last exercise in today's session,
+   * same as a swap-to-any-library-lift resolves what it does not know:
+   * `getExerciseTemplateDefaults` for sets and reps (the day view's own
+   * picker uses it), `getCatalogTrackingMode` for how it is logged. The
+   * substitution group is the library id alone — nothing else is IN this
+   * lift's group, so it offers no swap suggestions of its own, which is
+   * right for a lift nobody planned.
+   */
+  const addMidWorkoutExercise = (item: ExerciseLibraryItem) => {
+    setAddExerciseOpen(false);
+    const anchor = exercises[exercises.length - 1];
+    if (!anchor) {
+      return;
+    }
+    const defaults = getExerciseTemplateDefaults(item, anchor.restSecondsMin);
+    pendingInsertKnownSlotsRef.current = new Set(exercises.map((exercise) => exercise.slotId));
+    workout.insertExerciseAfter(anchor.slotId, {
+      exerciseName: item.name,
+      trackingMode: getCatalogTrackingMode(item.name),
+      sets: defaults.targetSets,
+      repsMin: defaults.repMin,
+      repsMax: defaults.repMax,
+      restSecondsMin: defaults.restSeconds,
+      restSecondsMax: defaults.restSeconds,
+      substitutionGroup: item.id,
+      libraryItemId: item.id,
+    });
+  };
+
   const backOne = () => {
     const target = getGuidedBackTargetIndex(steps, stepIndex);
     const targetStep = steps[target];
@@ -2575,11 +2648,16 @@ function GuidedPlayer({
     // programme's own number beside it (2026-09-09 rule, lib/progressionGate).
     const firstSet = planSetOf(instance.sets);
     const loweredTarget = firstSet !== undefined && isLoweredTarget(firstSet) && target.reps === firstSet.plannedTargetReps;
-    const lastHeaviest = heaviestOf(last);
+    // Today's plan across every set of this lift, not only set 1 — a ramp's
+    // card used to say "NYT 55 kg" while the plan actually asked for
+    // 55-60-60-60 (sumo, #bugs 2026-09-29). A single set 1 stays as it read.
+    const todayLoads = instance.sets.map((_, index) => resolveTarget(step.slotId, index)?.loadKg ?? null).filter(
+      (load): load is number => load != null,
+    );
     return {
       todayValue:
         target.loadKg != null && target.loadKg > 0
-          ? formatWeight(target.loadKg, unitPreference)
+          ? formatLoadOrRange(todayLoads) ?? formatWeight(target.loadKg, unitPreference)
           : t(language, target.timed ? 'guided.target.seconds' : 'guided.target.reps', {
               reps: target.reps,
             }),
@@ -2618,7 +2696,9 @@ function GuidedPlayer({
       // The set card's heading makes the same distinction one step later;
       // the number must not change its story between the two screens.
       lastLabel: t(language, last?.borrowed ? 'guided.walk.lastBorrowed' : 'guided.walk.last'),
-      lastValue: lastHeaviest > 0 ? formatWeight(lastHeaviest, unitPreference) : null,
+      // Last time's own span, the same way the set card's chips show it —
+      // one weight when every set matched, the range when they did not.
+      lastValue: formatLoadOrRange(last?.sets.map((set) => set.loadKg) ?? []),
       lastReps: last?.sets.length ? last.sets.map((set) => set.reps).join(' · ') : null,
     };
   })();
@@ -3084,6 +3164,22 @@ function GuidedPlayer({
                         {t(language, `guided.own.${skippablePhase}` as 'guided.own.warmup')}
                       </Text>
                     </Pressable>
+                    {/* A third door, quieter than the other two: one more
+                        lift before recovery, for the reader who was not done
+                        (user 2026-09-29, "jouduin palautumiseen ilman että
+                        halusin"). Cooldown only — the warm-up has nothing to
+                        add to. */}
+                    {step.phase === 'cooldown' ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        style={styles.gateAddExerciseLink}
+                        onPress={() => setAddExerciseOpen(true)}
+                      >
+                        <Text style={styles.gateAddExerciseLinkText}>
+                          {t(language, 'guided.own.addExercise')}
+                        </Text>
+                      </Pressable>
+                    ) : null}
                   </View>
                 ) : null}
               </Pressable>
@@ -4217,6 +4313,21 @@ function GuidedPlayer({
         </GPSheet>
       )}
 
+      {/* The cooldown intro's "Lisää liike": the same library sheet the day
+          editor uses, so search and the body-part chips are the ones the
+          reader already knows. Single-select — one lift at a time, added
+          straight into today's session rather than a template. */}
+      <AddExerciseSheet
+        bottomInset={screenInsets.bottom}
+        visible={addExerciseOpen}
+        language={language}
+        items={exerciseLibrary}
+        recentItems={[]}
+        title={t(language, 'guided.own.addExercise')}
+        onClose={() => setAddExerciseOpen(false)}
+        onSelectItem={addMidWorkoutExercise}
+      />
+
       <RestAlertsSheet
         visible={restAsk.sheetOpen}
         language={language}
@@ -4468,6 +4579,10 @@ function SetStepView({
   // A hold logs no weight either, so it takes the same wide layout — but its
   // number is seconds, and seconds are dialled in fives, not ones.
   const bodyweight = exercise ? isUnloadedTrackingMode(exercise.trackingMode) : false;
+  // Uniform stays the plain rep-chip row it always was; a ramp gets weight×reps
+  // on every chip instead of one heading number, so it reads as a ramp rather
+  // than a single weight with an unexplained jump partway through (#bugs 2026-09-29).
+  const historyChips = panels?.history ? summarizeHistoricalSetChips(panels.history.sets) : null;
   const timed = exercise ? isTimedTrackingMode(exercise.trackingMode) : false;
   const [reps, setReps] = useState(target?.reps ?? 8);
   const [kg, setKg] = useState(target?.loadKg ?? 0);
@@ -4658,20 +4773,28 @@ function SetStepView({
               <Text style={styles.setExerciseLastLabel}>
                 {t(language, panels.history.borrowed ? 'guided.card.lastTimeBorrowed' : 'guided.card.lastTime')}
               </Text>
-              <Text style={styles.setExerciseLastLoad}>
-                {/* The same number decides and is shown. Guarding on the
-                    FIRST set while printing the heaviest hid a real top set
-                    behind a dash whenever set 1 was logged at 0 kg — which is
-                    what the dial offers on a lift with no history (review,
-                    PR #57). */}
-                {heaviestOf(panels.history) > 0
-                  ? `${removeTrailingZeros(heaviestOf(panels.history))} kg`
-                  : '—'}
-              </Text>
+              {/* Only a uniform session gets the single heading number — a
+                  ramp has no one weight to lead with, and the per-set chips
+                  below already say the whole thing (decision "a", #bugs
+                  2026-09-29). */}
+              {historyChips?.uniform !== false ? (
+                <Text style={styles.setExerciseLastLoad}>
+                  {/* The same number decides and is shown. Guarding on the
+                      FIRST set while printing the heaviest hid a real top set
+                      behind a dash whenever set 1 was logged at 0 kg — which is
+                      what the dial offers on a lift with no history (review,
+                      PR #57). */}
+                  {heaviestOf(panels.history) > 0
+                    ? `${removeTrailingZeros(heaviestOf(panels.history))} kg`
+                    : '—'}
+                </Text>
+              ) : null}
               <View style={styles.setExerciseLastPills}>
-                {panels.history.sets.map((set) => (
+                {panels.history.sets.map((set, index) => (
                   <View key={set.setIndex} style={styles.setExerciseLastPill}>
-                    <Text style={styles.setExerciseLastPillText}>{set.reps}</Text>
+                    <Text style={styles.setExerciseLastPillText}>
+                      {historyChips?.chips[index] ?? set.reps}
+                    </Text>
                   </View>
                 ))}
               </View>
@@ -5390,6 +5513,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   gateOwnLabel: { fontSize: 16, fontWeight: '800', color: theme.ink },
   gateOwnSub: { fontSize: 12.5, fontWeight: '600', color: theme.muted, textAlign: 'center' },
+  // No border, no fill — quieter than the two buttons above it on purpose.
+  gateAddExerciseLink: { alignItems: 'center', justifyContent: 'center', paddingVertical: 6 },
+  gateAddExerciseLinkText: { fontSize: 14, fontWeight: '700', color: theme.muted },
   readyDigit: { fontSize: 150, fontWeight: '800', letterSpacing: -7, color: theme.ink, lineHeight: 160, fontVariant: ['tabular-nums'] },
 
   /* drill / set */

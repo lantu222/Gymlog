@@ -1409,6 +1409,9 @@ const EN = {
   // that button's own label back at the reader.
   'guided.own.warmup': 'Warm up your own way',
   'guided.own.cooldown': 'Recover your own way',
+  // The cooldown intro's third, quieter door — one more lift before recovery
+  // (#bugs 2026-09-29, "jouduin palautumiseen ilman että halusin").
+  'guided.own.addExercise': 'Add an exercise',
   // -- The set screen's exercise sheet: one sheet, three tabs.
   // -- Rest (session flow, screen 7).
   'guided.rest.edit': 'Edit',
@@ -4572,6 +4575,7 @@ const FI: Record<I18nKey, string> = {
   'guided.own.start.cooldown': 'Aloita palautuminen',
   'guided.own.warmup': 'Lämmittele omatoimisesti',
   'guided.own.cooldown': 'Palaudu omatoimisesti',
+  'guided.own.addExercise': 'Lisää liike',
   'guided.rest.edit': 'Muokkaa',
   'guided.rest.editTitle': 'Korjaa juuri kirjattu sarja',
   'guided.finish.saveFailed.title': 'Ei vielä tallennettu',
