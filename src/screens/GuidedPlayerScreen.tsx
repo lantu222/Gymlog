@@ -130,7 +130,6 @@ import {
 } from '../features/workout/workoutState';
 import { isUsableEntry, resolveLastTimeEntry } from '../lib/exerciseHistoryLookup';
 import { liftOfSet } from '../lib/liftSegments';
-import { BAR_WEIGHTS_KG, BarWeightKg, barChoiceApplies, barChoiceKey, openingWeightWithBar, switchBar } from '../lib/barChoice';
 import {
   isTimedTrackingMode,
   isUnloadedTrackingMode,
@@ -276,9 +275,6 @@ interface GuidedPlayerScreenProps {
   techniqueChecks?: Record<string, number[]>;
   onToggleTechniqueStatement?: (libraryItemId: string, index: number) => void;
   onToggleExerciseLearned?: (libraryItemId: string) => void;
-  /** The bar each barbell lift is loaded on (lib/barChoice), and where a new choice goes. */
-  barChoices?: Record<string, BarWeightKg>;
-  onBarChoice?: (exerciseName: string, bar: BarWeightKg | null) => void;
   weekProgress: GuidedWeekProgress | null;
   nextUp: GuidedNextUp | null;
   onLeave: () => void;
@@ -1331,8 +1327,6 @@ function GuidedPlayer({
   techniqueChecks = {},
   onToggleTechniqueStatement,
   onToggleExerciseLearned,
-  barChoices = {},
-  onBarChoice,
   weekProgress,
   nextUp,
   onLeave,
@@ -3367,18 +3361,6 @@ function GuidedPlayer({
               stepIndex={stepIndex}
               step={step}
               exercise={exerciseBySlot.get(step.slotId) ?? null}
-              barRow={(() => {
-                const lift = exerciseBySlot.get(step.slotId);
-                return lift && barChoiceApplies(libraryFor(lift.exerciseName))
-                  ? { chosen: barChoices[barChoiceKey(lift.exerciseName)] ?? null }
-                  : null;
-              })()}
-              onBarChoice={(next) => {
-                const lift = exerciseBySlot.get(step.slotId);
-                if (lift) {
-                  onBarChoice?.(lift.exerciseName, next);
-                }
-              }}
               superset={supersetGroupBySlot.get(step.slotId) ?? null}
               language={language}
               paused={paused}
@@ -4438,13 +4420,6 @@ function LoggedSetEditor({
   );
 }
 
-/** The chip text per bar, from the user's own list: Z-tanko 7,5 · Tanko 15 · Tanko 20. */
-const BAR_LABEL_KEYS: Record<BarWeightKg, 'guided.bar.ez' | 'guided.bar.15' | 'guided.bar.20'> = {
-  7.5: 'guided.bar.ez',
-  15: 'guided.bar.15',
-  20: 'guided.bar.20',
-};
-
 function SetStepView({
   stepIndex,
   step,
@@ -4460,8 +4435,6 @@ function SetStepView({
   panels,
   onOpenSheet,
   onConfirm,
-  barRow = null,
-  onBarChoice,
 }: {
   stepIndex: number;
   step: Extract<GuidedStep, { type: 'set' }>;
@@ -4486,9 +4459,6 @@ function SetStepView({
     initials: string;
   } | null;
   onConfirm: (slotId: string, setIndex: number, reps: number, loadKg: number | null) => void;
-  /** The bar row under the weight (lib/barChoice): null for a lift not done with a bar. */
-  barRow?: { chosen: BarWeightKg | null } | null;
-  onBarChoice?: (bar: BarWeightKg | null) => void;
 }) {
   const theme = useTheme();
 
@@ -4500,9 +4470,7 @@ function SetStepView({
   const bodyweight = exercise ? isUnloadedTrackingMode(exercise.trackingMode) : false;
   const timed = exercise ? isTimedTrackingMode(exercise.trackingMode) : false;
   const [reps, setReps] = useState(target?.reps ?? 8);
-  const [bar, setBar] = useState<BarWeightKg | null>(barRow?.chosen ?? null);
-  // Seeded here for the first frame; the reset effect below owns it after that.
-  const [kg, setKg] = useState(() => openingWeightWithBar(target?.loadKg, barRow ? bar : null));
+  const [kg, setKg] = useState(target?.loadKg ?? 0);
   /** Which dial is open for editing; null = both locked. */
   const [dial, setDial] = useState<'reps' | 'weight' | null>(null);
   /**
@@ -4520,13 +4488,7 @@ function SetStepView({
   useEffect(() => {
     setDial(null);
     setReps(target?.reps ?? 8);
-    // The bar is re-derived with the weight, for the lift now under the step:
-    // resetting the weight alone put a bar-only opening back to 0 under a
-    // selected chip, and left the swapped-away lift's bar selected (review of
-    // #214) — both then fed the next chip tap a wrong base.
-    const chosenBar = barRow?.chosen ?? null;
-    setBar(chosenBar);
-    setKg(openingWeightWithBar(target?.loadKg, barRow ? chosenBar : null));
+    setKg(target?.loadKg ?? 0);
     // Re-derive when the step changes — and when the exercise under the step
     // changes, which is what a swap does without moving the index. Keying on
     // stepIndex alone left the old lift's weight sitting in local state after a
@@ -4843,37 +4805,6 @@ function SetStepView({
               />
             ) : null}
           </View>
-
-          {/* Which bar is in the weight (#bugs 2026-09-28). The number above
-              stays the total: a chip moves it by the difference between bars,
-              and a second tap takes the bar back out. Three bars, no others. */}
-          {barRow && !bodyweight ? (
-            <View style={styles.barRow} accessibilityRole="radiogroup">
-              {BAR_WEIGHTS_KG.map((option) => {
-                const on = bar === option;
-                const label = t(language, BAR_LABEL_KEYS[option]);
-                return (
-                  <Pressable
-                    key={option}
-                    accessibilityRole="radio"
-                    accessibilityState={{ selected: on, checked: on }}
-                    accessibilityLabel={t(language, 'guided.bar.a11y', { bar: removeTrailingZeros(option) })}
-                    onPress={() => {
-                      const next = on ? null : option;
-                      setDial(null);
-                      setWeightTextInvalid(false);
-                      setKg((current) => switchBar(current, bar, next));
-                      setBar(next);
-                      onBarChoice?.(next);
-                    }}
-                    style={({ pressed }) => [styles.barChip, on && styles.barChipOn, pressed && { opacity: 0.85 }]}
-                  >
-                    <Text style={[styles.barChipText, on && styles.barChipTextOn]}>{label}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          ) : null}
 
           {/* Why the log button is waiting, in words. The typed number going
               red was the only sign, and colour is neither read aloud nor seen
@@ -5642,19 +5573,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   // Two dials of equal width. Each is a card, so the reps dial no longer
   // floats as a bare headline over a boxed weight — same shape, same weight.
   setDialRow: { flexDirection: 'row', gap: 10, alignItems: 'stretch' },
-  barRow: { flexDirection: 'row', gap: 8, marginTop: 12, justifyContent: 'center' },
-  barChip: {
-    minHeight: 44,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: theme.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  barChipOn: { borderColor: theme.highlight, backgroundColor: theme.highlightSoft },
-  barChipText: { fontSize: 14, fontWeight: '700', color: theme.muted },
-  barChipTextOn: { color: theme.ink },
   setDialCard: {
     flex: 1,
     minWidth: 0,

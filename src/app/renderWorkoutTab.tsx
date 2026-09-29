@@ -28,7 +28,6 @@ import {
   resolveCollectionProgress,
 } from '../lib/exerciseCollections';
 import { toggleTechniqueStatement } from '../lib/exerciseLearning';
-import { withBarChoice } from '../lib/barChoice';
 import { getExerciseProgressForName, SameLiftMatcher } from '../lib/progression';
 import { catalogLevelForSetup } from '../lib/goalProgramme';
 import { getReadyProgramContent } from '../lib/readyProgramContent';
@@ -1057,12 +1056,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         }
         learnedExerciseIds={preferences.learnedExerciseLibraryItemIds}
         techniqueChecks={preferences.exerciseTechniqueChecks}
-        barChoices={preferences.barChoiceByExercise}
-        onBarChoice={(exerciseName, bar) =>
-          void updatePreferences((current) => ({
-            barChoiceByExercise: withBarChoice(current.barChoiceByExercise, exerciseName, bar),
-          }))
-        }
         onToggleTechniqueStatement={(libraryItemId, index) =>
           void updatePreferences((current) => ({
             exerciseTechniqueChecks: toggleTechniqueStatement(

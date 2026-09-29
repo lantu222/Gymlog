@@ -352,7 +352,6 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       recommendedProgramId: null,
       learnedExerciseLibraryItemIds: [],
       exerciseTechniqueChecks: {},
-      barChoiceByExercise: {},
       strengthGoals: [],
     seasonEnrolments: [],
       dismissedTipIds: [],
