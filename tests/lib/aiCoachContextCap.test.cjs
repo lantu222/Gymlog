@@ -183,4 +183,32 @@ module.exports = [
       assert.deepEqual(normalizeAiCoachTrainingContext(context).history.lifts, context.history.lifts);
     },
   },
+  {
+    name: 'an oversized posted history is capped like the device\'s own builder caps it',
+    run() {
+      // normalizeLastSession and normalizeCardio already bound what they
+      // accept; normalizeHistory did not, so a posted context with far more
+      // rows than the app itself ever sends rendered close to a megabyte and a
+      // half before the size check ever saw it (server audit, 2026-09-29).
+      const goodSession = { sessionId: 's0', performedAt: '2026-09-01T09:00:00.000Z', name: 'Upper' };
+      const goodLift = { name: 'Bench Press', weightSeriesKg: [80, 82.5] };
+      const goodWeek = { weekStart: '2026-07-06', sessions: 3, volumeKg: 12000, plannedSessions: 4 };
+      const oversized = {
+        history: {
+          sessions: Array.from({ length: 20000 }, () => ({ ...goodSession })),
+          lifts: Array.from({ length: 500 }, () => ({ ...goodLift })),
+          repsLifts: Array.from({ length: 500 }, () => ({ name: 'Pull-up', reps: [8, 9, 10] })),
+          weeks: Array.from({ length: 500 }, () => ({ ...goodWeek })),
+        },
+      };
+      const normalized = normalizeAiCoachTrainingContext(oversized);
+      assert.ok(normalized.history.sessions.length <= 24, `sessions not capped: ${normalized.history.sessions.length}`);
+      assert.ok(normalized.history.lifts.length <= 10, `lifts not capped: ${normalized.history.lifts.length}`);
+      assert.ok(normalized.history.repsLifts.length <= 10, `repsLifts not capped: ${normalized.history.repsLifts.length}`);
+      assert.ok(normalized.history.weeks.length <= 12, `weeks not capped: ${normalized.history.weeks.length}`);
+      // The rendered text this feeds the model stays small, which is the
+      // actual point — the size check runs on this text, not on the arrays.
+      assert.ok(buildAiCoachContextText(normalized, 'fi').length < 20000, 'an oversized posted history still rendered close to full size');
+    },
+  },
 ];
