@@ -285,7 +285,9 @@ module.exports = [
         ['sumo deadlift', 'en', 4, ['Sumo Deadlift', 'Sumo Deadlift with Bands', 'Sumo Deadlift with Chains']],
         ['trap bar', 'en', 45, ['Trap Bar Deadlift', 'Clean', 'Snatch']],
         ['kyykky tanko', 'fi', 34, ['Overhead Squat', 'Barbell Full Squat', 'Barbell Squat']],
-        ['penkki punnerrus', 'fi', 30, ['Barbell Bench Press - Medium Grip', 'Barbell Incline Bench Press - Medium Grip', 'Board Press']],
+        // 29, not 30: the label sweep of the same round renamed Chain Press
+        // (cable chain handles, not a bench press) to "Punnerrus ketjukahvoilla".
+        ['penkki punnerrus', 'fi', 29, ['Barbell Bench Press - Medium Grip', 'Barbell Incline Bench Press - Medium Grip', 'Board Press']],
         ['leg raise', 'en', 20, ['Rear Leg Raises', 'Side Leg Raises', 'Front Leg Raises']],
         ['reverse hyperextension', 'en', 1, ['Reverse Hyperextension']],
       ];
