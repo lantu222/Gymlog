@@ -14,10 +14,11 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 
+import { canScheduleExactAlarms } from './exactAlarm';
 import { PLAN_NOTIFICATION_MARKER, installNotificationHandler } from './notificationHandler';
 import { t } from '../lib/i18n';
 import type { PlannedNotification } from '../lib/notificationPlan';
-import { planNotificationSync } from '../lib/planNotificationSync';
+import { planNotificationSync, shouldRearmPlan } from '../lib/planNotificationSync';
 import type { AppLanguage } from '../types/models';
 
 export const TRAINING_NOTIFICATION_CHANNEL_ID = 'training';
@@ -112,6 +113,12 @@ function signatureOf(item: PlannedNotification) {
  * trusting the list, and later ones diff (native audit, 2026-09-21).
  */
 let armedThisProcess = false;
+/**
+ * Android's exact-alarm answer when the plan was last armed. A grant does not
+ * restart the app, so a plan armed without it stays inexact until something
+ * re-arms it — see `shouldRearmPlan`.
+ */
+let exactWhenArmed: boolean | null = null;
 
 async function cancelOurScheduled(identifiers: readonly string[]) {
   await Promise.all(
@@ -148,6 +155,7 @@ export async function syncPlannedNotifications(
     // No permission (never granted, or revoked in system settings): drop
     // everything rather than keep alarms that can no longer be delivered.
     const granted = await getNotificationPermissionGranted();
+    const exactNow = await canScheduleExactAlarms();
     const wanted = new Map(plan.map((item) => [signatureOf(item), item] as const));
     const steps = planNotificationSync({
       pending: ours.map((request) => ({
@@ -155,13 +163,14 @@ export async function syncPlannedNotifications(
         signature: String(request.content.data?.signature ?? ''),
       })),
       wanted: [...wanted.keys()],
-      rearm: !armedThisProcess,
+      rearm: shouldRearmPlan({ armedThisProcess, exactNow, exactWhenArmed }),
       allowed: granted,
     });
 
     await cancelOurScheduled(steps.cancel);
     if (steps.schedule.length === 0 && steps.keep.length === 0) {
       armedThisProcess = true;
+      exactWhenArmed = exactNow;
       return 0;
     }
 
@@ -202,6 +211,7 @@ export async function syncPlannedNotifications(
     // Set only once the writes are done: a sync that threw on the way leaves
     // the next one to re-arm everything again.
     armedThisProcess = true;
+    exactWhenArmed = exactNow;
     return pending;
   } catch {
     // Notifications are an enhancement — never let scheduling break the app.

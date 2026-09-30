@@ -302,6 +302,12 @@ module.exports = [
       );
       // The walk-up keeps its "SEURAAVAKSI" ("jätetään tähän seuraavaksi").
       assert.match(playerSource, /\{t\(language, 'guided\.nextUp'\)\}/);
+      // Last time on the left, now on the right: then to today, left to
+      // right (#bugs 2026-09-30, "Vaihda viimeksi ja nyt paikkaa").
+      assert.ok(
+        playerSource.indexOf("{t(language, 'guided.walk.last')}") < playerSource.indexOf("{t(language, 'guided.walk.today')}"),
+        'the walk-up shows NYT before VIIMEKSI again',
+      );
     },
   },
   {
