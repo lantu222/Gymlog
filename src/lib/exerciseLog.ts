@@ -1,5 +1,6 @@
 import { ExerciseLog, ExerciseLogDraft, ExerciseLogSet } from '../types/models';
 import { isLiftableWeight } from './weightLimits';
+import { normalizeLoggedSetPlan } from './loggedSetPlan';
 
 function normalizeNumber(value: number | null | undefined, fallback = 0) {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
@@ -64,6 +65,11 @@ export function synthesizeSetsFromLegacy(weight: number | null | undefined, reps
   }));
 }
 
+function plannedOf(value: unknown): { planned?: ExerciseLogSet['planned'] } {
+  const planned = normalizeLoggedSetPlan(value);
+  return planned ? { planned } : {};
+}
+
 export function normalizeExerciseSets(
   sets: ExerciseLogSet[] | null | undefined,
   legacyWeight?: number | null,
@@ -84,6 +90,8 @@ export function normalizeExerciseSets(
             effort: normalizeSetEffort(set.effort),
             completedAt: typeof set.completedAt === 'string' ? set.completedAt : null,
             skippedReason: typeof set.skippedReason === 'string' ? set.skippedReason : null,
+            // Kept only when it reads cleanly; absent on older saves.
+            ...plannedOf(set.planned),
           }))
           /*
            * A weight nobody could have lifted is not a set (#bugs 2026-09-05).
