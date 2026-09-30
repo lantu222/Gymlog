@@ -95,8 +95,7 @@ import {
   getCanonicalCompletedSessions,
   getRecentActivityStrip,
 } from './src/lib/completedSessions';
-import { buildMilestoneLedger, getMilestoneFacts } from './src/lib/milestoneFacts';
-import { findPlateauDetection } from './src/lib/proInsights';
+import { useRecordsAndMilestones } from './src/app/useRecordsAndMilestones';
 import { markCoachDemoMomentUsed, resolveDueCoachDemoMoment } from './src/lib/coachDemoMoments';
 import { blockWeekOfSession, blockWeekTally, buildHomePlanProgress } from './src/lib/homePlanProgress';
 import { resolveHomePrompt } from './src/lib/homePrompts';
@@ -198,11 +197,8 @@ import {
 } from './src/lib/seasonEnrolment';
 import { exerciseNameLabel } from './src/lib/exerciseNameLabel';
 import { buildProgramFingerprint } from './src/lib/programFingerprint';
-import { firstRecordDates, RecordSource, resolveRecords } from './src/lib/personalRecords';
-import { getComparableLogSets } from './src/lib/exerciseLog';
 import {
   ExerciseProgressSummary,
-  getLiftHistoryByName,
   getLiftProgress,
   SameLiftMatcher,
 } from './src/lib/progression';
@@ -5684,93 +5680,23 @@ function VinhaApp() {
    * Every count is read off the same catalog the tiles filter, so a slide
    * cannot advertise a season that has nothing in it.
    */
-  /**
-   * Your bests, from the tracked lifts' own logs.
-   *
-   * Built through getComparableLogSets so the records agree with every other
-   * number the app derives from a set — a second reader would drift the first
-   * time the legacy shape came up.
-   */
-  const toSetLogSource = useMemo(() => {
-    const bodyPartByName = new Map(
-      exerciseBrowserItems.map((item) => [item.name.trim().toLowerCase(), item.bodyPart]),
-    );
-    return (summary: ExerciseProgressSummary): RecordSource => ({
-      key: summary.key,
-      name: summary.name,
-      bodyPart: bodyPartByName.get(summary.name.trim().toLowerCase()) ?? null,
-      entries: summary.logs.map((log) => ({
-        performedAt: log.performedAt,
-        sets: getComparableLogSets(log).map((set) => ({ weight: set.weight, reps: set.reps })),
-      })),
-    });
-  }, [exerciseBrowserItems]);
-  const recordSources = useMemo(
-    () => trackedProgress.map(toSetLogSource),
-    [toSetLogSource, trackedProgress],
-  );
-  /**
-   * The lift's history by name, for the player's sheet. Every log, not the
-   * tracked summaries the records read: tracking is a per-programme mark,
-   * and a lift untracked here has still been lifted (CI review of #154).
-   * Keyed on the three tables it reads, like exercisePrLookup.
-   */
-  const liftHistory = useMemo(() => {
-    const byName = getLiftHistoryByName(database);
-    return (exerciseName: string) => byName.get(exerciseName.trim().toLowerCase()) ?? null;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [database.exerciseLogs, database.exerciseTemplates, database.workoutSessions]);
-  /**
-   * The plateau reminder for whichever lift the guided player is walking to
-   * next — the same detection Home shows, found by name rather than picked
-   * as the single best, and never filtered by Home's dismiss list: putting
-   * that card away must not silence the in-workout nudge too (user
-   * 2026-09-29, "muistutus kun seuraavalla kerralla on sumo").
-   */
-  const plateauNotice = useMemo(
-    () => (exerciseName: string) => findPlateauDetection(proLiftHistories, exerciseName, preferences.appLanguage),
-    [proLiftHistories, preferences.appLanguage],
-  );
-  const personalRecords = useMemo(
-    () => ({
-      weight: resolveRecords(recordSources, 'weight'),
-      reps: resolveRecords(recordSources, 'reps'),
-      volume: resolveRecords(recordSources, 'volume'),
-    }),
-    [recordSources],
-  );
-
-  /** Lifts holding a record, counted once no matter how many kinds. */
-  const distinctRecordCount = useMemo(
-    () =>
-      new Set([
-        ...personalRecords.weight.map((record) => record.key),
-        ...personalRecords.reps.map((record) => record.key),
-        ...personalRecords.volume.map((record) => record.key),
-      ]).size,
-    [personalRecords],
-  );
-
-  /** The day each lift first held a record — the same lifts distinctRecordCount counts. */
-  const recordDates = useMemo(() => firstRecordDates(personalRecords), [personalRecords]);
-  // Keyed on the four tables the facts read, not the whole database: a theme
-  // or language toggle replaces the database object without touching a log,
-  // and this is a full pass over every set. `lifetimeSummary` is itself keyed
-  // on the whole database, so depending on the object would have undone the
-  // narrowing — only the one field this reads is a dependency.
-  const milestoneFacts = useMemo(
-    () => getMilestoneFacts(database, lifetimeSummary, recordDates),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      database.workoutSessions,
-      database.exerciseLogs,
-      database.cardioSessions,
-      database.bodyweightEntries,
-      lifetimeSummary.currentWeekStreak,
-      recordDates,
-    ],
-  );
-  const milestoneLedger = useMemo(() => buildMilestoneLedger(milestoneFacts, unitPreference), [milestoneFacts, unitPreference]);
+  const {
+    toSetLogSource,
+    recordSources,
+    liftHistory,
+    plateauNotice,
+    personalRecords,
+    distinctRecordCount,
+    milestoneLedger,
+  } = useRecordsAndMilestones({
+    exerciseBrowserItems,
+    trackedProgress,
+    database,
+    proLiftHistories,
+    preferences,
+    lifetimeSummary,
+    unitPreference,
+  });
 
   /**
    * The strip under "Aloita treeni".
