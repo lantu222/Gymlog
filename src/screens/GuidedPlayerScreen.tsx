@@ -15,6 +15,7 @@ import {
   Easing,
   Image,
   Modal,
+  PanResponder,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -105,7 +106,7 @@ import { exerciseListLabel, exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { libraryLabel } from '../lib/libraryLabel';
 import { localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { classifySessionFocus, getDefaultCooldown, getDefaultWarmup } from '../lib/homeSessionHero';
-import { formatSetScheme, formatShortDate, formatWeight, parseNumberInput, removeTrailingZeros } from '../lib/format';
+import { formatSetScheme, formatWeight, parseNumberInput, removeTrailingZeros } from '../lib/format';
 import { estimateSessionMinutes } from '../lib/sessionDuration';
 import { buildSupersetRuns, normalizeSupersetGroups, supersetGroupIndexes, supersetPositions } from '../lib/supersetGrouping';
 import { t } from '../lib/i18n';
@@ -727,8 +728,10 @@ function TopBar({
       >
         <GPIcon name="x" size={19} color={iconColor} />
       </Pressable>
+      {/* An empty label is the clock alone, centred — the rest, the splashes
+          and the ready count have no counter to go with it (#bugs 2026-09-30). */}
       <Text style={[styles.topLabel, { color: dark ? GPD.muted : theme.muted }]} numberOfLines={1}>
-        {clock ? `${label} · ${clock}` : label}
+        {[label, clock].filter(Boolean).join(' · ')}
       </Text>
       {video ? (
         <Pressable
@@ -777,8 +780,8 @@ function ProgressRail({
 }: {
   /**
    * One phase's groups, not the session's — three drills, five exercises, two
-   * stretches. Sliced by `getGuidedPhaseRail`; where in the session that phase
-   * sits is what the top bar says.
+   * stretches. Sliced by `getGuidedPhaseRail`; the top bar counts the same
+   * groups ("2/6").
    */
   groups: Array<{ phase: string; setCount?: number }>;
   current: number;
@@ -1278,11 +1281,22 @@ function DialCard({
 }
 
 /* ── bottom sheet ── */
+/** How far down a released drag has to have gone to close the sheet. */
+const SHEET_DISMISS_DRAG = 90;
+/** …or how fast it was still moving down when let go. */
+const SHEET_DISMISS_VELOCITY = 0.9;
+
 function GPSheet({
+  title,
+  language,
   onClose,
   bottomInset,
   children,
 }: {
+  /** Drawn in the grab zone beside the close button, so the title is a handle too. */
+  title: string;
+  /** For the close button's name. */
+  language: AppLanguage;
   onClose: () => void;
   /**
    * Safe-area inset, read on the screen — see `screenInsets` below for why:
@@ -1291,18 +1305,73 @@ function GPSheet({
   bottomInset: number;
   children: React.ReactNode;
 }) {
+  const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   // The sheet's own 30 was a guess at the phone's navigation bar, and on a
   // three-button handset the last row and the footnote sat behind it. Measured
   // rather than guessed — reported twice, on two different sheets.
 
+  /*
+   * Three ways out, as asked (#bugs 2026-09-30, "vaikea sulkea tätä valikkoa
+   * joko klikkaamalla muualta sulkee alasvedettäessä tai ruksi"): a tap on
+   * the dimmed page, the ✕ beside the title, and a pull down on the top of the
+   * sheet — the grip, the title row, anywhere across that strip. The grip was
+   * drawn and did nothing.
+   *
+   * The drag moves a transform, not a height, so nothing inside the sheet is
+   * laid out again while the finger moves. The list below the title keeps its
+   * own vertical scroll; only the top strip pulls.
+   */
+  const dragY = useRef(new Animated.Value(0)).current;
+  // Through a ref: callers pass onClose inline, and the player re-renders
+  // every second for its clock — a gesture rebuilt on each render loses the
+  // drag it granted.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const pan = useMemo(() => {
+    const settle = () =>
+      Animated.spring(dragY, { toValue: 0, useNativeDriver: true, bounciness: 0, speed: 20 }).start();
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 4,
+      onPanResponderMove: (_, gesture) => dragY.setValue(Math.max(0, gesture.dy)),
+      onPanResponderRelease: (_, gesture) => {
+        if (gesture.dy > SHEET_DISMISS_DRAG || gesture.vy > SHEET_DISMISS_VELOCITY) {
+          onCloseRef.current();
+          return;
+        }
+        settle();
+      },
+      onPanResponderTerminate: settle,
+    });
+  }, [dragY]);
+
   return (
     <Modal transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.sheetScrim} onPress={onClose}>
-        <Pressable style={[styles.sheet, { paddingBottom: bottomInset + 30 }]} onPress={() => undefined}>
-          <View style={styles.sheetHandle} />
-          {children}
-        </Pressable>
+        {/* The 78% cap lives on this wrapper, whose parent is the full-screen
+            scrim: on the sheet inside it the percentage would resolve against
+            a content-sized parent and quietly stop capping anything. */}
+        <Animated.View style={[styles.sheetFrame, { transform: [{ translateY: dragY }] }]}>
+          <Pressable style={[styles.sheet, { paddingBottom: bottomInset + 30 }]} onPress={() => undefined}>
+            <View {...pan.panHandlers} style={styles.sheetGrab}>
+              <View style={styles.sheetHandle} />
+              <View style={styles.sheetTitleRow}>
+                <Text style={styles.sheetTitleText}>{title}</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'common.close')}
+                  hitSlop={10}
+                  onPress={onClose}
+                  style={styles.sheetClose}
+                >
+                  <GPIcon name="x" size={17} color={theme.muted} />
+                </Pressable>
+              </View>
+            </View>
+            {children}
+          </Pressable>
+        </Animated.View>
       </Pressable>
     </Modal>
   );
@@ -2718,31 +2787,6 @@ function GuidedPlayer({
   };
 
   /* ── walking to the next machine ───────────────────────────────────────── */
-  /** The lift that just ended, when there is one behind this walk-up. */
-  const walkDone = (() => {
-    if (step.type !== 'position') {
-      return null;
-    }
-    const previous = steps
-      .slice(0, stepIndex)
-      .reverse()
-      .find((candidate) => candidate.type === 'set' || candidate.type === 'splash');
-    if (!previous || previous.type !== 'set') {
-      return null;
-    }
-    const instance = exerciseBySlot.get(previous.slotId);
-    const done = (instance?.sets ?? []).filter((set) => set.status === 'completed');
-    if (done.length === 0) {
-      return null;
-    }
-    const heaviest = Math.max(...done.map((set) => set.actualLoadKg ?? 0));
-    return {
-      name: exerciseNameLabel(language, previous.exerciseName),
-      weight: heaviest > 0 ? formatWeight(heaviest, unitPreference) : null,
-      pills: done.map((set) => `${set.actualReps ?? 0}`),
-    };
-  })();
-
   /** Today's prescription for the lift being walked to, and last time's. */
   const walkNext = (() => {
     if (step.type !== 'position') {
@@ -2804,9 +2848,6 @@ function GuidedPlayer({
              */
             rest: instance.restSecondsMin,
           }),
-      // The set card's heading makes the same distinction one step later;
-      // the number must not change its story between the two screens.
-      lastLabel: t(language, last?.borrowed ? 'guided.walk.lastBorrowed' : 'guided.walk.last'),
       // Last time's own span, the same way the set card's chips show it —
       // one weight when every set matched, the range when they did not.
       lastValue: formatLoadOrRange(last?.sets.map((set) => set.loadKg) ?? []),
@@ -3065,12 +3106,13 @@ function GuidedPlayer({
 
                               Smaller than the first cut, on the phone's own
                               evidence: "SARJ/AT" broke across two lines and
-                              "Lantionnostopit/o" mid-word. The name has no line
-                              cap — a stretch called "Lonkankoukistajan venytys"
-                              is unreadable as "Lonkankoukistajan venyt…" ("on pakko
-                              olla koko tekstit") — and a drill row, which has no
-                              sets or reps, does not spend two empty columns'
-                              width on them. The lifts get a header once. */}
+                              "Lantionnostopit/o" mid-word. The name is whole
+                              ("on pakko olla koko tekstit") in two lines at
+                              most: past that the type shrinks rather than the
+                              name being cut (#bugs 2026-09-30). A drill row,
+                              which has no sets or reps, does not spend two
+                              empty columns' width on them. The lifts get a
+                              header once. */}
                           {phase.key === 'work' ? (
                             <View style={styles.phaseRowGroup}>
                               <View style={[styles.phaseRow, { paddingVertical: 2 }]}>
@@ -3105,7 +3147,16 @@ function GuidedPlayer({
                               {group.rows.map((row, rowIndex) => (
                                 <View key={rowIndex} style={styles.phaseRowGroup}>
                                   <View style={styles.phaseRow}>
-                                    <Text style={styles.phaseRowName}>
+                                    {/* Two lines at most, the type giving way
+                                        for a longer name rather than a third
+                                        line or a word cut in half (#bugs
+                                        2026-09-30, "max 2 riviä"). */}
+                                    <Text
+                                      style={styles.phaseRowName}
+                                      numberOfLines={2}
+                                      adjustsFontSizeToFit
+                                      minimumFontScale={0.7}
+                                    >
                                       {row.name}
                                     </Text>
                                     {row.sets || row.reps ? (
@@ -3208,16 +3259,13 @@ function GuidedPlayer({
                   {/* No "Lämmittely valmis" row: a check and a sentence about
                       the block just left, above the name of the one being
                       entered (user 2026-09-09). */}
-                  {/* The recovery splash is the title and the list, nothing
-                      else: "Treeni valmis", "SEURAAVAKSI" and "2 venytystä ·
-                      ~4 min" were three lines about a screen that shows its
-                      own contents (user 2026-09-09, from the gym). The other
-                      two splashes keep theirs until asked. */}
-                  {step.phase !== 'cooldown' ? (
-                    <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 2, color: theme.muted }}>
-                      {t(language, 'guided.upNext')}
-                    </Text>
-                  ) : null}
+                  {/* No "SEURAAVAKSI" eyebrow on any splash. The recovery one
+                      lost it with "Treeni valmis" and its length (user
+                      2026-09-09); the warm-up and workout ones followed when
+                      asked (#bugs 2026-09-30, "otetaan seuraavaksi pois") — a
+                      screen that is the next thing does not need to say so.
+                      The walk-up keeps its own, as asked in the same round
+                      ("jätetään tähän seuraavaksi"). */}
                   <Text style={styles.splashTitle}>{step.title}</Text>
                   {step.phase !== 'cooldown' ? (
                     <Text style={{ fontSize: 15, fontWeight: '600', color: theme.muted }}>{step.sub}</Text>
@@ -3386,40 +3434,14 @@ function GuidedPlayer({
                 contentContainerStyle={{ paddingTop: 28, paddingHorizontal: 24, paddingBottom: 8, gap: 14 }}
                 showsVerticalScrollIndicator={false}
               >
-                {/* The lift that just ended. It used to be a splash that
-                    covered this screen for three and a half seconds; the beat
-                    it was buying is bought better by being here, where the
-                    reader can look at it for as long as they like and the app
-                    does not have to guess how long that is. */}
-                {walkDone ? (
-                  <View style={styles.walkDoneCard}>
-                    {/* Two lines: the check and the name, then the numbers.
-                        A "VALMIS · 16,25 kg" eyebrow, the name and the pills
-                        were three, and pushed this screen into a scroll (user
-                        2026-09-09, "max 2 riviä valmis osiolle"). */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <View style={styles.splashCheck}>
-                        <GPIcon name="check" size={14} color={theme.green} sw={2.8} />
-                      </View>
-                      <Text style={[styles.walkDoneName, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
-                        {walkDone.name}
-                      </Text>
-                    </View>
-                    <View style={styles.walkDonePills}>
-                      {walkDone.weight ? <Text style={styles.walkDoneWeight}>{walkDone.weight}</Text> : null}
-                      {walkDone.pills.map((pill, index) => (
-                        <View key={index} style={styles.walkDonePill}>
-                          <Text style={styles.walkDonePillText}>{pill}</Text>
-                        </View>
-                      ))}
-                      {/* "10 10" does not say ten of what (user 2026-09-04).
-                          Small, after the pills, because it is true of all of
-                          them and repeating it inside each one is furniture. */}
-                      <Text style={styles.walkDonePillUnit}>{t(language, 'guided.reps').toLowerCase()}</Text>
-                    </View>
-                  </View>
-                ) : null}
-
+                {/* No card for the lift that just ended. It was a splash
+                    once, then a card at the top of this screen (2026-09-04),
+                    then two lines of it (2026-09-09) — and then not worth its
+                    room at all: the numbers are in the contents sheet, and
+                    without them the lift coming up, its picture and the swap
+                    all sit higher, with room to press (#bugs 2026-09-30,
+                    "poistetaan tuo mitä on viimeksi tehty se vie liikaa
+                    tilaa"). */}
                 <View style={{ alignItems: 'center', gap: 8 }}>
                   <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 2, color: theme.highlight }}>
                     {t(language, 'guided.nextUp')}
@@ -3467,9 +3489,11 @@ function GuidedPlayer({
                     ) : null}
                   </View>
                   <View style={styles.walkStat}>
-                    <Text style={styles.walkStatLabel}>
-                      {walkNext?.lastLabel ?? t(language, 'guided.walk.last')}
-                    </Text>
+                    {/* "VIIMEKSI", whichever day of the plan it was: the
+                        "ERI PÄIVÄ" second line went on request, here and on
+                        the set card (#bugs 2026-09-30). A screen reader still
+                        hears it on the set card. */}
+                    <Text style={styles.walkStatLabel}>{t(language, 'guided.walk.last')}</Text>
                     <Text style={styles.walkStatValue}>{walkNext?.lastValue ?? '—'}</Text>
                     {walkNext?.lastReps ? (
                       <Text style={styles.walkStatSub}>{walkNext.lastReps}</Text>
@@ -3487,14 +3511,11 @@ function GuidedPlayer({
                 ) : null}
               </ScrollView>
               <View style={{ paddingHorizontal: 22, paddingBottom: 14, gap: 10 }}>
-                <Pressable
-                  accessibilityRole="button"
-                  hitSlop={10}
-                  onPress={() => setSwapOpen(true)}
-                  style={{ alignItems: 'center', paddingVertical: 4 }}
-                >
-                  <Text style={styles.startOverText}>{t(language, 'guided.walk.swap')}</Text>
-                </Pressable>
+                {/* A button, not a line of text: squeezed between the cards and
+                    the start button it read as a caption and was hard to hit
+                    (#bugs 2026-09-30, "vaihda liike nappi näkyviin että voi
+                    klikata"). */}
+                <GhostBtn icon="swap" label={t(language, 'guided.walk.swap')} onPress={() => setSwapOpen(true)} />
                 <BigBtn
                   shimmer
                   label={t(language, 'guided.walk.startFirst')}
@@ -3881,6 +3902,9 @@ function GuidedPlayer({
           <TopBar
             dark={false}
             language={language}
+            // Still named here, unlike the guided screens: this one has no
+            // title of its own, and two clocks under no heading would not say
+            // which of them is the block's.
             label={t(
               language,
               ownBlock.phase === 'warmup' ? 'guided.label.warmup' : 'guided.label.cooldown',
@@ -3987,8 +4011,11 @@ function GuidedPlayer({
       )}
 
 
-      {/* Correcting a set logged on this lift, on the screen that shows it. */}
-      {restEdit && step.type === 'rest' ? (
+      {/* Correcting a set logged on a lift, from the contents sheet — on any
+          step, not only a rest: the last set of a lift is followed by a
+          walk-up, and a rest-only editor left it uncorrectable (#bugs
+          2026-09-30). The step holds still while it is open (`frozen`). */}
+      {restEdit ? (
         <LoggedSetEditor
           // A fresh set of draft fields for the set the reader just picked —
           // switching rows must not keep the previous set's typed text
@@ -4001,6 +4028,7 @@ function GuidedPlayer({
           // the exercise here offered a squat set no weight after a swap to a
           // bodyweight lift, and the store refused the save for lacking one.
           unloaded={isUnloadedTrackingMode(restEditLift?.trackingMode ?? 'load_and_reps')}
+          liftName={exerciseNameLabel(language, restEditLift?.exerciseName ?? '')}
           title={
             // "Fix the set you just logged" only while that is still the one
             // selected — the moment the reader taps a different row the
@@ -4071,8 +4099,12 @@ function GuidedPlayer({
       )}
 
       {exitOpen && (
-        <GPSheet onClose={() => setExitOpen(false)} bottomInset={screenInsets.bottom}>
-          <Text style={styles.sheetTitle}>{t(language, 'guided.exit.title')}</Text>
+        <GPSheet
+          title={t(language, 'guided.exit.title')}
+          language={language}
+          onClose={() => setExitOpen(false)}
+          bottomInset={screenInsets.bottom}
+        >
           <View style={{ gap: 10 }}>
             {/* No "keep training" button.
                 Closing the sheet already is keeping training — the grip, the
@@ -4116,16 +4148,14 @@ function GuidedPlayer({
         while your hands are chalked is how sets get skipped by accident.
       */}
       {runSheetOpen && (
-        <GPSheet onClose={() => setRunSheetOpen(false)} bottomInset={screenInsets.bottom}>
-          <Text style={styles.sheetTitle}>{t(language, 'guided.runSheet.title')}</Text>
+        <GPSheet
+          title={t(language, 'guided.runSheet.title')}
+          language={language}
+          onClose={() => setRunSheetOpen(false)}
+          bottomInset={screenInsets.bottom}
+        >
           <ScrollView style={{ flexGrow: 0, maxHeight: runSheetListMaxHeight }}>
             {buildGuidedRunSheet(stepPlan, stepIndex).map((item) => {
-              // The corrections for the round being rested after — every lift
-              // of it with a logged set, whichever lift the rest step names.
-              const roundCorrections =
-                item.status === 'current' && step.type === 'rest' && !step.recoveryKind
-                  ? restRoundCorrections(item.members, exerciseBySlot)
-                  : [];
               const isSuperset = item.members.length > 1;
               return (
               <View
@@ -4189,20 +4219,58 @@ function GuidedPlayer({
                             lift.trackingMode,
                           )
                         : '';
+                    // The lift's own way back to its numbers: every lift with a
+                    // logged set, on every step, each with its own pencil. It
+                    // was one chip on the current row while resting only, so
+                    // the last set of a lift — followed by a walk-up, not a
+                    // rest — could not be corrected anywhere (#bugs 2026-09-30,
+                    // "viimeistä sarjaa on mahdotonta muokata ... jokaiseen
+                    // liikkeeseen tulee omansa").
+                    const correction = restRoundCorrections([member], exerciseBySlot)[0] ?? null;
+                    // "The set you just logged" only where that is true: the
+                    // round the running rest belongs to.
+                    const justLogged =
+                      correction !== null &&
+                      step.type === 'rest' &&
+                      !step.recoveryKind &&
+                      item.status === 'current';
                     return (
-                      <View key={member.slotId ?? member.name}>
-                        <Text
-                          style={[
-                            styles.runName,
-                            item.status === 'current' && { color: theme.purple },
-                            item.status === 'done' && { color: theme.muted },
-                          ]}
-                          numberOfLines={2}
-                          accessibilityLabel={exerciseNameLabel(language, member.name)}
-                        >
-                          {exerciseListLabel(language, member.name)}
-                        </Text>
-                        {memberPlan ? <Text style={styles.runPlan}>{memberPlan}</Text> : null}
+                      <View key={member.slotId ?? member.name} style={styles.runMember}>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text
+                            style={[
+                              styles.runName,
+                              item.status === 'current' && { color: theme.purple },
+                              item.status === 'done' && { color: theme.muted },
+                            ]}
+                            numberOfLines={2}
+                            accessibilityLabel={exerciseNameLabel(language, member.name)}
+                          >
+                            {exerciseListLabel(language, member.name)}
+                          </Text>
+                          {memberPlan ? <Text style={styles.runPlan}>{memberPlan}</Text> : null}
+                        </View>
+                        {correction ? (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={`${t(language, 'guided.rest.edit')} · ${exerciseNameLabel(language, member.name)}`}
+                            hitSlop={6}
+                            onPress={() => {
+                              setRunSheetOpen(false);
+                              setRestEdit({
+                                slotId: correction.lift.slotId,
+                                setIndex: correction.setIndex,
+                                justLoggedSetIndex: justLogged ? correction.setIndex : -1,
+                              });
+                            }}
+                            // The action colour, on the right where the thumb
+                            // is: the one thing in the sheet that does
+                            // something (device, 2026-09-16).
+                            style={({ pressed }) => [styles.runEditBtn, pressed && { opacity: 0.7 }]}
+                          >
+                            <GPIcon name="edit" size={17} color={theme.orange} sw={2.4} />
+                          </Pressable>
+                        ) : null}
                       </View>
                     );
                   })}
@@ -4210,44 +4278,6 @@ function GuidedPlayer({
                       it already, and a third line of the same weight made the
                       one control in the row hard to find (device,
                       2026-09-16). */}
-                  {/* Correcting the set just logged, from the sheet that shows
-                      it: the rest screen's own card carried this link until the
-                      card went. Only while resting — that is the one step
-                      whose "just logged" set is unambiguous. */}
-                  {roundCorrections.length > 0 ? (
-                    <View style={{ gap: 2 }}>
-                      {roundCorrections.map(({ name, lift, setIndex }) => {
-                        // Each lift of the round gets its own way back to its
-                        // numbers. A superset rests once per round and the
-                        // rest step names only the lift that closed it, so
-                        // the first half of the block had no correction
-                        // anywhere in the player (2026-09-16).
-                        return (
-                          <Pressable
-                            key={`edit-${lift.slotId}`}
-                            accessibilityRole="button"
-                            hitSlop={8}
-                            onPress={() => {
-                              setRunSheetOpen(false);
-                              setRestEdit({ slotId: lift.slotId, setIndex, justLoggedSetIndex: setIndex });
-                            }}
-                            // A chip in the action colour, pencil first: it is
-                            // the one thing in the sheet that does something,
-                            // and as plain text in the same type as the names
-                            // it read as one more line (device, 2026-09-16).
-                            style={({ pressed }) => [styles.runEditChip, pressed && { opacity: 0.7 }]}
-                          >
-                            <GPIcon name="edit" size={13} color={theme.orange} sw={2.4} />
-                            <Text style={styles.runEdit} numberOfLines={1}>
-                              {isSuperset
-                                ? `${t(language, 'guided.rest.edit')} · ${exerciseNameLabel(language, name)}`
-                                : t(language, 'guided.rest.edit')}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  ) : null}
                 </View>
                 {item.setCount && item.members.length > 1 ? (
                   <Text style={styles.runMeta}>
@@ -4263,13 +4293,14 @@ function GuidedPlayer({
 
       {pauseSheetOpen && (
         <GPSheet
+          title={t(language, 'guided.pauseSheet.title')}
+          language={language}
           onClose={() => {
             setPauseSheetOpen(false);
             unpause();
           }}
           bottomInset={screenInsets.bottom}
         >
-          <Text style={styles.sheetTitle}>{t(language, 'guided.pauseSheet.title')}</Text>
           <View style={{ gap: 10 }}>
             {/* No "Jatka": closing the sheet is resuming, and the scrim and
                 the back button both close it. What is left is about the lift
@@ -4385,6 +4416,10 @@ function GuidedPlayer({
 
       {swapOpen && actionExercise && (
         <GPSheet
+          title={t(language, 'guided.swap.title', {
+            name: exerciseNameLabel(language, actionExercise.exerciseName),
+          })}
+          language={language}
           onClose={() => {
             setSwapOpen(false);
             setSwapQuery('');
@@ -4394,11 +4429,6 @@ function GuidedPlayer({
           }}
           bottomInset={screenInsets.bottom}
         >
-          <Text style={styles.sheetTitle}>
-            {t(language, 'guided.swap.title', {
-              name: exerciseNameLabel(language, actionExercise.exerciseName),
-            })}
-          </Text>
 
           <TextInput
             value={swapQuery}
@@ -4626,6 +4656,7 @@ function LoggedSetEditor({
   language,
   unitPreference,
   unloaded,
+  liftName,
   title,
   sets,
   selectedSetIndex,
@@ -4641,6 +4672,12 @@ function LoggedSetEditor({
   language: AppLanguage;
   unitPreference: UnitPreference;
   unloaded: boolean;
+  /**
+   * Which lift, above the title. The sheet opens from any lift's pencil in the
+   * contents sheet now, not only from the rest after it — "Korjaa sarja 3"
+   * alone does not say whose (#bugs 2026-09-30).
+   */
+  liftName: string;
   /** Follows which set is selected — "Correct set N", or the just-logged
    * wording while that is still the one picked. Decided by the caller,
    * which is also the one that knows which set was "just logged". */
@@ -4695,7 +4732,12 @@ function LoggedSetEditor({
       <View style={styles.editVeil}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onCancel} accessible={false} />
         <View style={[styles.editSheet, { paddingBottom: bottomInset + 20 }]}>
-          <Text style={styles.editTitle}>{title}</Text>
+          <View style={{ gap: 2 }}>
+            <Text style={styles.editLiftName} numberOfLines={1}>
+              {liftName}
+            </Text>
+            <Text style={styles.editTitle}>{title}</Text>
+          </View>
           {/* Every set already logged for this lift, so the reader is not
               limited to the one the sheet opened on. A single row would only
               repeat the title, so the list appears once there is a choice to
@@ -4890,10 +4932,10 @@ function SetStepView({
   const autoFromKg = untouched && target?.autoProgressedFromKg != null ? target.autoProgressedFromKg : null;
   /**
    * A weight carried in from the same lift in another program or an empty
-   * workout. It is a real number the user lifted, but not one this slot has
-   * seen — so it says when, rather than appearing out of nowhere. The AUTO
-   * badge wins when both apply, which cannot currently happen (the gate never
-   * runs on borrowed history) but would be the more specific claim if it did.
+   * workout. It had its own "VIIMEKSI · 27.9." badge until the reader asked
+   * for it gone (#bugs 2026-09-30) — the card above already says what was
+   * lifted last time. Still read, so the hold badge below keeps making no
+   * claim about a number this slot never chose.
    */
   const prefilledFrom = untouched && !autoFromKg ? target?.prefilledFromPerformedAt ?? null : null;
   /**
@@ -5035,11 +5077,12 @@ function SetStepView({
           </View>
           {panels?.history ? (
             <View style={styles.setExerciseLast}>
-              {/* Borrowed history is a different claim from this slot's own,
-                  so it gets a different heading (#bugs 2026-09-09). */}
-              <Text style={styles.setExerciseLastLabel}>
-                {t(language, panels.history.borrowed ? 'guided.card.lastTimeBorrowed' : 'guided.card.lastTime')}
-              </Text>
+              {/* One heading, whichever day the history came from. Borrowed
+                  history got its own "ERI PÄIVÄ" line on 2026-09-09; the
+                  reader asked for it gone (#bugs 2026-09-30, "jätä tuo
+                  viimekerralla mutta pois eri päivä"). The card's
+                  accessibility label above still says it. */}
+              <Text style={styles.setExerciseLastLabel}>{t(language, 'guided.card.lastTime')}</Text>
               {/* Only a uniform session gets the single heading number — a
                   ramp has no one weight to lead with, and the per-set chips
                   below already say the whole thing (decision "a", #bugs
@@ -5246,13 +5289,6 @@ function SetStepView({
                     })}
                   </Text>
                 </View>
-              ) : prefilledFrom ? (
-                <View style={styles.setAutoBadge}>
-                  <GPIcon name="clock" size={13} color={theme.purple} sw={2.4} />
-                  <Text style={styles.setAutoBadgeText}>
-                    {t(language, 'guided.carriedFrom', { date: formatShortDate(prefilledFrom, language) })}
-                  </Text>
-                </View>
               ) : heldForFatigue ? (
                 <View style={styles.setHoldBadge}>
                   <GPIcon name="shield" size={13} color={theme.muted} sw={2.2} />
@@ -5398,10 +5434,9 @@ function HowToSheetView({
   // row's English — the two read differently ("Takakyykky" over "Barbell Full
   // Squat") and the user tapped the former.
   return (
-    <GPSheet onClose={onClose} bottomInset={bottomInset}>
-      <Text style={{ fontSize: 20, fontWeight: '800', color: theme.ink }}>{fallbackName}</Text>
+    <GPSheet title={fallbackName} language={language} onClose={onClose} bottomInset={bottomInset}>
       {libraryItem?.primaryMuscles?.[0] ? (
-        <Text style={{ fontSize: 13, fontWeight: '700', color: theme.purple, marginTop: 4 }}>
+        <Text style={{ fontSize: 13, fontWeight: '700', color: theme.purple, marginTop: -12 }}>
           {libraryLabel(libraryItem.primaryMuscles[0], language)}
         </Text>
       ) : null}
@@ -5454,15 +5489,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexShrink: 0,
   },
   entryProgressPillText: { fontSize: 12.5, fontWeight: '800', color: theme.highlight },
+  // A block of the list, not a card. The box and its 15 px of padding a side
+  // were width the lift names needed: "Ojentajapushdown" broke mid-word at the
+  // phone's text size (#bugs 2026-09-30, "laatikointi pois ... levennetään").
+  // A hairline under each block keeps them apart.
   phaseCard: {
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    // Was a light-theme hex on both themes: an opaque lilac hairline drawn on
-    // the dark page outlined every card in a colour the dark palette does not
-    // contain.
-    borderColor: theme.border,
-    borderRadius: 18,
-    paddingHorizontal: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.border,
   },
   phaseHeader: {
     flexDirection: 'row',
@@ -5488,7 +5521,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     position: 'absolute',
     top: -7,
     left: 20,
-    backgroundColor: theme.surface,
+    // The page, now that the block sits on it rather than on a card.
+    backgroundColor: theme.bg,
     paddingHorizontal: 6,
   },
   phaseSupersetPillText: {
@@ -5499,7 +5533,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     letterSpacing: 1.1,
   },
   phaseRowGroup: {
-    paddingLeft: 16,
+    paddingLeft: 4,
     paddingRight: 4,
   },
   phaseRow: {
@@ -5651,14 +5685,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
 
   /* splash / ready */
   splashRoot: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 32 },
-  splashCheck: {
-    width: 30,
-    height: 30,
-    borderRadius: 999,
-    backgroundColor: theme.greenSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   splashTitle: { fontSize: 46, fontWeight: '800', letterSpacing: -1.4, color: theme.ink, textAlign: 'center' },
   /**
    * The block had no style at all, which is not the same as "no layout".
@@ -6047,17 +6073,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   setDialUnit: { fontSize: 14, fontWeight: '800', color: theme.faint },
   setBadgeRow: { alignItems: 'center', minHeight: 27 },
-  setAutoBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    marginTop: 2,
-    paddingHorizontal: 11,
-    height: 27,
-    borderRadius: 14,
-    backgroundColor: theme.purpleSoft,
-  },
-  setAutoBadgeText: { fontSize: 11.5, fontWeight: '900', letterSpacing: 0.4, color: theme.purple },
   // Green up, red down (user 2026-08-25): the progression chip states its
   // direction in colour, not just in sign. Purple stays on the badges that
   // explain provenance rather than a change (carried-from).
@@ -6210,43 +6225,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   /* walking to the next machine */
-  walkDoneCard: {
-    backgroundColor: theme.greenSoft,
-    borderRadius: 16,
-    padding: 13,
-    gap: 6,
-  },
-  walkDoneName: { fontSize: 16, fontWeight: '800', color: theme.ink },
-  walkDonePills: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 5 },
-  walkDoneWeight: {
-    marginRight: 4,
-    fontSize: 13,
-    fontWeight: '800',
-    color: theme.greenInk,
-    fontVariant: ['tabular-nums'],
-  },
-  walkDonePill: {
-    minWidth: 26,
-    alignItems: 'center',
-    backgroundColor: theme.surface,
-    borderRadius: 8,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-  },
-  walkDonePillUnit: {
-    alignSelf: 'center',
-    marginLeft: 2,
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: theme.greenInk,
-    opacity: 0.8,
-  },
-  walkDonePillText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: theme.greenInk,
-    fontVariant: ['tabular-nums'],
-  },
   walkStat: {
     flex: 1,
     backgroundColor: theme.surface,
@@ -6318,6 +6296,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 14,
   },
   editTitle: { fontSize: 19, fontWeight: '800', color: theme.ink },
+  editLiftName: { fontSize: 13, fontWeight: '700', color: theme.muted },
   editSetRow: {
     paddingHorizontal: 14,
     paddingVertical: 11,
@@ -6387,8 +6366,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingTop: 12,
     paddingHorizontal: 22,
     paddingBottom: 30,
-    maxHeight: '78%',
+    // Gives way to the frame's cap below rather than overflowing it.
+    flexShrink: 1,
   },
+  sheetFrame: { maxHeight: '78%' },
   swapSearch: {
     marginBottom: 14,
     height: 46,
@@ -6455,7 +6436,19 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: '#FFFFFF',
   },
   sheetHandle: { width: 40, height: 5, borderRadius: 3, backgroundColor: theme.border, alignSelf: 'center', marginBottom: 16 },
-  sheetTitle: { fontSize: 20, fontWeight: '800', color: theme.ink, marginBottom: 16 },
+  // The pull zone: out to the sheet's edges and up to its top, so a thumb does
+  // not have to find the 40 px grip (#bugs 2026-09-30).
+  sheetGrab: { marginTop: -12, marginHorizontal: -22, paddingTop: 12, paddingHorizontal: 22 },
+  sheetTitleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 16 },
+  sheetTitleText: { flex: 1, minWidth: 0, fontSize: 20, fontWeight: '800', color: theme.ink },
+  sheetClose: {
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.surfaceSoft,
+  },
   runRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -6505,17 +6498,16 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '700',
     color: theme.ink,
   },
+  // One lift of a row: its name and plan, and its pencil on the right.
+  runMember: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   // Orange in both themes (device, 2026-09-16): `highlight` is violet in light.
-  runEdit: { flexShrink: 1, fontSize: 13, fontWeight: '800', color: theme.orange },
-  runEditChip: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
+  // A 36 dp square: a thumb target, not an icon to aim at.
+  runEditBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     alignItems: 'center',
-    gap: 6,
-    marginTop: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
+    justifyContent: 'center',
     borderWidth: 1.2,
     borderColor: theme.orange,
     backgroundColor: theme.orangeSoft,

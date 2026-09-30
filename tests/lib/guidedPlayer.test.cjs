@@ -416,7 +416,7 @@ module.exports = [
       const setSteps = steps.filter((step) => step.type === 'set');
       assert.deepEqual(
         setSteps.map((step) => getGuidedPhaseLabel(step)),
-        ['WORKOUT · 3 OF 4', 'WORKOUT · 4 OF 4'],
+        ['3/4', '4/4'],
       );
       // The work splash still counts what is left to do.
       assert.equal(steps[0].sub, '2 exercises · 2 sets');
@@ -443,17 +443,28 @@ module.exports = [
     },
   },
   {
-    name: 'phase labels match the handoff copy',
+    name: 'the top bar counts, and names no phase',
     run() {
       const { steps } = buildPlan();
-      assert.equal(getGuidedPhaseLabel(steps[2]), 'WARM-UP · 1 OF 2');
-      // No "EXERCISE": the session clock joined this label on 2026-09-04 and
-      // four dot-separated segments do not fit between the top bar's buttons.
-      assert.equal(getGuidedPhaseLabel(steps[6]), 'WORKOUT · 1 OF 2');
-      assert.equal(getGuidedPhaseLabel(steps[8]), 'WORKOUT · REST');
-      // One name for the block: Recovery on the overview, on the gate and here.
-      assert.equal(getGuidedPhaseLabel(steps[18]), 'RECOVERY · 1 OF 1');
+      // A count where the screen is one of several, and nothing where it is
+      // not: "LÄMMITTELY", "TREENI" and "LEPO" said what the screen under them
+      // already says (#bugs 2026-09-30). The clock beside it stays.
+      assert.equal(getGuidedPhaseLabel(steps[0]), '', 'splash');
+      assert.equal(getGuidedPhaseLabel(steps[1]), '', 'ready');
+      assert.equal(getGuidedPhaseLabel(steps[2]), '1/2');
+      assert.equal(getGuidedPhaseLabel(steps[6]), '1/2');
+      assert.equal(getGuidedPhaseLabel(steps[8]), '', 'rest');
+      assert.equal(getGuidedPhaseLabel(steps[18]), '1/1');
       assert.equal(getGuidedPhaseLabel(steps[19]), 'DONE');
+      for (const language of ['en', 'fi']) {
+        for (const step of steps) {
+          assert.doesNotMatch(
+            getGuidedPhaseLabel(step, language),
+            /WARM-UP|WORKOUT|RECOVERY|REST|LÄMMITTELY|TREENI|PALAUTUMINEN|LEPO/,
+            `${language} ${step.type}`,
+          );
+        }
+      }
       assert.equal(getGuidedStepLabel(steps[9]), 'Bench Press set 2');
       // Every label this module returns is localized, including the lift's
       // name. The resume chip used to offer "Front Squat sarja 3" for a screen

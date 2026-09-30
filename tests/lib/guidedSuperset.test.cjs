@@ -53,10 +53,11 @@ module.exports = [
     run() {
       const { getGuidedPhaseLabel } = require('../../.test-dist/lib/guidedPlayer.js');
       const sets = pairPlan().steps.filter((step) => step.type === 'set');
-      // "round 1/2" sat lowercase between "WORKOUT · 1 OF 6" and "WORKOUT · REST"
-      // (emulator, 2026-09-14). Same phase word, same case.
-      assert.equal(getGuidedPhaseLabel(sets[0], 'en'), 'WORKOUT · ROUND 1/2');
-      assert.equal(getGuidedPhaseLabel(sets[3], 'fi'), 'TREENI · KIERROS 2/2');
+      // "round 1/2" sat lowercase between two upper-case headers (emulator,
+      // 2026-09-14). Same case; and no phase word since the headers lost
+      // theirs (#bugs 2026-09-30).
+      assert.equal(getGuidedPhaseLabel(sets[0], 'en'), 'ROUND 1/2');
+      assert.equal(getGuidedPhaseLabel(sets[3], 'fi'), 'KIERROS 2/2');
       for (const language of ['en', 'fi']) {
         const label = getGuidedPhaseLabel(sets[0], language);
         assert.equal(label, label.toUpperCase(), `${language}: ${label}`);

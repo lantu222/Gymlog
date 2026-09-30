@@ -456,7 +456,7 @@ export interface GuidedPhaseRail {
  *
  * One phase at a time, so the segment count is the thing it tracks: three
  * during the warmup, five during the workout, two during the recovery. Which
- * phase of the session that is stays readable — it is what the top bar says.
+ * phase of the session that is, the block's own splash and screens say.
  *
  * The run is taken as a contiguous slice rather than by filtering on `phase`,
  * so a plan that ever interleaves phases still draws the block the reader is
@@ -488,59 +488,40 @@ export function findGuidedPhaseStart(steps: GuidedStep[], phase: GuidedPhase): n
   return index >= 0 ? index : null;
 }
 
-/** Top-bar label: "WARM-UP · 2 OF 3", "WORKOUT · EXERCISE 1 OF 3", "WORKOUT · REST"… */
+/**
+ * Top-bar label: where in the block the reader is — "2/3", "1/6",
+ * "KIERROS 1/2" — and nothing on a screen that is not one of a count.
+ *
+ * No phase word. "LÄMMITTELY", "TREENI" and "LEPO" named what the screen under
+ * them already says in its own title, its own ring or its own list, and the
+ * clock beside them is the one thing up there that is news every time (#bugs
+ * 2026-09-30: "Poista yläosasta treeni ja lepo", "lämmittely teksti pois kello
+ * keskelle", "treeni sana ylhäältä pois jätä 1/6"). An empty label leaves the
+ * clock alone, centred.
+ */
 export function getGuidedPhaseLabel(step: GuidedStep, language: AppLanguage = 'en'): string {
   switch (step.type) {
     case 'finish':
       return t(language, 'guided.label.done');
     case 'splash':
-      return step.phase === 'warmup'
-        ? t(language, 'guided.label.warmup')
-        : step.phase === 'work'
-          ? t(language, 'guided.label.workout')
-          : t(language, 'guided.label.cooldown');
     case 'ready':
-      return step.phase === 'warmup' ? t(language, 'guided.label.warmup') : t(language, 'guided.label.cooldown');
-    case 'drill': {
-      const prefix = step.phase === 'warmup' ? t(language, 'guided.label.warmup') : t(language, 'guided.label.cooldown');
-      return t(language, 'guided.label.ofCount', {
-        label: prefix,
-        index: step.drillIndex + 1,
-        count: step.drillCount,
-      });
-    }
+    case 'rest':
+      return '';
+    case 'drill':
+      return t(language, 'guided.label.count', { index: step.drillIndex + 1, count: step.drillCount });
     case 'set':
       // Inside a superset the reader moves between two lifts and back again,
-      // so "EXERCISE 2 OF 6" then "3 OF 6" then "2 OF 6" is a counter going
-      // backwards. The block counts rounds instead, which is the question a
-      // superset actually raises — and the label under it names both lifts.
+      // so "2/6" then "3/6" then "2/6" is a counter going backwards. The block
+      // counts rounds instead, which is the question a superset actually
+      // raises — and the label under it names both lifts.
       return step.supersetRound
         ? t(language, 'guided.superset.round', {
             round: step.supersetRound.round,
             rounds: step.supersetRound.rounds,
           })
-        : t(language, 'guided.label.exercise', {
-            index: step.exerciseIndex + 1,
-            count: step.exerciseCount,
-          });
+        : t(language, 'guided.label.count', { index: step.exerciseIndex + 1, count: step.exerciseCount });
     case 'position':
-      return t(language, 'guided.label.exercise', {
-        index: step.exerciseIndex + 1,
-        count: step.exerciseCount,
-      });
-    case 'rest':
-      // An interval's easy half is a phase of the work, and the header saying
-      // LEPO over a ring saying KÄVELE is the app disagreeing with itself.
-      return step.recoveryKind
-        ? t(
-            language,
-            step.recoveryKind === 'walk'
-              ? 'guided.interval.walk'
-              : step.recoveryKind === 'rest'
-                ? 'guided.interval.rest'
-                : 'guided.interval.easy',
-          )
-        : t(language, 'guided.label.rest');
+      return t(language, 'guided.label.count', { index: step.exerciseIndex + 1, count: step.exerciseCount });
   }
 }
 

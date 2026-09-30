@@ -115,14 +115,23 @@ export function ExerciseSheet({
    * the steps properly — "lähes koko sivun mittaiseksi voisi aukaista"
    * (#bugs 2026-09-27; "55 % ja vetämällä 90 %, käy"). A tap on the grip
    * toggles; dragging it well below 55% closes the sheet.
+   *
+   * The sheet is always 90% tall and SLIDES: collapsed is the same sheet moved
+   * down by the difference. It used to animate its height, which laid out the
+   * whole sheet — photo, steps, history — again on every frame of the drag,
+   * on the JS thread the player's clock also runs on; it followed the finger
+   * late (#bugs 2026-09-30, "vähän laginen tuo vedettävä valikko"). A
+   * transform moves pixels and nothing else.
    */
   const { height: windowHeight } = useWindowDimensions();
   const collapsedHeight = Math.round(windowHeight * 0.55);
   const expandedHeight = Math.round(windowHeight * 0.9);
-  const sheetHeight = useRef(new Animated.Value(collapsedHeight)).current;
+  /** How far the 90% sheet sits below its open position when collapsed. */
+  const collapsedOffset = expandedHeight - collapsedHeight;
+  const sheetOffset = useRef(new Animated.Value(collapsedOffset)).current;
   const [expanded, setExpanded] = useState(false);
   const expandedRef = useRef(false);
-  const dragStart = useRef(collapsedHeight);
+  const dragStart = useRef(collapsedOffset);
   // Read through a ref: callers pass onClose inline, and the player
   // re-renders every second for its clock — a gesture rebuilt on each render
   // loses the drag it granted.
@@ -132,9 +141,9 @@ export function ExerciseSheet({
   const snapTo = (toExpanded: boolean) => {
     expandedRef.current = toExpanded;
     setExpanded(toExpanded);
-    Animated.spring(sheetHeight, {
-      toValue: toExpanded ? expandedHeight : collapsedHeight,
-      useNativeDriver: false,
+    Animated.spring(sheetOffset, {
+      toValue: toExpanded ? 0 : collapsedOffset,
+      useNativeDriver: true,
       bounciness: 0,
       speed: 18,
     }).start();
@@ -144,30 +153,31 @@ export function ExerciseSheet({
   useEffect(() => {
     expandedRef.current = false;
     setExpanded(false);
-    sheetHeight.setValue(collapsedHeight);
-  }, [visible, collapsedHeight, sheetHeight]);
+    sheetOffset.setValue(collapsedOffset);
+  }, [visible, collapsedOffset, sheetOffset]);
 
   const pan = useMemo(
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 4,
+        // Also from a tab: the tabs take a tap, a vertical pull is the sheet's.
+        onMoveShouldSetPanResponder: (_, gesture) =>
+          Math.abs(gesture.dy) > 4 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
         onPanResponderGrant: () => {
-          dragStart.current = expandedRef.current ? expandedHeight : collapsedHeight;
+          dragStart.current = expandedRef.current ? 0 : collapsedOffset;
         },
         onPanResponderMove: (_, gesture) => {
-          const next = Math.min(expandedHeight, Math.max(collapsedHeight * 0.5, dragStart.current - gesture.dy));
-          sheetHeight.setValue(next);
+          const next = Math.max(0, Math.min(collapsedOffset + collapsedHeight * 0.5, dragStart.current + gesture.dy));
+          sheetOffset.setValue(next);
         },
         onPanResponderRelease: (_, gesture) => {
-          const released = dragStart.current - gesture.dy;
+          const released = dragStart.current + gesture.dy;
           if (Math.abs(gesture.dy) < 6) {
             snapTo(!expandedRef.current);
-          } else if (released < collapsedHeight - 90) {
-            sheetHeight.setValue(collapsedHeight);
+          } else if (released > collapsedOffset + 90) {
             onCloseRef.current();
           } else {
-            snapTo(released > (collapsedHeight + expandedHeight) / 2);
+            snapTo(released < collapsedOffset / 2);
           }
         },
         onPanResponderTerminate: () => snapTo(expandedRef.current),
@@ -175,7 +185,7 @@ export function ExerciseSheet({
     // snapTo and onClose go through refs and the animated value; the heights
     // are the only thing the gesture is rebuilt for.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [collapsedHeight, expandedHeight],
+    [collapsedHeight, collapsedOffset],
   );
 
   return (
@@ -187,40 +197,55 @@ export function ExerciseSheet({
           accessibilityRole="button"
           accessibilityLabel={t(language, 'common.close')}
         />
-        <Animated.View style={[styles.sheet, { height: sheetHeight, paddingBottom: bottomInset + 20 }]}>
-          <View
-            {...pan.panHandlers}
-            accessible
-            accessibilityRole="button"
-            accessibilityState={{ expanded }}
-            accessibilityLabel={t(language, expanded ? 'exerciseSheet.collapse' : 'exerciseSheet.expand')}
-            accessibilityActions={[{ name: 'activate' }]}
-            onAccessibilityAction={() => snapTo(!expandedRef.current)}
-            style={styles.dragArea}
+        <Animated.View
+          style={[
+            styles.sheet,
+            { height: expandedHeight, paddingBottom: bottomInset + 20, transform: [{ translateY: sheetOffset }] },
+          ]}
+        >
+          {/* The pull zone is the whole top of the sheet — grip, name and tab
+              row — not the grip alone, which had to be caught at its exact
+              edge (#bugs 2026-09-30, "pitää tarkalleen yläreunasta ottaa
+              kiinni"). */}
+          <View {...pan.panHandlers} style={styles.dragArea}>
+            <View
+              accessible
+              accessibilityRole="button"
+              accessibilityState={{ expanded }}
+              accessibilityLabel={t(language, expanded ? 'exerciseSheet.collapse' : 'exerciseSheet.expand')}
+              accessibilityActions={[{ name: 'activate' }]}
+              onAccessibilityAction={() => snapTo(!expandedRef.current)}
+            >
+              <View style={styles.grip} />
+              <Text style={styles.title} numberOfLines={2}>
+                {exerciseName}
+              </Text>
+            </View>
+
+            <View style={styles.tabs}>
+              {tabs.map((key) => (
+                <Pressable
+                  key={key}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: tab === key }}
+                  onPress={() => setTab(key)}
+                  style={[styles.tab, tab === key && styles.tabActive]}
+                >
+                  <Text style={[styles.tabText, tab === key && styles.tabTextActive]}>
+                    {t(language, `guided.sheet.tab.${key}` as 'guided.sheet.tab.learn')}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          {/* Collapsed, the bottom of this 90% sheet is below the screen; the
+              padding lets its last lines scroll up into view all the same. */}
+          <ScrollView
+            style={styles.body}
+            contentContainerStyle={{ paddingBottom: expanded ? 0 : collapsedOffset }}
+            showsVerticalScrollIndicator={false}
           >
-            <View style={styles.grip} />
-            <Text style={styles.title} numberOfLines={2}>
-              {exerciseName}
-            </Text>
-          </View>
-
-          <View style={styles.tabs}>
-            {tabs.map((key) => (
-              <Pressable
-                key={key}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: tab === key }}
-                onPress={() => setTab(key)}
-                style={[styles.tab, tab === key && styles.tabActive]}
-              >
-                <Text style={[styles.tabText, tab === key && styles.tabTextActive]}>
-                  {t(language, `guided.sheet.tab.${key}` as 'guided.sheet.tab.learn')}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
             {tab === 'learn' && learn ? (
               <View style={{ gap: 16 }}>
                 {learn.cues.length > 0 ? (
@@ -431,9 +456,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
      * scrolls inside it, so nothing at 55% is newly clipped, only reached
      * with one more scroll on a short tab like Learn.
      */
-    // Set by the drag above: 55% of the window, or 90% pulled up.
+    // 90% of the window, set above, and slid down to show 55%.
   },
-  dragArea: { paddingTop: 10, marginTop: -10 },
+  dragArea: { paddingTop: 10, marginTop: -10, marginHorizontal: -20, paddingHorizontal: 20 },
   grip: {
     alignSelf: 'center',
     width: 42,

@@ -229,14 +229,32 @@ module.exports = [
       assert.match(sheetSource, /const collapsedHeight = Math\.round\(windowHeight \* 0\.55\);/);
       assert.match(sheetSource, /const expandedHeight = Math\.round\(windowHeight \* 0\.9\);/);
       assert.match(sheetSource, /\{\.\.\.pan\.panHandlers\}/);
-      assert.match(sheetSource, /<Animated\.View style=\{\[styles\.sheet, \{ height: sheetHeight,/);
+      // Always 90% tall, slid down to show 55%: a transform on the native
+      // driver, not a height laid out again on every frame of the drag
+      // (#bugs 2026-09-30, "vähän laginen tuo vedettävä valikko").
+      assert.match(sheetSource, /const collapsedOffset = expandedHeight - collapsedHeight;/);
+      assert.match(
+        sheetSource,
+        /\{ height: expandedHeight, paddingBottom: bottomInset \+ 20, transform: \[\{ translateY: sheetOffset \}\] \}/,
+      );
+      assert.match(sheetSource, /useNativeDriver: true,/);
+      assert.doesNotMatch(sheetSource, /sheetHeight/);
       // Every opening starts collapsed.
-      assert.match(sheetSource, /sheetHeight\.setValue\(collapsedHeight\);\s*\}, \[visible, collapsedHeight, sheetHeight\]\);/);
+      assert.match(sheetSource, /sheetOffset\.setValue\(collapsedOffset\);\s*\}, \[visible, collapsedOffset, sheetOffset\]\);/);
+      // Collapsed, the part of the sheet below the screen is made up in the
+      // body's padding, so its last lines still scroll into view.
+      assert.match(sheetSource, /contentContainerStyle=\{\{ paddingBottom: expanded \? 0 : collapsedOffset \}\}/);
+      // The pull zone is the whole top: grip, name AND the tab row, which
+      // yields a vertical pull and keeps its taps.
+      const zone = sheetSource.slice(sheetSource.indexOf('{...pan.panHandlers}'), sheetSource.indexOf('<ScrollView'));
+      assert.match(zone, /styles\.grip/);
+      assert.match(zone, /styles\.tabs/);
+      assert.match(sheetSource, /Math\.abs\(gesture\.dy\) > 4 && Math\.abs\(gesture\.dy\) > Math\.abs\(gesture\.dx\)/);
       assert.doesNotMatch(sheetSource, /height: '78%',/);
       // Still a fixed fraction, not the content's own size — sizing to
       // content is the exact bug the 78% comment documents.
       assert.match(sheetSource, /body: \{ flex: 1, marginTop: 16 \}/);
-      assert.match(sheetSource, /<ScrollView style=\{styles\.body\} showsVerticalScrollIndicator=\{false\}>/);
+      assert.match(sheetSource, /<ScrollView\s*style=\{styles\.body\}/);
     },
   },
   {

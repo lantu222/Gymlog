@@ -303,16 +303,17 @@ module.exports = [
       // No "Olet tässä" line, in the sheet or the dictionaries.
       assert.doesNotMatch(player, /guided\.runSheet\.here/);
       assert.doesNotMatch(read('src', 'lib', 'i18n.ts'), /'guided\.runSheet\.here'/);
-      // And the correction reads as a control: a chip with a pencil.
+      // And the correction reads as a control: a pencil button on the right
+      // of each lift's own line (#bugs 2026-09-30, "kynäikoni oikealle").
       assert.match(
         player,
-        /style=\{\(\{ pressed \}\) => \[styles\.runEditChip, pressed && \{ opacity: 0\.7 \}\]\}\s*>\s*<GPIcon name="edit"/,
+        /style=\{\(\{ pressed \}\) => \[styles\.runEditBtn, pressed && \{ opacity: 0\.7 \}\]\}\s*>\s*<GPIcon name="edit"/,
       );
       // Orange in both themes: `highlight` is violet in light, and the chip
       // read as purple on the reader's phone (device, 2026-09-16).
-      assert.match(player, /<GPIcon name="edit" size=\{13\} color=\{theme\.orange\} sw=\{2\.4\} \/>/);
-      assert.match(player, /runEdit: \{ flexShrink: 1, fontSize: 13, fontWeight: '800', color: theme\.orange \}/);
-      assert.match(player, /runEditChip: \{[^}]*borderColor: theme\.orange,\s*backgroundColor: theme\.orangeSoft,/);
+      assert.match(player, /<GPIcon name="edit" size=\{17\} color=\{theme\.orange\} sw=\{2\.4\} \/>/);
+      assert.match(player, /runEditBtn: \{[^}]*width: 36,\s*height: 36,[^}]*borderColor: theme\.orange,\s*backgroundColor: theme\.orangeSoft,/);
+      assert.match(player, /runMember: \{ flexDirection: 'row', alignItems: 'center', gap: 10 \}/);
       // A long session scrolls: the list is bounded by the screen, because the
       // sheet's maxHeight does not bound a ScrollView inside it (device,
       // 2026-09-16 — the last lifts could not be reached).
@@ -320,11 +321,20 @@ module.exports = [
         player,
         /const runSheetListMaxHeight = Math\.round\(Math\.min\(windowHeight \* 0\.6, windowHeight \* 0\.78 - 160\)\);/,
       );
-      // And the sheet it sits in is still capped at the 78 % that bound uses.
-      assert.match(player, /  sheet: \{[^}]*maxHeight: '78%',/);
+      // And the sheet it sits in is still capped at the 78 % that bound uses —
+      // on the wrapper the drag moves, whose parent is the full-screen scrim.
+      // On the sheet itself, inside that content-sized wrapper, the
+      // percentage would resolve against nothing and cap nothing (review,
+      // 2026-09-30).
+      assert.match(player, /  sheetFrame: \{ maxHeight: '78%' \},/);
+      assert.match(player, /<Animated\.View style=\{\[styles\.sheetFrame, \{ transform: \[\{ translateY: dragY \}\] \}\]\}>/);
+      assert.match(player, /  sheet: \{[^}]*flexShrink: 1,/);
+      assert.doesNotMatch(player.match(/  sheet: \{[^}]*\}/)[0], /maxHeight/);
+      // The title lives in the sheet's pull zone now; the list is the first
+      // thing under it.
       assert.match(
         player,
-        /<Text style=\{styles\.sheetTitle\}>\{t\(language, 'guided\.runSheet\.title'\)\}<\/Text>\s*<ScrollView style=\{\{ flexGrow: 0, maxHeight: runSheetListMaxHeight \}\}>/,
+        /<GPSheet\s*title=\{t\(language, 'guided\.runSheet\.title'\)\}[\s\S]*?bottomInset=\{screenInsets\.bottom\}\s*>\s*<ScrollView style=\{\{ flexGrow: 0, maxHeight: runSheetListMaxHeight \}\}>/,
       );
       const { lightTheme, darkTheme } = require('../../../.test-dist/theming.js');
       assert.equal(darkTheme.orange, darkTheme.highlight, 'dark keeps the one action orange');
