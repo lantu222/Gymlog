@@ -21,4 +21,7 @@
  * is cleared: the overrides cannot reach Play by being forgotten. Flip to
  * false (or delete the file) before release, and unset the variable in Vercel.
  */
-export const AI_COACH_DEBUG_TRANSCRIPTS = true;
+// Off since 2026-09-30 (user): the reader is put away until after release,
+// when reading the copies readers allowed is decided again. The copies
+// themselves are still kept for readers who ticked the line.
+export const AI_COACH_DEBUG_TRANSCRIPTS = false;
