@@ -62,7 +62,13 @@ import type { TrainingSchedule } from './trainingSchedule';
  * inside a few kilobytes, and `truncated` says so when older work is dropped.
  */
 const MAX_HISTORY_SESSIONS = 24;
-const MAX_HISTORY_LIFTS = 10;
+// Every lift a real programme logs in eight weeks, near enough: at 10 a
+// four-day split lost a third of its lifts, bench press among them, and the
+// coach said the reader did not track it (emulator, 2026-09-30). A row is a
+// couple of hundred characters; the shedding steps below still bound the whole.
+const MAX_HISTORY_LIFTS = 24;
+/** Names only, for the lifts past the cap — see AICoachHistory.liftsNotShown. */
+const MAX_LIFT_NAMES_NOT_SHOWN = 40;
 /**
  * The 56-day default window produces at most eight or nine calendar weeks
  * (buildWeeks in trainingHistory.ts); this leaves slack above that so a
@@ -433,6 +439,12 @@ function buildHistoryBlock(
       stalledSessions: lift.stalledSessions,
       weightSeriesKg: lift.points.map((point) => point.topSetWeightKg),
     })),
+    liftsNotShown: [
+      ...history.lifts.slice(MAX_HISTORY_LIFTS),
+      ...history.repsLifts.slice(MAX_HISTORY_LIFTS),
+    ]
+      .map((lift) => lift.name)
+      .slice(0, MAX_LIFT_NAMES_NOT_SHOWN),
     repsLifts: history.repsLifts.slice(0, MAX_HISTORY_LIFTS).map((lift) => ({
       name: lift.name,
       sessions: lift.points.length,
@@ -807,6 +819,23 @@ function clipAllText<T>(value: T, max: number): T {
  * blocks say "N of M shown" when they are trimmed, so nothing reads as a
  * shorter record than the reader has.
  */
+/**
+ * The history with at most `keep` lifts of each kind, and the names of the
+ * ones cut added to `liftsNotShown`, so a shed row still reads as a lift the
+ * reader logs rather than one they never did.
+ */
+function shedLifts(history: AICoachTrainingContext['history'], keep: number): AICoachTrainingContext['history'] {
+  const repsLifts = history.repsLifts ?? [];
+  const cut = [...history.lifts.slice(keep), ...repsLifts.slice(keep)].map((lift) => lift.name);
+  const names = [...(history.liftsNotShown ?? []), ...cut].filter((name, index, all) => all.indexOf(name) === index);
+  return {
+    ...history,
+    lifts: history.lifts.slice(0, keep),
+    repsLifts: repsLifts.slice(0, keep),
+    liftsNotShown: names.slice(0, MAX_LIFT_NAMES_NOT_SHOWN),
+  };
+}
+
 const CONTEXT_SHEDDING: ReadonlyArray<(context: AICoachTrainingContext) => AICoachTrainingContext> = [
   (context) => ({
     ...context,
@@ -829,7 +858,7 @@ const CONTEXT_SHEDDING: ReadonlyArray<(context: AICoachTrainingContext) => AICoa
         }
       : context.programme,
     history: {
-      ...context.history,
+      ...shedLifts(context.history, 5),
       lifts: context.history.lifts.slice(0, 5).map((lift) => ({ ...lift, weightSeriesKg: lift.weightSeriesKg.slice(-8) })),
       repsLifts: (context.history.repsLifts ?? [])
         .slice(0, 5)
@@ -840,7 +869,7 @@ const CONTEXT_SHEDDING: ReadonlyArray<(context: AICoachTrainingContext) => AICoa
   (context) => ({ ...context, programme: null }),
   (context) => ({
     ...context,
-    history: { ...context.history, sessions: [], lifts: [], repsLifts: [], truncated: true },
+    history: { ...shedLifts(context.history, 0), sessions: [], truncated: true },
     lastSession: context.lastSession
       ? {
           ...context.lastSession,
@@ -1099,6 +1128,12 @@ function normalizeHistory(input: Partial<AICoachHistory> | null | undefined): AI
       .map(normalizeRepsLift)
       .filter((lift): lift is AICoachHistoryRepsLift => lift !== null)
       .slice(0, MAX_HISTORY_LIFTS),
+    // Names only, each spliced into the prompt: strings, trimmed, bounded.
+    liftsNotShown: list<unknown>(input.liftsNotShown, [])
+      .filter((name): name is string => typeof name === 'string')
+      .map((name) => name.trim().slice(0, 80))
+      .filter((name) => name.length > 0)
+      .slice(0, MAX_LIFT_NAMES_NOT_SHOWN),
     weeks: list<unknown>(input.weeks, empty.weeks).filter(isHistoryWeek).slice(-MAX_HISTORY_WEEKS),
     schedule: normalizeHistorySchedule(input.schedule),
     truncated: input.truncated === true,

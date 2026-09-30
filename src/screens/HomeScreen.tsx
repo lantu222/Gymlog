@@ -961,6 +961,19 @@ export function HomeScreen({
    * exactly when the useful next step is finding another one.
    */
   const heroStartsSession = Boolean(nextPlanSession);
+  /**
+   * Today is a rest day in the rhythm the strip draws, and the reader has not
+   * picked a session for it. The hero still offers the next session — the
+   * rotation goes by what was trained, not by date, and training on a rest
+   * day is the reader's call — but it says so. Without it the hero read as
+   * today's workout while the strip's green dot and the coach both said rest
+   * (#bugs, 2026-09-30).
+   */
+  const restToday =
+    Boolean(nextPlanSession) &&
+    scheduleKnown &&
+    !activePlan?.todayPickSessionId &&
+    !trainsOn(trainingSchedule, new Date());
 
   const pressHeroAction = () => {
     if (nextPlanSession && onStartActivePlanSession) {
@@ -1419,6 +1432,9 @@ export function HomeScreen({
         {activePlan && nextPlanSession ? (
           <View ref={(node) => tourTargets?.register('home.hero', node)} style={styles.sessionBox}>
             <Animated.View style={[styles.hero, rise(RISE_HERO)]}>
+              {restToday ? (
+                <Text style={styles.heroRestLabel}>{t(language, 'home.hero.restToday')}</Text>
+              ) : null}
               <View style={styles.heroTop}>
                 {/* 'line' mode: the anchor must stay on one line and shrink to
                     fit, which only works while it is a single Text node. */}
@@ -2771,6 +2787,16 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   // start where the session ended.
   programSection: {
     marginTop: 30,
+  },
+  // Green like the strip's rest dot, small like a kicker: the exception is
+  // marked, the ordinary training day is not.
+  heroRestLabel: {
+    color: theme.green,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 6,
   },
   heroTop: {
     flexDirection: 'row',

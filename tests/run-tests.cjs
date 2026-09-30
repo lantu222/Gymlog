@@ -335,6 +335,7 @@ const suites = [
   ...require('./lib/coachLocalDates.test.cjs'),
   ...require('./lib/aiCoachSystemContext.test.cjs'),
   ...require('./lib/coachLastSession.test.cjs'),
+  ...require('./lib/coachRound30_9.test.cjs'),
   ...require('./lib/aiCoachAnswerExtras.test.cjs'),
   ...require('./lib/coachAnswerReport.test.cjs'),
   ...require('./lib/breakRoundApp.test.cjs'),
