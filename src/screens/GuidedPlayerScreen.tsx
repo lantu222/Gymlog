@@ -127,8 +127,13 @@ import { getExerciseTemplateDefaults, getPopularExerciseLibraryOrder } from '../
 import { getCatalogTrackingMode } from '../lib/catalogExercisePools';
 import { AddExerciseSheet } from '../components/AddExerciseSheet';
 import { ExerciseLibraryRow, exerciseLibraryRowMeta, getItemImage } from '../components/ExerciseLibraryBrowser';
-import { BODY_PART_FILTERS, BodyPartFilter, matchesBodyPartFilter } from '../lib/exerciseBrowseFilter';
-import { resolveSwapBrowsePrefilter } from '../lib/swapBrowsePrefilter';
+import {
+  BODY_PART_FILTERS,
+  BodyPartFilter,
+  filterBrowsableExercises,
+  matchesBodyPartFilter,
+} from '../lib/exerciseBrowseFilter';
+import { orderSwapCandidates, resolveSwapBrowsePrefilter } from '../lib/swapBrowsePrefilter';
 import { useKeepScreenAwake } from '../utils/keepAwake';
 import { queryReduceMotion } from '../utils/reduceMotion';
 import {
@@ -2341,7 +2346,11 @@ function GuidedPlayer({
     // to swap it for.
     const current = actionExercise?.exerciseName;
     const currentLabel = current ? exerciseNameLabel(language, current) : null;
-    const pool = exerciseLibrary.filter(
+    // What can be logged as sets, until the reader types: a stretch is no
+    // swap for a bench press, and "Rinnan venytys kädet niskan takana" sat in
+    // the chest list (device, 2026-09-30). The add-exercise sheet has hidden
+    // them the same way since #bugs 2026-08-26; a query finds them.
+    const pool = filterBrowsableExercises(exerciseLibrary, { query }).filter(
       (item) =>
         item.name !== current &&
         exerciseNameLabel(language, item.name) !== currentLabel &&
@@ -2353,11 +2362,11 @@ function GuidedPlayer({
         matchesBodyPartFilter(item, swapBodyPart),
     );
     if (!query) {
+      // Nearest the lift first — same kit, same kind of lift — then
+      // popularity (orderSwapCandidates).
       const popular = getPopularExerciseLibraryOrder(exerciseLibrary);
-      const byPopularity = [...pool].sort(
-        (left, right) => (popular.get(left.id) ?? 1e6) - (popular.get(right.id) ?? 1e6),
-      );
-      return oneRowPerShownName(byPopularity, language).slice(0, 25);
+      const nearest = orderSwapCandidates(pool, swapCurrentLibraryItem, popular);
+      return oneRowPerShownName(nearest, language).slice(0, 25);
     }
     // Best answer first, popularity breaking ties — the same rule as the
     // pickers, so the swap sheet does not disagree with them.
@@ -2365,7 +2374,16 @@ function GuidedPlayer({
     // One row per shown name, as on Home and the programme day (PR review).
     const ranked = rankExerciseMatches(pool, query, language, (item) => popular.get(item.id));
     return oneRowPerShownName(ranked, language).slice(0, 40);
-  }, [actionExercise, exerciseLibrary, language, sessionLiftLabels, swapBodyPart, swapSuggestions, swapQuery]);
+  }, [
+    actionExercise,
+    exerciseLibrary,
+    language,
+    sessionLiftLabels,
+    swapBodyPart,
+    swapCurrentLibraryItem,
+    swapSuggestions,
+    swapQuery,
+  ]);
 
   const applySwap = (exerciseName: string) => {
     if (!actionExercise) {
