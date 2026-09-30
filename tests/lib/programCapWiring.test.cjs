@@ -3,6 +3,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
+const { functionBody } = require('../helpers/sourceSlices.cjs');
+
 /**
  * The two places the running set used to drift from what was running.
  *
@@ -34,9 +36,12 @@ module.exports = [
   {
     name: 'program cap wiring: both guided onboarding finishes put their plan in the running set',
     run() {
+      // Each finish exactly, to its own closing brace: body() ran on to the
+      // next declaration, which is not the finish's code and moves when
+      // VinhaApp's blocks leave for src/app.
       for (const signature of ['async function handleOnboardingCompleteToTraining', 'async function handleSetupCompleteToTraining']) {
         assert.match(
-          body(app, signature),
+          functionBody(app, signature),
           // A block since the analytics audit (2026-09-21): the activation is
           // also read for plan_adopted, and what it returns is still the rule.
           /activate: \(planId, current\) => \{\s*const next = activateOnboardingPlan\(current, planId, resolveActiveProgramCap\(resolveProEntitlement\(current\)\.unlocked\)\);[\s\S]{0,300}?return next;\s*\}/,
@@ -78,10 +83,14 @@ module.exports = [
       assert.match(helper, /showToast\(t\(preferences\.appLanguage, 'toast\.planSaveFailed'\)\)/);
 
       for (const signature of ['async function handleOnboardingCompleteToTraining', 'async function handleSetupCompleteToTraining']) {
-        const finish = body(app, signature);
-        assert.doesNotMatch(finish, /await saveOnboardingResult\(/, `${signature} saves around the explanation`);
+        // The finish exactly, to its own closing brace. body() ran on to the
+        // next declaration: past the setup finish that is the recovery
+        // handlers, and when they leave App.tsx it becomes some 1,600 lines of
+        // other code, where an unrelated resetToRoute stands in for its own.
+        const finish = functionBody(app, signature);
         const guard = finish.search(/if \(!saved\) \{\s*return;/);
         assert.ok(guard > 0, `${signature} carries on after a refused save`);
+        assert.doesNotMatch(finish, /await saveOnboardingResult\(/, `${signature} saves around the explanation`);
         // The weigh-in that stood first here is gone from both finishes: the
         // flagged seeding effect logs the setup weight, once (2026-09-17).
         for (const after of ['haptics.success()', 'resetToRoute(ROOT_ROUTES.home)']) {

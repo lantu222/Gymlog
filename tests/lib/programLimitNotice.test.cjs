@@ -9,6 +9,7 @@ const {
 } = require('../../.test-dist/lib/activeProgramSet.js');
 const { t } = require('../../.test-dist/lib/i18n.js');
 const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+const { functionBody } = require('../helpers/sourceSlices.cjs');
 
 /**
  * The free programme limits, said before and at the wall (user 2026-09-14).
@@ -211,8 +212,9 @@ module.exports = [
     name: 'programme limit: both finishes pass the replaceable id, and a replaced programme stays replaceable',
     run() {
       const app = read('App.tsx');
+      // Each finish to its own closing brace, not on to the next declaration.
       for (const signature of ['async function handleOnboardingCompleteToTraining', 'async function handleSetupCompleteToTraining']) {
-        assert.match(body(app, signature), /templateDraft: withReplaceableOnboardingId\(savedPlan\.draft\)/);
+        assert.match(functionBody(app, signature), /templateDraft: withReplaceableOnboardingId\(savedPlan\.draft\)/);
       }
       assert.match(
         body(app, 'function withReplaceableOnboardingId'),
