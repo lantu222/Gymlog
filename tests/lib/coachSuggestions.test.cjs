@@ -98,7 +98,9 @@ module.exports = [
       assert.match(renderer, /Do not offer/);
       assert.match(renderer, /silencedSuggestions/);
 
-      const app = fs.readFileSync(path.join(__dirname, '../../App.tsx'), 'utf8');
+      // The context memo leaves VinhaApp for src/app in the phase-B split
+      // (2026-09-30) — read the whole shell, not App.tsx alone.
+      const app = require('../helpers/appWiringSource.cjs').readAppWiring();
       assert.match(app, /silencedSuggestions: silencedSuggestionKinds\(preferences\.coachSuggestionState\)/);
       // The memo has to see the state, or the context keeps the answer the
       // reader already gave for a whole session.

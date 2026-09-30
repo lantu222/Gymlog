@@ -20,8 +20,8 @@ const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8').re
  */
 
 const app = read('App.tsx');
-// App.tsx plus the src/app modules, App.tsx first: the summary memos leave
-// VinhaApp in the phase-B split (2026-09-30), and their pins follow them.
+// App.tsx plus the src/app modules, App.tsx first: blocks of VinhaApp leave
+// for src/app in the phase-B split (2026-09-30), and their pins follow them.
 const wiring = require('../helpers/appWiringSource.cjs').readAppWiring().replace(/\r\n/g, '\n');
 const between = (source, from, to) => {
   const start = source.indexOf(from);
@@ -200,7 +200,7 @@ module.exports = [
       assert.match(app, /`guided\.weekday\.\$\{new Date\(todayStartMs\)\.getDay\(\)\}`/);
       assert.match(app, /\}, \[homeActivePlanCard\?\.currentWeek, preferences\.appLanguage, todayStartMs\]\);/);
       // And the coach's "on the plan today" reads the same day.
-      assert.match(app, /trainsOn\(homeTrainingSchedule, new Date\(todayStartMs\)\)/);
+      assert.match(wiring, /trainsOn\(homeTrainingSchedule, new Date\(todayStartMs\)\)/);
     },
   },
   {

@@ -40,7 +40,9 @@ module.exports = [
       );
       assert.match(home, /\{restToday \? \(\s*<Text style=\{styles\.heroRestLabel\}>\{t\(language, 'home\.hero\.restToday'\)\}<\/Text>/);
       // The coach treats a picked session as today's too, so the two agree.
-      const app = read('App.tsx');
+      // Its intro memo leaves VinhaApp for src/app in the phase-B split
+      // (2026-09-30): read the whole shell, App.tsx first.
+      const app = require('../helpers/appWiringSource.cjs').readAppWiring().replace(/\r\n/g, '\n');
       assert.match(
         app,
         /homeActivePlanCard\?\.nextSession &&\s*\(Boolean\(homeActivePlanCard\.todayPickSessionId\) \|\| trainsOn\(homeTrainingSchedule, new Date\(todayStartMs\)\)\)/,

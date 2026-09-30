@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 const root = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(root, ...parts), 'utf8').replace(/\r\n/g, '\n');
@@ -134,7 +135,16 @@ module.exports = [
       const app = code(read('App.tsx'));
       const progressCall = slice(app, 'content = renderProgressTab({', '});');
       assert.match(progressCall, /\n\s*cardioSessions,\n/);
-      const coachCall = slice(app, 'buildAiTrainingContext({', '}),');
+      // The coach's context is built in the shell's wiring: App.tsx, or the
+      // src/app module the memo moves to in the phase-B split (2026-09-30).
+      // There is one such call, so the slice is that call wherever it sits.
+      const wiring = code(readAppWiring().replace(/\r\n/g, '\n'));
+      assert.equal(
+        wiring.split('buildAiTrainingContext({').length - 1,
+        1,
+        'expected exactly one buildAiTrainingContext call in the shell',
+      );
+      const coachCall = slice(wiring, 'buildAiTrainingContext({', '}),');
       assert.match(coachCall, /\n\s*cardioSessions,\n/);
 
       const exportScreen = code(read('src', 'screens', 'ExportPlanScreen.tsx'));
