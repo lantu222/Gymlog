@@ -24,7 +24,7 @@ import type {
   WorkoutSetStatus,
   WorkoutTrackingMode,
 } from '../features/workout/workoutTypes';
-import { AppLanguage } from '../types/models';
+import { AppLanguage, SetupCautionArea } from '../types/models';
 
 export type GuidedPhase = 'warmup' | 'work' | 'cooldown';
 
@@ -542,6 +542,11 @@ export interface GuidedSetTarget {
    */
   heldForFatigue: boolean;
   /**
+   * The load had earned a jump and an area the reader flagged held it (Pro).
+   * Same "only while untouched" rule as the recovery hold.
+   */
+  heldForCautionArea: SetupCautionArea | null;
+  /**
    * The rep floor this target was raised from, for exercises that progress by
    * reps instead of load (bodyweight — the load gate is silent there). Null on
    * loaded lifts and whenever `reps` is not the gate's own number.
@@ -692,6 +697,7 @@ export function resolveGuidedSetTarget(
     draftRepsText: string;
     autoProgressedFromKg?: number;
     heldForFatigue?: boolean;
+    heldForCautionArea?: SetupCautionArea;
     prefilledFromPerformedAt?: string;
     plannedTargetReps?: number;
     autoProgressedFromReps?: number;
@@ -742,6 +748,8 @@ export function resolveGuidedSetTarget(
       // The hold is reported while today is still untouched; after the first
       // logged set the day has its own numbers to answer for.
       heldForFatigue: trackingMode === 'bodyweight' && previous == null && set.heldForFatigue === true,
+      // The load gate holds loads; there is none here.
+      heldForCautionArea: null,
     };
   }
 
@@ -768,6 +776,7 @@ export function resolveGuidedSetTarget(
     autoProgressedFromKg: untouched && set.autoProgressedFromKg !== undefined ? set.autoProgressedFromKg : null,
     prefilledFromPerformedAt: untouched ? set.prefilledFromPerformedAt ?? null : null,
     heldForFatigue: untouched && set.heldForFatigue === true,
+    heldForCautionArea: untouched ? set.heldForCautionArea ?? null : null,
     autoProgressedFromReps: null,
   };
 }

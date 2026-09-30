@@ -174,6 +174,7 @@ module.exports = [
       assert.deepEqual(resolveProgressionOptions(prefs(base), NOW), {
         automatedProgressionEnabled: false,
         setupLevel: 'beginner',
+        cautionFlags: [],
       });
 
       // Paying user, toggle on: the paid feature runs.
@@ -182,7 +183,7 @@ module.exports = [
           prefs({ ...base, mockSubscriptionPurchasedAt: '2026-07-01T09:00:00.000Z' }),
           NOW,
         ),
-        { automatedProgressionEnabled: true, setupLevel: 'beginner' },
+        { automatedProgressionEnabled: true, setupLevel: 'beginner', cautionFlags: [] },
       );
 
       // Paying user, toggle off: paying does not force progression on.
@@ -195,7 +196,7 @@ module.exports = [
           }),
           NOW,
         ),
-        { automatedProgressionEnabled: false, setupLevel: 'beginner' },
+        { automatedProgressionEnabled: false, setupLevel: 'beginner', cautionFlags: [] },
       );
 
       // A promo grant counts as Pro here exactly like everywhere else.
@@ -204,6 +205,10 @@ module.exports = [
           .automatedProgressionEnabled,
         true,
       );
+
+      // The setup flags ride along with the gate they limit, whatever the tier.
+      const flags = [{ area: 'knees', level: 'careful', refinements: [] }];
+      assert.deepEqual(resolveProgressionOptions(prefs({ ...base, setupCautionFlags: flags }), NOW).cautionFlags, flags);
 
       // And an expired promo does not.
       assert.equal(

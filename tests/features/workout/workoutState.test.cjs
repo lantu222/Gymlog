@@ -644,6 +644,112 @@ module.exports = [
     },
   },
   {
+    /**
+     * Onboarding tells a reader with flagged areas that the app never raises
+     * the weight on lifts that load them. Until 2026-09-30 it said "we keep
+     * loads light" and nothing read the flags for load at all. This is the
+     * promise end to end: the flags ride in with the session start, the gate
+     * holds the earned jump, and the set names the area.
+     */
+    name: 'a flagged area holds an earned jump on the lifts that load it, and the advisory says so',
+    run() {
+      const { t } = require('../../../.test-dist/lib/i18n.js');
+      const SLOT = 'primary_squat_1';
+      const DAY_MS = 86400000;
+      const now = Date.parse('2026-08-24T09:00:00.000Z');
+      const ceilingEntry = (daysAgo) => ({
+        slotId: SLOT,
+        templateId: 'tpl',
+        templateName: 'Legs',
+        exerciseName: 'Back Squat',
+        substitutionGroup: 'squat',
+        performedAt: new Date(now - daysAgo * DAY_MS).toISOString(),
+        sessionId: 'sess-' + daysAgo,
+        sets: [0, 1, 2].map((setIndex) => ({
+          setIndex,
+          loadKg: 80,
+          reps: 8,
+          completedAt: new Date(now - daysAgo * DAY_MS).toISOString(),
+        })),
+        skipped: false,
+      });
+
+      const start = (cautionFlags) =>
+        workoutReducer(
+          {
+            ...workoutInitialState,
+            history: {
+              sessions: [],
+              lastSelectedTemplateId: null,
+              slotHistory: { [SLOT]: [ceilingEntry(0), ceilingEntry(3)] },
+            },
+          },
+          {
+            type: 'session/startFromRuntimeTemplate',
+            payload: {
+              template: {
+                id: 'tpl',
+                name: 'Legs',
+                defaultScheduleMode: 'weekday',
+                sessions: [
+                  {
+                    id: 'legs_a',
+                    name: 'Legs A',
+                    orderIndex: 1,
+                    exercises: [
+                      {
+                        id: 'ex_squat',
+                        exerciseName: 'Back Squat',
+                        slotId: SLOT,
+                        role: 'primary',
+                        progressionPriority: 'high',
+                        trackingMode: 'load_and_reps',
+                        sets: 3,
+                        repsMin: 5,
+                        repsMax: 8,
+                        restSecondsMin: 150,
+                        restSecondsMax: 180,
+                        substitutionGroup: 'squat',
+                      },
+                    ],
+                  },
+                ],
+              },
+              sessionOrderIndex: 1,
+              unitPreference: 'kg',
+              progression: {
+                automatedProgressionEnabled: true,
+                setupLevel: 'beginner',
+                cautionFlags,
+              },
+            },
+          },
+        ).activeSession.exercises[0].sets[0];
+
+      // No flags: the ceiling was cleared twice, the load moves.
+      const open = start([]);
+      assert.equal(open.plannedLoadKg, 82.5);
+      assert.equal(open.heldForCautionArea, undefined);
+
+      // Knees flagged careful: the squat keeps its weight and says why.
+      const careful = start([{ area: 'knees', level: 'careful', refinements: [] }]);
+      assert.equal(careful.plannedLoadKg, 80);
+      assert.equal(careful.autoProgressedFromKg, undefined);
+      assert.equal(careful.heldForCautionArea, 'knees');
+
+      // `info` promises nothing about training, and another area's flag does
+      // not touch a squat.
+      assert.equal(start([{ area: 'knees', level: 'info', refinements: [] }]).plannedLoadKg, 82.5);
+      assert.equal(start([{ area: 'shoulders', level: 'careful', refinements: [] }]).plannedLoadKg, 82.5);
+
+      // And the sentence the reader was shown is the one the code keeps.
+      assert.match(t('en', 'onb.avoid.advisory'), /never raise the weight on lifts that load these areas/);
+      assert.match(t('fi', 'onb.avoid.advisory'), /emme koskaan nosta painoa liikkeissä, jotka kuormittavat näitä kohtia/);
+      assert.doesNotMatch(t('en', 'onb.avoid.advisory'), /keep loads light/);
+      assert.doesNotMatch(t('fi', 'onb.avoid.advisory'), /pidämme kuormat kevyinä/);
+    },
+  },
+  {
     name: 'the freestyle draft rides in the bundle: hydrated, saved, cleared',
     run() {
       const { workoutReducer, workoutInitialState } = require('../../../.test-dist/features/workout/workoutState.js');

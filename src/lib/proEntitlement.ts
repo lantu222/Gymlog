@@ -125,7 +125,8 @@ export function canResumePurchase(preferences: ProPreferences, now: Date = new D
 }
 
 type ProgressionPreferences = ProPreferences &
-  Pick<AppPreferences, 'automatedProgressionEnabled' | 'setupLevel'>;
+  Pick<AppPreferences, 'automatedProgressionEnabled' | 'setupLevel'> &
+  Partial<Pick<AppPreferences, 'setupCautionFlags'>>;
 
 /**
  * Automated progression is a Pro feature (user decision 2026-07-28: the
@@ -138,11 +139,18 @@ type ProgressionPreferences = ProPreferences &
 export function resolveProgressionOptions(
   preferences: ProgressionPreferences,
   now: Date = new Date(),
-): { automatedProgressionEnabled: boolean; setupLevel: AppPreferences['setupLevel'] } {
+): {
+  automatedProgressionEnabled: boolean;
+  setupLevel: AppPreferences['setupLevel'];
+  cautionFlags: AppPreferences['setupCautionFlags'];
+} {
   return {
     automatedProgressionEnabled:
       preferences.automatedProgressionEnabled && isProUnlocked(preferences, now),
     setupLevel: preferences.setupLevel,
+    // Rides along with the gate it limits: a lift that loads a flagged area
+    // is never raised, which is what onboarding tells the reader.
+    cautionFlags: preferences.setupCautionFlags ?? [],
   };
 }
 

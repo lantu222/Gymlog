@@ -171,11 +171,11 @@ module.exports = [
       // `fromLoadKg` is what the loggers show as "AUTO +2.5 kg" — a progressed
       // load has to be able to say where it came from.
       const on = resolveProgressedLoadKg({ ...shared, automatedProgressionEnabled: true });
-      assert.deepEqual(on, { loadKg: 62.5, progressed: true, fromLoadKg: 60, heldForFatigue: false });
+      assert.deepEqual(on, { loadKg: 62.5, progressed: true, fromLoadKg: 60, heldForFatigue: false, heldForCautionArea: null });
 
       // OFF is exactly the old behaviour: repeat what was logged.
       const off = resolveProgressedLoadKg({ ...shared, automatedProgressionEnabled: false });
-      assert.deepEqual(off, { loadKg: 60, progressed: false, fromLoadKg: null, heldForFatigue: false });
+      assert.deepEqual(off, { loadKg: 60, progressed: false, fromLoadKg: null, heldForFatigue: false, heldForCautionArea: null });
 
       // ON but not earned still repeats — the toggle promises a rule, not a
       // weekly increase.
@@ -184,7 +184,7 @@ module.exports = [
         history: [entry(60, [12, 11, 10], 0), entry(60, 12, 3)],
         automatedProgressionEnabled: true,
       });
-      assert.deepEqual(notEarned, { loadKg: 60, progressed: false, fromLoadKg: null, heldForFatigue: false });
+      assert.deepEqual(notEarned, { loadKg: 60, progressed: false, fromLoadKg: null, heldForFatigue: false, heldForCautionArea: null });
     },
   },
   {
@@ -333,6 +333,56 @@ module.exports = [
       const free = resolveProgressedLoadKg({ ...base, automatedProgressionEnabled: false, fatigueSignal: 'high' });
       assert.equal(free.heldForFatigue, false);
       assert.equal(free.loadKg, 60);
+    },
+  },
+  {
+    name: 'a flagged area holds the load, and names itself only when a jump was earned',
+    run() {
+      const earned = [entry(60, 12, 0), entry(60, 12, 3)];
+      const base = {
+        history: earned,
+        repsMin: 8,
+        repsMax: 12,
+        targetSets: 3,
+        level: 'beginner',
+        automatedProgressionEnabled: true,
+        fallbackLoadKg: 60,
+      };
+
+      // Earned, and the lift loads a flagged area: the load stays, the area
+      // is the reason given.
+      const held = resolveProgressedLoadKg({ ...base, cautionArea: 'shoulders' });
+      assert.deepEqual(held, {
+        loadKg: 60,
+        progressed: false,
+        fromLoadKg: null,
+        heldForFatigue: false,
+        heldForCautionArea: 'shoulders',
+      });
+
+      // The area outranks recovery: it is the lasting reason, so it is the
+      // one said, and the two badges never stack.
+      const both = resolveProgressedLoadKg({ ...base, cautionArea: 'shoulders', fatigueSignal: 'high' });
+      assert.equal(both.loadKg, 60);
+      assert.equal(both.heldForCautionArea, 'shoulders');
+      assert.equal(both.heldForFatigue, false);
+
+      // Not earned: the load stays anyway, and nothing claims a hold.
+      const notEarned = resolveProgressedLoadKg({
+        ...base,
+        history: [entry(60, 9, 0), entry(60, 9, 3)],
+        cautionArea: 'shoulders',
+      });
+      assert.equal(notEarned.loadKg, 60);
+      assert.equal(notEarned.heldForCautionArea, null);
+
+      // Progression off: the load never moves, so there is no hold to name.
+      const free = resolveProgressedLoadKg({ ...base, automatedProgressionEnabled: false, cautionArea: 'shoulders' });
+      assert.equal(free.loadKg, 60);
+      assert.equal(free.heldForCautionArea, null);
+
+      // No flagged area: the ordinary jump.
+      assert.equal(resolveProgressedLoadKg({ ...base, cautionArea: null }).loadKg, 62.5);
     },
   },
   {

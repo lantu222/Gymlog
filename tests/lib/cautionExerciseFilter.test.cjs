@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 
 const {
   applyCautionFlagsToExercises,
+  cautionAreaLoadedBy,
   exerciseHitsCautionArea,
   CAUTION_TO_FOCUS_AREAS,
   AREA_CAREFUL_SWAPS,
@@ -271,6 +272,38 @@ module.exports = [
 
       assert.ok(swept > 50, `the sweep only produced ${swept} swaps`);
       assert.deepEqual(offenders, []);
+    },
+  },
+  {
+    name: 'cautionAreaLoadedBy: careful and avoid name the area a lift loads, info names nothing',
+    run() {
+      const flag = (area, level) => ({ area, level, refinements: [] });
+      assert.equal(cautionAreaLoadedBy('Back Squat', [flag('knees', 'careful')]), 'knees');
+      assert.equal(cautionAreaLoadedBy('Back Squat', [flag('knees', 'avoid')]), 'knees');
+      assert.equal(cautionAreaLoadedBy('Back Squat', [flag('knees', 'info')]), null);
+      assert.equal(cautionAreaLoadedBy('Back Squat', [flag('shoulders', 'careful')]), null);
+      assert.equal(cautionAreaLoadedBy('Back Squat', []), null);
+      assert.equal(cautionAreaLoadedBy('Back Squat', undefined), null);
+
+      // The filter's knee-friendly swaps: one still loads the knee and is
+      // held, the other spares it and progresses as usual.
+      const knees = [flag('knees', 'careful')];
+      const swapped = applyCautionFlagsToExercises(
+        [
+          { ...WORKOUT_TEMPLATES_V1[0].sessions[0].exercises[0], exerciseName: 'Back Squat' },
+          { ...WORKOUT_TEMPLATES_V1[0].sessions[0].exercises[0], exerciseName: 'Leg Press' },
+        ],
+        knees,
+      ).exercises.map((exercise) => exercise.exerciseName);
+      assert.deepEqual(swapped, ['Box Squat', 'Hip Thrust']);
+      assert.equal(cautionAreaLoadedBy('Box Squat', knees), 'knees');
+      assert.equal(cautionAreaLoadedBy('Hip Thrust', knees), null);
+
+      // The first flag that matches is the one named.
+      assert.equal(
+        cautionAreaLoadedBy('Dip', [flag('shoulders', 'careful'), flag('elbows', 'careful')]),
+        'shoulders',
+      );
     },
   },
 ];
