@@ -2,6 +2,7 @@ import { ExerciseLogDraft, ExerciseLogSet } from '../../types/models';
 import { WorkoutExerciseInstance, WorkoutSessionRuntime, WorkoutSetStatus, WorkoutTrackingMode } from './workoutTypes';
 import { sessionLastActiveMs, workoutSecondsUntil } from '../../lib/sessionClock';
 import { LiftSegment, splitExerciseByLift } from '../../lib/liftSegments';
+import { buildLoggedSetPlan } from '../../lib/loggedSetPlan';
 
 export type LegacyWorkoutDataMismatch =
   | 'template_exercise_id_not_mapped';
@@ -213,6 +214,9 @@ function adaptSetToLogSet(set: WorkoutExerciseInstance['sets'][number]): Exercis
     effort: set.effort ?? null,
     completedAt: set.completedAt ?? null,
     skippedReason: set.skippedReason ?? null,
+    // What the app opened this set at, and why — the gate's own fields, which
+    // were dropped here until 2026-09-30.
+    planned: buildLoggedSetPlan(set),
   };
 }
 
