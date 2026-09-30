@@ -105,6 +105,8 @@ module.exports = [
       );
       assert.equal(serverNoticeUrl(['', '  ', 'https://x.vercel.app/api/backup']), 'https://x.vercel.app/api/notice');
       assert.equal(serverNoticeUrl(['not a url', 'ftp://x/y']), null);
+      // The same answer whatever the case or the rest of the address.
+      assert.equal(serverNoticeUrl(['HTTPS://Api.Vinha.app:8443/x?y=1']), 'https://Api.Vinha.app:8443/api/notice');
       assert.equal(serverNoticeUrl([undefined, undefined]), null);
 
       const client = read('src/features/serverNotice/serverNoticeClient.ts');
@@ -136,13 +138,26 @@ module.exports = [
           assert.match(body, /paused: isServicePaused\(process\.env\)/);
           continue;
         }
-        const guardAt = body.indexOf('if (isServicePaused(process.env)) {');
-        assert.ok(guardAt >= 0, `${name} checks the kill switch`);
+        // Two doors stay open on purpose, and only for deleting: the policy
+        // promises a reader's copy goes at once, and in an incident that is
+        // the request that matters most.
+        const guard = {
+          'backup.ts': "if (isServicePaused(process.env) && req.method !== 'DELETE') {",
+          'ai-coach.ts': 'if (isServicePaused(process.env) && !readForgetLogId(req.body)) {',
+        }[name] ?? 'if (isServicePaused(process.env)) {';
+        const guardAt = body.indexOf(guard);
+        assert.ok(guardAt >= 0, `${name} checks the kill switch: ${guard}`);
         assert.match(body.slice(guardAt, guardAt + 200), /res\.status\(503\)\.json\(servicePausedBody\(\)\);\s*return;/);
         // Before anything that reads, parses, writes or calls out.
-        for (const later of ['await ', 'req.body', 'hasAppKey(', 'authorized(', 'isRateLimited(', 'handlePost(']) {
-          const at = body.indexOf(later);
-          assert.ok(at === -1 || at > guardAt, `${name}: "${later}" comes before the kill switch`);
+        const afterGuard = guardAt + guard.length;
+        // The coach checks its app key first (a stranger costs a header
+        // comparison and nothing else — aiCoachAppKey.test), then the switch.
+        const laterThings = ['await ', 'req.body', 'hasAppKey(', 'authorized(', 'isRateLimited(', 'handlePost(']
+          .filter((later) => !(name === 'ai-coach.ts' && later === 'hasAppKey('));
+        for (const later of laterThings) {
+          const at = body.indexOf(later, 0);
+          const inGuard = at >= guardAt && at < afterGuard;
+          assert.ok(at === -1 || at > guardAt || inGuard, `${name}: "${later}" comes before the kill switch`);
         }
       }
     },

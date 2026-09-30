@@ -121,15 +121,12 @@ export function normalizeSeenNoticeIds(value: unknown): string[] {
  * switches its feature off without a word.
  */
 export function serverNoticeUrl(serverUrls: readonly (string | undefined)[]): string | null {
+  // A plain match rather than `new URL`: React Native's URL is a regex
+  // polyfill that parses differently from Node's, and the suite runs on Node.
   for (const candidate of serverUrls) {
-    const trimmed = (candidate ?? '').trim();
-    if (!trimmed) continue;
-    try {
-      const url = new URL(trimmed);
-      if (url.protocol !== 'https:' && url.protocol !== 'http:') continue;
-      return `${url.origin}/api/notice`;
-    } catch {
-      continue;
+    const origin = (candidate ?? '').trim().match(/^(https?):\/\/([^/?#\s]+)/i);
+    if (origin) {
+      return `${origin[1].toLowerCase()}://${origin[2]}/api/notice`;
     }
   }
   return null;

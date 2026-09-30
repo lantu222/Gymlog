@@ -10,7 +10,7 @@ Vinha tallentaa treenitietosi puhelimeesi. Tämä seloste kertoo, mitä sovellus
 
 Tällä hetkellä asioita on neljä. Vapaaehtoinen pilvivarmuuskopio lähtee, kun kirjaudut Googlella, ja AI-valmentajan verkkotila, kun luet ilmoituksen ja lähetät sen jälkeen kysymyksen, pyydät ohjelman tai tuot sellaisen valokuvasta. Nimettömät käyttötilastot sovellus lähettää itse, ellet kytke niitä pois asetuksista — niissä ei ole sisältöä eikä henkilöllisyyttä, ja ne kuvataan kokonaan alla. Jokaisessa näistä pyynnöistä kulkee lisäksi sovelluksen versionumero ja tieto siitä, onko puhelin Android vai iOS, jotta palvelimemme tunnistaa liian vanhan sovelluksen ja voi pyytää sinua päivittämään sen.
 
-Neljäs on tarkistus, jonka sovellus tekee itse: käynnistyessään ja palatessasi siihen muutaman tunnin jälkeen se kysyy palvelimeltamme, onko kaikille Vinhan käyttäjille tiedotetta — esimerkiksi palvelukatkosta tai tietoturvaongelmasta — ja näyttää sen kerran. Pyynnössä ei kulje muuta kuin sovelluksen versio ja alusta, eikä siitä tallenneta mitään.
+Neljäs on tarkistus, jonka sovellus tekee itse: käynnistyessään ja palatessasi siihen muutaman tunnin jälkeen se kysyy palvelimeltamme, onko kaikille Vinhan käyttäjille tiedotetta — esimerkiksi palvelukatkosta tai tietoturvaongelmasta — ja näyttää sen kerran. Pyynnössä ei kulje muuta kuin sovelluksen versio ja alusta; kuten mikä tahansa pyyntö, se näyttää palvelimellemme puhelimen internet-osoitteen, eikä siitä tallenneta mitään.
 
 Ei mainoksia, ei seurantaa, ei tietojen myyntiä. Jos jokin tässä selosteessa on epäselvää, kirjoita meille — osoite on seuraavassa kohdassa.
 

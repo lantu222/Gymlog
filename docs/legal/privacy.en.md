@@ -10,7 +10,7 @@ Vinha stores your training data on your phone. This policy lists what the app se
 
 At present that is four things. The optional cloud backup is sent when you sign in with Google, and the AI coach’s online mode when you read a notice and then send a question, ask for a programme, or import one from a photo. Anonymous usage statistics are sent by the app itself unless you switch them off in Settings — they carry no content and no identity, and they are described in full below. Each of these requests also carries the app’s version number and whether the phone runs Android or iOS, so our server can recognise an app too old to understand and ask you to update it.
 
-The fourth is a check the app makes by itself: when it starts, and again when you come back to it after some hours, it asks our server whether there is a notice for everyone who uses Vinha — for example about a break in service or a security incident — and shows it once. That request carries nothing but the app’s version and platform, and nothing about it is stored.
+The fourth is a check the app makes by itself: when it starts, and again when you come back to it after some hours, it asks our server whether there is a notice for everyone who uses Vinha — for example about a break in service or a security incident — and shows it once. That request carries nothing but the app’s version and platform; like any request, it shows our server the phone’s internet address, and nothing about it is stored.
 
 No ads, no trackers, no selling of data. If something in this policy is unclear, write to us — the address is in the next section.
 

@@ -34,6 +34,11 @@ kirjoittamatta mitään. Appi toimii edelleen: treenit kirjataan puhelimeen,
 valmentaja vastaa laitteen omilla vastauksilla ja varmuuskopio yrittää
 myöhemmin. Katkaisin pois: poista muuttuja tai aseta `0`, ja tee Redeploy.
 
+Kaksi pyyntöä toimii katkaisimesta huolimatta, koska ne vain poistavat:
+pilvivarmuuskopion poisto (Asetukset → Poista pilvivarmuuskopio) ja
+valmentajakopioiden suostumuksen peruminen. Tauko pysäyttää myös
+tilastojen 24 kk siivouksen, joten pura se heti kun vuoto on tukittu.
+
 **Tiedote.** Samaan paikkaan muuttuja `APP_NOTICE`, arvona yksi rivi JSONia:
 
 ```json

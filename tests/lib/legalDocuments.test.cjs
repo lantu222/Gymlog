@@ -27,7 +27,7 @@ const LEGAL_TEXT_VERSIONS = [
   { date: '2026-09-16', fingerprint: 'c52c7814c8a7ba76' },
   { date: '2026-09-28', fingerprint: '7019c14a32fca330' },
   { date: '2026-09-29', fingerprint: 'c0f19e9dea408950' },
-  { date: '2026-09-30', fingerprint: '44d8573e065abed6' },
+  { date: '2026-09-30', fingerprint: '5998cb9be6282a40' },
 ];
 
 const IDS = ['privacy', 'terms'];

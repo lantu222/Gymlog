@@ -191,8 +191,10 @@ function bearerToken(req: ApiRequest): string | null {
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   // The kill switch (docs/tietoturvaloukkaus.md): first, before anything is
-  // read, parsed or written. api/notice stays open to say why.
-  if (isServicePaused(process.env)) {
+  // read, parsed or written. api/notice stays open to say why. Deleting stays
+  // open too: the policy promises the copy goes at once, and during an
+  // incident it is the one request a reader most needs to land.
+  if (isServicePaused(process.env) && req.method !== 'DELETE') {
     res.status(503).json(servicePausedBody());
     return;
   }
