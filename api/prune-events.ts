@@ -28,6 +28,7 @@ import {
   analyticsRetentionCutoffDay,
   selectExpiredEventBlobs,
 } from '../src/lib/analyticsRetention';
+import { isServicePaused, servicePausedBody } from '../src/lib/serverNotice';
 
 interface RequestLike {
   method?: string;
@@ -73,6 +74,12 @@ function authorized(req: RequestLike): boolean {
 
 export default async function handler(req: RequestLike, res: ResponseLike): Promise<void> {
   res.setHeader('Cache-Control', 'no-store');
+  // The kill switch (docs/tietoturvaloukkaus.md): first, before anything is
+  // read, parsed or written. api/notice stays open to say why.
+  if (isServicePaused(process.env)) {
+    res.status(503).json(servicePausedBody());
+    return;
+  }
   if (req.method !== 'GET') {
     res.status(405).json({ ok: false, error: 'METHOD_NOT_ALLOWED' });
     return;

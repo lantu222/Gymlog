@@ -553,6 +553,11 @@ export interface AppPreferences {
    * three per install, ever, which is what bounds the free tier cost.
    */
   coachDemoMomentsUsed: string[];
+  /**
+   * Ids of the server notices this reader has closed (lib/serverNotice), so
+   * each is shown once. Newest last, capped.
+   */
+  seenServerNoticeIds: string[];
   /** Plan-review toggle: Vinha adjusts weekly load/progression automatically. */
   automatedProgressionEnabled: boolean;
   aiSetupCompleted: boolean;

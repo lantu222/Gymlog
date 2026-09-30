@@ -29,6 +29,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { get, list } from '@vercel/blob';
 import { AI_COACH_DEBUG_TRANSCRIPTS } from '../src/lib/aiCoachDebug';
 import { isTranscriptPath, shapeTranscriptEntry, transcriptTimeKey } from '../src/lib/aiCoachLogId';
+import { isServicePaused, servicePausedBody } from '../src/lib/serverNotice';
 
 const SINCE_PATTERN = /^\d{4}-\d{2}(-\d{2})?$/;
 
@@ -65,6 +66,12 @@ function secretMatches(provided: string | undefined, expected: string | undefine
 
 export default async function handler(req: RequestLike, res: ResponseLike): Promise<void> {
   res.setHeader('Cache-Control', 'no-store');
+  // The kill switch (docs/tietoturvaloukkaus.md): first, before anything is
+  // read, parsed or written. api/notice stays open to say why.
+  if (isServicePaused(process.env)) {
+    res.status(503).json(servicePausedBody());
+    return;
+  }
   if (!AI_COACH_DEBUG_TRANSCRIPTS || process.env.AI_COACH_DEBUG_TRANSCRIPTS !== '1') {
     res.status(404).json({ ok: false, error: 'NOT_FOUND' });
     return;

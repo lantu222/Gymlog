@@ -34,6 +34,7 @@ import {
   AICoachConversationTurn,
   AICoachSuggestion,
 } from '../src/types/aiCoach';
+import { isServicePaused, servicePausedBody } from '../src/lib/serverNotice';
 
 type ApiRequest = {
   method?: string;
@@ -1263,6 +1264,12 @@ async function forgetTranscripts(logId: string): Promise<number> {
 }
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
+  // The kill switch (docs/tietoturvaloukkaus.md): first, before anything is
+  // read, parsed or written. api/notice stays open to say why.
+  if (isServicePaused(process.env)) {
+    res.status(503).json(servicePausedBody());
+    return;
+  }
   if (req.method !== 'POST') {
     res.status(405).json(createError({ code: 'METHOD_NOT_ALLOWED', message: 'Use POST.' }, undefined, undefined, 'preview'));
     return;

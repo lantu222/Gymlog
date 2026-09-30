@@ -68,6 +68,7 @@ const DEFAULT_PREFERENCES = {
   aiCoachProQuota: null as { monthStart: string; used: number } | null,
   firstLaunchAt: null as string | null,
   coachDemoMomentsUsed: [] as string[],
+  seenServerNoticeIds: [] as string[],
   automatedProgressionEnabled: true,
   aiSetupCompleted: false,
   hasOpenedAppBefore: false,

@@ -1,6 +1,6 @@
 # Tietosuojaseloste
 
-*Päivitetty 29.9.2026*
+*Päivitetty 30.9.2026*
 
 Mitä Vinha tallentaa, mikä lähtee puhelimestasi ja mitä voit sille tehdä.
 
@@ -8,7 +8,9 @@ Mitä Vinha tallentaa, mikä lähtee puhelimestasi ja mitä voit sille tehdä.
 
 Vinha tallentaa treenitietosi puhelimeesi. Tämä seloste kertoo, mitä sovellus lähettää palvelimellemme, milloin ja miksi.
 
-Tällä hetkellä asioita on kolme. Vapaaehtoinen pilvivarmuuskopio lähtee, kun kirjaudut Googlella, ja AI-valmentajan verkkotila, kun luet ilmoituksen ja lähetät sen jälkeen kysymyksen, pyydät ohjelman tai tuot sellaisen valokuvasta. Nimettömät käyttötilastot sovellus lähettää itse, ellet kytke niitä pois asetuksista — niissä ei ole sisältöä eikä henkilöllisyyttä, ja ne kuvataan kokonaan alla. Jokaisessa näistä pyynnöistä kulkee lisäksi sovelluksen versionumero ja tieto siitä, onko puhelin Android vai iOS, jotta palvelimemme tunnistaa liian vanhan sovelluksen ja voi pyytää sinua päivittämään sen.
+Tällä hetkellä asioita on neljä. Vapaaehtoinen pilvivarmuuskopio lähtee, kun kirjaudut Googlella, ja AI-valmentajan verkkotila, kun luet ilmoituksen ja lähetät sen jälkeen kysymyksen, pyydät ohjelman tai tuot sellaisen valokuvasta. Nimettömät käyttötilastot sovellus lähettää itse, ellet kytke niitä pois asetuksista — niissä ei ole sisältöä eikä henkilöllisyyttä, ja ne kuvataan kokonaan alla. Jokaisessa näistä pyynnöistä kulkee lisäksi sovelluksen versionumero ja tieto siitä, onko puhelin Android vai iOS, jotta palvelimemme tunnistaa liian vanhan sovelluksen ja voi pyytää sinua päivittämään sen.
+
+Neljäs on tarkistus, jonka sovellus tekee itse: käynnistyessään ja palatessasi siihen muutaman tunnin jälkeen se kysyy palvelimeltamme, onko kaikille Vinhan käyttäjille tiedotetta — esimerkiksi palvelukatkosta tai tietoturvaongelmasta — ja näyttää sen kerran. Pyynnössä ei kulje muuta kuin sovelluksen versio ja alusta, eikä siitä tallenneta mitään.
 
 Ei mainoksia, ei seurantaa, ei tietojen myyntiä. Jos jokin tässä selosteessa on epäselvää, kirjoita meille — osoite on seuraavassa kohdassa.
 
@@ -130,7 +132,7 @@ Sovellus pyytää puhelimeltasi hyvin vähän. Tätä se käyttää:
 
 - Ilmoitukset: kysytään, kun lepoajastin ensimmäisen kerran tarvitsee hälyttää, tai kun kytket ilmoitukset päälle asetuksista. Kieltäydy, ja kaikki muu toimii silti.
 - Kuvat: puhelimen oma valitsin antaa sovellukselle sen yhden kuvan, jonka valitsit. Lupaa kuvakirjastoosi ei pyydetä.
-- Internet: tässä selosteessa kuvattuja palvelintoimintoja varten — tällä hetkellä varmuuskopio, valmentaja ja tilastot. Treenin kirjaaminen ei koskaan tarvitse yhteyttä.
+- Internet: tässä selosteessa kuvattuja palvelintoimintoja varten — tällä hetkellä varmuuskopio, valmentaja, tilastot ja tiedotteet. Treenin kirjaaminen ei koskaan tarvitse yhteyttä.
 - Näytön pitäminen päällä treenin aikana, jos kytket sen päälle asetuksista.
 - Värinä, haptisia napsautuksia varten — ne voi kytkeä pois.
 
