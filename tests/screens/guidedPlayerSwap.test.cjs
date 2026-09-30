@@ -491,7 +491,7 @@ module.exports = [
     run() {
       assert.match(
         playerSource,
-        /swapBrowseOpen && swapBodyPartFilter !== 'all'\s*\?\s*libraryLabel\(swapBodyPartFilter, language\)\s*:\s*t\(language, 'guided\.swap\.library'\)/,
+        /swapBodyPart !== 'all'\s*\?\s*libraryLabel\(swapBodyPart, language\)\s*:\s*t\(language, 'guided\.swap\.library'\)/,
       );
     },
   },
@@ -794,6 +794,29 @@ module.exports = [
         .replace(/\r\n/g, '\n');
       assert.match(browser, /export function ExerciseLibraryRow\(/);
       assert.match(browser, /<ExerciseLibraryRow\s+title=\{exerciseListLabel\(language, item\.name\)\}/);
+    },
+  },
+  {
+    /**
+     * The list opens on the lifts nearest the one being swapped: "filtteröinti
+     * siihen liikkeeseen perustuva eli lähin sitä mitä haluu tehdä" (#bugs
+     * 2026-09-29). A bench press swap opened on squats and deadlifts — the
+     * most popular lifts of any body part — with the chips behind a "browse
+     * all" link (device, 2026-09-30).
+     */
+    name: 'guided swap: the chips are always there, on the lift\'s own body part until the reader picks',
+    run() {
+      const source = playerSource.replace(/\r\n/g, '\n');
+      assert.match(source, /useState<BodyPartFilter \| null>\(null\);/);
+      assert.match(source, /const swapBodyPart: BodyPartFilter = swapBodyPartFilter \?\? swapBrowsePrefilter;/);
+      assert.match(source, /matchesBodyPartFilter\(item, swapBodyPart\),/);
+      assert.match(source, /const selected = swapBodyPart === option;/);
+      // No link in front of the chips any more, and no key for it.
+      assert.doesNotMatch(source, /swapBrowseOpen|guided\.swap\.browseAll/);
+      assert.doesNotMatch(i18nSource, /'guided\.swap\.browseAll'/);
+      // Both ways out start the next opening from the lift again.
+      assert.equal((source.match(/setSwapBodyPartFilter\(null\);/g) ?? []).length, 2);
+      assert.doesNotMatch(source, /setSwapBodyPartFilter\('all'\)/);
     },
   },
 ];

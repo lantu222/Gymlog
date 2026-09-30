@@ -1768,17 +1768,16 @@ function GuidedPlayer({
   const restEditSets = restEdit ? loggedSetsOf(exerciseBySlot.get(restEdit.slotId)) : [];
   const [swapQuery, setSwapQuery] = useState('');
   /**
-   * The swap sheet's "browse all exercises", opened from a link under
-   * Ehdotetut rather than shown by default — a chip row on every swap would
-   * be one more thing to read past on the sheet that already has the most
-   * going on (#bugs 2026-09-29, "tehdään joku v2 tähän että on helppo
-   * etsiä"). `swapBodyPartFilter` stays 'all' until it opens, so the two
-   * places that already reset `swapQuery` on close (this sheet's onClose and
-   * `applySwap`) reset this the same way, and the chip is computed fresh —
-   * see `swapBrowsePrefilter` — the moment the reader taps in.
+   * The swap sheet's body-part chip, as the reader picked it — null until
+   * they do, and then the lift's own body part applies (`swapBodyPart`
+   * below). The list opens on the lifts nearest the one being swapped
+   * ("filtteröinti siihen liikkeeseen perustuva eli lähin sitä mitä haluu
+   * tehdä", #bugs 2026-09-29): a bench press swap used to open on squats and
+   * deadlifts, the most popular lifts overall, behind a "browse all" link
+   * that was the only way to the chips (device, 2026-09-30). Reset to null
+   * wherever `swapQuery` is, so every opening starts from the lift again.
    */
-  const [swapBrowseOpen, setSwapBrowseOpen] = useState(false);
-  const [swapBodyPartFilter, setSwapBodyPartFilter] = useState<BodyPartFilter>('all');
+  const [swapBodyPartFilter, setSwapBodyPartFilter] = useState<BodyPartFilter | null>(null);
   const [confirmingEnd, setConfirmingEnd] = useState(false);
   /** The lift whose final set was just logged — a one-second check-splash
       before the next exercise's walk-up screen. Null = no splash showing. */
@@ -2317,11 +2316,13 @@ function GuidedPlayer({
     return index === null ? null : exerciseLibrary[index];
   }, [actionExercise, exerciseLibrary]);
 
-  /** Which chip "Selaa kaikkia liikkeitä" opens on — see swapBrowsePrefilter. */
+  /** Which chip the swap sheet opens on — see swapBrowsePrefilter. */
   const swapBrowsePrefilter = useMemo(
     () => resolveSwapBrowsePrefilter(swapCurrentLibraryItem),
     [swapCurrentLibraryItem],
   );
+  /** The chip in force: the reader's, or else the lift's own body part. */
+  const swapBodyPart: BodyPartFilter = swapBodyPartFilter ?? swapBrowsePrefilter;
 
   /**
    * Everything else the library holds.
@@ -2346,11 +2347,10 @@ function GuidedPlayer({
         exerciseNameLabel(language, item.name) !== currentLabel &&
         !sessionLiftLabels.has(exerciseNameLabel(language, item.name)) &&
         !suggested.has(exerciseNameLabel(language, item.name)) &&
-        // The library's own body-part chip, only once "Selaa kaikkia
-        // liikkeitä" is open — see swapBrowseOpen. Composes with the typed
-        // query below rather than replacing it, like the library screen's
-        // own chips do.
-        matchesBodyPartFilter(item, swapBodyPartFilter),
+        // The body-part chip, the lift's own until the reader picks another
+        // (swapBodyPart). Composes with the typed query below rather than
+        // replacing it, like the library screen's own chips do.
+        matchesBodyPartFilter(item, swapBodyPart),
     );
     if (!query) {
       const popular = getPopularExerciseLibraryOrder(exerciseLibrary);
@@ -2365,7 +2365,7 @@ function GuidedPlayer({
     // One row per shown name, as on Home and the programme day (PR review).
     const ranked = rankExerciseMatches(pool, query, language, (item) => popular.get(item.id));
     return oneRowPerShownName(ranked, language).slice(0, 40);
-  }, [actionExercise, exerciseLibrary, language, sessionLiftLabels, swapBodyPartFilter, swapSuggestions, swapQuery]);
+  }, [actionExercise, exerciseLibrary, language, sessionLiftLabels, swapBodyPart, swapSuggestions, swapQuery]);
 
   const applySwap = (exerciseName: string) => {
     if (!actionExercise) {
@@ -2379,8 +2379,7 @@ function GuidedPlayer({
     );
     setSwapOpen(false);
     setSwapQuery('');
-    setSwapBrowseOpen(false);
-    setSwapBodyPartFilter('all');
+    setSwapBodyPartFilter(null);
     unpause();
   };
 
@@ -4451,8 +4450,7 @@ function GuidedPlayer({
           onClose={() => {
             setSwapOpen(false);
             setSwapQuery('');
-            setSwapBrowseOpen(false);
-            setSwapBodyPartFilter('all');
+            setSwapBodyPartFilter(null);
             unpause();
           }}
           bottomInset={screenInsets.bottom}
@@ -4488,63 +4486,43 @@ function GuidedPlayer({
             ) : null}
 
             {/*
-              The library's own way to narrow this list: not shown until
-              asked for, so a swap that already found its answer in
-              Ehdotetut is not made to read a chip row it will never touch.
-              Opens on the exercise's own body part (swapBrowsePrefilter),
-              closest first the way Ehdotetut already orders it — the
-              library screen has its own full chip set (body part, category,
-              equipment) and its own dashboard chrome around a FlatList
-              that owns the screen; forking that whole component into a
-              bottom sheet is a different-sized change from this one, so
-              this reuses its actual chip data and matcher
+              The library's own way to narrow this list, always there and
+              already on the lift's own body part (swapBodyPart) — nearest
+              first, the way Ehdotetut already orders it. It sat behind a
+              "Selaa kaikkia liikkeitä" link until #bugs 2026-09-30, and the
+              list under it was the most popular lifts of any body part. It
+              reuses the library screen's chip data and matcher
               (BODY_PART_FILTERS, matchesBodyPartFilter from
               exerciseBrowseFilter.ts) rather than a second copy of either.
             */}
-            {!swapBrowseOpen ? (
-              // minHeight takes the link itself to 44 (accessibility audit,
-              // 2026-09-21 pattern) — a single row, not a scrolling rail, so
-              // there is no sibling padding to hold a hitSlop instead.
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => {
-                  setSwapBodyPartFilter(swapBrowsePrefilter);
-                  setSwapBrowseOpen(true);
-                }}
-                style={styles.swapBrowseToggle}
-              >
-                <Text style={styles.swapBrowseToggleText}>{t(language, 'guided.swap.browseAll')}</Text>
-              </Pressable>
-            ) : (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={styles.swapBrowseChipRow}
-              >
-                {BODY_PART_FILTERS.map((option) => {
-                  const selected = swapBodyPartFilter === option;
-                  return (
-                    <Pressable
-                      key={option}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected }}
-                      // 34 drawn, 44 to the thumb — the row's own vertical
-                      // padding holds the slop, the same as CatalogScreen's
-                      // and ExerciseLibraryBrowser's chip rails (accessibility
-                      // audit, 2026-09-21; Android clips a slop to its parent).
-                      hitSlop={{ top: 5, bottom: 5 }}
-                      onPress={() => setSwapBodyPartFilter(option)}
-                      style={[styles.swapBrowseChip, selected && styles.swapBrowseChipActive]}
-                    >
-                      <Text style={[styles.swapBrowseChipText, selected && styles.swapBrowseChipTextActive]}>
-                        {libraryLabel(option, language)}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-            )}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.swapBrowseChipRow}
+            >
+              {BODY_PART_FILTERS.map((option) => {
+                const selected = swapBodyPart === option;
+                return (
+                  <Pressable
+                    key={option}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    // 34 drawn, 44 to the thumb — the row's own vertical
+                    // padding holds the slop, the same as CatalogScreen's
+                    // and ExerciseLibraryBrowser's chip rails (accessibility
+                    // audit, 2026-09-21; Android clips a slop to its parent).
+                    hitSlop={{ top: 5, bottom: 5 }}
+                    onPress={() => setSwapBodyPartFilter(option)}
+                    style={[styles.swapBrowseChip, selected && styles.swapBrowseChipActive]}
+                  >
+                    <Text style={[styles.swapBrowseChipText, selected && styles.swapBrowseChipTextActive]}>
+                      {libraryLabel(option, language)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
 
             {/*
               "All exercises" over a list a chip just narrowed to one body
@@ -4553,8 +4531,8 @@ function GuidedPlayer({
               picked; "guided.swap.library" is only the unfiltered heading.
             */}
             <Text style={styles.swapSectionLabel}>
-              {swapBrowseOpen && swapBodyPartFilter !== 'all'
-                ? libraryLabel(swapBodyPartFilter, language)
+              {swapBodyPart !== 'all'
+                ? libraryLabel(swapBodyPart, language)
                 : t(language, 'guided.swap.library')}
             </Text>
             {swapLibrary.length > 0 ? (
@@ -6415,16 +6393,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1.1,
     textTransform: 'uppercase',
-  },
-  swapBrowseToggle: {
-    marginTop: 4,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  swapBrowseToggleText: {
-    color: theme.purple,
-    fontSize: 13,
-    fontWeight: '800',
   },
   // 5 above and below, not 4: the chips' 5 of hitSlop needs to sit inside
   // this row, or Android clips the slop to it (accessibility audit,
