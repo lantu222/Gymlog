@@ -243,6 +243,22 @@ export function setNumberLanguage(language: AppLanguage) {
 }
 
 /**
+ * `build`, with numbers written for `language`, and the separator put back
+ * after. For text built for someone other than the app's own reader — the
+ * coach endpoint builds its offline answer in Node, where nothing ever set
+ * the separator, so an English answer read "ACWR 3,02" (#bugs, 2026-09-30).
+ */
+export function withNumberLanguage<T>(language: AppLanguage, build: () => T): T {
+  const saved = decimalSeparator;
+  setNumberLanguage(language);
+  try {
+    return build();
+  } finally {
+    decimalSeparator = saved;
+  }
+}
+
+/**
  * The active decimal mark applied to a string the caller has already rounded.
  *
  * `removeTrailingZeros` rounds to one decimal, which is right for weights and

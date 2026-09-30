@@ -4,7 +4,7 @@ import { I18nKey, t } from './i18n';
 import { liftGroupOf } from './liftIdentity';
 import { AICoachAdvice, AICoachPlateauSummary, AICoachTrainingContext } from '../types/aiCoach';
 import { AppLanguage } from '../types/models';
-import { applyDecimalSeparator, removeTrailingZeros } from './format';
+import { applyDecimalSeparator, removeTrailingZeros, withNumberLanguage } from './format';
 import { exerciseNameLabel } from './exerciseNameLabel';
 
 /**
@@ -222,10 +222,19 @@ function buildHighFatigueResponse(
   };
 }
 
+/** The offline answer, its numbers in the answer's own language — see withNumberLanguage. */
 export function buildAiCoachPreviewAnswer(
   prompt: string,
   context: AICoachTrainingContext,
   language: AppLanguage = 'en',
+): AICoachAdvice {
+  return withNumberLanguage(language, () => buildPreviewAnswer(prompt, context, language));
+}
+
+function buildPreviewAnswer(
+  prompt: string,
+  context: AICoachTrainingContext,
+  language: AppLanguage,
 ): AICoachAdvice {
   /**
    * The scope rule, before any answer is built.
