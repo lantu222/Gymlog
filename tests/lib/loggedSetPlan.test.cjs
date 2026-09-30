@@ -37,6 +37,11 @@ module.exports = [
         'borrowed',
       );
       assert.equal(buildLoggedSetPlan({ ...base, plannedLoadKg: 60 }).basis, 'repeat');
+      // An added set is the reader's, whatever the set it copied carried.
+      assert.equal(
+        buildLoggedSetPlan({ ...base, plannedLoadKg: 90, autoProgressedFromKg: 80, addedMidSession: true }).basis,
+        'added',
+      );
       // A lowered missed-reps target is the same weight again, at reps the
       // reader can meet: a repeat, with the reps it opened at.
       const lowered = buildLoggedSetPlan({ ...base, plannedLoadKg: 60, plannedTargetReps: 6 });
@@ -186,16 +191,35 @@ module.exports = [
         },
       );
 
-      // The reader logs the first set heavier than the app's raised 82.5.
+      // The reader logs every set heavier than the app's raised 82.5.
       const session = JSON.parse(JSON.stringify(started.activeSession));
-      const first = session.exercises[0].sets[0];
-      first.status = 'completed';
-      first.actualLoadKg = 90;
-      first.actualReps = 5;
-      first.completedAt = '2026-09-24T10:00:00.000Z';
+      for (const set of session.exercises[0].sets) {
+        set.status = 'completed';
+        set.actualLoadKg = 90;
+        set.actualReps = 5;
+        set.completedAt = '2026-09-24T10:00:00.000Z';
+      }
 
-      const [draft] = buildExerciseLogDraftsFromWorkoutSession(session);
-      const saved = normalizeExerciseLogDraft(draft).sets[0];
+      // Then adds a fourth set, which opens on the 90 just lifted (CI review of #245:
+      // saved as the app's suggestion, the log would claim the app said 90).
+      const added = JSON.parse(
+        JSON.stringify(
+          workoutReducer({ ...started, activeSession: session }, { type: 'exercise/addSet', payload: { slotId: session.exercises[0].slotId } })
+            .activeSession,
+        ),
+      );
+      const extra = added.exercises[0].sets[added.exercises[0].sets.length - 1];
+      extra.status = 'completed';
+      extra.actualLoadKg = 90;
+      extra.actualReps = 4;
+      extra.completedAt = '2026-09-24T10:10:00.000Z';
+
+      const [draft] = buildExerciseLogDraftsFromWorkoutSession(added);
+      const savedSets = normalizeExerciseLogDraft(draft).sets;
+      const saved = savedSets[0];
+      const savedExtra = savedSets[savedSets.length - 1];
+      assert.equal(savedExtra.planned.basis, 'added');
+      assert.equal(savedExtra.planned.loadKg, 90);
       assert.equal(saved.weight, 90);
       assert.deepEqual(saved.planned, {
         loadKg: 82.5,

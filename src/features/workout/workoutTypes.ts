@@ -153,6 +153,12 @@ export interface WorkoutSetInstance {
    */
   heldForCautionArea?: SetupCautionArea;
   /**
+   * The reader added this set mid-session. Its opening weight is copied from
+   * the set before it — usually what the reader just lifted — so the saved
+   * plan must not present it as the app's suggestion.
+   */
+  addedMidSession?: boolean;
+  /**
    * When the prefill came from the same lift in a DIFFERENT slot — another
    * program, another day, an empty workout — this is when that session was
    * performed. The guided player shows it, because a weight that did not come

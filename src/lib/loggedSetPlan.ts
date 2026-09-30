@@ -13,7 +13,9 @@ import { ExerciseLogSetPlan, ExerciseLogSetPlanBasis, SetupCautionArea } from '.
  * The plan is the session-start prefill. Mid-session the guided player may
  * open a later set on what the previous set actually lifted; that is the
  * reader's own number carried forward, not the app's plan, and the logged
- * weight already records it.
+ * weight already records it. A set the reader adds opens on the set before
+ * it and is saved as `added`, never as a suggestion; a swap re-resolves the
+ * set from the new lift's own history (`borrowed`, or `none`).
  */
 
 /** The live set's prefill fields, as workoutTypes.WorkoutSetInstance holds them. */
@@ -27,9 +29,11 @@ export interface PlannedSetSource {
   heldForFatigue?: boolean;
   heldForCautionArea?: SetupCautionArea;
   prefilledFromPerformedAt?: string;
+  addedMidSession?: boolean;
 }
 
 const BASES: readonly ExerciseLogSetPlanBasis[] = [
+  'added',
   'progressed',
   'held_caution',
   'held_recovery',
@@ -65,6 +69,9 @@ function finite(value: unknown, max: number): number | null {
  * went through the gate at all.
  */
 function basisOf(set: PlannedSetSource): ExerciseLogSetPlanBasis {
+  // First: an added set copies the previous set's weight, which is usually
+  // the reader's own — whatever else that set carried, this one is theirs.
+  if (set.addedMidSession) return 'added';
   if (set.autoProgressedFromKg !== undefined || set.autoProgressedFromReps !== undefined) return 'progressed';
   if (set.heldForCautionArea) return 'held_caution';
   if (set.heldForFatigue) return 'held_recovery';

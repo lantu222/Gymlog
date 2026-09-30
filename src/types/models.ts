@@ -274,9 +274,12 @@ export interface ExerciseLibraryItem {
  *   or the recovery read held it
  * - borrowed: the same lift's weight from another programme or day
  * - repeat: last time's number in this slot
+ * - added: a set the reader added mid-session, opened on the set before it —
+ *   the reader's own number, not a suggestion
  * - none: the set opened empty
  */
 export type ExerciseLogSetPlanBasis =
+  | 'added'
   | 'progressed'
   | 'held_caution'
   | 'held_recovery'
