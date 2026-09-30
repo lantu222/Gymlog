@@ -170,6 +170,11 @@ module.exports = [
       assert.match(section, /`nextSteps`:[^\n]*every rep made means moving on, the way `example` moves \("every rep landed, so it is time to move on"; in Finnish "kaikki toistot menivät, joten on aika edetä"\)/);
       assert.match(section, /`nextSteps`:[^\n]*a missed rep or a drop means repeating the weight/);
       assert.match(section, /`nextSteps`:[^\n]*It never contradicts `example`/);
+      // A hold the app makes for recovery is said as a hold, even over every
+      // rep made: "aika edetä painossa" above "Tavoittele 155 kg x 6/6/6"
+      // (store shots, 2026-09-30).
+      assert.match(section, /`nextSteps`:[^\n]*a hold for recovery means keeping the weight[^\n]*even when every rep was made/);
+      assert.match(source, /A "next time" marked as a hold is the app keeping the weight[^\n]*none says it is time to move up/);
       assert.doesNotMatch(section, /let the new weight settle|anna uuden painon vakiintua/);
       assert.match(section, /`example`:[^\n]*in the reader\\'s language \("Hold 50 kg and aim for 7\/7\/7"; in Finnish "Pidä 50 kg ja tavoittele 7\/7\/7"\)/);
 

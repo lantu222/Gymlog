@@ -238,6 +238,11 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
     language,
     liftName,
     sessionName,
+    // The progression gate's own first hold (progressionGate
+    // toProgressionFatigueSignal + evaluateProgression), read off the same
+    // fatigue the app sends: a confident "above usual" or higher holds every
+    // earned load.
+    context.fatigue.confident && (context.fatigue.signal === 'elevated' || context.fatigue.signal === 'high'),
   );
   if (lastBlock) blocks.push(lastBlock);
   // The same session appears again in the history list below. Marked there —
@@ -564,6 +569,59 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
 }
 
 /**
+ * Which way the app's next prescription moves from this session, said beside
+ * it. Without it the model saw every rep made, took that as "time to move
+ * up", and wrote so above an example that held the weight — the gate had held
+ * it for recovery, and nothing in the line said so ("kaikki toistot menivät,
+ * joten on aika edetä painossa" over "Tavoittele 155 kg x 6/6/6", store shots
+ * 2026-09-30). Null when there is nothing to compare against.
+ */
+export function nextTimeDirection(
+  sets: readonly { weightKg: number; reps: number }[],
+  next: { loadKg: number | null; reps: readonly number[] },
+  recoveryHold: boolean,
+): string | null {
+  if (sets.length === 0 || next.reps.length === 0) {
+    return null;
+  }
+  const top = Math.max(...sets.map((entry) => entry.weightKg));
+  if (next.loadKg !== null && next.loadKg > top) {
+    return top > 0 ? `up from ${trim(top)} kg: moving on` : 'adds load: moving on';
+  }
+  if (next.loadKg !== null && next.loadKg < top) {
+    return `lighter than this session's ${trim(top)} kg`;
+  }
+  // Same weight: the reps say the rest. Compared set by set, over the sets
+  // both have, at this session's top weight.
+  const atTop = sets.filter((entry) => entry.weightKg === top).map((entry) => entry.reps);
+  const count = Math.min(atTop.length, next.reps.length);
+  let up = 0;
+  let down = 0;
+  for (let index = 0; index < count; index += 1) {
+    if (next.reps[index] > atTop[index]) up += 1;
+    if (next.reps[index] < atTop[index]) down += 1;
+  }
+  if (down > 0) {
+    return null;
+  }
+  // Every set asked for more is a step. Only the short sets asked for again
+  // (6, 6, 4 → 6, 6, 6) is the same target repeated, not a step up.
+  if (up === count && atTop.length >= next.reps.length) {
+    return 'more reps at the same weight: moving on';
+  }
+  if (up > 0 || atTop.length < next.reps.length) {
+    return 'the same weight again, to make up the reps or sets that fell short: a repeat, not a step up';
+  }
+  // A hold with nothing short. The gate's first rule stops every load while a
+  // confident reading is above usual; stated as the rule, which holds whatever
+  // else the gate saw, rather than as the only reason (progressionGate's
+  // heldForFatigue will not claim more than that either).
+  return recoveryHold
+    ? 'the same as this session: a hold. While this week\'s lifting load is above usual the app adds no weight — say that is why, never that it is time to move up'
+    : 'the same as this session: a hold. Say to repeat it — never that it is time to move up';
+}
+
+/**
  * What "my last workout" means, set by set, headed so the model cannot take
  * another session for it — see AICoachLastSession. An older app sends no
  * sets; the newest line of the history stands in, so every reader with
@@ -584,6 +642,7 @@ function renderLastSession(
   language: AppLanguage | null,
   liftName: (name: string) => string,
   sessionName: (name: string) => string,
+  recoveryHold: boolean,
 ) {
   const writes = (day: string) =>
     language === null
@@ -640,10 +699,11 @@ function renderLastSession(
       // The app's own next prescription, which the answer's example quotes.
       if (exercise.next) {
         const reps = exercise.next.reps.join(', ');
+        const direction = nextTimeDirection(exercise.sets, exercise.next, recoveryHold);
         parts.push(
-          exercise.next.loadKg !== null
+          (exercise.next.loadKg !== null
             ? `next time (the app's own prescription): ${trim(exercise.next.loadKg)} kg x ${reps}`
-            : `next time (the app's own prescription): ${reps} reps`,
+            : `next time (the app's own prescription): ${reps} reps`) + (direction ? ` — ${direction}` : ''),
         );
       }
       return `- ${liftName(exercise.name)} — ${parts.join(' | ')}`;
