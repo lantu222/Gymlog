@@ -152,7 +152,7 @@ import { toProgressionFatigueSignal } from './src/lib/progressionGate';
 import { resolveThemeName } from './src/lib/themePreference';
 import { localizeSessionFocus, localizeSessionName } from './src/lib/sessionNameLabel';
 import { trackEvent } from './src/features/analytics/analyticsClient';
-import { countsAsAppOpen, countsAsPaywallView, joinedRunningSet } from './src/lib/analyticsMoments';
+import { countsAsAppOpen, joinedRunningSet } from './src/lib/analyticsMoments';
 
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
 import { buildExercisePrLookup } from './src/lib/workoutCompletionSummary';
@@ -305,7 +305,9 @@ import {
   getStartOfWeek,
 } from './src/app/workoutCompletionState';
 import { useDeviceSwitches } from './src/app/useDeviceSwitches';
+import { useFunnelAnalytics } from './src/app/useFunnelAnalytics';
 import { useInstallStamps } from './src/app/useInstallStamps';
+import { useSetupWeightSeed } from './src/app/useSetupWeightSeed';
 import { useTodayKey } from './src/app/useTodayKey';
 import { buildSessionAnalysis } from './src/lib/sessionAnalysis';
 import { AboutYouScreen, AboutYouValues } from './src/screens/AboutYouScreen';
@@ -1039,53 +1041,7 @@ function VinhaApp() {
   const [onboardingStep, setOnboardingStep] = useState<
     'path' | 'about' | 'questionnaire' | 'ready_catalog'
   >('path');
-  // The funnel's spine: which onboarding stage was reached. If half of every
-  // install stops at one stage, that stage is the finding — the question this
-  // whole event pipe exists to answer (user, 2026-08-25).
-  //
-  // Gated on hydration: before the stored preferences are in,
-  // onboardingCompleted is the provider's default false, so every cold start
-  // of a long-finished install used to count as reaching step "path" —
-  // the funnel's first stage was inflated by every returning user
-  // (review finding, 2026-09-04).
-  //
-  // Welcome is its own step. The flow state starts at 'path' underneath the
-  // Welcome screen, so "path" was sent while Welcome was showing — and when
-  // the path picker itself came up nothing changed that this effect watches,
-  // so the picker was never measured at all: the funnel's first row was
-  // Welcome under the picker's name. A stage name in `path` is what the
-  // questionnaire already sends; the vocabulary is unchanged (analytics
-  // audit, 2026-09-21).
-  useEffect(() => {
-    if (hydrated && onboardingActive) {
-      trackEvent('onboarding_step', { path: entryFlowActive ? 'welcome' : onboardingStep });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, onboardingActive, entryFlowActive, onboardingStep]);
-  // Conversion's top of funnel: the paywall was on screen. Purchases will
-  // come from Play's own reporting once billing exists.
-  //
-  // Once per visit, and only to a reader it is a paywall for. This ran on
-  // every change of the route object: a Pro member looking at their own
-  // membership counted as a view, and so did every return from the terms
-  // page opened on top of it (analytics audit, 2026-09-21). The page counts
-  // as still open while it waits in the back stack.
-  const paywallOpenRef = useRef(false);
-  useEffect(() => {
-    const isPaywall = (candidate: AppRoute) => candidate.tab === 'profile' && candidate.screen === 'premium';
-    const onPaywall = isPaywall(route);
-    if (
-      countsAsPaywallView({
-        paywallWasOpen: paywallOpenRef.current,
-        onPaywall,
-        proUnlocked: resolveProEntitlement(preferences).unlocked,
-      })
-    ) {
-      trackEvent('paywall_viewed');
-    }
-    paywallOpenRef.current = onPaywall || navigationState.history.some(isPaywall);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [route, navigationState.history]);
+  useFunnelAnalytics({ hydrated, onboardingActive, entryFlowActive, onboardingStep, route, navigationState, preferences });
   const [busySavingReadyPick, setBusySavingReadyPick] = useState(false);
 
   // The onboarding flow state lives in memory; when the gate closes (finished)
@@ -1184,49 +1140,7 @@ function VinhaApp() {
       ? fullBleedReviewRaw
       : null;
 
-  useEffect(() => {
-    if (!hydrated || !preferences.onboardingCompleted) {
-      return;
-    }
-
-    if (
-      typeof preferences.setupCurrentWeightKg !== 'number' ||
-      !Number.isFinite(preferences.setupCurrentWeightKg) ||
-      preferences.setupCurrentWeightKg <= 0
-    ) {
-      return;
-    }
-
-    /**
-     * Once, ever — not "whenever the log is empty".
-     *
-     * An empty log is also what the reader sees the moment they delete their
-     * only weigh-in, and this effect put setup's number straight back: the
-     * row reappeared, and deleting it looked broken (2026-09-16). The flag
-     * records that the seed has been written, so a deleted weigh-in stays
-     * deleted.
-     */
-    if (preferences.setupWeightSeeded || database.bodyweightEntries.length > 0) {
-      if (!preferences.setupWeightSeeded && database.bodyweightEntries.length > 0) {
-        void updatePreferences({ setupWeightSeeded: true });
-      }
-      return;
-    }
-
-    void addBodyweightEntry(preferences.setupCurrentWeightKg)
-      // Flagged only once the weigh-in is actually stored: a write that failed
-      // has seeded nothing, and the empty log below asks again next render.
-      .then(() => updatePreferences({ setupWeightSeeded: true }))
-      .catch(() => undefined);
-  }, [
-    addBodyweightEntry,
-    database.bodyweightEntries.length,
-    hydrated,
-    preferences.onboardingCompleted,
-    preferences.setupCurrentWeightKg,
-    preferences.setupWeightSeeded,
-    updatePreferences,
-  ]);
+  useSetupWeightSeed({ hydrated, preferences, database, addBodyweightEntry, updatePreferences });
 
   /**
    * The route-level back. BackHandler calls the newest listener first, and a
