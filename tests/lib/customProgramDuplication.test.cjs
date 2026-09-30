@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { buildDuplicatedCustomProgramDraft } = require('../../.test-dist/lib/customProgramDuplication.js');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 const ROOT = path.join(__dirname, '..', '..');
 const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8').replace(/\r\n/g, '\n');
@@ -124,8 +125,18 @@ module.exports = [
      */
     name: 'nothing offers to duplicate a programme',
     run() {
-      for (const file of ['App.tsx', 'src/app/renderWorkoutTab.tsx', 'src/screens/WorkoutsScreen.tsx']) {
-        const source = read(file);
+      // The whole shell, not a hand list of its files: phase B (2026-09-30)
+      // moves VinhaApp's handlers into src/app modules one by one, and the
+      // copy-on-edit fork is among them. Asserted present first, so the
+      // absence below is read over the code that copies a programme and over
+      // the workout tab, wherever they sit.
+      const shell = readAppWiring().replace(/\r\n/g, '\n');
+      assert.match(shell, /const draft = buildDuplicatedCustomProgramDraft\(/);
+      assert.match(shell, /export function renderWorkoutTab\(/);
+      for (const [file, source] of [
+        ['App.tsx and src/app', shell],
+        ['src/screens/WorkoutsScreen.tsx', read('src/screens/WorkoutsScreen.tsx')],
+      ]) {
         assert.doesNotMatch(source, /handleDuplicateCustomProgram|DuplicateCustomWorkout/, file);
       }
       // And the one caller left asks for no naming option at all: keeping the

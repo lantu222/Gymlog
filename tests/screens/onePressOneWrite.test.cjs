@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+const { functionBody } = require('../helpers/sourceSlices.cjs');
 
 const root = path.join(__dirname, '..', '..');
 const read = (...segments) => fs.readFileSync(path.join(root, ...segments), 'utf8');
@@ -58,11 +59,11 @@ module.exports = [
       // both looked for inside the one function that makes the copy, since
       // "screen: 'programDay'," appears elsewhere in the wiring too and an
       // unbounded search would find one of those (CI review of #173).
-      const start = app.indexOf('async function runProgramExerciseEdit(');
-      assert.ok(start > 0, 'runProgramExerciseEdit not found');
-      const tail = app.slice(start + 1);
-      const end = tail.search(/\n  (?:async )?function \w+\(/);
-      const edit = end === -1 ? tail : tail.slice(0, end);
+      // The function itself, bracket-matched and asserted present: sliced to
+      // the next 2-space `function`, it would run on past its own end once it
+      // left VinhaApp for a module with nothing declared after it (phase-B
+      // split, 2026-09-30).
+      const edit = functionBody(app, 'async function runProgramExerciseEdit(');
       const made = edit.indexOf('copiedInThisEditBurst.current.add(programId);');
       const navigated = edit.indexOf("screen: 'programDay',");
       assert.ok(made > 0, 'the copy is not recorded where it is made');
