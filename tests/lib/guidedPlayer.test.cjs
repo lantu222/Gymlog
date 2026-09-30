@@ -17,7 +17,6 @@ const {
   getGuidedPhaseRail,
   getGuidedPhaseSkipTargetIndex,
   findGuidedPhaseStart,
-  getGuidedPhaseLabel,
   getGuidedStepLabel,
   getGuidedNextPreview,
   getGuidedNextName,
@@ -397,12 +396,14 @@ module.exports = [
     },
   },
   {
-    name: 'a skipped exercise keeps its place in the header numbering',
+    name: 'a skipped exercise keeps its place in the session numbering',
     run() {
       // Seen on a phone: skip two of six and the third read "EXERCISE 1 OF 4",
       // the last "1 OF 1". The plan is rebuilt after every skip and numbered
       // the survivors from one. Skipped lifts get no steps, but the count is
       // over the whole session and the position is the lift's real place.
+      // (The top bar no longer prints it — #bugs 2026-09-30 — but the steps
+      // still carry the lift's real place.)
       const { steps } = buildGuidedSteps({
         warmup: [],
         exercises: [
@@ -415,7 +416,7 @@ module.exports = [
       });
       const setSteps = steps.filter((step) => step.type === 'set');
       assert.deepEqual(
-        setSteps.map((step) => getGuidedPhaseLabel(step)),
+        setSteps.map((step) => `${step.exerciseIndex + 1}/${step.exerciseCount}`),
         ['3/4', '4/4'],
       );
       // The work splash still counts what is left to do.
@@ -443,28 +444,12 @@ module.exports = [
     },
   },
   {
-    name: 'the top bar counts, and names no phase',
+    name: 'step labels are localized, lift names included',
     run() {
       const { steps } = buildPlan();
-      // A count where the screen is one of several, and nothing where it is
-      // not: "LÄMMITTELY", "TREENI" and "LEPO" said what the screen under them
-      // already says (#bugs 2026-09-30). The clock beside it stays.
-      assert.equal(getGuidedPhaseLabel(steps[0]), '', 'splash');
-      assert.equal(getGuidedPhaseLabel(steps[1]), '', 'ready');
-      assert.equal(getGuidedPhaseLabel(steps[2]), '1/2');
-      assert.equal(getGuidedPhaseLabel(steps[6]), '1/2');
-      assert.equal(getGuidedPhaseLabel(steps[8]), '', 'rest');
-      assert.equal(getGuidedPhaseLabel(steps[18]), '1/1');
-      assert.equal(getGuidedPhaseLabel(steps[19]), 'DONE');
-      for (const language of ['en', 'fi']) {
-        for (const step of steps) {
-          assert.doesNotMatch(
-            getGuidedPhaseLabel(step, language),
-            /WARM-UP|WORKOUT|RECOVERY|REST|LÄMMITTELY|TREENI|PALAUTUMINEN|LEPO/,
-            `${language} ${step.type}`,
-          );
-        }
-      }
+      // No top-bar label any more: the phase word went and then the "1/6"
+      // with it, leaving the clock alone (#bugs 2026-09-30).
+      assert.equal(require('../../.test-dist/lib/guidedPlayer.js').getGuidedPhaseLabel, undefined);
       assert.equal(getGuidedStepLabel(steps[9]), 'Bench Press set 2');
       // Every label this module returns is localized, including the lift's
       // name. The resume chip used to offer "Front Squat sarja 3" for a screen

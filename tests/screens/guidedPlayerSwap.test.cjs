@@ -711,4 +711,50 @@ module.exports = [
       assert.doesNotMatch(source, /styles\.sheetTitle\b/);
     },
   },
+  {
+    /**
+     * #bugs 2026-09-30: "Poista yläosasta treeni ja lepo", then "Otetaan toi
+     * 1/6 pois myös yläpalkista". The player's top bar is the session clock
+     * and nothing else; only the do-it-yourself block, which has no title of
+     * its own, still names itself there.
+     */
+    name: 'guided top bar: the player shows the clock alone',
+    run() {
+      const source = playerSource.replace(/\r\n/g, '\n');
+      const bars = source.match(/<TopBar\b[\s\S]*?\/>/g) ?? [];
+      assert.equal(bars.length, 2, 'the player bar and the own-block bar');
+      const [player, ownBlock] = bars;
+      assert.doesNotMatch(player, /label=/, 'the player bar carries a label again');
+      assert.match(ownBlock, /label=\{t\(\s*language,\s*ownBlock\.phase === 'warmup' \? 'guided\.label\.warmup' : 'guided\.label\.cooldown',?\s*\)\}/);
+      assert.doesNotMatch(source, /getGuidedPhaseLabel/);
+      assert.match(source, /\{\[label, clock\]\.filter\(Boolean\)\.join\(' · '\)\}/);
+    },
+  },
+  {
+    /**
+     * Measured on the phone, 2026-09-30: every render of the player took
+     * ~230 ms, on every 100 ms timer tick — the countdown showed its 3 for
+     * 1.24 s and its 1 for 0.7 s ("Countdown lagaa 3 3 2 1"). The cost was the
+     * add-exercise sheet, mounted closed all session, re-sorting the ~900-lift
+     * library because the player handed it a new `recentItems` array each
+     * render. Under 40 ms per render once the array was stable.
+     */
+    name: 'guided player: the closed add-exercise sheet does no work on the player\'s renders',
+    run() {
+      const source = playerSource.replace(/\r\n/g, '\n');
+      // A module-level constant, not an inline literal.
+      assert.match(source, /^const NO_RECENT_EXERCISES: ExerciseLibraryItem\[\] = \[\];$/m);
+      assert.match(source, /recentItems=\{NO_RECENT_EXERCISES\}/);
+      assert.doesNotMatch(source, /recentItems=\{\[\]\}/);
+      // The warm-up brief's input is memoized too (~20 ms a render).
+      assert.match(source, /const activeExercises = useMemo\(\s*\(\) => exercises\.filter\(/);
+      // And the sheet itself lists nothing while closed, whatever it is handed.
+      const sheet = fs
+        .readFileSync(path.join(__dirname, '..', '..', 'src', 'components', 'AddExerciseSheet.tsx'), 'utf8')
+        .replace(/\r\n/g, '\n');
+      assert.match(sheet, /const filteredItems = useMemo\(\(\) => \{[\s\S]*?if \(!visible\) \{\s*return \[\];\s*\}/);
+      assert.match(sheet, /\}, \[bodyPart, category, commonStarterOrder, equipment, items, language, search, visible\]\);/);
+      assert.match(sheet, /visible\s*\?\s*getSuggestedExerciseLibraryItems\(/);
+    },
+  },
 ];

@@ -489,43 +489,6 @@ export function findGuidedPhaseStart(steps: GuidedStep[], phase: GuidedPhase): n
 }
 
 /**
- * Top-bar label: where in the block the reader is — "2/3", "1/6",
- * "KIERROS 1/2" — and nothing on a screen that is not one of a count.
- *
- * No phase word. "LÄMMITTELY", "TREENI" and "LEPO" named what the screen under
- * them already says in its own title, its own ring or its own list, and the
- * clock beside them is the one thing up there that is news every time (#bugs
- * 2026-09-30: "Poista yläosasta treeni ja lepo", "lämmittely teksti pois kello
- * keskelle", "treeni sana ylhäältä pois jätä 1/6"). An empty label leaves the
- * clock alone, centred.
- */
-export function getGuidedPhaseLabel(step: GuidedStep, language: AppLanguage = 'en'): string {
-  switch (step.type) {
-    case 'finish':
-      return t(language, 'guided.label.done');
-    case 'splash':
-    case 'ready':
-    case 'rest':
-      return '';
-    case 'drill':
-      return t(language, 'guided.label.count', { index: step.drillIndex + 1, count: step.drillCount });
-    case 'set':
-      // Inside a superset the reader moves between two lifts and back again,
-      // so "2/6" then "3/6" then "2/6" is a counter going backwards. The block
-      // counts rounds instead, which is the question a superset actually
-      // raises — and the label under it names both lifts.
-      return step.supersetRound
-        ? t(language, 'guided.superset.round', {
-            round: step.supersetRound.round,
-            rounds: step.supersetRound.rounds,
-          })
-        : t(language, 'guided.label.count', { index: step.exerciseIndex + 1, count: step.exerciseCount });
-    case 'position':
-      return t(language, 'guided.label.count', { index: step.exerciseIndex + 1, count: step.exerciseCount });
-  }
-}
-
-/**
  * Short human label for the resume chip ("Bench Press set 2").
  *
  * The exercise name goes through the same translation the player itself uses.

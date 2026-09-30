@@ -58,7 +58,6 @@ import {
   buildGuidedRunSheet,
   getGuidedNextName,
   getGuidedNextPreview,
-  getGuidedPhaseLabel,
   getGuidedSessionTitle,
   getGuidedSkipTargetIndex,
   rollPastLoggedWork,
@@ -690,7 +689,11 @@ function TopBar({
   dark: boolean;
   /** For the two icon buttons' names — they had none. */
   language: AppLanguage;
-  label: string;
+  /**
+   * What the screen is, beside the clock — only where nothing under the bar
+   * says it: the do-it-yourself block. The player's own screens pass none.
+   */
+  label?: string;
   /**
    * Session elapsed, m:ss. The one clock in the session, and it belongs here:
    * it is the only number that is true on every screen, so anywhere else it
@@ -728,8 +731,7 @@ function TopBar({
       >
         <GPIcon name="x" size={19} color={iconColor} />
       </Pressable>
-      {/* An empty label is the clock alone, centred — the rest, the splashes
-          and the ready count have no counter to go with it (#bugs 2026-09-30). */}
+      {/* No label is the clock alone, centred (#bugs 2026-09-30). */}
       <Text style={[styles.topLabel, { color: dark ? GPD.muted : theme.muted }]} numberOfLines={1}>
         {[label, clock].filter(Boolean).join(' · ')}
       </Text>
@@ -1279,6 +1281,21 @@ function DialCard({
     </View>
   );
 }
+
+/**
+ * The add-exercise sheet's "recent" list: none here, and the SAME none on
+ * every render.
+ *
+ * It was an inline `[]`, a new array each render, and the sheet — mounted the
+ * whole session, open or not — keys its ordering memos on it. So every render
+ * of the player re-sorted the ~900-item library with `localeCompare`: 230 ms
+ * on the phone, on every 100 ms tick of a timer and every second of the clock.
+ * The JS thread never caught up, and everything waited on it — the countdown
+ * showed its 3 for 1.24 s and its 1 for 0.7 s, the sheets dragged late (#bugs
+ * 2026-09-30, "Countdown lagaa 3 3 2 1", measured on the device: 230 ms per
+ * render before, under 40 ms after).
+ */
+const NO_RECENT_EXERCISES: ExerciseLibraryItem[] = [];
 
 /* ── bottom sheet ── */
 /** How far down a released drag has to have gone to close the sheet. */
@@ -2537,7 +2554,13 @@ function GuidedPlayer({
   /* ── entry data ── */
   const workStart = findGuidedPhaseStart(steps, 'work');
   const cooldownStart = findGuidedPhaseStart(steps, 'cooldown');
-  const activeExercises = exercises.filter((exercise) => exercise.status !== 'skipped' && exercise.sets.length > 0);
+  // Memoized: two memos below key on it, and as a fresh array per render it
+  // rebuilt the warm-up brief — a library lookup per lift — on every timer
+  // tick (~20 ms of each render on the phone, 2026-09-30).
+  const activeExercises = useMemo(
+    () => exercises.filter((exercise) => exercise.status !== 'skipped' && exercise.sets.length > 0),
+    [exercises],
+  );
   const totalSets = activeExercises.reduce((sum, exercise) => sum + exercise.sets.length, 0);
   // Badges for the entry screen's list, over the lifts it actually shows. A
   // lift that is OUT of the plan — skipped, or finished early with the rest of
@@ -3226,10 +3249,13 @@ function GuidedPlayer({
 
       {mode === 'player' && step.type !== 'finish' && (
         <>
+          {/* The clock and nothing else. The phase word went first ("Poista
+              yläosasta treeni ja lepo"), then the "1/6" counter with it (#bugs
+              2026-09-30, "Otetaan toi 1/6 pois myös yläpalkista"): the rail
+              under the screen already counts the block. */}
           <TopBar
             dark={dark}
             language={language}
-            label={getGuidedPhaseLabel(step, language)}
             clock={formatSessionClock(derivedElapsedSeconds)}
             muted={muted}
             onMute={() => onToggleSoundCues(!soundCuesEnabled)}
@@ -4562,7 +4588,7 @@ function GuidedPlayer({
         visible={addExerciseOpen}
         language={language}
         items={exerciseLibrary}
-        recentItems={[]}
+        recentItems={NO_RECENT_EXERCISES}
         title={t(language, 'guided.own.addExercise')}
         onClose={() => setAddExerciseOpen(false)}
         onSelectItem={addMidWorkoutExercise}

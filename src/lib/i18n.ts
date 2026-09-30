@@ -1328,9 +1328,6 @@ const EN = {
   'guided.count.exerciseOne': '1 exercise',
   'guided.count.exerciseMany': '{count} exercises',
   'guided.count.sets': '{count} sets',
-  // The player's header during a superset: the round instead of the exercise
-  // counter, written like the other headers (getGuidedPhaseLabel).
-  'guided.superset.round': 'ROUND {round}/{rounds}',
   // The one word the box and the set screen both wear. Capitalised at the
   // point of use, so the dictionary carries the word and not a style.
   'guided.superset.pill': 'SUPERSET',
@@ -1360,14 +1357,10 @@ const EN = {
   'guided.phase.cooldown': 'Recovery',
   'guided.done.warmup': 'Warm-up complete',
   'guided.done.workout': 'Workout complete',
-  'guided.label.done': 'DONE',
   // Only on the do-it-yourself block's screen now, which has no title of its
   // own. One name for the block, everywhere: Recovery, not COOLDOWN.
   'guided.label.warmup': 'WARM-UP',
   'guided.label.cooldown': 'RECOVERY',
-  // The top bar's counter, beside the session clock. No phase word: the
-  // screen under it already says which block it is (#bugs 2026-09-30).
-  'guided.label.count': '{index}/{count}',
   'guided.step.set': '{name} set {index}',
   'guided.step.setup': '{name} setup',
   'guided.step.rest': 'Rest · {name}',
@@ -4521,7 +4514,6 @@ const FI: Record<I18nKey, string> = {
   'guided.count.exerciseOne': '1 liike',
   'guided.count.exerciseMany': '{count} liikettä',
   'guided.count.sets': '{count} sarjaa',
-  'guided.superset.round': 'KIERROS {round}/{rounds}',
   'guided.superset.pill': 'SUPERSARJA',
   'guided.superset.thenRest': 'sitten lepo',
   'guided.superset.next': 'Ei taukoa — suoraan: {name}',
@@ -4545,10 +4537,8 @@ const FI: Record<I18nKey, string> = {
   'guided.phase.cooldown': 'Palautuminen',
   'guided.done.warmup': 'Lämmittely valmis',
   'guided.done.workout': 'Treeni valmis',
-  'guided.label.done': 'VALMIS',
   'guided.label.warmup': 'LÄMMITTELY',
   'guided.label.cooldown': 'PALAUTUMINEN',
-  'guided.label.count': '{index}/{count}',
   'guided.step.set': '{name} sarja {index}',
   'guided.step.setup': 'Valmistaudu: {name}',
   'guided.step.rest': 'Lepo · {name}',

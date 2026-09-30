@@ -271,6 +271,14 @@ export function AddExerciseSheet({
   const commonStarterOrder = useMemo(() => getPopularExerciseLibraryOrder(items), [items]);
 
   const filteredItems = useMemo(() => {
+    // A closed sheet lists nothing and ranks nothing. Callers keep it mounted
+    // for its slide, and one of them handed in a fresh `recentItems` array on
+    // every render: the library was filtered and re-sorted with localeCompare
+    // behind a closed sheet, 230 ms each time, four times a second on the
+    // guided player (#bugs 2026-09-30). Everything below derives from this.
+    if (!visible) {
+      return [];
+    }
     const query = search.trim().toLowerCase();
 
     // Stretches and cone drills are in the library but are not sets, and they
@@ -293,16 +301,18 @@ export function AddExerciseSheet({
     // answers with Penkkidippi before Penkkipunnerrus, which is the very
     // complaint the ranking was added for.
     return rankExerciseMatches(filtered, query, language, (item) => commonStarterOrder.get(item.id));
-  }, [bodyPart, category, commonStarterOrder, equipment, items, language, search]);
+  }, [bodyPart, category, commonStarterOrder, equipment, items, language, search, visible]);
 
   const suggestedItems = useMemo(
     () =>
-      getSuggestedExerciseLibraryItems({
-        exerciseLibrary: items,
-        currentItemIds,
-        recentItems,
-      }),
-    [currentItemIds, items, recentItems],
+      visible
+        ? getSuggestedExerciseLibraryItems({
+            exerciseLibrary: items,
+            currentItemIds,
+            recentItems,
+          })
+        : [],
+    [currentItemIds, items, recentItems, visible],
   );
 
   const commonStarterItems = useMemo(() => getPopularExerciseLibraryItems(items).slice(0, 8), [items]);

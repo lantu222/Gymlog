@@ -1,4 +1,6 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const { setNumberLanguage } = require('../../.test-dist/lib/format');
 
@@ -49,19 +51,15 @@ module.exports = [
     },
   },
   {
-    name: 'the header over a superset round is written like every other player header',
+    name: 'the top bar says nothing about a superset round: it is the clock alone',
     run() {
-      const { getGuidedPhaseLabel } = require('../../.test-dist/lib/guidedPlayer.js');
-      const sets = pairPlan().steps.filter((step) => step.type === 'set');
-      // "round 1/2" sat lowercase between two upper-case headers (emulator,
-      // 2026-09-14). Same case; and no phase word since the headers lost
-      // theirs (#bugs 2026-09-30).
-      assert.equal(getGuidedPhaseLabel(sets[0], 'en'), 'ROUND 1/2');
-      assert.equal(getGuidedPhaseLabel(sets[3], 'fi'), 'KIERROS 2/2');
-      for (const language of ['en', 'fi']) {
-        const label = getGuidedPhaseLabel(sets[0], language);
-        assert.equal(label, label.toUpperCase(), `${language}: ${label}`);
-      }
+      // "KIERROS 2/2" was the superset's version of "1/6", and went with it
+      // (#bugs 2026-09-30, "Otetaan toi 1/6 pois myös yläpalkista"). The
+      // round stays on the step for the screens that name it.
+      const guided = require('../../.test-dist/lib/guidedPlayer.js');
+      assert.equal(guided.getGuidedPhaseLabel, undefined);
+      const i18n = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'lib', 'i18n.ts'), 'utf8');
+      assert.doesNotMatch(i18n, /'guided\.superset\.round'/);
     },
   },
   {
