@@ -302,15 +302,33 @@ module.exports = [
       delete require.cache[modulePath];
       delete require.cache[path.join(root, '.test-dist', 'lib', 'aiCoachLiveGate.js')];
       global.fetch = async () => ({ ok: true, status: 200, json: async () => ({ ok: true, source: 'live', answer: { takeaway: 'x', why: [], nextSteps: [], plan: [], assumptions: [] } }) });
+      const logIdModule = require(path.join(root, '.test-dist', 'lib', 'aiCoachLogId.js'));
+      const savedCopies = logIdModule.COACH_COPIES_KEPT;
+      const sent = [];
+      global.fetch = async (url, init) => {
+        sent.push(JSON.parse(init.body));
+        return { ok: true, status: 200, json: async () => ({ ok: true, source: 'live', answer: { takeaway: 'x', why: [], nextSteps: [], plan: [], assumptions: [] } }) };
+      };
       try {
         const coach = require(modulePath);
+        // Copies off (2026-09-30): a stored yes still leaves as a no, with no label.
+        logIdModule.COACH_COPIES_KEPT = false;
+        await coach.requestAiCoachAdvice({ prompt: 'Why?', context: {}, keepConsent: true, logId: B });
+        assert.equal(coach.lastAiLogCarriedAt(B), null, 'a request with copies off was noted as carrying a label');
+        assert.equal(sent[0].keepConsent, false);
+        assert.ok(!('logId' in sent[0]), 'a label left the phone with copies off');
+        // And on, the path the retries were built for.
+        logIdModule.COACH_COPIES_KEPT = true;
         assert.equal(coach.lastAiLogCarriedAt(B), null);
         await coach.requestAiCoachAdvice({ prompt: 'Why?', context: {}, keepConsent: false, logId: B });
         assert.equal(coach.lastAiLogCarriedAt(B), null, 'a request that keeps nothing was noted');
         const before = Date.now();
         await coach.requestAiCoachAdvice({ prompt: 'Why?', context: {}, keepConsent: true, logId: B });
         assert.ok(coach.lastAiLogCarriedAt(B) >= before);
+        assert.equal(sent[sent.length - 1].keepConsent, true);
+        assert.equal(sent[sent.length - 1].logId, B);
       } finally {
+        logIdModule.COACH_COPIES_KEPT = savedCopies;
         global.fetch = saved.fetch;
         for (const [key, value] of [['EXPO_PUBLIC_AI_COACH_API_URL', saved.url], ['EXPO_PUBLIC_AI_COACH_APP_KEY', saved.key], ['NODE_ENV', saved.mode]]) {
           if (value === undefined) {

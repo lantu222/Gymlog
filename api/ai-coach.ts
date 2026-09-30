@@ -5,7 +5,7 @@ import { buildAiCoachPreviewAnswer } from '../src/lib/aiCoachPreview';
 import { buildAiCoachContextText } from '../src/lib/aiCoachSystemContext';
 import { normalizeAiCoachTrainingContext } from '../src/lib/aiTrainingContext';
 import { AI_COACH_DEBUG_TRANSCRIPTS } from '../src/lib/aiCoachDebug';
-import { LOG_ID_PATTERN } from '../src/lib/aiCoachLogId';
+import { COACH_COPIES_KEPT, LOG_ID_PATTERN } from '../src/lib/aiCoachLogId';
 import { formatCoachReportForSlack, readCoachReport } from '../src/lib/coachAnswerReport';
 import { AI_COACH_DEFAULT_MODEL } from '../src/lib/aiCoachModel';
 import { appUpdateRefusalBody, isAppVersionRefused } from '../src/lib/appUpdateGate';
@@ -1163,7 +1163,8 @@ async function keepTranscript(
   logId: string | undefined,
   record: Record<string, unknown>,
 ): Promise<void> {
-  if (!keepConsent || !logId) {
+  // Nothing is kept while copies are off — whatever an older app still sends.
+  if (!COACH_COPIES_KEPT || !keepConsent || !logId) {
     return;
   }
   const at = new Date();

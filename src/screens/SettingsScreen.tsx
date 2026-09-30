@@ -11,6 +11,7 @@ import { t } from '../lib/i18n';
 import { resolveProEntitlement } from '../lib/proEntitlement';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { appInfo, layout } from '../theme';
+import { COACH_COPIES_KEPT } from '../lib/aiCoachLogId';
 import { AppLanguage, AppPreferences } from '../types/models';
 
 interface SettingsScreenProps {
@@ -523,8 +524,12 @@ export function SettingsScreen({
                 the next copy and deletes the ones already made. A withdrawal
                 that only stopped the growth would leave the reader's own words
                 on our server for two more years. */}
+            {/* While copies are off (aiCoachLogId COACH_COPIES_KEPT) a line shows
+                only for a reader who said yes before, so the yes can still be
+                taken back and what was kept deleted. */}
             {onWithdrawCoachLog ? (
               <>
+                {COACH_COPIES_KEPT || preferences.aiLogChatConsent ? (
                 <Row
                   icon="chat"
                   title={t(language, 'settings.coachLog.chat')}
@@ -537,9 +542,12 @@ export function SettingsScreen({
                     />
                   }
                 />
+                ) : null}
+                {COACH_COPIES_KEPT || preferences.aiLogComposerConsent ? (
                 <Row
                   icon="doc"
                   title={t(language, 'settings.coachLog.composer')}
+                  sub={COACH_COPIES_KEPT ? undefined : t(language, 'settings.coachLog.sub')}
                   control={
                     <ToggleSwitch
                       label={t(language, 'settings.coachLog.composer')}
@@ -548,9 +556,12 @@ export function SettingsScreen({
                     />
                   }
                 />
+                ) : null}
+                {COACH_COPIES_KEPT || preferences.aiLogPhotoConsent ? (
                 <Row
                   icon="image"
                   title={t(language, 'settings.coachLog.photo')}
+                  sub={COACH_COPIES_KEPT ? undefined : t(language, 'settings.coachLog.sub')}
                   control={
                     <ToggleSwitch
                       label={t(language, 'settings.coachLog.photo')}
@@ -559,6 +570,7 @@ export function SettingsScreen({
                     />
                   }
                 />
+                ) : null}
               </>
             ) : null}
             <Row

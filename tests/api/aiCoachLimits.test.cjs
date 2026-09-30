@@ -17,7 +17,15 @@ const { PROGRAM_IMAGE_MAX_BASE64_CHARS, PROGRAM_TABLE_TOOL_NAME } = require('../
 
 const LOG_ID = '0123abcd-0000-4000-8000-00000000000a';
 
-async function withCoach(env, scenario) {
+/**
+ * Copies are off in the product (aiCoachLogId COACH_COPIES_KEPT, 2026-09-30),
+ * but the write path stays tested for the day they come back: these cases
+ * switch it on for their run unless they say otherwise.
+ */
+async function withCoach(env, scenario, { copiesKept = true } = {}) {
+  const logIdModule = require('../../.test-dist/lib/aiCoachLogId.js');
+  const savedCopies = logIdModule.COACH_COPIES_KEPT;
+  logIdModule.COACH_COPIES_KEPT = copiesKept;
   const kept = [];
   const upstream = [];
   const blob = {
@@ -51,6 +59,7 @@ async function withCoach(env, scenario) {
       await scenario({ post, kept, upstream });
     });
   } finally {
+    logIdModule.COACH_COPIES_KEPT = savedCopies;
     global.fetch = savedFetch;
     console.warn = quiet.warn;
     console.error = quiet.error;
@@ -67,6 +76,20 @@ const photo = (chars) => ({
 });
 
 module.exports = [
+  {
+    name: 'coach endpoint: with copies off nothing is kept, whatever an older app sends',
+    async run() {
+      assert.equal(require('../../.test-dist/lib/aiCoachLogId.js').COACH_COPIES_KEPT, false);
+      await withCoach({}, async ({ post, kept, upstream }) => {
+        const read = await post(photo(300_000));
+        assert.equal(read.status, 200);
+        const asked = await post({ prompt: 'How is my bench going?', context: heavyCoachContext(), keepConsent: true, logId: LOG_ID });
+        assert.equal(asked.status, 200);
+        assert.equal(upstream.length, 2, 'both reached the model');
+        assert.deepEqual(kept, [], 'a copy was kept with copies off');
+      }, { copiesKept: false });
+    },
+  },
   {
     name: 'coach endpoint: a real photo is read, and one over the import limit is refused and not kept',
     async run() {

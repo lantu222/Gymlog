@@ -1,4 +1,15 @@
 /**
+ * Whether the coach keeps copies at all. Off since 2026-09-30 (user): no
+ * conversation, programme or photo is kept anywhere until the whole question
+ * of keeping and reading them is gone through again after release. One
+ * switch for both ends — the app stops asking and stops sending the
+ * permission, and the server stops writing whatever an older app still sends.
+ * A reader who said yes before keeps the Settings switch that takes it back
+ * and deletes what was kept.
+ */
+export const COACH_COPIES_KEPT = false;
+
+/**
  * The random label a reader's kept coach copies are filed under.
  *
  * Its own module because several places need it and none owns it: the screen
