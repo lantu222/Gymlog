@@ -560,6 +560,24 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
     if (setupBlock) blocks.push(setupBlock);
   }
 
+  // The body areas the reader flagged in setup. Not under the planner block:
+  // that one only exists for a setup nothing completes, and this answer is
+  // real for everyone who gave it (2026-09-30).
+  const cautionAreas = context.cautionAreas ?? [];
+  if (cautionAreas.length > 0) {
+    const levelWords: Record<string, string> = {
+      info: 'info only, keep in mind',
+      careful: 'careful: the plan swaps to joint-friendly lifts and the app never raises the load on lifts that load it',
+      avoid: 'avoid: the plan leaves this area out',
+    };
+    blocks.push(
+      section(
+        'Flagged body areas (the reader\'s own setup answer, not a diagnosis)',
+        cautionAreas.map((row) => `- ${row.area.replace('_', ' ')}: ${levelWords[row.level] ?? row.level}`),
+      )!,
+    );
+  }
+
   // What the coach itself said before, so it stops repeating advice the reader
   // has already had — see lib/coachAdviceMemory. Last, and headed the way it
   // is, because the one thing that must not happen is the model reading these

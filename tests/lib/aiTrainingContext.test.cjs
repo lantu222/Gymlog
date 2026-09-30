@@ -113,6 +113,7 @@ module.exports = [
         'activeSession',
         'body',
         'cardio',
+        'cautionAreas',
         'coachMemory',
         'customProgramTitle',
         'fatigue',
@@ -286,6 +287,67 @@ module.exports = [
 
       // And a context with no history at all is still the empty one.
       assert.equal(normalizeAiCoachTrainingContext({}).history.confidence, 'low');
+    },
+  },
+  {
+    name: 'the coach hears the flagged areas: area and level from the phone, re-checked on the endpoint',
+    run() {
+      const { buildAiTrainingContext, normalizeAiCoachTrainingContext } = require('../../.test-dist/lib/aiTrainingContext');
+      const { buildAiCoachContextText } = require('../../.test-dist/lib/aiCoachSystemContext');
+      const base = {
+        unitPreference: 'kg',
+        activeWorkoutSummary: null,
+        homeSummary: { streak: { sessionsThisWeek: 0, sessionsLast30Days: 0, activity: { days: [] } } },
+        workoutSessions: [],
+        exerciseLogs: [],
+        trackedProgress: [],
+        readyProgramCount: 0,
+        recommendedProgramId: null,
+        recommendedProgramTitle: null,
+        customProgramTitle: null,
+        now: new Date('2026-09-30T09:00:00.000Z'),
+      };
+
+      // Nothing flagged: an empty list, and no section in the text.
+      const none = buildAiTrainingContext(base);
+      assert.deepEqual(none.cautionAreas, []);
+      assert.doesNotMatch(buildAiCoachContextText(none), /Flagged body areas/);
+
+      // Flagged: area and level travel, the reader's own refinement notes stay.
+      const flagged = buildAiTrainingContext({
+        ...base,
+        cautionFlags: [
+          { area: 'knees', level: 'careful', refinements: ['meniscus 2019'] },
+          { area: 'lower_back', level: 'avoid', refinements: [] },
+        ],
+      });
+      assert.deepEqual(flagged.cautionAreas, [
+        { area: 'knees', level: 'careful' },
+        { area: 'lower_back', level: 'avoid' },
+      ]);
+      assert.doesNotMatch(JSON.stringify(flagged), /meniscus/);
+      const text = buildAiCoachContextText(flagged);
+      assert.match(text, /Flagged body areas/);
+      assert.match(text, /- knees: careful: .*never raises the load/);
+      assert.match(text, /- lower back: avoid: the plan leaves this area out/);
+
+      // The endpoint re-parses: unknown areas and levels, duplicates and junk
+      // are dropped; an older client that sends nothing parses to nothing.
+      const posted = normalizeAiCoachTrainingContext({
+        ...flagged,
+        cautionAreas: [
+          { area: 'knees', level: 'careful' },
+          { area: 'knees', level: 'avoid' },
+          { area: 'spleen', level: 'careful' },
+          { area: 'hips', level: 'drop table' },
+          'junk',
+          null,
+        ],
+      });
+      assert.deepEqual(posted.cautionAreas, [{ area: 'knees', level: 'careful' }]);
+      const older = { ...flagged };
+      delete older.cautionAreas;
+      assert.deepEqual(normalizeAiCoachTrainingContext(older).cautionAreas, []);
     },
   },
 ];

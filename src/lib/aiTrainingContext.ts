@@ -8,6 +8,7 @@ import {
   CoachGoal,
   ExerciseLog,
   MeasurementEntry,
+  SetupCautionFlag,
   SetupWeekday,
   UnitPreference,
   WorkoutSession,
@@ -18,6 +19,7 @@ import {
   AICoachBodyChange,
   AICoachBodyMeasurementTrend,
   AICoachCardio,
+  AICoachCautionArea,
   AICoachGoal,
   AICoachHistory,
   AICoachHistoryConfidence,
@@ -124,6 +126,18 @@ const MAX_BODY_MEASUREMENTS = 20;
 const MAX_LIST_ITEMS = 20;
 /** One entry per weekday, at most. */
 const MAX_SCHEDULE_TRAINING_DAYS = 7;
+/** One entry per area setup offers. */
+const CAUTION_AREA_KEYS: readonly AICoachCautionArea['area'][] = [
+  'neck',
+  'shoulders',
+  'elbows',
+  'wrists',
+  'lower_back',
+  'hips',
+  'knees',
+  'ankles',
+];
+const CAUTION_LEVEL_KEYS: readonly AICoachCautionArea['level'][] = ['info', 'careful', 'avoid'];
 
 type AiCardioInput = Pick<CardioSession, 'id' | 'activityType' | 'performedAt' | 'durationSec' | 'distanceKm'>;
 
@@ -199,6 +213,12 @@ export interface BuildAiTrainingContextInput {
    * workout store. Empty when the last session is not a startable programme's.
    */
   nextSessionTargets?: readonly { exerciseName: string; sets: { loadKg: number | null; reps: number }[] }[];
+  /**
+   * The body areas the reader flagged in setup (preferences.setupCautionFlags).
+   * The privacy policy says the coach's summary carries the reader's
+   * limitations; until 2026-09-30 it only did behind a flag nothing set.
+   */
+  cautionFlags?: readonly SetupCautionFlag[];
   now?: Date;
 }
 
@@ -687,6 +707,7 @@ export function buildAiTrainingContext({
   profile = null,
   homeState = null,
   nextSessionTargets = [],
+  cautionFlags = [],
   now = new Date(),
 }: BuildAiTrainingContextInput): AICoachTrainingContext {
   const body = buildAiCoachBodyState(bodyweightEntries, measurementEntries, now);
@@ -772,6 +793,8 @@ export function buildAiTrainingContext({
     lastSession: buildAiCoachLastSession(workoutSessions, exerciseLogs, now, nextSessionTargets),
     cardio: buildAiCoachCardio(cardioSessions, historyWindowDays, now),
     ...(plannerSetup !== undefined ? { plannerSetup } : {}),
+    // Area and level only: the free-text refinements stay on the phone.
+    cautionAreas: normalizeCautionAreas(cautionFlags),
     body,
     goals: buildAiCoachGoals(coachGoals, bodyweightGoalKg, body, primaryGoalId),
     profile:
@@ -1511,6 +1534,24 @@ function normalizePlannerSetup(value: unknown): AICoachPlannerSetupSummary | nul
   };
 }
 
+/**
+ * Known areas and levels only, one entry per area. Runs on both ends: on the
+ * phone to drop the refinements, on the endpoint because the payload is
+ * whatever was posted.
+ */
+function normalizeCautionAreas(value: unknown): AICoachCautionArea[] {
+  const out: AICoachCautionArea[] = [];
+  for (const entry of Array.isArray(value) ? value.slice(0, CAUTION_AREA_KEYS.length * 2) : []) {
+    if (!entry || typeof entry !== 'object') continue;
+    const { area, level } = entry as { area?: unknown; level?: unknown };
+    if (!CAUTION_AREA_KEYS.includes(area as AICoachCautionArea['area'])) continue;
+    if (!CAUTION_LEVEL_KEYS.includes(level as AICoachCautionArea['level'])) continue;
+    if (out.some((row) => row.area === area)) continue;
+    out.push({ area: area as AICoachCautionArea['area'], level: level as AICoachCautionArea['level'] });
+  }
+  return out;
+}
+
 function normalizeHomeState(value: unknown): AICoachHomeState | null {
   if (!value || typeof value !== 'object') {
     return null;
@@ -1648,6 +1689,7 @@ export function normalizeAiCoachTrainingContext(
     lastSession: normalizeLastSession(candidate.lastSession),
     cardio: normalizeCardio(candidate.cardio),
     plannerSetup: normalizePlannerSetup(candidate.plannerSetup),
+    cautionAreas: normalizeCautionAreas(candidate.cautionAreas),
     body: normalizeBody(candidate.body),
     // No device-side cap on this list either; a small documented one is
     // enough here too. An installed app that predates the primary goal sends

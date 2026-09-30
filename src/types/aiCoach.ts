@@ -1,4 +1,4 @@
-import { SetupWeekday, UnitPreference } from './models';
+import { SetupCautionArea, SetupCautionLevel, SetupWeekday, UnitPreference } from './models';
 import { FatigueSignal } from '../lib/fatigueModel';
 import type { CoachAdviceMemoryLine } from '../lib/coachAdviceMemory';
 
@@ -368,6 +368,17 @@ export interface AICoachCardio {
   truncated: boolean;
 }
 
+/**
+ * A body area the reader flagged in setup, and how firmly: `info` is for the
+ * coach to keep in mind, `careful` means the plan swaps to joint-friendly lifts
+ * and the app never raises the load on lifts that load the area, `avoid` means
+ * the plan leaves the area out.
+ */
+export interface AICoachCautionArea {
+  area: SetupCautionArea;
+  level: SetupCautionLevel;
+}
+
 export interface AICoachTrainingContext {
   unitPreference: UnitPreference;
   activeSession: AICoachActiveSessionSummary | null;
@@ -391,6 +402,11 @@ export interface AICoachTrainingContext {
   /** Optional so an older client's payload still parses; null = no cardio. */
   cardio?: AICoachCardio | null;
   plannerSetup?: AICoachPlannerSetupSummary | null;
+  /**
+   * The body areas the reader flagged in setup. Optional: an older client
+   * sends none, and so does a reader who flagged nothing.
+   */
+  cautionAreas?: AICoachCautionArea[];
   /** Optional so an older client's payload still parses. */
   body?: AICoachBody | null;
   goals?: AICoachGoal[];
