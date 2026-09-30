@@ -123,6 +123,34 @@ module.exports = [
     },
   },
   {
+    /**
+     * Emulator, 2026-09-30: the permission granted in system settings in the
+     * middle of a rest, alarms armed — and the banner still said "the timer
+     * only runs while this screen is open". The answer is read again on every
+     * return to the app, and the banner follows it.
+     */
+    name: 'rest alerts: the "alerts are off" banner goes once the reader allows them in system settings',
+    async run() {
+      const runtime = createHookRuntime();
+      const env = loadMoment(runtime);
+      env.os.permission = 'denied';
+      const props = { restRunning: true, restKey: 'settings-grant', asked: true, alertsWanted: true, onAnswered: () => undefined };
+
+      runtime.render(env.hook, props);
+      await flush();
+      runtime.render(env.hook, props);
+      assert.equal(runtime.render(env.hook, props).deniedBannerShown, true, 'no banner for a refused permission');
+
+      // Allowed in Android's settings, then back to the app.
+      env.os.permission = 'granted';
+      env.emit('background');
+      env.emit('active');
+      await flush();
+      assert.equal(runtime.render(env.hook, props).deniedBannerShown, false, 'the banner outlived the grant');
+      runtime.unmount();
+    },
+  },
+  {
     name: 'rest alerts: both workout screens ask at the first rest through the one hook, and render the sheet',
     run() {
       for (const [name, src] of [['EmptyWorkoutScreen', empty], ['GuidedPlayerScreen', guided]]) {
@@ -329,7 +357,9 @@ module.exports = [
       env.emit('active');
       await flush();
       assert.equal(armed.length, 2);
-      assert.equal(env.listening, 0, 'the return listener outlived its job');
+      // One left: the banner's own refresh on every return, which lives as
+      // long as the screen does (emulator, 2026-09-30).
+      assert.equal(env.listening, 1, 'the return listener outlived its job');
       runtime.unmount();
     },
   },
@@ -348,8 +378,10 @@ module.exports = [
       env.os.dialog.resolve('granted');
       await allowing;
       assert.equal(env.os.opened, 0);
-      assert.equal(env.listening, 0);
+      // Only the banner's refresh listener, no re-arm one.
+      assert.equal(env.listening, 1);
       runtime.unmount();
+      assert.equal(env.listening, 0);
 
       // Leaving the workout while the settings page is open drops the listener.
       const second = createHookRuntime();
@@ -360,7 +392,8 @@ module.exports = [
       const pending = sheet.allow();
       leaving.os.dialog.resolve('granted');
       await pending;
-      assert.equal(leaving.listening, 1);
+      // The re-arm listener, beside the banner's refresh.
+      assert.equal(leaving.listening, 2);
       second.unmount();
       assert.equal(leaving.listening, 0, 'the return listener outlived the screen');
       leaving.os.exact = true;
