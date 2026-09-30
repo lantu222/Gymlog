@@ -34,6 +34,7 @@ import {
   AICoachConversationTurn,
   AICoachSuggestion,
 } from '../src/types/aiCoach';
+import { isServicePaused, servicePausedBody } from '../src/lib/serverNotice';
 
 type ApiRequest = {
   method?: string;
@@ -1279,6 +1280,15 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       console.error('ai-coach UNAUTHORIZED: AI_COACH_APP_KEY is not set, so every request is refused');
     }
     res.status(401).json(createError({ code: 'UNAUTHORIZED', message: 'Missing or wrong app key.' }, undefined, undefined, 'preview'));
+    return;
+  }
+
+  // The kill switch (docs/tietoturvaloukkaus.md): right after the key, before
+  // anything else is read, parsed or written. api/notice stays open to say
+  // why. Withdrawing consent stays open too: it only deletes, and during an
+  // incident it is the one request a reader most needs to land.
+  if (isServicePaused(process.env) && !readForgetLogId(req.body)) {
+    res.status(503).json(servicePausedBody());
     return;
   }
 

@@ -41,6 +41,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { BlobNotFoundError, BlobPreconditionFailedError, del, get, head, put } from '@vercel/blob';
 
 import { appUpdateRefusalBody, isAppVersionRefused } from '../src/lib/appUpdateGate';
+import { isServicePaused, servicePausedBody } from '../src/lib/serverNotice';
 
 type ApiRequest = {
   method?: string;
@@ -189,6 +190,14 @@ function bearerToken(req: ApiRequest): string | null {
 }
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
+  // The kill switch (docs/tietoturvaloukkaus.md): first, before anything is
+  // read, parsed or written. api/notice stays open to say why. Deleting stays
+  // open too: the policy promises the copy goes at once, and during an
+  // incident it is the one request a reader most needs to land.
+  if (isServicePaused(process.env) && req.method !== 'DELETE') {
+    res.status(503).json(servicePausedBody());
+    return;
+  }
   const clientId = process.env.GOOGLE_WEB_CLIENT_ID;
   const pathSecret = process.env.BACKUP_PATH_SECRET;
   if (!clientId || !pathSecret) {

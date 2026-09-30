@@ -1,6 +1,6 @@
 # Privacy policy
 
-*Updated 29 September 2026*
+*Updated 30 September 2026*
 
 What Vinha stores, what leaves your phone, and what you can do about it.
 
@@ -8,7 +8,9 @@ What Vinha stores, what leaves your phone, and what you can do about it.
 
 Vinha stores your training data on your phone. This policy lists what the app sends to our server, when, and why.
 
-At present that is three things. The optional cloud backup is sent when you sign in with Google, and the AI coach’s online mode when you read a notice and then send a question, ask for a programme, or import one from a photo. Anonymous usage statistics are sent by the app itself unless you switch them off in Settings — they carry no content and no identity, and they are described in full below. Each of these requests also carries the app’s version number and whether the phone runs Android or iOS, so our server can recognise an app too old to understand and ask you to update it.
+At present that is four things. The optional cloud backup is sent when you sign in with Google, and the AI coach’s online mode when you read a notice and then send a question, ask for a programme, or import one from a photo. Anonymous usage statistics are sent by the app itself unless you switch them off in Settings — they carry no content and no identity, and they are described in full below. Each of these requests also carries the app’s version number and whether the phone runs Android or iOS, so our server can recognise an app too old to understand and ask you to update it.
+
+The fourth is a check the app makes by itself: when it starts, and again when you come back to it after some hours, it asks our server whether there is a notice for everyone who uses Vinha — for example about a break in service or a security incident — and shows it once. That request carries nothing but the app’s version and platform; like any request, it shows our server the phone’s internet address, and nothing about it is stored.
 
 No ads, no trackers, no selling of data. If something in this policy is unclear, write to us — the address is in the next section.
 
@@ -130,7 +132,7 @@ The app asks your phone for very little. What it does use:
 
 - Notifications: asked the first time a rest timer needs to alert you, or when you switch notifications on in Settings. Refuse, and everything else keeps working.
 - Photos: the phone’s own picker hands the app the one photo you chose. No permission to your photo library is asked.
-- Internet: for the server features described in this policy — at present backup, coach and statistics. Logging a workout never needs a connection.
+- Internet: for the server features described in this policy — at present backup, coach, statistics and notices. Logging a workout never needs a connection.
 - Keeping the screen on during a workout, if you switch that on in Settings.
 - Vibration, for the haptic ticks — which you can switch off.
 

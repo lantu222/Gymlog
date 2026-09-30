@@ -1758,6 +1758,7 @@ const EN = {
   'appUpdate.bodyNoStore': 'This version of Vinha is too old for our server, so its online features are paused until you update it from the App Store. Logging workouts works without updating.',
   'appUpdate.update': 'Update',
   'appUpdate.later': 'Later',
+  'serverNotice.ok': 'OK',
   // ── Training break, edit profile ──────────────────────────────────────
   'break.title': 'Training break',
   'break.switchSub': 'Silences reminders and notifications',
@@ -4870,6 +4871,7 @@ const FI: Record<I18nKey, string> = {
   'appUpdate.bodyNoStore': 'Tämä Vinhan versio on liian vanha palvelimellemme, joten verkkotoiminnot ovat tauolla, kunnes päivität sen App Storesta. Treenien kirjaaminen toimii ilman päivitystäkin.',
   'appUpdate.update': 'Päivitä',
   'appUpdate.later': 'Myöhemmin',
+  'serverNotice.ok': 'Selvä',
   // ── Training break, edit profile ──────────────────────────────────────
   'break.title': 'Treenitauko',
   'break.switchSub': 'Hiljentää muistutukset ja ilmoitukset',

@@ -335,6 +335,8 @@ import { previewNextSession } from './src/features/workout/workoutState';
 import { isTimedTrackingMode } from './src/features/workout/workoutTypes';
 import { AppProvider, useAppContext } from './src/state/AppProvider';
 import { AppUpdateDialog } from './src/features/appUpdate/AppUpdateDialog';
+import { ServerNoticeDialog } from './src/features/serverNotice/ServerNoticeDialog';
+import { rememberServerNotice } from './src/lib/serverNotice';
 import { registerAppIdentity } from './src/features/appUpdate/appUpdateSignal';
 import { appInfo } from './src/theme';
 import {
@@ -5443,6 +5445,18 @@ function VinhaApp() {
    * modal of its own, which must not land on the terms sheet, the tour or a
    * workout in progress (review, 2026-09-28).
    */
+  /**
+   * A server notice the reader closed is not shown again. A refused write
+   * leaves it unmarked, so it comes back next launch rather than being lost.
+   */
+  const handleServerNoticeSeen = useCallback(
+    (id: string) => {
+      void updatePreferences({
+        seenServerNoticeIds: rememberServerNotice(preferences.seenServerNoticeIds, id),
+      }).catch(() => undefined);
+    },
+    [preferences.seenServerNoticeIds, updatePreferences],
+  );
   const appUpdateHeld =
     !appHydrated ||
     !brandSplashDone ||
@@ -8151,6 +8165,12 @@ function VinhaApp() {
     >
       {content}
       <AppUpdateDialog language={preferences.appLanguage} held={appUpdateHeld} />
+      <ServerNoticeDialog
+        language={preferences.appLanguage}
+        held={appUpdateHeld}
+        seenIds={preferences.seenServerNoticeIds}
+        onSeen={handleServerNoticeSeen}
+      />
       <SettingsImportSheet
         visible={settingsImportVisible}
         initialView="csv"

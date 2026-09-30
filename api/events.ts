@@ -36,6 +36,7 @@ import {
   inChunks,
   selectEventBatches,
 } from '../src/lib/analyticsRead';
+import { isServicePaused, servicePausedBody } from '../src/lib/serverNotice';
 
 interface RequestLike {
   method?: string;
@@ -219,6 +220,12 @@ async function handleGet(req: RequestLike, res: ResponseLike): Promise<void> {
 
 export default async function handler(req: RequestLike, res: ResponseLike): Promise<void> {
   res.setHeader('Cache-Control', 'no-store');
+  // The kill switch (docs/tietoturvaloukkaus.md): first, before anything is
+  // read, parsed or written. api/notice stays open to say why.
+  if (isServicePaused(process.env)) {
+    res.status(503).json(servicePausedBody());
+    return;
+  }
   try {
     if (req.method === 'POST') {
       await handlePost(req, res);

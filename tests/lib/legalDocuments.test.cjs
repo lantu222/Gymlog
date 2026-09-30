@@ -27,6 +27,7 @@ const LEGAL_TEXT_VERSIONS = [
   { date: '2026-09-16', fingerprint: 'c52c7814c8a7ba76' },
   { date: '2026-09-28', fingerprint: '7019c14a32fca330' },
   { date: '2026-09-29', fingerprint: 'c0f19e9dea408950' },
+  { date: '2026-09-30', fingerprint: '5998cb9be6282a40' },
 ];
 
 const IDS = ['privacy', 'terms'];
@@ -139,11 +140,25 @@ module.exports = [
       const fetchSites = srcFiles.filter((file) => isCallSite(fs.readFileSync(file, 'utf8')));
       assert.deepEqual(
         fetchSites.map((file) => path.basename(file)).sort(),
-        ['aiCoachClient.ts', 'analyticsClient.ts', 'backupApi.ts'],
-        'The policy names exactly three outbound request sites: the AI coach, the '
-          + 'anonymous usage events, and the optional cloud backup. Update the '
-          + 'policy or remove the call.',
+        ['aiCoachClient.ts', 'analyticsClient.ts', 'backupApi.ts', 'serverNoticeClient.ts'],
+        'The policy names exactly four outbound request sites: the AI coach, the '
+          + 'anonymous usage events, the optional cloud backup, and the notice check. '
+          + 'Update the policy or remove the call.',
       );
+      // The fourth is named in the policy, in both languages, as what it is.
+      for (const language of LANGUAGES) {
+        const policy = renderLegalDocumentMarkdown(buildLegalDocument('privacy', language));
+        assert.match(
+          policy,
+          language === 'en' ? /At present that is four things/ : /Tällä hetkellä asioita on neljä/,
+          `the ${language} policy must count the notice check among what the app sends`,
+        );
+        assert.match(
+          policy,
+          language === 'en' ? /whether there is a notice for everyone/ : /onko kaikille Vinhan käyttäjille tiedotetta/,
+          `the ${language} policy must say what the notice check is`,
+        );
+      }
 
       const allSource = srcFiles.map((file) => fs.readFileSync(file, 'utf8')).join('\n');
       for (const banned of ['firebase', 'amplitude', 'mixpanel', 'segment.com', 'Sentry', 'AppsFlyer']) {

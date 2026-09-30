@@ -60,7 +60,7 @@ function publisher(): string {
 }
 
 /** Bumped whenever the wording changes in a way a user should re-read. */
-export const LEGAL_LAST_UPDATED = '2026-09-29';
+export const LEGAL_LAST_UPDATED = '2026-09-30';
 
 export type LegalDocumentId = 'privacy' | 'terms';
 
@@ -86,7 +86,8 @@ const PRIVACY_EN: LegalSection[] = [
     heading: 'The short version',
     body: [
       'Vinha stores your training data on your phone. This policy lists what the app sends to our server, when, and why.',
-      'At present that is three things. The optional cloud backup is sent when you sign in with Google, and the AI coach’s online mode when you read a notice and then send a question, ask for a programme, or import one from a photo. Anonymous usage statistics are sent by the app itself unless you switch them off in Settings — they carry no content and no identity, and they are described in full below. Each of these requests also carries the app’s version number and whether the phone runs Android or iOS, so our server can recognise an app too old to understand and ask you to update it.',
+      'At present that is four things. The optional cloud backup is sent when you sign in with Google, and the AI coach’s online mode when you read a notice and then send a question, ask for a programme, or import one from a photo. Anonymous usage statistics are sent by the app itself unless you switch them off in Settings — they carry no content and no identity, and they are described in full below. Each of these requests also carries the app’s version number and whether the phone runs Android or iOS, so our server can recognise an app too old to understand and ask you to update it.',
+      'The fourth is a check the app makes by itself: when it starts, and again when you come back to it after some hours, it asks our server whether there is a notice for everyone who uses Vinha — for example about a break in service or a security incident — and shows it once. That request carries nothing but the app’s version and platform; like any request, it shows our server the phone’s internet address, and nothing about it is stored.',
       'No ads, no trackers, no selling of data. If something in this policy is unclear, write to us — the address is in the next section.',
     ],
   },
@@ -216,7 +217,7 @@ const PRIVACY_EN: LegalSection[] = [
     bullets: [
       'Notifications: asked the first time a rest timer needs to alert you, or when you switch notifications on in Settings. Refuse, and everything else keeps working.',
       'Photos: the phone’s own picker hands the app the one photo you chose. No permission to your photo library is asked.',
-      'Internet: for the server features described in this policy — at present backup, coach and statistics. Logging a workout never needs a connection.',
+      'Internet: for the server features described in this policy — at present backup, coach, statistics and notices. Logging a workout never needs a connection.',
       'Keeping the screen on during a workout, if you switch that on in Settings.',
       'Vibration, for the haptic ticks — which you can switch off.',
     ],
@@ -295,7 +296,8 @@ const PRIVACY_FI: LegalSection[] = [
     heading: 'Lyhyesti',
     body: [
       'Vinha tallentaa treenitietosi puhelimeesi. Tämä seloste kertoo, mitä sovellus lähettää palvelimellemme, milloin ja miksi.',
-      'Tällä hetkellä asioita on kolme. Vapaaehtoinen pilvivarmuuskopio lähtee, kun kirjaudut Googlella, ja AI-valmentajan verkkotila, kun luet ilmoituksen ja lähetät sen jälkeen kysymyksen, pyydät ohjelman tai tuot sellaisen valokuvasta. Nimettömät käyttötilastot sovellus lähettää itse, ellet kytke niitä pois asetuksista — niissä ei ole sisältöä eikä henkilöllisyyttä, ja ne kuvataan kokonaan alla. Jokaisessa näistä pyynnöistä kulkee lisäksi sovelluksen versionumero ja tieto siitä, onko puhelin Android vai iOS, jotta palvelimemme tunnistaa liian vanhan sovelluksen ja voi pyytää sinua päivittämään sen.',
+      'Tällä hetkellä asioita on neljä. Vapaaehtoinen pilvivarmuuskopio lähtee, kun kirjaudut Googlella, ja AI-valmentajan verkkotila, kun luet ilmoituksen ja lähetät sen jälkeen kysymyksen, pyydät ohjelman tai tuot sellaisen valokuvasta. Nimettömät käyttötilastot sovellus lähettää itse, ellet kytke niitä pois asetuksista — niissä ei ole sisältöä eikä henkilöllisyyttä, ja ne kuvataan kokonaan alla. Jokaisessa näistä pyynnöistä kulkee lisäksi sovelluksen versionumero ja tieto siitä, onko puhelin Android vai iOS, jotta palvelimemme tunnistaa liian vanhan sovelluksen ja voi pyytää sinua päivittämään sen.',
+      'Neljäs on tarkistus, jonka sovellus tekee itse: käynnistyessään ja palatessasi siihen muutaman tunnin jälkeen se kysyy palvelimeltamme, onko kaikille Vinhan käyttäjille tiedotetta — esimerkiksi palvelukatkosta tai tietoturvaongelmasta — ja näyttää sen kerran. Pyynnössä ei kulje muuta kuin sovelluksen versio ja alusta; kuten mikä tahansa pyyntö, se näyttää palvelimellemme puhelimen internet-osoitteen, eikä siitä tallenneta mitään.',
       'Ei mainoksia, ei seurantaa, ei tietojen myyntiä. Jos jokin tässä selosteessa on epäselvää, kirjoita meille — osoite on seuraavassa kohdassa.',
     ],
   },
@@ -425,7 +427,7 @@ const PRIVACY_FI: LegalSection[] = [
     bullets: [
       'Ilmoitukset: kysytään, kun lepoajastin ensimmäisen kerran tarvitsee hälyttää, tai kun kytket ilmoitukset päälle asetuksista. Kieltäydy, ja kaikki muu toimii silti.',
       'Kuvat: puhelimen oma valitsin antaa sovellukselle sen yhden kuvan, jonka valitsit. Lupaa kuvakirjastoosi ei pyydetä.',
-      'Internet: tässä selosteessa kuvattuja palvelintoimintoja varten — tällä hetkellä varmuuskopio, valmentaja ja tilastot. Treenin kirjaaminen ei koskaan tarvitse yhteyttä.',
+      'Internet: tässä selosteessa kuvattuja palvelintoimintoja varten — tällä hetkellä varmuuskopio, valmentaja, tilastot ja tiedotteet. Treenin kirjaaminen ei koskaan tarvitse yhteyttä.',
       'Näytön pitäminen päällä treenin aikana, jos kytket sen päälle asetuksista.',
       'Värinä, haptisia napsautuksia varten — ne voi kytkeä pois.',
     ],
