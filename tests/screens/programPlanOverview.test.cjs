@@ -1,6 +1,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const { functionBody } = require('../helpers/sourceSlices.cjs');
 
 const programDetailSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'screens', 'ProgramDetailScreen.tsx'),
@@ -714,9 +715,10 @@ module.exports = [
       // asks (user 2026-09-21).
       assert.doesNotMatch(app, /leadOnTrain/);
       for (const start of ['startReadyProgramSessionWithUnit', 'handleStartCustomProgramSession']) {
-        const at = app.indexOf(`function ${start}`);
-        assert.ok(at > 0, `${start} not found`);
-        const body = app.slice(at, app.indexOf('\n  function ', at + 1));
+        // The function itself, bracket-matched and asserted present: sliced
+        // to the next `function`, what was scanned depended on which
+        // neighbours sat below it, and phase B moves neighbours (2026-09-30).
+        const body = functionBody(app, `function ${start}(`);
         assert.doesNotMatch(body, /promoteHeldProgramToLead|activePlanId:/, `${start} moves the active programme`);
       }
       assert.match(app, /onStopProgram: handleStopProgram,/);

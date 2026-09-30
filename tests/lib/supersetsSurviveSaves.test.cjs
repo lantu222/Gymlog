@@ -75,7 +75,11 @@ module.exports = [
   {
     name: 'supersetsSurviveSaves: every whole-programme save in App.tsx copies lifts through the shared helper',
     run() {
-      const app = read('App.tsx');
+      // Every save in the shell: the handlers leave VinhaApp for src/app in
+      // the phase-B split (2026-09-30), App.tsx is read first and the modules
+      // after it, and the floor below is today's count, so none can leave the
+      // loop unread.
+      const app = require('../helpers/appWiringSource.cjs').readAppWiring().replace(/\r\n/g, '\n');
       const marker = 'await editWorkoutTemplateSessions(';
       let from = 0;
       let saves = 0;
@@ -89,17 +93,17 @@ module.exports = [
         const body = app.slice(at, Math.min(handlerEnd === -1 ? app.length : handlerEnd, at + 2500));
         assert.ok(
           /toDraftExercise|applyProgramSessionEdit/.test(body),
-          `a template save at App.tsx offset ${at} copies lifts without toDraftExercise`,
+          `a template save at shell wiring offset ${at} copies lifts without toDraftExercise`,
         );
         assert.doesNotMatch(
           body,
           /repMin: exercise\.repMin,/,
-          `a template save at App.tsx offset ${at} copies a lift's fields by hand`,
+          `a template save at shell wiring offset ${at} copies a lift's fields by hand`,
         );
         from = at + marker.length;
       }
       // Emphasis, rename, reorder, and the day editor's own add/remove/replace.
-      assert.ok(saves >= 4, `expected at least four whole-programme saves, found ${saves}`);
+      assert.ok(saves >= 6, `expected at least six whole-programme saves, found ${saves}`);
     },
   },
 ];

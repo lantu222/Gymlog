@@ -71,7 +71,9 @@ module.exports = [
      */
     name: 'programme days: a new day is written under its name, empty, and a blank name takes the placeholder',
     run() {
-      const app = read('App.tsx');
+      // The day edits leave VinhaApp for src/app in the phase-B split
+      // (2026-09-30): the handlers are read wherever the shell keeps them.
+      const app = readAppWiring().split('\r\n').join('\n');
       const add = between(app, 'async function handleAddProgramSession(', '\n  }\n');
       assert.match(add, /workoutTemplateId: string,\s*name: string,/);
       const write = between(add, 'editWorkoutTemplateSessions(', 'if (!result.saved)');
