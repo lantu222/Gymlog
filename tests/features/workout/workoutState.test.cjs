@@ -743,8 +743,8 @@ module.exports = [
       assert.equal(start([{ area: 'shoulders', level: 'careful', refinements: [] }]).plannedLoadKg, 82.5);
 
       // And the sentence the reader was shown is the one the code keeps.
-      assert.match(t('en', 'onb.avoid.advisory'), /never raise the weight on lifts that load these areas/);
-      assert.match(t('fi', 'onb.avoid.advisory'), /emme koskaan nosta painoa liikkeissä, jotka kuormittavat näitä kohtia/);
+      assert.match(t('en', 'onb.avoid.advisory'), /never add weight or reps on exercises that load these areas/);
+      assert.match(t('fi', 'onb.avoid.advisory'), /emme koskaan lisää painoa tai toistoja liikkeisiin, jotka kuormittavat näitä kohtia/);
       assert.doesNotMatch(t('en', 'onb.avoid.advisory'), /keep loads light/);
       assert.doesNotMatch(t('fi', 'onb.avoid.advisory'), /pidämme kuormat kevyinä/);
     },

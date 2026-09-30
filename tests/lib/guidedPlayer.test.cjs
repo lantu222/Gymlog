@@ -783,8 +783,15 @@ module.exports = [
       assert.equal(resolveGuidedSetTarget([held('80')], 0, 'load_and_reps').heldForCautionArea, 'knees');
       // Moved by the reader: their number, no claim from the app.
       assert.equal(resolveGuidedSetTarget([held('85')], 0, 'load_and_reps').heldForCautionArea, null);
-      // The load gate holds loads; bodyweight work has none to hold.
-      assert.equal(resolveGuidedSetTarget([held('80')], 0, 'bodyweight').heldForCautionArea, null);
+      // Bodyweight: the reps were held, named until the day has its own set.
+      assert.equal(resolveGuidedSetTarget([held('')], 0, 'bodyweight').heldForCautionArea, 'knees');
+      const afterOne = [
+        { ...held(''), status: 'completed', actualReps: 10 },
+        { ...held(''), setIndex: 1 },
+      ];
+      assert.equal(resolveGuidedSetTarget(afterOne, 1, 'bodyweight').heldForCautionArea, null);
+      // A timed hold's seconds are nobody's to hold.
+      assert.equal(resolveGuidedSetTarget([held('')], 0, 'hold').heldForCautionArea, null);
     },
   },
   {

@@ -567,7 +567,7 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
   if (cautionAreas.length > 0) {
     const levelWords: Record<string, string> = {
       info: 'info only, keep in mind',
-      careful: 'careful: the plan swaps to joint-friendly lifts and the app never raises the load on lifts that load it',
+      careful: 'careful: the app prefers joint-friendly lifts and never adds weight or reps on lifts that load it',
       avoid: 'avoid: the plan leaves this area out',
     };
     blocks.push(

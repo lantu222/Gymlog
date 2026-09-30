@@ -748,8 +748,9 @@ export function resolveGuidedSetTarget(
       // The hold is reported while today is still untouched; after the first
       // logged set the day has its own numbers to answer for.
       heldForFatigue: trackingMode === 'bodyweight' && previous == null && set.heldForFatigue === true,
-      // The load gate holds loads; there is none here.
-      heldForCautionArea: null,
+      // A rep target a flagged area held, on the same terms as recovery's.
+      heldForCautionArea:
+        trackingMode === 'bodyweight' && previous == null ? set.heldForCautionArea ?? null : null,
     };
   }
 

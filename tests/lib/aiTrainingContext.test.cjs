@@ -328,7 +328,7 @@ module.exports = [
       assert.doesNotMatch(JSON.stringify(flagged), /meniscus/);
       const text = buildAiCoachContextText(flagged);
       assert.match(text, /Flagged body areas/);
-      assert.match(text, /- knees: careful: .*never raises the load/);
+      assert.match(text, /- knees: careful: .*never adds weight or reps/);
       assert.match(text, /- lower back: avoid: the plan leaves this area out/);
 
       // The endpoint re-parses: unknown areas and levels, duplicates and junk
@@ -345,6 +345,13 @@ module.exports = [
         ],
       });
       assert.deepEqual(posted.cautionAreas, [{ area: 'knees', level: 'careful' }]);
+
+      // Where the good rows sit does not decide whether they survive.
+      const junkFirst = normalizeAiCoachTrainingContext({
+        ...flagged,
+        cautionAreas: [...Array.from({ length: 40 }, () => 'junk'), { area: 'hips', level: 'avoid' }],
+      });
+      assert.deepEqual(junkFirst.cautionAreas, [{ area: 'hips', level: 'avoid' }]);
       const older = { ...flagged };
       delete older.cautionAreas;
       assert.deepEqual(normalizeAiCoachTrainingContext(older).cautionAreas, []);

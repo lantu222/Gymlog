@@ -370,9 +370,9 @@ export interface AICoachCardio {
 
 /**
  * A body area the reader flagged in setup, and how firmly: `info` is for the
- * coach to keep in mind, `careful` means the plan swaps to joint-friendly lifts
- * and the app never raises the load on lifts that load the area, `avoid` means
- * the plan leaves the area out.
+ * coach to keep in mind, `careful` means the app prefers joint-friendly lifts
+ * and never adds weight or reps on lifts that load the area, `avoid` means the
+ * plan leaves the area out.
  */
 export interface AICoachCautionArea {
   area: SetupCautionArea;

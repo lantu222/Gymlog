@@ -1541,7 +1541,10 @@ function normalizePlannerSetup(value: unknown): AICoachPlannerSetupSummary | nul
  */
 function normalizeCautionAreas(value: unknown): AICoachCautionArea[] {
   const out: AICoachCautionArea[] = [];
-  for (const entry of Array.isArray(value) ? value.slice(0, CAUTION_AREA_KEYS.length * 2) : []) {
+  for (const entry of Array.isArray(value) ? value : []) {
+    // Full once every area has a row: bounded by the areas, not by where in
+    // the posted list the good rows happen to sit.
+    if (out.length === CAUTION_AREA_KEYS.length) break;
     if (!entry || typeof entry !== 'object') continue;
     const { area, level } = entry as { area?: unknown; level?: unknown };
     if (!CAUTION_AREA_KEYS.includes(area as AICoachCautionArea['area'])) continue;

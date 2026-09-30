@@ -471,6 +471,20 @@ module.exports = [
       });
       assert.equal(notEarned.heldForFatigue, false);
 
+      // A flagged area holds reps like it holds load: earned, kept, named.
+      const flagged = resolveProgressedReps({ ...base, cautionArea: 'knees' });
+      assert.equal(flagged.progressed, false);
+      assert.equal(flagged.targetReps, 12);
+      assert.equal(flagged.heldForCautionArea, 'knees');
+      assert.equal(flagged.heldForFatigue, false);
+      const flaggedNotEarned = resolveProgressedReps({
+        ...base,
+        history: [entry(0, 9, 0), entry(0, 9, 3)],
+        cautionArea: 'knees',
+      });
+      assert.equal(flaggedNotEarned.heldForCautionArea, null);
+      assert.equal(resolveProgressedReps({ ...base, cautionArea: null }).targetReps, 13);
+
       // An intermediate needs the confirming session for reps too.
       const once = resolveProgressedReps({
         ...base,

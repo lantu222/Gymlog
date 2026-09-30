@@ -407,6 +407,8 @@ export interface ProgressedRepsResolution {
   fromReps: number | null;
   /** Same contract as the load resolver: earned, and recovery said not today. */
   heldForFatigue: boolean;
+  /** Same contract as the load resolver: earned, and a flagged area held it. */
+  heldForCautionArea: SetupCautionArea | null;
 }
 
 /** The weakest set is the level the session proved, so it is what we raise. */
@@ -424,6 +426,8 @@ export interface ProgressedRepsInput {
   fatigueSignal?: ProgressionFatigueSignal;
   trackingMode?: string;
   automatedProgressionEnabled: boolean;
+  /** The flagged area this exercise loads, if any — see resolveProgressedLoadKg. */
+  cautionArea?: SetupCautionArea | null;
 }
 
 type RepsRecommendation = 'silent' | 'hold' | 'increase';
@@ -490,10 +494,18 @@ export function resolveProgressedReps(input: ProgressedRepsInput): ProgressedRep
     progressed: false,
     fromReps: null,
     heldForFatigue: false,
+    heldForCautionArea: null,
   };
 
   if (!input.automatedProgressionEnabled || input.trackingMode !== 'bodyweight') {
     return base;
+  }
+
+  // A flagged area holds reps the way it holds load: the dose on that area
+  // does not climb on its own, and the hold is named only when it was earned.
+  if (input.cautionArea) {
+    const earned = evaluateRepsProgression({ ...input, fatigueSignal: 'normal' }) === 'increase';
+    return { ...base, heldForCautionArea: earned ? input.cautionArea : null };
   }
 
   const recommendation = evaluateRepsProgression(input);
@@ -506,6 +518,7 @@ export function resolveProgressedReps(input: ProgressedRepsInput): ProgressedRep
       progressed: true,
       fromReps,
       heldForFatigue: false,
+      heldForCautionArea: null,
     };
   }
 

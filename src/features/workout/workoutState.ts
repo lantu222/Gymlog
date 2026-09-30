@@ -447,6 +447,9 @@ function resolveHistoricalSetDraft(
   // ceiling on every working set, the prefill moves up by the level's
   // increment. Every other outcome repeats last time's load, which is what
   // this function did unconditionally before the gate existed.
+  // A lift that loads an area the reader flagged keeps its dose: onboarding
+  // says the app never adds weight or reps there.
+  const cautionArea = cautionAreaLoadedBy(exercise.exerciseName, options.cautionFlags);
   const { loadKg, fromLoadKg, heldForFatigue, heldForCautionArea } = resolveProgressedLoadKg({
     history: entries,
     repsMin: exercise.repsMin,
@@ -462,9 +465,7 @@ function resolveHistoricalSetDraft(
     fallbackLoadKg: matched.loadKg,
     // The early jump reads a single session, and only a recent one counts.
     nowMs: options.nowMs ?? Date.now(),
-    // A lift that loads an area the reader flagged keeps its weight: the
-    // onboarding advisory says the app will not raise it.
-    cautionArea: cautionAreaLoadedBy(exercise.exerciseName, options.cautionFlags),
+    cautionArea,
   });
 
   // Bodyweight progresses by reps where the load gate stays silent — same
@@ -478,6 +479,7 @@ function resolveHistoricalSetDraft(
     trackingMode: exercise.trackingMode,
     automatedProgressionEnabled: options.automatedProgressionEnabled ?? false,
     fatigueSignal: options.fatigueSignal,
+    cautionArea,
   });
 
   // Reps short of the programme last time: the same weight, a target the
@@ -503,7 +505,7 @@ function resolveHistoricalSetDraft(
     plannedLoadKg: loadKg,
     autoProgressedFromKg: fromLoadKg ?? undefined,
     heldForFatigue: (heldForFatigue || repsResolution.heldForFatigue) || undefined,
-    heldForCautionArea: heldForCautionArea ?? undefined,
+    heldForCautionArea: (heldForCautionArea ?? repsResolution.heldForCautionArea) ?? undefined,
     // This slot's own history — the ordinary case, nothing to explain.
     prefilledFromPerformedAt: undefined,
     plannedTargetReps: repsResolution.progressed
