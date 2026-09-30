@@ -585,8 +585,8 @@ export function nextTimeDirection(
     return null;
   }
   const top = Math.max(...sets.map((entry) => entry.weightKg));
-  if (next.loadKg !== null && top > 0 && next.loadKg > top) {
-    return `up from ${trim(top)} kg: moving on`;
+  if (next.loadKg !== null && next.loadKg > top) {
+    return top > 0 ? `up from ${trim(top)} kg: moving on` : 'adds load: moving on';
   }
   if (next.loadKg !== null && next.loadKg < top) {
     return `lighter than this session's ${trim(top)} kg`;
@@ -595,20 +595,29 @@ export function nextTimeDirection(
   // both have, at this session's top weight.
   const atTop = sets.filter((entry) => entry.weightKg === top).map((entry) => entry.reps);
   const count = Math.min(atTop.length, next.reps.length);
-  let more = false;
-  let fewer = false;
+  let up = 0;
+  let down = 0;
   for (let index = 0; index < count; index += 1) {
-    if (next.reps[index] > atTop[index]) more = true;
-    if (next.reps[index] < atTop[index]) fewer = true;
+    if (next.reps[index] > atTop[index]) up += 1;
+    if (next.reps[index] < atTop[index]) down += 1;
   }
-  if (more && !fewer) {
-    return 'more reps at the same weight: moving on';
-  }
-  if (more || fewer) {
+  if (down > 0) {
     return null;
   }
+  // Every set asked for more is a step. Only the short sets asked for again
+  // (6, 6, 4 → 6, 6, 6) is the same target repeated, not a step up.
+  if (up === count && atTop.length >= next.reps.length) {
+    return 'more reps at the same weight: moving on';
+  }
+  if (up > 0 || atTop.length < next.reps.length) {
+    return 'the same weight again, to make up the reps or sets that fell short: a repeat, not a step up';
+  }
+  // A hold with nothing short. The gate's first rule stops every load while a
+  // confident reading is above usual; stated as the rule, which holds whatever
+  // else the gate saw, rather than as the only reason (progressionGate's
+  // heldForFatigue will not claim more than that either).
   return recoveryHold
-    ? 'the same as this session: a hold, because the app keeps weights where they are while this week\'s lifting load is above usual. Say that is why — never that it is time to move up'
+    ? 'the same as this session: a hold. While this week\'s lifting load is above usual the app adds no weight — say that is why, never that it is time to move up'
     : 'the same as this session: a hold. Say to repeat it — never that it is time to move up';
 }
 

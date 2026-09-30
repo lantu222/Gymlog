@@ -437,7 +437,7 @@ module.exports = [
         baseContext({ lastSession: last, fatigue: { acwr: 1.6, recoveryScore: 40, signal: 'high', sessionCount7d: 4, confident: true } }),
         'fi',
       );
-      assert.ok(high.includes(`${hold}, because the app keeps weights where they are while this week's lifting load is above usual. Say that is why — never that it is time to move up`), high);
+      assert.ok(high.includes(`${hold}. While this week's lifting load is above usual the app adds no weight — say that is why, never that it is time to move up`), high);
       assert.ok(high.includes("next time (the app's own prescription): 220 kg x 10 — up from 215 kg: moving on"), high);
 
       // "Elevated" holds too — the gate's second rule.
@@ -445,7 +445,7 @@ module.exports = [
         baseContext({ lastSession: last, fatigue: { acwr: 1.35, recoveryScore: 60, signal: 'elevated', sessionCount7d: 3, confident: true } }),
         'fi',
       );
-      assert.ok(elevated.includes(`${hold}, because the app keeps weights`), elevated);
+      assert.ok(elevated.includes(`${hold}. While this week's lifting load is above usual`), elevated);
 
       // Not confident: the gate does not hold on a guess, so neither does the reason.
       for (const fatigue of [
@@ -454,7 +454,7 @@ module.exports = [
       ]) {
         const out = buildAiCoachSystemContext(baseContext({ lastSession: last, fatigue }), 'fi');
         assert.ok(out.includes(`${hold}. Say to repeat it — never that it is time to move up`), out);
-        assert.ok(!out.includes('above usual. Say that is why'), out);
+        assert.ok(!out.includes('the app adds no weight'), out);
       }
     },
   },
@@ -466,6 +466,16 @@ module.exports = [
       assert.equal(nextTimeDirection(at(100, 5, 5), { loadKg: 90, reps: [5, 5] }, false), "lighter than this session's 100 kg");
       // One set up, one down: no single direction to claim.
       assert.equal(nextTimeDirection(at(100, 5, 8), { loadKg: 100, reps: [6, 6] }, false), null);
+      // The short sets asked for again is a repeat, not a step up — and not a
+      // recovery hold either (code review, 2026-09-30).
+      const repeat = 'the same weight again, to make up the reps or sets that fell short: a repeat, not a step up';
+      assert.equal(nextTimeDirection(at(155, 6, 6, 4), { loadKg: 155, reps: [6, 6, 6] }, true), repeat);
+      // Two of three sets logged: the third asked for again.
+      assert.equal(nextTimeDirection(at(155, 6, 6), { loadKg: 155, reps: [6, 6, 6] }, true), repeat);
+      // Every set asked for one more is the step.
+      assert.equal(nextTimeDirection(at(155, 6, 6, 6), { loadKg: 155, reps: [7, 7, 7] }, true), 'more reps at the same weight: moving on');
+      // Load added to a bodyweight lift is a step, not a hold.
+      assert.equal(nextTimeDirection(at(0, 10, 10), { loadKg: 5, reps: [10, 10] }, false), 'adds load: moving on');
       // Fewer reps at the same weight is not a hold.
       assert.equal(nextTimeDirection(at(100, 8, 8), { loadKg: 100, reps: [6, 6] }, true), null);
       assert.equal(nextTimeDirection([], { loadKg: 100, reps: [5] }, false), null);
