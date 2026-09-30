@@ -25,6 +25,7 @@ const {
 } = require('../../.test-dist/lib/trainingSchedule.js');
 const { resolveReminderSchedule } = require('../../.test-dist/lib/reminderSchedule.js');
 const { setNumberLanguage } = require('../../.test-dist/lib/format.js');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 const read = (...parts) =>
   fs.readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8').split('\r\n').join('\n');
@@ -326,14 +327,17 @@ module.exports = [
       assert.match(database, /lightNextSession: normalizeLightNextSession\(input\?\.preferences\?\.lightNextSession\),/);
 
       const app = read('App.tsx');
+      // The shell: App.tsx and the src/app modules its blocks moved into.
+      const wiring = readAppWiring().split('\r\n').join('\n');
       // Every calendar reads one schedule, with the rest days in it; "would
       // tomorrow have trained" asks the one without.
       assert.match(app, /withRestDays\(baseTrainingSchedule, preferences\.restDayStarts\)/);
-      assert.match(app, /tomorrowTrains: trainsOn\(baseTrainingSchedule, tomorrow\),/);
+      assert.match(wiring, /tomorrowTrains: trainsOn\(baseTrainingSchedule, tomorrow\),/);
       // Both programme starts go through the one door that applies and spends
-      // a lighter session.
-      assert.equal(app.split('startProgrammeWorkout(runtimeTemplate, ').length - 1, 2);
-      assert.equal(app.split('workout.startCustomWorkout(').length - 1, 1, 'a start bypasses the lighter session');
+      // a lighter session — counted across the whole shell, so a start added
+      // in a src/app module cannot bypass it either.
+      assert.equal(wiring.split('startProgrammeWorkout(runtimeTemplate, ').length - 1, 2);
+      assert.equal(wiring.split('workout.startCustomWorkout(').length - 1, 1, 'a start bypasses the lighter session');
       const door = between(app, 'function startProgrammeWorkout(', '\n  }\n');
       // The lightening lives in programmeStart, which the door and the
       // coach's preview of the next session both use (2026-09-27).
@@ -345,9 +349,13 @@ module.exports = [
       assert.match(door, /'recovery\.toast\.spendFailed'/);
       assert.doesNotMatch(door, /void updatePreferences\(\{ lightNextSession: null \}\)/);
       // Done is said after the write.
-      const action = between(app, 'async function handleRecoveryAction(', '\n  }\n');
-      assert.ok(action.indexOf("'recovery.toast.lighten'") > action.indexOf('await updatePreferences({ lightNextSession'));
-      assert.ok(action.indexOf("'recovery.toast.rest'") > action.indexOf('await updatePreferences({\n        restDayStarts'));
+      const action = between(wiring, 'async function handleRecoveryAction(', '\n  }\n');
+      const lightenWrite = action.indexOf('await updatePreferences({ lightNextSession');
+      const restWrite = action.indexOf('await updatePreferences({\n        restDayStarts');
+      assert.ok(lightenWrite >= 0, 'the lighten write is not awaited');
+      assert.ok(restWrite >= 0, 'the rest-day write is not awaited');
+      assert.ok(action.indexOf("'recovery.toast.lighten'") > lightenWrite);
+      assert.ok(action.indexOf("'recovery.toast.rest'") > restWrite);
       assert.match(action, /catch \(error\)[\s\S]*'recovery\.toast\.failed'/);
 
       // The notification hook passes the rest days on.
