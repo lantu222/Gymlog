@@ -53,9 +53,11 @@ module.exports = [
           file,
         );
       }
+      // The swap sheet's rows are the library's own now (#bugs 2026-09-30),
+      // and still carry both names.
       assert.match(
         read('src/screens/GuidedPlayerScreen.tsx'),
-        /label=\{exerciseListLabel\(language, item\.name\)\}\s*accessibilityLabel=\{exerciseNameLabel\(language, item\.name\)\}/,
+        /title=\{exerciseListLabel\(language, item\.name\)\}\s*accessibilityLabel=\{exerciseNameLabel\(language, item\.name\)\}/,
       );
       // Every text that prints the short form tells a screen reader the full
       // name — "K P" is what TalkBack would say (review, 2026-09-27).

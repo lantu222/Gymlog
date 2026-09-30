@@ -72,8 +72,13 @@ function getBodyPartIcon(bodyPart: ExerciseBodyPart | 'all'): VinhaIconName {
   }
 }
 
-function getItemImage(item: ExerciseLibraryItem) {
+export function getItemImage(item: ExerciseLibraryItem) {
   return item.imageUrls?.[0] ?? null;
+}
+
+/** "Rinta · Levytanko · Voima" — the line under a library row's name. */
+export function exerciseLibraryRowMeta(item: ExerciseLibraryItem, language: AppLanguage): string {
+  return `${libraryLabel(item.bodyPart, language)} · ${libraryLabel(displayEquipmentValue(item), language)} · ${libraryLabel(item.category, language)}`;
 }
 
 function useOrderedExercises(items: ExerciseLibraryItem[], filteredItems: ExerciseLibraryItem[], keepOrder = false) {
@@ -284,6 +289,52 @@ function ExCard({
   );
 }
 
+/**
+ * One library row: the photo, the name in two lines, and what it trains with
+ * what. The library's own list, and — since #bugs 2026-09-30 ("saisiko sen
+ * saman liikekirjaston missä on ne kuvat niin tuotua tähän") — the guided
+ * player's swap sheet, so a lift is recognised by its picture in both places
+ * rather than by its name in one of them.
+ *
+ * Presentational: the caller says what the row is called, what it shows and
+ * what a tap does. `meta` is null for a name the library has no row for — a
+ * programme alternative can be one — and the thumb then shows the dumbbell.
+ */
+export function ExerciseLibraryRow({
+  title,
+  accessibilityLabel,
+  meta,
+  imageUrl,
+  onPress,
+  trailing,
+}: {
+  title: string;
+  accessibilityLabel: string;
+  meta: string | null;
+  imageUrl: string | null;
+  onPress?: () => void;
+  trailing?: React.ReactNode;
+}) {
+  const styles = useThemedStyles(makeStyles);
+
+  return (
+    <Pressable onPress={onPress} disabled={!onPress} style={styles.row}>
+      <Thumb uri={imageUrl} radius={11} width={52} height={52} />
+      <View style={styles.rowCopy}>
+        <Text numberOfLines={2} style={styles.rowTitle} accessibilityLabel={accessibilityLabel}>
+          {title}
+        </Text>
+        {meta ? (
+          <Text numberOfLines={1} style={styles.rowMeta}>
+            {meta}
+          </Text>
+        ) : null}
+      </View>
+      {trailing}
+    </Pressable>
+  );
+}
+
 function ExRow({
   item,
   language,
@@ -293,31 +344,22 @@ function ExRow({
   language: AppLanguage;
   onOpen?: () => void;
 }) {
-  const styles = useThemedStyles(makeStyles);
-
   return (
-    <Pressable onPress={onOpen} disabled={!onOpen} style={styles.row}>
-      <Thumb uri={getItemImage(item)} radius={11} width={52} height={52} />
-      <View style={styles.rowCopy}>
-        <Text
-          numberOfLines={2}
-          style={styles.rowTitle}
-          accessibilityLabel={exerciseNameLabel(language, item.name)}
-        >
-          {exerciseListLabel(language, item.name)}
-        </Text>
-        <Text numberOfLines={1} style={styles.rowMeta}>
-          {libraryLabel(item.bodyPart, language)} · {libraryLabel(displayEquipmentValue(item), language)} ·{' '}
-          {libraryLabel(item.category, language)}
-        </Text>
-      </View>
-      {onOpen ? (
-        <LookButton
-          label={t(language, 'library.a11y.look', { name: exerciseNameLabel(language, item.name) })}
-          onPress={onOpen}
-        />
-      ) : null}
-    </Pressable>
+    <ExerciseLibraryRow
+      title={exerciseListLabel(language, item.name)}
+      accessibilityLabel={exerciseNameLabel(language, item.name)}
+      meta={exerciseLibraryRowMeta(item, language)}
+      imageUrl={getItemImage(item)}
+      onPress={onOpen}
+      trailing={
+        onOpen ? (
+          <LookButton
+            label={t(language, 'library.a11y.look', { name: exerciseNameLabel(language, item.name) })}
+            onPress={onOpen}
+          />
+        ) : null
+      }
+    />
   );
 }
 

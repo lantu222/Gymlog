@@ -126,6 +126,7 @@ import { sessionLiftsMatchingQuery } from '../lib/swapShortlist';
 import { getExerciseTemplateDefaults, getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import { getCatalogTrackingMode } from '../lib/catalogExercisePools';
 import { AddExerciseSheet } from '../components/AddExerciseSheet';
+import { ExerciseLibraryRow, exerciseLibraryRowMeta, getItemImage } from '../components/ExerciseLibraryBrowser';
 import { BODY_PART_FILTERS, BodyPartFilter, matchesBodyPartFilter } from '../lib/exerciseBrowseFilter';
 import { resolveSwapBrowsePrefilter } from '../lib/swapBrowsePrefilter';
 import { useKeepScreenAwake } from '../utils/keepAwake';
@@ -1010,35 +1011,6 @@ function BigBtn({
  * and a long Finnish name touched its border or wrapped out of it
  * (#bugs 2026-09-27).
  */
-function SwapRow({
-  label,
-  onPress,
-  icon,
-  accessibilityLabel,
-}: {
-  label: string;
-  onPress: () => void;
-  icon?: string;
-  /** The full name, when the label is the short one. */
-  accessibilityLabel?: string;
-}) {
-  const theme = useTheme();
-  const styles = useThemedStyles(makeStyles);
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? label}
-      onPress={onPress}
-      style={({ pressed }) => [styles.swapRow, pressed ? { opacity: 0.7 } : null]}
-    >
-      {icon ? <GPIcon name={icon} size={17} color={theme.ink} /> : null}
-      <Text style={styles.swapRowText} numberOfLines={2}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 function GhostBtn({
   label,
   onPress,
@@ -1308,10 +1280,19 @@ function GPSheet({
   language,
   onClose,
   bottomInset,
+  tall = false,
   children,
 }: {
   /** Drawn in the grab zone beside the close button, so the title is a handle too. */
   title: string;
+  /**
+   * 90% of the screen, fixed, instead of as tall as the content up to 78%.
+   * For a sheet that is a list to choose from — the swap sheet's picture
+   * rows — where room is rows and a sheet that resizes as the search narrows
+   * would move them under the thumb (#bugs 2026-09-30: no 55→90 drag, straight
+   * to 90).
+   */
+  tall?: boolean;
   /** For the close button's name. */
   language: AppLanguage;
   onClose: () => void;
@@ -1369,8 +1350,13 @@ function GPSheet({
         {/* The 78% cap lives on this wrapper, whose parent is the full-screen
             scrim: on the sheet inside it the percentage would resolve against
             a content-sized parent and quietly stop capping anything. */}
-        <Animated.View style={[styles.sheetFrame, { transform: [{ translateY: dragY }] }]}>
-          <Pressable style={[styles.sheet, { paddingBottom: bottomInset + 30 }]} onPress={() => undefined}>
+        <Animated.View
+          style={[styles.sheetFrame, tall ? styles.sheetFrameTall : null, { transform: [{ translateY: dragY }] }]}
+        >
+          <Pressable
+            style={[styles.sheet, tall ? { flex: 1 } : null, { paddingBottom: bottomInset + 30 }]}
+            onPress={() => undefined}
+          >
             <View {...pan.panHandlers} style={styles.sheetGrab}>
               <View style={styles.sheetHandle} />
               <View style={styles.sheetTitleRow}>
@@ -2287,6 +2273,21 @@ function GuidedPlayer({
     }
     return names.filter((name) => exerciseMatchesQuery(`${name} ${exerciseNameLabel(language, name)}`, query));
   }, [language, sessionLiftLabels, swapOptions, swapQuery]);
+
+  /**
+   * The suggestions with their library rows, for the picture and the
+   * "rinta · levytanko · voima" line. A programme alternative is a catalog
+   * name, not a library row, so it is looked up the way the walk-up card looks
+   * up its own lift; a name the library does not hold keeps its row, without
+   * the picture.
+   */
+  const swapSuggestionRows = useMemo(() => {
+    const libraryNames = exerciseLibrary.map((item) => item.name);
+    return swapSuggestions.map((name) => {
+      const index = findGuidedLibraryIndex(getDrillLibraryName(name) ?? name, libraryNames);
+      return { name, item: index === null ? null : exerciseLibrary[index] };
+    });
+  }, [exerciseLibrary, swapSuggestions]);
 
   /** Named under the lists, so a lift the reader typed is not silently missing. */
   const swapSessionHits = useMemo(
@@ -4446,6 +4447,7 @@ function GuidedPlayer({
             name: exerciseNameLabel(language, actionExercise.exerciseName),
           })}
           language={language}
+          tall
           onClose={() => {
             setSwapOpen(false);
             setSwapQuery('');
@@ -4470,13 +4472,14 @@ function GuidedPlayer({
             {swapSuggestions.length > 0 ? (
               <>
                 <Text style={styles.swapSectionLabel}>{t(language, 'guided.swap.suggested')}</Text>
-                <View style={{ gap: 10 }}>
-                  {swapSuggestions.map((name) => (
-                    <SwapRow
+                <View style={{ gap: 9 }}>
+                  {swapSuggestionRows.map(({ name, item }) => (
+                    <ExerciseLibraryRow
                       key={`suggested-${name}`}
-                      icon="check"
-                      label={exerciseListLabel(language, name)}
+                      title={exerciseListLabel(language, name)}
                       accessibilityLabel={exerciseNameLabel(language, name)}
+                      meta={item ? exerciseLibraryRowMeta(item, language) : null}
+                      imageUrl={item ? getItemImage(item) : null}
                       onPress={() => applySwap(name)}
                     />
                   ))}
@@ -4555,12 +4558,14 @@ function GuidedPlayer({
                 : t(language, 'guided.swap.library')}
             </Text>
             {swapLibrary.length > 0 ? (
-              <View style={{ gap: 10 }}>
+              <View style={{ gap: 9 }}>
                 {swapLibrary.map((item) => (
-                  <SwapRow
+                  <ExerciseLibraryRow
                     key={item.id}
-                    label={exerciseListLabel(language, item.name)}
+                    title={exerciseListLabel(language, item.name)}
                     accessibilityLabel={exerciseNameLabel(language, item.name)}
+                    meta={exerciseLibraryRowMeta(item, language)}
+                    imageUrl={getItemImage(item)}
                     onPress={() => applySwap(item.name)}
                   />
                 ))}
@@ -6219,19 +6224,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 8,
   },
   ghostBtnText: { fontSize: 14.5, fontWeight: '800', color: theme.ink },
-  swapRow: {
-    minHeight: 48,
-    borderRadius: 15,
-    borderWidth: 1.5,
-    borderColor: theme.border,
-    backgroundColor: theme.surface,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 11,
-  },
-  swapRowText: { flex: 1, fontSize: 14.5, fontWeight: '800', color: theme.ink, lineHeight: 19 },
 
   /* rest (light theme like every other in-workout screen) */
   // The ring itself carries the purple; label and figure stay ink so the
@@ -6396,6 +6388,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexShrink: 1,
   },
   sheetFrame: { maxHeight: '78%' },
+  sheetFrameTall: { height: '90%', maxHeight: '90%' },
   swapSearch: {
     marginBottom: 14,
     height: 46,
@@ -6408,10 +6401,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
+  // The rest of a tall sheet between the search and the footnote. It was
+  // capped at 380 while the sheet sized itself to its content; a fixed-height
+  // sheet bounds it instead, and the footnote stays on screen.
   swapList: {
-    // Bounded so the footnote below it stays on screen; the sheet's own
-    // maxHeight cannot do this on its own with a list inside it.
-    maxHeight: 380,
+    flex: 1,
   },
   swapSectionLabel: {
     marginTop: 14,

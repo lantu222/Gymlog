@@ -757,4 +757,43 @@ module.exports = [
       assert.match(sheet, /visible\s*\?\s*getSuggestedExerciseLibraryItems\(/);
     },
   },
+  {
+    /**
+     * #bugs 2026-09-30: "saisiko sen saman liikekirjaston missä on ne kuvat
+     * niin tuotua tähän" — the swap sheet's rows are the library's rows, the
+     * picture included, and the sheet is a fixed 90% rather than 55% dragged
+     * to 90% (the reader's call: with pictures the drag is not needed).
+     */
+    name: 'guided swap: the library\'s picture rows, in a sheet 90% tall',
+    run() {
+      const source = playerSource.replace(/\r\n/g, '\n');
+      assert.match(
+        source,
+        /import \{ ExerciseLibraryRow, exerciseLibraryRowMeta, getItemImage \} from '\.\.\/components\/ExerciseLibraryBrowser';/,
+      );
+      // Both lists, suggested and library, draw the shared row with a picture.
+      const sheet = source.slice(source.indexOf('{swapOpen && actionExercise && ('), source.indexOf('<AddExerciseSheet'));
+      assert.equal((sheet.match(/<ExerciseLibraryRow\b/g) ?? []).length, 2);
+      assert.match(sheet, /imageUrl=\{item \? getItemImage\(item\) : null\}/);
+      assert.match(sheet, /imageUrl=\{getItemImage\(item\)\}/);
+      assert.doesNotMatch(source, /SwapRow|swapRowText/);
+      // A suggestion is looked up in the library for its picture.
+      assert.match(source, /const swapSuggestionRows = useMemo\(/);
+      assert.match(source, /findGuidedLibraryIndex\(getDrillLibraryName\(name\) \?\? name, libraryNames\)/);
+      // Tall: 90%, fixed, and the list fills it rather than a 380 cap.
+      assert.match(sheet, /<GPSheet[\s\S]*?\btall\b[\s\S]*?onClose=/);
+      assert.match(source, /sheetFrameTall: \{ height: '90%', maxHeight: '90%' \},/);
+      assert.match(source, /swapList: \{\s*flex: 1,\s*\}/);
+      // Only the swap sheet is tall; the rest keep the 78% content-sized cap.
+      const openings = source.match(/<GPSheet\b[\s\S]*?onClose=/g) ?? [];
+      assert.ok(openings.length >= 5, 'the player lost its sheets');
+      assert.equal(openings.filter((opening) => /^\s*tall$/m.test(opening)).length, 1);
+      // And the library screen draws the same component.
+      const browser = fs
+        .readFileSync(path.join(__dirname, '..', '..', 'src', 'components', 'ExerciseLibraryBrowser.tsx'), 'utf8')
+        .replace(/\r\n/g, '\n');
+      assert.match(browser, /export function ExerciseLibraryRow\(/);
+      assert.match(browser, /<ExerciseLibraryRow\s+title=\{exerciseListLabel\(language, item\.name\)\}/);
+    },
+  },
 ];

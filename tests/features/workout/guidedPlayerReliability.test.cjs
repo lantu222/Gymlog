@@ -327,7 +327,10 @@ module.exports = [
       // percentage would resolve against nothing and cap nothing (review,
       // 2026-09-30).
       assert.match(player, /  sheetFrame: \{ maxHeight: '78%' \},/);
-      assert.match(player, /<Animated\.View style=\{\[styles\.sheetFrame, \{ transform: \[\{ translateY: dragY \}\] \}\]\}>/);
+      assert.match(
+        player,
+        /<Animated\.View\s*style=\{\[styles\.sheetFrame, tall \? styles\.sheetFrameTall : null, \{ transform: \[\{ translateY: dragY \}\] \}\]\}\s*>/,
+      );
       assert.match(player, /  sheet: \{[^}]*flexShrink: 1,/);
       assert.doesNotMatch(player.match(/  sheet: \{[^}]*\}/)[0], /maxHeight/);
       // The title lives in the sheet's pull zone now; the list is the first
