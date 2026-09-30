@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { del, list, put } from '@vercel/blob';
 import { readAnswerExtras, withoutExampleRepeats } from '../src/lib/aiCoachAnswerExtras';
+import { localizeAdviceDecimals } from '../src/lib/aiCoachAnswerDecimals';
 import { buildAiCoachPreviewAnswer } from '../src/lib/aiCoachPreview';
 import { buildAiCoachContextText } from '../src/lib/aiCoachSystemContext';
 import { normalizeAiCoachTrainingContext } from '../src/lib/aiTrainingContext';
@@ -890,7 +891,9 @@ async function requestClaude(input: AICoachAdviceRequest) {
       );
     }
 
-    return createSuccess(parsed, 'live');
+    // The lifts' series reach the model as English data and came back into
+    // Finnish answers with their points ("72.5 → 75", 2026-09-30).
+    return createSuccess(localizeAdviceDecimals(parsed, input.language), 'live');
   } catch (error) {
     const isAbort = error instanceof Error && error.name === 'AbortError';
     return createError(
