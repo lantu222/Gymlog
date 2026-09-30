@@ -2,6 +2,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+
 /**
  * Line endings normalised.
  *
@@ -16,6 +18,8 @@ const screen = read('src', 'screens', 'MilestonesScreen.tsx');
 const profile = read('src', 'screens', 'ProfileScreen.tsx');
 const tab = read('src', 'app', 'renderProfileTab.tsx');
 const app = read('App.tsx');
+/** App.tsx and the src/app modules its blocks moved into, line endings normalised like read(). */
+const wiring = readAppWiring().split('\r\n').join('\n');
 const routes = read('src', 'navigation', 'routes.ts');
 const bar = read('src', 'components', 'BottomTabBar.tsx');
 
@@ -49,17 +53,18 @@ module.exports = [
   {
     name: 'milestones: the facts are read once in App and the ledger is built from them in the unit the reader lifts in',
     run() {
-      assert.match(app, /import \{ buildMilestoneLedger, getMilestoneFacts \} from '\.\/src\/lib\/milestoneFacts'/);
-      assert.match(app, /const milestoneFacts = useMemo\(\s*\(\) => getMilestoneFacts\(database, lifetimeSummary, recordDates\)/);
+      // From App.tsx or from the src/app module the memos moved into.
+      assert.match(wiring, /import \{ buildMilestoneLedger, getMilestoneFacts \} from '(?:\.\/src|\.\.)\/lib\/milestoneFacts'/);
+      assert.match(wiring, /const milestoneFacts = useMemo\(\s*\(\) => getMilestoneFacts\(database, lifetimeSummary, recordDates\)/);
       // Keyed on the tables it reads, not the database object a preference
       // toggle replaces.
-      const factsMemo = between(app, 'const milestoneFacts = useMemo', 'const milestoneLedger');
+      const factsMemo = between(wiring, 'const milestoneFacts = useMemo', 'const milestoneLedger');
       // The summary is itself keyed on the whole database, so depending on the
       // object would undo the narrowing — only the field this reads counts.
       assert.match(factsMemo, /database\.workoutSessions,\s*database\.exerciseLogs,\s*database\.cardioSessions,\s*database\.bodyweightEntries,\s*lifetimeSummary\.currentWeekStreak,\s*recordDates,/);
-      assert.match(app, /const milestoneLedger = useMemo\(\(\) => buildMilestoneLedger\(milestoneFacts, unitPreference\), \[milestoneFacts, unitPreference\]\)/);
+      assert.match(wiring, /const milestoneLedger = useMemo\(\(\) => buildMilestoneLedger\(milestoneFacts, unitPreference\), \[milestoneFacts, unitPreference\]\)/);
       // The record dates are the lib's (firstAt, which never moves), not a walk in the shell.
-      assert.match(app, /const recordDates = useMemo\(\(\) => firstRecordDates\(personalRecords\), \[personalRecords\]\)/);
+      assert.match(wiring, /const recordDates = useMemo\(\(\) => firstRecordDates\(personalRecords\), \[personalRecords\]\)/);
       // The ledger travels to the tab; the facts stop at it, because the card
       // no longer takes a second model of the same log.
       const deps = between(app, 'lifetimeSummary,\n      milestoneLedger,', 'distinctRecordCount,\n    });');

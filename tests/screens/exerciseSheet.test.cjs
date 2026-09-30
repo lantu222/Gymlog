@@ -2,6 +2,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+
 const sheetSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'components', 'ExerciseSheet.tsx'),
   'utf8',
@@ -279,6 +281,8 @@ module.exports = [
         'utf8',
       );
       const appSource = fs.readFileSync(path.join(__dirname, '..', '..', 'App.tsx'), 'utf8');
+      // The memo, from App.tsx or the src/app module it moved into.
+      const wiring = readAppWiring();
       assert.match(playerSource, /liftHistory\?\.\(instance\.exerciseName\)/);
       assert.doesNotMatch(playerSource, /lift && lift\.length > 0/, 'the lift replaces the slot again');
       assert.match(
@@ -287,11 +291,11 @@ module.exports = [
         'the slot rows the lift lacks must be added, on performedAt — and only the usable ones (CI review of #155)',
       );
       assert.match(tabSource, /<GuidedPlayerScreen[\s\S]{0,1500}liftHistory=\{liftHistory\}/);
-      assert.match(appSource, /const liftHistory = useMemo/);
-      const liftMemo = appSource.match(/const liftHistory = useMemo\(\(\) => \{[\s\S]*?\n  \}, \[/);
+      assert.match(wiring, /const liftHistory = useMemo/);
+      const liftMemo = wiring.match(/const liftHistory = useMemo\(\(\) => \{[\s\S]*?\n  \}, \[/);
       assert.ok(liftMemo, 'the liftHistory memo is gone');
       assert.ok(!liftMemo[0].includes('recordSources'), 'the lookup is built from the tracked summaries again');
-      assert.match(appSource, /const byName = getLiftHistoryByName\(database\);/, 'the lookup must be built from every log');
+      assert.match(wiring, /const byName = getLiftHistoryByName\(database\);/, 'the lookup must be built from every log');
       assert.match(appSource, /renderWorkoutTab\(\{[\s\S]{0,4000}\r?\n {6}liftHistory,\r?\n/);
     },
   },
