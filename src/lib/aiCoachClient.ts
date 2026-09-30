@@ -5,6 +5,7 @@ import { ProgramImageMediaType, ProgramTableRow, validateProgramTable } from './
 import { AICoachAdvice, AICoachAdviceError, AICoachAdviceRequest, AICoachAdviceSuccess } from '../types/aiCoach';
 import { appVersionHeaders, noteServerAnswer } from '../features/appUpdate/appUpdateSignal';
 import { buildCoachReportBody, CoachReportReason } from './coachAnswerReport';
+import { COACH_COPIES_KEPT } from './aiCoachLogId';
 
 // The key the endpoint asks for on every call (api/ai-coach.ts, hasAppKey).
 // Without it the server refuses, so a build that lacks it is a preview build
@@ -44,8 +45,18 @@ const REQUEST_TIMEOUT_MS = 40000;
  */
 const aiLogCarriedAt = new Map<string, number>();
 
+/**
+ * The permission as it leaves the phone: no while copies are off, whatever the
+ * stored answer says, and never a label without a yes. Every request that can
+ * carry one goes through this, so none can send a copy past the switch.
+ */
+function keepFields(keepConsent: boolean | undefined, logId: string | null | undefined): { keepConsent: boolean; logId?: string } {
+  const keep = COACH_COPIES_KEPT && keepConsent === true;
+  return keep && logId ? { keepConsent: true, logId } : { keepConsent: false };
+}
+
 function noteAiLogCarried(keepConsent: boolean | undefined, logId: string | null | undefined) {
-  if (keepConsent === true && logId) {
+  if (COACH_COPIES_KEPT && keepConsent === true && logId) {
     aiLogCarriedAt.set(logId, Date.now());
   }
 }
@@ -209,7 +220,7 @@ export async function requestAiCoachAdvice(input: AICoachAdviceRequest, upstream
     const response = await fetch(AI_COACH_API_URL, {
       method: 'POST',
       headers: coachHeaders(),
-      body: JSON.stringify(input),
+      body: JSON.stringify({ ...input, logId: undefined, ...keepFields(input.keepConsent, input.logId) }),
       signal,
     });
 
@@ -329,8 +340,7 @@ export async function requestProgramTableFromImage(
         // Sent every time from the switch as it stands, and paired with the
         // label: the server refuses to keep anything without one, which
         // closes the window between the first yes and the id landing.
-        keepConsent: input.keepConsent === true,
-        ...(input.keepConsent && input.logId ? { logId: input.logId } : {}),
+        ...keepFields(input.keepConsent, input.logId),
       }),
       signal,
     });
@@ -376,8 +386,7 @@ export async function requestProgrammeComposition(
         prompt: input.brief,
         context: input.context,
         language: input.language,
-        keepConsent: input.keepConsent === true,
-        ...(input.keepConsent && input.logId ? { logId: input.logId } : {}),
+        ...keepFields(input.keepConsent, input.logId),
       }),
       signal,
     });

@@ -15,6 +15,17 @@
  * the last line off clears it, and the next yes mints a new one, so two
  * stretches of consent cannot be joined into one history.
  */
+/**
+ * Whether the coach keeps copies at all. Off since 2026-09-30 (user): no
+ * conversation, programme or photo is kept anywhere until the whole question
+ * of keeping and reading them is gone through again after release. One
+ * switch for both ends — the app stops asking and stops sending the
+ * permission, and the server stops writing whatever an older app still sends.
+ * A reader who said yes before keeps the Settings switch that takes it back
+ * and deletes what was kept.
+ */
+export const COACH_COPIES_KEPT = false;
+
 export function randomLogId(): string {
   return `${randomHex(8)}-${randomHex(4)}-${randomHex(4)}-${randomHex(12)}`;
 }

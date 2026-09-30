@@ -95,7 +95,12 @@ module.exports = [
       // Two locks, both the reader's: permission and a label. A copy nobody can
       // name is a copy nobody can delete, so a write without one is refused
       // rather than filed anonymously.
-      assert.match(endpoint, /if \(!keepConsent \|\| !logId\) \{/);
+      assert.match(endpoint, /if \(!COACH_COPIES_KEPT \|\| !keepConsent \|\| !logId\) \{/);
+      // Copies are off until keeping and reading them is gone through again
+      // after release (user, 2026-09-30) — the ask is hidden, the app sends a
+      // no, and this writer returns first. Turning them back on is a decision,
+      // so it has to come through here.
+      assert.match(read('src/lib/aiCoachLogId.ts'), /export const COACH_COPIES_KEPT = false;/);
 
       // And the development switch is NOT a third one. It was, until
       // 2026-09-10, which meant a yes bought nothing in production: consent,

@@ -17,6 +17,7 @@ import { CoachReportSheet } from '../components/CoachReportSheet';
 import { ProgrammeProposalCard } from '../components/ProgrammeProposalCard';
 import { ProLockedCard } from '../components/ProLockedCard';
 import { reportAiCoachAnswer, requestAiCoachAdvice } from '../lib/aiCoachClient';
+import { COACH_COPIES_KEPT } from '../lib/aiCoachLogId';
 import { CoachReportReason } from '../lib/coachAnswerReport';
 import { trackEvent } from '../features/analytics/analyticsClient';
 import { buildAiCoachPreviewAnswer } from '../lib/aiCoachPreview';
@@ -1295,6 +1296,7 @@ export function AICoachChatScreen({
                   same either way. Off until tapped, one at a time — a single
                   switch for three different things would be one answer put in
                   the reader's mouth three times. */}
+              {COACH_COPIES_KEPT ? (
               <View style={styles.keepBlock}>
                 <Text style={styles.keepTitle}>{t(language, 'coachChat.keep.title')}</Text>
                 <Text style={styles.keepBody}>{t(language, 'coachChat.keep.body')}</Text>
@@ -1322,6 +1324,7 @@ export function AICoachChatScreen({
                 })}
                 <Text style={styles.keepNote}>{t(language, 'coachChat.keep.note')}</Text>
               </View>
+              ) : null}
 
               <Pressable
                 accessibilityRole="button"
