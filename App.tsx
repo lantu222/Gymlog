@@ -162,15 +162,11 @@ import { planTrainedOnDay, resolveNextPlanEntryIndex } from './src/lib/planRotat
 import { alignHistoryToCopiedDays, programmeHistoryIds } from './src/lib/programLineage';
 import { cycleSchedule, trainsOn, weekdaySchedule, withRestDays } from './src/lib/trainingSchedule';
 import {
-  buildRecoverySheet,
-  dayStartPlus,
   isLightenPending,
   lightenedFatigueSignal,
   lightenRuntimeTemplate,
-  withoutRestDay,
-  withRestDay,
-  type RecoveryActionKind,
 } from './src/lib/recoverySheet';
+import { useRecoverySheet } from './src/app/useRecoverySheet';
 import {
   planWeekdayIndexes,
   resolveProgramTrainingDays,
@@ -4329,86 +4325,17 @@ function VinhaApp() {
     [baseTrainingSchedule, preferences.restDayStarts],
   );
 
-  /**
-   * What the recovery row opens (design: GAINER Palautuminen Sheet). Null
-   * when the fatigue model is not confident — the row is not there either.
-   * Keyed on the day: "tomorrow" and the seven-day strip read the clock.
-   */
-  const recoverySheet = useMemo(() => {
-    const now = new Date();
-    const tomorrow = new Date(dayStartPlus(now, 1));
-    return buildRecoverySheet({
-      fatigue: proFatigue,
-      sessionDates: database.workoutSessions.map((session) => session.performedAt),
-      now,
-      nextSessionTitle: homeActivePlanCard?.nextSession
-        ? localizeSessionName(homeActivePlanCard.nextSession.title, preferences.appLanguage)
-        : null,
-      automatedProgression: preferences.automatedProgressionEnabled,
-      proUnlocked: coachProUnlocked,
-      // Asked of the rhythm before any rest day, so a day already taken off
-      // still reads as one the reader would have trained.
-      tomorrowTrains: trainsOn(baseTrainingSchedule, tomorrow),
-      restTomorrowMarked: preferences.restDayStarts.includes(tomorrow.getTime()),
-      lightenQueued: isLightenPending(preferences.lightNextSession, now),
-      language: preferences.appLanguage,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
+  const { recoverySheet, handleRecoveryAction, handleRecoveryUndo } = useRecoverySheet({
     proFatigue,
-    database.workoutSessions,
-    homeActivePlanCard?.nextSession,
-    preferences.appLanguage,
-    preferences.automatedProgressionEnabled,
-    preferences.restDayStarts,
-    preferences.lightNextSession,
+    database,
+    homeActivePlanCard,
+    preferences,
     coachProUnlocked,
     baseTrainingSchedule,
     todayStartMs,
-  ]);
-
-  /**
-   * The recovery sheet's two actions, and taking them back. Each says it is
-   * done only after the write has landed; a refused write says so instead.
-   */
-  async function handleRecoveryAction(kind: RecoveryActionKind) {
-    if (kind === 'close') {
-      return;
-    }
-    const now = new Date();
-    try {
-      if (kind === 'lighten') {
-        await updatePreferences({ lightNextSession: { requestedAt: now.toISOString() } });
-        void haptics.success();
-        showToast(t(preferences.appLanguage, 'recovery.toast.lighten'));
-        return;
-      }
-      await updatePreferences({
-        restDayStarts: withRestDay(preferences.restDayStarts, dayStartPlus(now, 1), now),
-      });
-      void haptics.success();
-      showToast(t(preferences.appLanguage, 'recovery.toast.rest'));
-    } catch (error) {
-      console.error('Failed to save the recovery action', error);
-      void haptics.error();
-      showToast(t(preferences.appLanguage, 'recovery.toast.failed'));
-    }
-  }
-
-  async function handleRecoveryUndo(kind: 'lighten' | 'restTomorrow') {
-    const now = new Date();
-    try {
-      await updatePreferences(
-        kind === 'lighten'
-          ? { lightNextSession: null }
-          : { restDayStarts: withoutRestDay(preferences.restDayStarts, dayStartPlus(now, 1), now) },
-      );
-    } catch (error) {
-      console.error('Failed to undo the recovery action', error);
-      void haptics.error();
-      showToast(t(preferences.appLanguage, 'recovery.toast.failed'));
-    }
-  }
+    updatePreferences,
+    showToast,
+  });
   /**
    * What the set screen will open on the next time the last session's day is
    * started — the same materialisation and target resolver a real start uses,
