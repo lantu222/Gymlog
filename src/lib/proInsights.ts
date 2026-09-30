@@ -207,14 +207,21 @@ export function buildPlateauConclusion(
   level: SetupLevel | null | undefined,
 ): LockedConclusion {
   const weight = formatWeight(lift.latest.topSetWeightKg, 'kg');
-  // The reps path told a reader already AT this weight to earn a rep "before
-  // raising" it — the same weight the headline just said they were stuck at.
-  // The honest target is the next step up, the same number the progression
-  // gate itself would take (#bugs 2026-09-29).
+  // The reps path says what to do next time, in the reader's own numbers:
+  // this weight for one rep more on every set, then the next step up — the
+  // same number the progression gate itself would take. It opened on "Your
+  // reps are holding at this weight", which the card above had already said
+  // ("Toistosi pitävät tällä painolla on aika huono", #bugs 2026-09-30), and
+  // before that it named the stuck weight as the one to raise to (#bugs
+  // 2026-09-29).
   const body =
     stallReason(lift) === 'recovery'
       ? t(language, 'pro.fix.recovery', { weight })
-      : t(language, 'pro.fix.reps', { weight: formatWeight(nextStepKg(lift, level), 'kg') });
+      : t(language, 'pro.fix.reps', {
+          weight,
+          reps: lift.latest.topSetReps + 1,
+          next: formatWeight(nextStepKg(lift, level), 'kg'),
+        });
   return {
     teaser: t(language, 'pro.fix.teaser', { count: lift.stalledSessions }),
     body,

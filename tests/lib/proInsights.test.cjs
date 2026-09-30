@@ -92,9 +92,19 @@ module.exports = [
         reps: [[8, 8, 8], [8, 8, 7], [8, 7, 6], [8, 6, 5]],
       });
       const decliningFix = buildPlateauConclusion(detectPlateau(declining), 'en', 'beginner');
-      assert.match(decliningFix.body, /recovery, not load/);
+      assert.match(decliningFix.body, /later sets fade/);
       // Recovery says HOLD — the weight the reader is already at is correct here.
-      assert.match(decliningFix.body, /82\.5 kg/);
+      assert.equal(decliningFix.body, 'Your later sets fade every session. Hold 82.5 kg and do one set fewer.');
+      const { setNumberLanguage } = require('../../.test-dist/lib/format.js');
+      setNumberLanguage('fi');
+      try {
+        assert.equal(
+          buildPlateauConclusion(detectPlateau(declining), 'fi', 'beginner').body,
+          'Loppusarjat hiipuvat joka treenissä. Pidä 82,5 kg ja tee yksi sarja vähemmän.',
+        );
+      } finally {
+        setNumberLanguage('en');
+      }
 
       // Reps hold → the reps path. Same weight appears in the real text.
       const holding = history({
@@ -102,14 +112,26 @@ module.exports = [
         reps: [[8, 8, 8], [8, 8, 8], [8, 8, 8], [8, 8, 8]],
       });
       const holdingFix = buildPlateauConclusion(detectPlateau(holding), 'en', 'beginner');
-      assert.match(holdingFix.body, /add one rep per set/);
-      // The reader is already AT 82.5 kg — telling them to earn a rep "before
-      // raising 82.5 kg" asks them to do it before something already true.
-      // The honest target is the next step the progression gate would take
-      // (beginner: +2.5 kg), never the weight the headline just said they
-      // were stuck at (#bugs 2026-09-29).
-      assert.match(holdingFix.body, /85 kg/);
-      assert.ok(!holdingFix.body.includes('82.5 kg'), 'the reps fix must not name the stuck weight as the target');
+      // What to do next time, in the reader's own numbers: this weight for
+      // one rep more on every set, then the next step up. It opened on "Your
+      // reps are holding at this weight", which the card above it had already
+      // said (#bugs 2026-09-30, "Toistosi pitävät tällä painolla on aika
+      // huono").
+      assert.equal(holdingFix.body, 'Next time 82.5 kg × 9 on every set. Once that holds, move up to 85 kg.');
+      setNumberLanguage('fi');
+      try {
+        assert.equal(
+          buildPlateauConclusion(detectPlateau(holding), 'fi', 'beginner').body,
+          'Ensi kerralla 82,5 kg × 9 joka sarjassa. Kun se menee, nosta 85 kg.',
+        );
+      } finally {
+        setNumberLanguage('en');
+      }
+      assert.doesNotMatch(holdingFix.body, /holding at this weight/);
+      // The weight to move up to is still the next step the progression gate
+      // would take (beginner: +2.5 kg), never the weight the reader is stuck
+      // at (#bugs 2026-09-29).
+      assert.match(holdingFix.body, /move up to 85 kg\.$/);
     },
   },
   {

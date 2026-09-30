@@ -2065,10 +2065,10 @@ const EN = {
   'pro.plateau.headline': "Your {lift} hasn't moved in {count} sessions.",
   'pro.plateau.meta': '{weight} × {reps}, {count} sessions running · {from} – {to}',
   'pro.fix.teaser': 'One fix, from your own {count} sessions',
-  'pro.fix.recovery': "It's recovery, not load — your later-set reps drop every session. "
-    + 'Hold {weight} and cut one set.',
-  'pro.fix.reps':
-    'Your reps are holding at this weight — earn the next step: add one rep per set before moving up to {weight}.',
+  // What to do next time, in the reader's own numbers — not a restatement of
+  // the finding above it (#bugs 2026-09-30).
+  'pro.fix.recovery': 'Your later sets fade every session. Hold {weight} and do one set fewer.',
+  'pro.fix.reps': 'Next time {weight} × {reps} on every set. Once that holds, move up to {next}.',
   'pro.completion.teaser': 'Your coach has one change for next time',
   'pro.completion.body':
     '{lift} is ready to try {weight} next session, if every set reaches the top of its rep range.',
@@ -5164,11 +5164,8 @@ const FI: Record<I18nKey, string> = {
   'pro.plateau.headline': '{lift} ei ole liikkunut {count} treeniin.',
   'pro.plateau.meta': '{weight} × {reps}, {count} treeniä putkeen · {from} – {to}',
   'pro.fix.teaser': 'Yksi korjaus, omista {count} treenistäsi',
-  'pro.fix.recovery':
-    'Kyse on palautumisesta, ei kuormasta — loppusarjojen toistot putoavat joka treenissä. '
-    + 'Pidä {weight} ja pudota yksi sarja.',
-  'pro.fix.reps':
-    'Toistosi pitävät tällä painolla. Lisää yksi toisto sarjaa kohti, ennen kuin nostat {weight}.',
+  'pro.fix.recovery': 'Loppusarjat hiipuvat joka treenissä. Pidä {weight} ja tee yksi sarja vähemmän.',
+  'pro.fix.reps': 'Ensi kerralla {weight} × {reps} joka sarjassa. Kun se menee, nosta {next}.',
   'pro.completion.teaser': 'Valmentajalla on yksi muutos ensi kertaan',
   'pro.completion.body':
     '{lift} on valmis kokeilemaan {weight} ensi treenissä, jos jokainen sarja yltää toistohaarukan yläpäähän.',
