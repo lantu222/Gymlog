@@ -267,6 +267,42 @@ export interface ExerciseLibraryItem {
   sourceLevel?: string | null;
 }
 
+/**
+ * Why the app opened a set at the number it did (lib/loggedSetPlan):
+ * - progressed: the gate raised load or reps after an earned session
+ * - held_caution / held_recovery: a raise was earned and a flagged body area
+ *   or the recovery read held it
+ * - borrowed: the same lift's weight from another programme or day
+ * - repeat: last time's number in this slot
+ * - added: a set the reader added mid-session, opened on the set before it —
+ *   the reader's own number, not a suggestion
+ * - none: the set opened empty
+ */
+export type ExerciseLogSetPlanBasis =
+  | 'added'
+  | 'progressed'
+  | 'held_caution'
+  | 'held_recovery'
+  | 'borrowed'
+  | 'repeat'
+  | 'none';
+
+/** What the app opened a set at, kept beside what was done. See lib/loggedSetPlan. */
+export interface ExerciseLogSetPlan {
+  /** The prefilled load; null when the app opened the set without one. */
+  loadKg: number | null;
+  repsMin: number;
+  repsMax: number;
+  /** The reps the dial opened at, when the gate or a missed-reps target set them. */
+  targetReps: number | null;
+  basis: ExerciseLogSetPlanBasis;
+  /** For `progressed`: what the load or reps were before the raise. */
+  fromKg: number | null;
+  fromReps: number | null;
+  /** For `held_caution`: the flagged area. */
+  cautionArea: SetupCautionArea | null;
+}
+
 export interface ExerciseLogSet {
   orderIndex: number;
   weight: number;
@@ -277,6 +313,11 @@ export interface ExerciseLogSet {
   effort?: ExerciseLogSetEffort | null;
   completedAt?: string | null;
   skippedReason?: string | null;
+  /**
+   * What the app suggested for this set. Absent on sets saved before
+   * 2026-09-30 and on sets the app never planned (an empty workout).
+   */
+  planned?: ExerciseLogSetPlan;
 }
 
 /**

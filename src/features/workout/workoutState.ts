@@ -1535,6 +1535,9 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
           {
             setIndex: memberNextIndex,
             plannedLoadKg: sourceLift ? undefined : sourceSet?.actualLoadKg ?? sourceSet?.plannedLoadKg,
+            // The reader added this set, and its weight is usually the one
+            // they just lifted — theirs, not the app's plan (lib/loggedSetPlan).
+            addedMidSession: true,
             plannedRepsMin: planned.repsMin,
             plannedRepsMax: planned.repsMax,
             draftLoadText: '',
