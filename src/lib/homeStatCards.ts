@@ -1,4 +1,5 @@
 import { calendarDaysBetween } from './completedSessions';
+import { exerciseNameLabel } from './exerciseNameLabel';
 import { I18nKey, t } from './i18n';
 import { getTopComparableSet } from './profileOverview';
 import { ExerciseProgressSummary } from './progression';
@@ -103,7 +104,11 @@ function liftCardKey(progressKey: string) {
 /**
  * The full catalog for this user: fixed body metrics plus their own tracked
  * lifts. Lift labels come from the user's logged names, so a Finnish
- * "Takakyykky" is offered as-is instead of failing an English name match.
+ * "Takakyykky" is offered as-is instead of failing an English name match —
+ * and a library name is put in the reader's language like every other list
+ * in the app: the sheet and the pinned cards read "Wide-Grip Lat Pulldown"
+ * and "Barbell Bench Press - Medium Grip" under a Finnish heading (#bugs
+ * 2026-09-30, "liikkeet on englanniksi eli kortit ja lisää").
  */
 export function buildHomeStatCardCatalog(
   sources: HomeStatCardSources,
@@ -115,7 +120,7 @@ export function buildHomeStatCardCatalog(
     .slice(0, MAX_LIFT_CATALOG_ITEMS)
     .map((summary) => ({
       key: liftCardKey(summary.key),
-      label: summary.name,
+      label: exerciseNameLabel(language, summary.name),
       unit: 'kg',
       icon: 'lift' as const,
     }));
