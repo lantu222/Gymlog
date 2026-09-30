@@ -218,29 +218,26 @@ module.exports = [
      * lift sat under "VIIME KERRALLA" as this day's own record, and under
      * "VIIMEKSI" on the walk-up card one step before (#bugs 2026-09-09,
      * "3x20 10kg ei pidä paikkansa ... eri päivä"). The number stays; both
-     * headings say where it came from.
+     * headings said where it came from — until the reader, three weeks on,
+     * asked for the second line gone (#bugs 2026-09-30). The screen reader
+     * still hears it.
      */
-    name: 'guided player: a borrowed last time says so on the set card and on the walk-up card',
+    name: 'guided player: a borrowed last time is headed like any other, and said to a screen reader',
     run() {
-      // The view carries the flag...
+      // The view still carries the flag...
       assert.match(playerSource, /borrowed: resolved\?\.borrowed \?\? false,/);
-      // ...and both surfaces that print its number choose their heading by it.
-      assert.match(
-        playerSource,
-        /panels\.history\.borrowed\s*\?\s*'guided\.card\.lastTimeBorrowed'\s*:\s*'guided\.card\.lastTime'/,
-      );
-      assert.match(playerSource, /last\?\.borrowed\s*\?\s*'guided\.walk\.lastBorrowed'\s*:\s*'guided\.walk\.last'/);
-      // Both claims exist in both dictionaries, and each visibly differs from
-      // the plain heading — a borrowed heading identical to the plain one
-      // would be the bug wearing a new key. The qualifier sits on a second
-      // line: the set card's row has no room for a longer first one.
-      const borrowedHeadings =
-        i18nSource.match(/'guided\.(?:card\.lastTimeBorrowed|walk\.lastBorrowed)': '[^']+'/g) ?? [];
-      assert.equal(borrowedHeadings.length, 4, 'two borrowed headings, each in EN and FI');
-      assert.match(i18nSource, /'guided\.card\.lastTimeBorrowed': 'LAST TIME\\n[^']+'/);
-      assert.match(i18nSource, /'guided\.card\.lastTimeBorrowed': 'VIIME KERRALLA\\n[^']+'/);
-      assert.match(i18nSource, /'guided\.walk\.lastBorrowed': 'LAST\\n[^']+'/);
-      assert.match(i18nSource, /'guided\.walk\.lastBorrowed': 'VIIMEKSI\\n[^']+'/);
+      // ...but no visible heading reads it any more: the "ERI PÄIVÄ" second
+      // line went on request, on the set card and the walk-up card both
+      // (#bugs 2026-09-30, "jätä tuo viimekerralla mutta pois eri päivä").
+      assert.match(playerSource, /<Text style=\{styles\.setExerciseLastLabel\}>\{t\(language, 'guided\.card\.lastTime'\)\}<\/Text>/);
+      assert.match(playerSource, /<Text style=\{styles\.walkStatLabel\}>\{t\(language, 'guided\.walk\.last'\)\}<\/Text>/);
+      assert.doesNotMatch(i18nSource, /'guided\.(?:card\.lastTimeBorrowed|walk\.lastBorrowed)'/);
+      // The card's spoken label keeps the distinction.
+      assert.match(playerSource, /borrowed: panels\.history\.borrowed === true,/);
+      assert.match(i18nSource, /'guided\.a11y\.lastTimeBorrowed': 'Viime kerralla, eri päivänä',/);
+      // And the "VIIMEKSI · 27.9." badge under the dials is gone with its key.
+      assert.doesNotMatch(playerSource, /guided\.carriedFrom/);
+      assert.doesNotMatch(i18nSource, /'guided\.carriedFrom'/);
     },
   },
   {
@@ -262,40 +259,49 @@ module.exports = [
       // logged, and Muokkaa moved into it, on the current lift while resting.
       assert.doesNotMatch(playerSource, /restLoggedCard|restLogged\b|guided\.rest\.logged'/);
       assert.equal(i18nSource.includes("'guided.rest.logged'"), false);
-      // A superset rests once per ROUND, so every lift in the block gets its
-      // own correction rather than only the one that closed it — and the
-      // block is not gated on the lift the rest step names having logged
-      // something (2026-09-16). See `restRoundCorrections`.
+      // Every lift with a logged set gets its own correction, one pencil per
+      // lift — a superset's two halves each their own (2026-09-16) — and on
+      // every step, not only while resting: the last set of a lift is
+      // followed by a walk-up, and a rest-only correction left it with none
+      // (#bugs 2026-09-30). See `restRoundCorrections`.
       assert.match(
         playerSource,
-        /const roundCorrections =\s*item\.status === 'current' && step\.type === 'rest' && !step\.recoveryKind\s*\? restRoundCorrections\(item\.members, exerciseBySlot\)\s*: \[\];/,
+        /const correction = restRoundCorrections\(\[member\], exerciseBySlot\)\[0\] \?\? null;/,
       );
-      assert.match(playerSource, /\{roundCorrections\.length > 0 \? \(/);
-      assert.doesNotMatch(playerSource, /restingLogged/);
+      assert.doesNotMatch(playerSource, /roundCorrections|restingLogged/);
       assert.match(
         playerSource,
-        /setRunSheetOpen\(false\);\s*setRestEdit\(\{ slotId: lift\.slotId, setIndex, justLoggedSetIndex: setIndex \}\);/,
+        /setRunSheetOpen\(false\);\s*setRestEdit\(\{\s*slotId: correction\.lift\.slotId,\s*setIndex: correction\.setIndex,\s*justLoggedSetIndex: justLogged \? correction\.setIndex : -1,\s*\}\);/,
       );
+      // "Just logged" only for the round the running rest belongs to.
+      assert.match(
+        playerSource,
+        /const justLogged =\s*correction !== null &&\s*step\.type === 'rest' &&\s*!step\.recoveryKind &&\s*item\.status === 'current';/,
+      );
+      // And the editor it opens is not a rest-only overlay any more.
+      assert.match(playerSource, /\{restEdit \? \(\s*<LoggedSetEditor/);
+      assert.doesNotMatch(playerSource, /restEdit && step\.type === 'rest'/);
       // One NextLine left in the file: the drills'. The rest screen's is gone.
       assert.equal((playerSource.match(/<NextLine /g) ?? []).length, 1);
     },
   },
   {
     /**
-     * The walk-up's finished-lift card is two lines — check and name, then
-     * weight and reps — so the screen after a lift fits without scrolling
-     * (user 2026-09-09, "max 2 riviä valmis osiolle että ei tarvitse
-     * skrollata").
+     * The walk-up's finished-lift card was cut to two lines on 2026-09-09
+     * ("max 2 riviä valmis osiolle"), and then asked away altogether: it took
+     * the room the swap button needed (#bugs 2026-09-30, "poistetaan tuo mitä
+     * on viimeksi tehty se vie liikaa tilaa ... vaihda liike nappi näkyviin").
      */
-    name: 'guided walk-up: the finished lift is a check, its name, and one row of numbers',
+    name: 'guided walk-up: no finished-lift card, and swapping is a button',
     run() {
-      assert.doesNotMatch(playerSource, /walkDoneLabel|guided\.walk\.done/);
+      assert.doesNotMatch(playerSource, /walkDone|guided\.walk\.done/);
+      assert.equal(i18nSource.includes("'guided.walk.done'"), false);
       assert.match(
         playerSource,
-        /<GPIcon name="check"[^\n]*\n\s*<\/View>\s*<Text style=\{\[styles\.walkDoneName, \{ flex: 1, minWidth: 0 \}\]\} numberOfLines=\{1\}>/,
+        /<GhostBtn icon="swap" label=\{t\(language, 'guided\.walk\.swap'\)\} onPress=\{\(\) => setSwapOpen\(true\)\} \/>/,
       );
-      assert.match(playerSource, /\{walkDone\.weight \? <Text style=\{styles\.walkDoneWeight\}>\{walkDone\.weight\}<\/Text> : null\}/);
-      assert.equal(i18nSource.includes("'guided.walk.done'"), false);
+      // The walk-up keeps its "SEURAAVAKSI" ("jätetään tähän seuraavaksi").
+      assert.match(playerSource, /\{t\(language, 'guided\.nextUp'\)\}/);
     },
   },
   {
@@ -303,14 +309,16 @@ module.exports = [
      * The recovery splash is its title and its list. "Treeni valmis",
      * "SEURAAVAKSI" and "2 venytystä · ~4 min" were three lines about a
      * screen that shows its own contents (user 2026-09-09). The warm-up and
-     * workout splashes keep theirs until asked.
+     * workout splashes kept theirs until asked — and were asked (#bugs
+     * 2026-09-30, "otetaan seuraavaksi pois").
      */
-    name: 'guided splash: the recovery splash drops the done row, the eyebrow and the length',
+    name: 'guided splash: no eyebrow on any splash, and the recovery one drops its length',
     run() {
       // The done row ("Lämmittely valmis" between warm-up and workout) is
       // gone from every splash, not only the recovery one (user 2026-09-09).
       assert.doesNotMatch(playerSource, /step\.doneLabel/);
-      assert.match(playerSource, /\{step\.phase !== 'cooldown' \? \(\s*<Text[^\n]*\n\s*\{t\(language, 'guided\.upNext'\)\}/);
+      assert.doesNotMatch(playerSource, /guided\.upNext/);
+      assert.equal(i18nSource.includes("'guided.upNext'"), false);
       assert.match(playerSource, /\{step\.phase !== 'cooldown' \? \(\s*<Text[^\n]*\{step\.sub\}<\/Text>\s*\) : null\}/);
     },
   },
@@ -343,15 +351,23 @@ module.exports = [
       assert.doesNotMatch(playerSource, /guided\.entry\.lastTime'|lastTimeLine|entryLastLabel|buildOverviewScheme/);
       assert.equal(i18nSource.includes("'guided.entry.lastTime'"), false);
       assert.match(playerSource, /\.\.\.buildOverviewColumns\(/);
-      // No line cap on the name ("on pakko olla koko tekstit"), and a drill
-      // row spends nothing on the two columns it has no numbers for.
-      assert.match(playerSource, /<Text style=\{styles\.phaseRowName\}>\s*\{row\.name\}/);
-      assert.doesNotMatch(playerSource, /styles\.phaseRowName\} numberOfLines/);
+      // The whole name ("on pakko olla koko tekstit") in two lines at most,
+      // the type shrinking past that rather than a third line or a word cut
+      // in half (#bugs 2026-09-30, "max 2 riviä"). A drill row spends nothing
+      // on the two columns it has no numbers for.
+      assert.match(
+        playerSource,
+        /<Text\s*style=\{styles\.phaseRowName\}\s*numberOfLines=\{2\}\s*adjustsFontSizeToFit\s*minimumFontScale=\{0\.7\}\s*>\s*\{row\.name\}/,
+      );
       assert.match(playerSource, /\{row\.sets \|\| row\.reps \? \(/);
       for (const col of ['Sets', 'Reps', 'Load']) {
         assert.match(playerSource, new RegExp(`styles\\.phaseCol, styles\\.phaseCol${col}\\]`), `${col} column`);
       }
-      assert.match(playerSource, /phaseRowGroup: \{\s*paddingLeft: 16,/);
+      // No box around a block: its border and 15 px of padding a side were
+      // the width the names were missing ("laatikointi pois").
+      const phaseCard = playerSource.match(/  phaseCard: \{[^}]*\}/)?.[0] ?? '';
+      assert.doesNotMatch(phaseCard, /backgroundColor|borderWidth: 1,|paddingHorizontal|borderRadius/);
+      assert.match(playerSource, /phaseRowGroup: \{\s*paddingLeft: 4,/);
       // The header row exists once, for the lifts.
       assert.equal((playerSource.match(/styles\.phaseColHead/g) ?? []).length, 3);
       assert.match(playerSource, /\{phase\.key === 'work' \? \(/);
@@ -520,12 +536,15 @@ module.exports = [
         source,
         /const \[restEdit, setRestEdit\] = useState<\s*\{ slotId: string; setIndex: number; justLoggedSetIndex: number \} \| null\s*>\(null\);/,
       );
-      // Opened from the round-corrections chip with both fields equal: the
-      // sheet always opens on the set it names, selected.
+      // Opened from a lift's pencil on its latest logged set, selected; that
+      // set counts as "just logged" only on the rest after it — from any
+      // other step the title names the set by number (#bugs 2026-09-30).
       assert.match(
         source,
-        /setRestEdit\(\{ slotId: lift\.slotId, setIndex, justLoggedSetIndex: setIndex \}\);/,
+        /setRestEdit\(\{\s*slotId: correction\.lift\.slotId,\s*setIndex: correction\.setIndex,\s*justLoggedSetIndex: justLogged \? correction\.setIndex : -1,\s*\}\);/,
       );
+      // And the sheet says whose set it is: it opens from any lift now.
+      assert.match(source, /liftName=\{exerciseNameLabel\(language, restEditLift\?\.exerciseName \?\? ''\)\}/);
 
       // Every completed set of that lift, computed once per render from the
       // pure helper tests/lib/guidedPlayer covers.
@@ -655,6 +674,87 @@ module.exports = [
         playerSource.indexOf('const restEditSets ='),
       );
       assert.doesNotMatch(restEditBlock, /justLoggedSetIndex/);
+    },
+  },
+  {
+    /**
+     * #bugs 2026-09-30, on the contents sheet: "vaikea sulkea tätä valikkoa
+     * joko klikkaamalla muualta sulkee alasvedettäessä tai ruksi". Every
+     * player sheet closes three ways — the dimmed page, a ✕ beside the title,
+     * a pull down on the top strip — and the grip it drew now does something.
+     */
+    name: 'guided sheets: a tap outside, the ✕ and a pull down all close them',
+    run() {
+      const source = playerSource.replace(/\r\n/g, '\n');
+      const sheet = source.slice(source.indexOf('function GPSheet('), source.indexOf('/* ══'));
+      assert.ok(sheet.length > 0, 'GPSheet moved');
+      // The page.
+      assert.match(sheet, /<Pressable style=\{styles\.sheetScrim\} onPress=\{onClose\}>/);
+      // The ✕, named for a screen reader.
+      assert.match(
+        sheet,
+        /accessibilityLabel=\{t\(language, 'common\.close'\)\}\s*hitSlop=\{10\}\s*onPress=\{onClose\}/,
+      );
+      // The pull: on the strip that holds the grip AND the title, closing past
+      // a distance or a flick, springing back otherwise — on a transform.
+      assert.match(sheet, /<View \{\.\.\.pan\.panHandlers\} style=\{styles\.sheetGrab\}>\s*<View style=\{styles\.sheetHandle\} \/>\s*<View style=\{styles\.sheetTitleRow\}>/);
+      assert.match(
+        sheet,
+        /if \(gesture\.dy > SHEET_DISMISS_DRAG \|\| gesture\.vy > SHEET_DISMISS_VELOCITY\) \{\s*onCloseRef\.current\(\);/,
+      );
+      assert.match(sheet, /transform: \[\{ translateY: dragY \}\]/);
+      // Every sheet passes its title in, so every title is part of the strip.
+      const openings = source.match(/<GPSheet\b/g) ?? [];
+      const titled = source.match(/<GPSheet\s+title=/g) ?? [];
+      assert.ok(openings.length >= 5, 'the player lost its sheets');
+      assert.equal(titled.length, openings.length, 'a sheet draws its title outside the pull zone');
+      assert.doesNotMatch(source, /styles\.sheetTitle\b/);
+    },
+  },
+  {
+    /**
+     * #bugs 2026-09-30: "Poista yläosasta treeni ja lepo", then "Otetaan toi
+     * 1/6 pois myös yläpalkista". The player's top bar is the session clock
+     * and nothing else; only the do-it-yourself block, which has no title of
+     * its own, still names itself there.
+     */
+    name: 'guided top bar: the player shows the clock alone',
+    run() {
+      const source = playerSource.replace(/\r\n/g, '\n');
+      const bars = source.match(/<TopBar\b[\s\S]*?\/>/g) ?? [];
+      assert.equal(bars.length, 2, 'the player bar and the own-block bar');
+      const [player, ownBlock] = bars;
+      assert.doesNotMatch(player, /label=/, 'the player bar carries a label again');
+      assert.match(ownBlock, /label=\{t\(\s*language,\s*ownBlock\.phase === 'warmup' \? 'guided\.label\.warmup' : 'guided\.label\.cooldown',?\s*\)\}/);
+      assert.doesNotMatch(source, /getGuidedPhaseLabel/);
+      assert.match(source, /\{\[label, clock\]\.filter\(Boolean\)\.join\(' · '\)\}/);
+    },
+  },
+  {
+    /**
+     * Measured on the phone, 2026-09-30: every render of the player took
+     * ~230 ms, on every 100 ms timer tick — the countdown showed its 3 for
+     * 1.24 s and its 1 for 0.7 s ("Countdown lagaa 3 3 2 1"). The cost was the
+     * add-exercise sheet, mounted closed all session, re-sorting the ~900-lift
+     * library because the player handed it a new `recentItems` array each
+     * render. Under 40 ms per render once the array was stable.
+     */
+    name: 'guided player: the closed add-exercise sheet does no work on the player\'s renders',
+    run() {
+      const source = playerSource.replace(/\r\n/g, '\n');
+      // A module-level constant, not an inline literal.
+      assert.match(source, /^const NO_RECENT_EXERCISES: ExerciseLibraryItem\[\] = \[\];$/m);
+      assert.match(source, /recentItems=\{NO_RECENT_EXERCISES\}/);
+      assert.doesNotMatch(source, /recentItems=\{\[\]\}/);
+      // The warm-up brief's input is memoized too (~20 ms a render).
+      assert.match(source, /const activeExercises = useMemo\(\s*\(\) => exercises\.filter\(/);
+      // And the sheet itself lists nothing while closed, whatever it is handed.
+      const sheet = fs
+        .readFileSync(path.join(__dirname, '..', '..', 'src', 'components', 'AddExerciseSheet.tsx'), 'utf8')
+        .replace(/\r\n/g, '\n');
+      assert.match(sheet, /const filteredItems = useMemo\(\(\) => \{[\s\S]*?if \(!visible\) \{\s*return \[\];\s*\}/);
+      assert.match(sheet, /\}, \[bodyPart, category, commonStarterOrder, equipment, items, language, search, visible\]\);/);
+      assert.match(sheet, /visible\s*\?\s*getSuggestedExerciseLibraryItems\(/);
     },
   },
 ];

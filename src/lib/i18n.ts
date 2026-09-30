@@ -1328,9 +1328,6 @@ const EN = {
   'guided.count.exerciseOne': '1 exercise',
   'guided.count.exerciseMany': '{count} exercises',
   'guided.count.sets': '{count} sets',
-  // The player's header during a superset: the round instead of the exercise
-  // counter, written like the other headers (getGuidedPhaseLabel).
-  'guided.superset.round': 'WORKOUT · ROUND {round}/{rounds}',
   // The one word the box and the set screen both wear. Capitalised at the
   // point of use, so the dictionary carries the word and not a style.
   'guided.superset.pill': 'SUPERSET',
@@ -1360,17 +1357,10 @@ const EN = {
   'guided.phase.cooldown': 'Recovery',
   'guided.done.warmup': 'Warm-up complete',
   'guided.done.workout': 'Workout complete',
-  'guided.label.done': 'DONE',
+  // Only on the do-it-yourself block's screen now, which has no title of its
+  // own. One name for the block, everywhere: Recovery, not COOLDOWN.
   'guided.label.warmup': 'WARM-UP',
-  'guided.label.workout': 'WORKOUT',
-  // One name for the block, everywhere: the overview card, the gate and this
-  // top-bar label all said Recovery except this one, which said COOLDOWN.
   'guided.label.cooldown': 'RECOVERY',
-  'guided.label.ofCount': '{label} · {index} OF {count}',
-  // The word EXERCISE went when the session clock arrived beside it: three
-  // segments fit the bar between two 40px buttons, four did not.
-  'guided.label.exercise': 'WORKOUT · {index} OF {count}',
-  'guided.label.rest': 'WORKOUT · REST',
   'guided.step.set': '{name} set {index}',
   'guided.step.setup': '{name} setup',
   'guided.step.rest': 'Rest · {name}',
@@ -1382,7 +1372,6 @@ const EN = {
   'guided.target.seconds': '{reps} s',
   'guided.howTo': 'How to ›',
   // The on-demand 3D "how it's done" sheet.
-  'guided.upNext': 'UP NEXT',
   'guided.getReady': 'GET READY',
   'guided.secondsLeft': 'SECONDS LEFT',
   'guided.rest': 'REST',
@@ -1431,7 +1420,6 @@ const EN = {
   // -- Exercise to exercise (screen 8).
   'guided.walk.today': 'NOW',
   'guided.walk.last': 'LAST',
-  'guided.walk.lastBorrowed': 'LAST\nANOTHER DAY',
   'guided.walk.plan': '{sets} × {reps} · {rest} s rest',
   // A target lowered after a short session names the programme's own reps beside it.
   'guided.walk.planLowered': '{sets} × {reps} · programme {programme} · {rest} s rest',
@@ -1458,7 +1446,6 @@ const EN = {
   'guided.sheet.cues': 'THREE CUES',
   'guided.card.hint': 'Tap here for more about this lift',
   'guided.card.lastTime': 'LAST TIME',
-  'guided.card.lastTimeBorrowed': 'LAST TIME\nANOTHER DAY',
   'guided.card.firstTime': 'First time on this lift',
   // -- The free timer (session flow, screen 4).
   'guided.own.lastTime': 'Last time you took {clock}',
@@ -1499,9 +1486,6 @@ const EN = {
   'guided.autoLoadDown': 'AUTO −{kg} KG',
   'guided.autoReps': 'AUTO +{count}',
   'guided.autoRepsDown': 'AUTO −{count}',
-  // The weight came from this lift in another program or an empty workout —
-  // real, but not from this slot, so it says when.
-  'guided.carriedFrom': 'LAST TIME · {date}',
   // The counterpart to guided.autoLoad: that badge explains a weight the app
   // raised, this one a weight the app deliberately did not. Says why, because
   // "unchanged" is otherwise indistinguishable from nothing having happened.
@@ -4530,7 +4514,6 @@ const FI: Record<I18nKey, string> = {
   'guided.count.exerciseOne': '1 liike',
   'guided.count.exerciseMany': '{count} liikettä',
   'guided.count.sets': '{count} sarjaa',
-  'guided.superset.round': 'TREENI · KIERROS {round}/{rounds}',
   'guided.superset.pill': 'SUPERSARJA',
   'guided.superset.thenRest': 'sitten lepo',
   'guided.superset.next': 'Ei taukoa — suoraan: {name}',
@@ -4554,13 +4537,8 @@ const FI: Record<I18nKey, string> = {
   'guided.phase.cooldown': 'Palautuminen',
   'guided.done.warmup': 'Lämmittely valmis',
   'guided.done.workout': 'Treeni valmis',
-  'guided.label.done': 'VALMIS',
   'guided.label.warmup': 'LÄMMITTELY',
-  'guided.label.workout': 'TREENI',
   'guided.label.cooldown': 'PALAUTUMINEN',
-  'guided.label.ofCount': '{label} · {index}/{count}',
-  'guided.label.exercise': 'TREENI · {index}/{count}',
-  'guided.label.rest': 'TREENI · LEPO',
   'guided.step.set': '{name} sarja {index}',
   'guided.step.setup': 'Valmistaudu: {name}',
   'guided.step.rest': 'Lepo · {name}',
@@ -4571,7 +4549,6 @@ const FI: Record<I18nKey, string> = {
   'guided.target.reps': '{reps} toistoa',
   'guided.target.seconds': '{reps} s',
   'guided.howTo': 'Miten tehdään ›',
-  'guided.upNext': 'SEURAAVAKSI',
   'guided.getReady': 'VALMISTAUDU',
   'guided.secondsLeft': 'SEKUNTIA JÄLJELLÄ',
   'guided.rest': 'LEPO',
@@ -4603,7 +4580,6 @@ const FI: Record<I18nKey, string> = {
   'guided.rest.editSave': 'Tallenna',
   'guided.walk.today': 'NYT',
   'guided.walk.last': 'VIIMEKSI',
-  'guided.walk.lastBorrowed': 'VIIMEKSI\nERI PÄIVÄ',
   'guided.walk.plan': '{sets} × {reps} · lepo {rest} s',
   'guided.walk.planLowered': '{sets} × {reps} · ohjelmassa {programme} · lepo {rest} s',
   'guided.walk.planSuperset': '{sets} × {reps} · suoraan: {name}',
@@ -4629,7 +4605,6 @@ const FI: Record<I18nKey, string> = {
   'guided.sheet.cues': 'KOLME VINKKIÄ',
   'guided.card.hint': 'Paina tästä saadaksesi lisätietoja',
   'guided.card.lastTime': 'VIIME KERRALLA',
-  'guided.card.lastTimeBorrowed': 'VIIME KERRALLA\nERI PÄIVÄ',
   'guided.card.firstTime': 'Ensimmäinen kerta tällä liikkeellä',
   'guided.own.lastTime': 'Viime kerralla käytit {clock}',
   'guided.own.brief.label': 'TÄMÄN TREENIN KUORMAT',
@@ -4663,7 +4638,6 @@ const FI: Record<I18nKey, string> = {
   'guided.autoLoadDown': 'AUTOMAATTINEN −{kg} KG',
   'guided.autoReps': 'AUTOMAATTINEN +{count}',
   'guided.autoRepsDown': 'AUTOMAATTINEN −{count}',
-  'guided.carriedFrom': 'VIIMEKSI · {date}',
   'guided.heldForRecovery': 'PIDETÄÄN · PALAUTUMINEN',
   'guided.a11y.weightDown': 'Vähennä painoa {kg} kg',
   'guided.a11y.weightUp': 'Lisää painoa {kg} kg',
