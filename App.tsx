@@ -128,8 +128,8 @@ import { isSupersetLinked, setSupersetLink, supersetGroupIndexes, supersetSetTar
 import { resolveObservedRate } from './src/lib/strengthGoalPlan';
 import type { GoalFlowLift, GoalFlowProposal } from './src/screens/StrengthGoalFlowScreen';
 import { CoachChatMemory } from './src/lib/coachChatMemory';
-import { CoachAdviceMemoryEntry, mergeCoachAdviceMemory, rememberCoachAdvice } from './src/lib/coachAdviceMemory';
-import { clearCoachAdviceMemory, loadCoachAdviceMemory, saveCoachAdviceMemory } from './src/storage/coachAdviceMemoryStore';
+import { CoachAdviceMemoryEntry } from './src/lib/coachAdviceMemory';
+import { clearCoachAdviceMemory } from './src/storage/coachAdviceMemoryStore';
 import type { ChatMessage } from './src/screens/AICoachChatScreen';
 import {
   applyProgramSessionEdit,
@@ -280,6 +280,7 @@ import { useTodayKey } from './src/app/useTodayKey';
 import { useDaySummaries } from './src/app/useDaySummaries';
 import { useProInsights } from './src/app/useProInsights';
 import { useHomeStatCards } from './src/app/useHomeStatCards';
+import { useCoachAdviceMemory } from './src/app/useCoachAdviceMemory';
 import { buildSessionAnalysis } from './src/lib/sessionAnalysis';
 import { AboutYouScreen, AboutYouValues } from './src/screens/AboutYouScreen';
 import { LaunchScreen } from './src/screens/LaunchScreen';
@@ -3817,91 +3818,12 @@ function VinhaApp() {
     ? t(preferences.appLanguage, coachDemoMoment.questionKey, coachDemoMoment.vars)
     : null;
 
-  /**
-   * The coach's long memory, read once at startup.
-   *
-   * Failures are already swallowed by the store, so this cannot reject: the
-   * worst case is an empty list, which is exactly what a reader who has never
-   * asked a question has.
-   */
-  useEffect(() => {
-    let cancelled = false;
-    loadCoachAdviceMemory().then((stored) => {
-      if (cancelled) {
-        return;
-      }
-      const at = new Date().toISOString();
-      setCoachAdviceMemory((current) => {
-        // Merged, not assigned. An answer recorded before this read resolves
-        // would otherwise be overwritten by the older stored list — and the
-        // list it overwrote would already have been written back over the
-        // stored one, losing both halves.
-        const merged = mergeCoachAdviceMemory(stored, current, at);
-        // Always written back, never gated on a length comparison.
-        //
-        // Two things need this write. Expiry runs on write, so a phone that has
-        // not asked the coach anything in a month still carries the whole file,
-        // and pruning it here is what makes "deleted as it ages past three
-        // weeks" true for a reader who stopped asking rather than kept asking.
-        // And the race above already overwrote the file with the single entry
-        // it recorded, so the merged list has to go back or the rest is lost.
-        //
-        // Comparing the merged list's length against the stored one looked
-        // like a cheap way to skip a no-op write and was wrong: merging
-        // changes content without changing length whenever the list is at the
-        // ten-entry cap, or one entry expires as another is added, or two
-        // takeaways dedupe. Each of those skipped the write that recovers the
-        // race, and the loss only appeared on the next cold start
-        // (PR #62 review).
-        void saveCoachAdviceMemory(merged);
-        return merged;
-      });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  /**
-   * Remember one answer.
-   *
-   * State and disk are written from the same computed value rather than the
-   * write being derived from state again, so two answers in quick succession
-   * cannot store a list that skips the first. Pruning of expired lines happens
-   * inside rememberCoachAdvice, on every write.
-   */
-  /**
-   * Erase everything, the coach's memory included.
-   *
-   * resetDatabase clears the memory's key on disk, but this component is not
-   * remounted by a reset: without this the state would still hold every
-   * takeaway, hand them to the next question, and write them straight back.
-   *
-   * The open conversation too, for the same reason. It was never on disk, so
-   * the reset never touched it: chat, reset, onboard again and open the coach
-   * inside eight hours, and the old thread was back on screen — and in live
-   * mode sent to the model as the history of a reader who had just asked for
-   * all of it to go (audit, 2026-09-20).
-   */
-  const handleResetAllData = useCallback(async () => {
-    await resetAllData();
-    setCoachAdviceMemory([]);
-    setCoachChatMemory(null);
-    // Same reason: today's swaps outlive the reset in this component's state,
-    // and would reappear on the first programme adopted after it.
-    setHeldSessionAdaptations(NO_HELD_SESSION_ADAPTATIONS);
-  }, [resetAllData]);
-
-  const handleCoachAdviceGiven = useCallback((takeaway: string) => {
-    // Stamped once, outside the updater: React may invoke an updater more than
-    // once, and a clock read inside it would make two invocations disagree.
-    const at = new Date().toISOString();
-    setCoachAdviceMemory((current) => {
-      const next = rememberCoachAdvice(current, takeaway, at);
-      void saveCoachAdviceMemory(next);
-      return next;
-    });
-  }, []);
+  const { handleResetAllData, handleCoachAdviceGiven } = useCoachAdviceMemory({
+    resetAllData,
+    setCoachAdviceMemory,
+    setCoachChatMemory,
+    setHeldSessionAdaptations,
+  });
 
   // Seven days out. There is no billing, so this is the demo story the paywall
   // already tells rather than a date anything will act on.
