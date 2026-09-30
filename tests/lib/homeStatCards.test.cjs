@@ -87,6 +87,39 @@ module.exports = [
     },
   },
   {
+    /**
+     * #bugs 2026-09-30: the Add card sheet and the pinned cards printed the
+     * library's English names ("Wide-Grip Lat Pulldown", "Barbell Bench Press
+     * - Medium Grip") in a Finnish app. The label goes through the same
+     * translation every other lift name does; a name the reader typed in
+     * Finnish still reads as typed.
+     */
+    name: 'lift cards are named in the reader\'s language',
+    run() {
+      const lift = (key, name, weight) => ({ key, name, bestWeight: weight, sessions: [], history: [] });
+      const catalog = buildHomeStatCardCatalog(
+        {
+          bodyweightEntries: [],
+          measurementEntries: [],
+          trackedProgress: [
+            lift('bench', 'Barbell Bench Press - Medium Grip', 60),
+            lift('lat', 'Wide-Grip Lat Pulldown', 60),
+            lift('takakyykky', 'Takakyykky', 100),
+          ],
+        },
+        'fi',
+      );
+      const labels = catalog.filter((item) => item.key.startsWith('lift:')).map((item) => item.label);
+      assert.deepEqual(labels, ['Takakyykky', 'Penkkipunnerrus', 'Ylätalja']);
+      // English stays English.
+      const en = buildHomeStatCardCatalog(
+        { bodyweightEntries: [], measurementEntries: [], trackedProgress: [lift('lat', 'Wide-Grip Lat Pulldown', 60)] },
+        'en',
+      );
+      assert.equal(en.find((item) => item.key === 'lift:lat').label, 'Lat Pulldown');
+    },
+  },
+  {
     name: 'bodyweight card: series is chronological, capped to 7, previous = second-to-last entry',
     run() {
       const entries = [];

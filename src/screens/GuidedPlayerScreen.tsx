@@ -3519,19 +3519,12 @@ function GuidedPlayer({
                   language={language}
                 />
 
-                {/* Two cards, one question each: what today asks of you, and
-                    what you did last time. The plan used to be one line of
-                    small print under the name. */}
+                {/* Two cards, one question each: what you did last time, and
+                    what today asks of you. The plan used to be one line of
+                    small print under the name. Last time on the left, now on
+                    the right — read left to right, from then to today (#bugs
+                    2026-09-30, "Vaihda viimeksi ja nyt paikkaa"). */}
                 <View style={{ flexDirection: 'row', gap: 10 }}>
-                  <View style={[styles.walkStat, { borderColor: theme.highlight }]}>
-                    <Text style={styles.walkStatLabel}>{t(language, 'guided.walk.today')}</Text>
-                    <Text style={[styles.walkStatValue, { color: theme.highlight }]}>
-                      {walkNext?.todayValue ?? '—'}
-                    </Text>
-                    {walkNext?.planLine ? (
-                      <Text style={styles.walkStatSub}>{walkNext.planLine}</Text>
-                    ) : null}
-                  </View>
                   <View style={styles.walkStat}>
                     {/* "VIIMEKSI", whichever day of the plan it was: the
                         "ERI PÄIVÄ" second line went on request, here and on
@@ -3541,6 +3534,15 @@ function GuidedPlayer({
                     <Text style={styles.walkStatValue}>{walkNext?.lastValue ?? '—'}</Text>
                     {walkNext?.lastReps ? (
                       <Text style={styles.walkStatSub}>{walkNext.lastReps}</Text>
+                    ) : null}
+                  </View>
+                  <View style={[styles.walkStat, { borderColor: theme.highlight }]}>
+                    <Text style={styles.walkStatLabel}>{t(language, 'guided.walk.today')}</Text>
+                    <Text style={[styles.walkStatValue, { color: theme.highlight }]}>
+                      {walkNext?.todayValue ?? '—'}
+                    </Text>
+                    {walkNext?.planLine ? (
+                      <Text style={styles.walkStatSub}>{walkNext.planLine}</Text>
                     ) : null}
                   </View>
                 </View>
