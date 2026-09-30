@@ -20,7 +20,7 @@ import {
   isSetupDaysPerWeek,
   resolveFirstRunRecommendationWithTailoring,
 } from './src/lib/firstRunSetup';
-import { getExerciseTemplateDefaults, getRecentExerciseLibraryItems } from './src/lib/exerciseSuggestions';
+import { getExerciseTemplateDefaults } from './src/lib/exerciseSuggestions';
 import { formatWorkoutDisplayLabel } from './src/lib/displayLabel';
 import { buildCardioStatsLine, getCardioActivity } from './src/lib/cardio';
 import { haptics } from './src/utils/haptics';
@@ -56,7 +56,6 @@ import {
 import { SignInOutcome, useAccountBackup } from './src/features/account/useAccountBackup';
 import { hasWorkoutInProgress } from './src/lib/accountBackup';
 import { confirmUploadCopy, restoreQuestionCopy } from './src/lib/accountBackupCopy';
-import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { getReadyTemplatePresentation } from './src/lib/templatePresentation';
 import {
   activateOnboardingPlan,
@@ -122,7 +121,6 @@ import { trackEvent } from './src/features/analytics/analyticsClient';
 import { countsAsAppOpen, joinedRunningSet } from './src/lib/analyticsMoments';
 
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
-import { buildExercisePrLookup } from './src/lib/workoutCompletionSummary';
 import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplication';
 import { isSupersetLinked, setSupersetLink, supersetGroupIndexes, supersetSetTargets } from './src/lib/supersetGrouping';
 import { resolveObservedRate } from './src/lib/strengthGoalPlan';
@@ -242,7 +240,6 @@ import {
   withSessionDrop,
   withSessionSwap,
 } from './src/lib/sessionAdaptation';
-import { buildProgramInsightMap } from './src/lib/programInsights';
 import { buildTailoringPreferences } from './src/lib/tailoringFit';
 import { forgetRoutesForTemplate, popRoute, pushRoute, withoutTrailingRoute } from './src/navigation/routeHistory';
 import { liveSessionBlocksProgrammeDelete } from './src/lib/programmeDeletion';
@@ -281,6 +278,7 @@ import { useDaySummaries } from './src/app/useDaySummaries';
 import { useProInsights } from './src/app/useProInsights';
 import { useHomeStatCards } from './src/app/useHomeStatCards';
 import { useCoachAdviceMemory } from './src/app/useCoachAdviceMemory';
+import { useCustomProgramViews } from './src/app/useCustomProgramViews';
 import { buildSessionAnalysis } from './src/lib/sessionAnalysis';
 import { AboutYouScreen, AboutYouValues } from './src/screens/AboutYouScreen';
 import { LaunchScreen } from './src/screens/LaunchScreen';
@@ -303,7 +301,6 @@ import { ProgramsExploreItem } from './src/screens/ProgramsHomeScreen';
 import { WorkoutCompletionScreen } from './src/screens/WorkoutCompletionScreen';
 import { FreestyleFinishSummary } from './src/lib/emptyWorkoutSession';
 import { WorkoutProvider, useWorkoutContext } from './src/features/workout/WorkoutProvider';
-import { adaptLegacyWorkoutTemplateToRuntimeTemplate } from './src/features/workout/customWorkoutAdapter';
 import { AdaptedCompletedWorkoutExercise, adaptCompletedWorkoutSessionForAppDatabase } from './src/features/workout/workoutAppAdapter';
 import { getWorkoutTemplateById, WORKOUT_TEMPLATES_V1 } from './src/features/workout/workoutCatalog';
 import { previewNextSession } from './src/features/workout/workoutState';
@@ -3691,99 +3688,23 @@ function VinhaApp() {
     resetToRoute(ROOT_ROUTES.home);
   }
 
-  const customWorkoutRuntimeMap = useMemo(
-    () =>
-      Object.fromEntries(
-        workoutTemplates.map((template) => {
-          const sessions = getWorkoutTemplateSessions(template.id);
-          return [
-            template.id,
-            adaptLegacyWorkoutTemplateToRuntimeTemplate(
-              template,
-              sessions,
-              exerciseLibrary,
-              preferences.defaultRestSeconds,
-            ),
-          ] as const;
-        }),
-      ),
-    [exerciseLibrary, getWorkoutTemplateSessions, preferences.defaultRestSeconds, workoutTemplates],
-  );
-
-  const customWorkouts = useMemo(
-    () =>
-      [...workoutTemplates]
-        .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime())
-        .map((template) => ({
-          id: template.id,
-          name: template.name,
-          sessionCount: getWorkoutTemplateSessions(template.id).length,
-          exerciseCount: getWorkoutExercises(template.id).length,
-          updatedAt: template.updatedAt,
-          origin: template.origin,
-        })),
-    [getWorkoutExercises, getWorkoutTemplateSessions, workoutTemplates],
-  );
-  const programInsightsByTemplateId = useMemo(
-    () =>
-      buildProgramInsightMap({
-        database,
-        programs: [
-          ...workout.templates.map((template) => ({
-            id: template.id,
-            name: template.name,
-            sessions: template.sessions,
-            weeklyTarget: template.daysPerWeek,
-          })),
-          ...Object.values(customWorkoutRuntimeMap).map((template) => ({
-            id: template.id,
-            name: template.name,
-            sessions: template.sessions,
-            weeklyTarget: template.sessions.length,
-          })),
-        ],
-        unitPreference,
-        activeSession: workout.activeSession,
-      }),
-    [database, customWorkoutRuntimeMap, unitPreference, workout.activeSession, workout.templates],
-  );
-  const recentCompletedCustomTemplateId = useMemo(
-    () =>
-      workout.history.sessions.find((session) => customWorkouts.some((workoutItem) => workoutItem.id === session.templateId))
-        ?.templateId ?? null,
-    [customWorkouts, workout.history.sessions],
-  );
-  const selectedCustomProgram = useMemo(
-    () =>
-      selectHomeCustomProgram({
-        customWorkouts,
-        activeSessionTemplateId: workout.activeSession?.templateId ?? null,
-        hasActiveSession: Boolean(workout.activeSession),
-        lastSelectedTemplateId: workout.history.lastSelectedTemplateId,
-        recentCompletedCustomTemplateId,
-      }),
-    [customWorkouts, recentCompletedCustomTemplateId, workout.activeSession, workout.history.lastSelectedTemplateId],
-  );
-  const recentExerciseLibraryItems = useMemo(
-    () =>
-      getRecentExerciseLibraryItems({
-        exerciseLibrary,
-        exerciseLogs: database.exerciseLogs,
-        workoutSessions: database.workoutSessions,
-        exerciseTemplates: database.exerciseTemplates,
-      }),
-    [database.exerciseLogs, database.exerciseTemplates, database.workoutSessions, exerciseLibrary],
-  );
-  const recentExerciseBrowserItems = recentExerciseLibraryItems;
-  const exercisePrLookup = useMemo(
-    () =>
-      buildExercisePrLookup({
-        exerciseLogs: database.exerciseLogs,
-        workoutSessions: database.workoutSessions,
-        exerciseTemplates: database.exerciseTemplates,
-      }),
-    [database.exerciseLogs, database.exerciseTemplates, database.workoutSessions],
-  );
+  const {
+    customWorkoutRuntimeMap,
+    customWorkouts,
+    programInsightsByTemplateId,
+    selectedCustomProgram,
+    recentExerciseBrowserItems,
+    exercisePrLookup,
+  } = useCustomProgramViews({
+    workoutTemplates,
+    getWorkoutTemplateSessions,
+    getWorkoutExercises,
+    exerciseLibrary,
+    preferences,
+    database,
+    unitPreference,
+    workout,
+  });
   const proEntitlement = resolveProEntitlement(preferences);
   const coachProUnlocked = proEntitlement.unlocked;
 
