@@ -547,6 +547,7 @@ export function SettingsScreen({
                 <Row
                   icon="doc"
                   title={t(language, 'settings.coachLog.composer')}
+                  sub={COACH_COPIES_KEPT ? undefined : t(language, 'settings.coachLog.sub')}
                   control={
                     <ToggleSwitch
                       label={t(language, 'settings.coachLog.composer')}
@@ -560,6 +561,7 @@ export function SettingsScreen({
                 <Row
                   icon="image"
                   title={t(language, 'settings.coachLog.photo')}
+                  sub={COACH_COPIES_KEPT ? undefined : t(language, 'settings.coachLog.sub')}
                   control={
                     <ToggleSwitch
                       label={t(language, 'settings.coachLog.photo')}

@@ -22,6 +22,6 @@
  * false (or delete the file) before release, and unset the variable in Vercel.
  */
 // Off since 2026-09-30 (user): the reader is put away until after release,
-// when reading the copies readers allowed is decided again. The copies
-// themselves are still kept for readers who ticked the line.
+// when keeping and reading coach copies is gone through again. Copies are
+// off too (aiCoachLogId COACH_COPIES_KEPT), so nothing new lands to read.
 export const AI_COACH_DEBUG_TRANSCRIPTS = false;
