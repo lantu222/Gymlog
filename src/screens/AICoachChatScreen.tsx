@@ -1226,6 +1226,12 @@ export function AICoachChatScreen({
         <View style={styles.headerCopy}>
           <View style={styles.headerTitleRow}>
             <Text style={styles.headerTitle}>{t(language, 'coachChat.title')}</Text>
+            {/* The coach is still being tuned, and says so where the reader
+                meets it (user, 2026-09-30). A state like the mode pill beside
+                it, in the brand's violet: nothing here is pressable. */}
+            <View style={styles.betaBadge} accessibilityRole="text" accessibilityLabel={t(language, 'coachChat.betaA11y')}>
+              <Text style={styles.betaText}>{t(language, 'coachChat.beta')}</Text>
+            </View>
             <View
               style={[styles.modeBadge, online ? styles.modeBadgeOnline : styles.modeBadgeOffline]}
               accessibilityRole="text"
@@ -1242,6 +1248,15 @@ export function AICoachChatScreen({
           <Text style={styles.headerSub} numberOfLines={2}>
             {contextLine}
           </Text>
+          {/* Always, not only in the last five: the owner looked for the
+              count, found none, and asked questions until one ran out to see
+              what happened (#bugs, 2026-09-30). In the header, where it does
+              not scroll away with the thread. */}
+          {proUnlocked ? (
+            <Text style={styles.headerQuota}>
+              {t(language, 'coachChat.quotaOf', { count: Math.max(0, questionsRemaining), max: PRO_COACH_QUESTIONS_PER_MONTH })}
+            </Text>
+          ) : null}
         </View>
       </View>
 
@@ -1536,22 +1551,6 @@ export function AICoachChatScreen({
             </View>
           ) : null}
 
-          {/* A count, and nothing to press. This row used to carry "More with
-              Pro →" and open the paywall — written when it was shown to free
-              readers, and left in place when the row became Pro-only. It then
-              sold an upgrade to someone who had already bought the only tier
-              there is: Lifetime includes the same 25 a month, so there is
-              nothing above this to reach. A dead end dressed as an offer is
-              worse on the paywall's own product than saying nothing. */}
-          {proUnlocked && questionsRemaining > 0 && questionsRemaining <= PRO_COACH_QUESTIONS_PER_MONTH / 5 ? (
-            <View style={styles.quotaRow}>
-              <Text style={styles.quotaText}>
-                {questionsRemaining === 1
-                  ? t(language, 'coachChat.quotaLeftOne')
-                  : t(language, 'coachChat.quotaLeft', { count: questionsRemaining })}
-              </Text>
-            </View>
-          ) : null}
           </>
           )}
         </ScrollView>
@@ -1802,6 +1801,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.muted,
     marginTop: 1,
   },
+  // A count, and nothing to press — see the header. It once carried "More
+  // with Pro →" to readers who already had the only tier there is.
+  headerQuota: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: theme.faint,
+    marginTop: 2,
+  },
   // A gradient, not a disc: a flat circle with a radius is a shape, and it
   // reads as one. Sized in pixels because a %-sized Svg does not stretch on
   // Android (the trap the unlock screen paid for).
@@ -2039,6 +2046,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   headerTitleRow: {
     flexDirection: 'row',
+    // Wraps: "Vinha-valmentaja" and two pills do not fit a 360 dp phone
+    // on one line, and a clipped name is worse than a second line.
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 8,
   },
@@ -2052,6 +2062,20 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 999,
     borderWidth: 1,
+  },
+  betaBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: theme.purple,
+  },
+  betaText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    color: theme.purple,
   },
   modeBadgeOnline: {
     borderColor: theme.border,
@@ -2203,23 +2227,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
     color: theme.highlight,
     marginTop: 4,
-  },
-  quotaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    backgroundColor: theme.surfaceSoft,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 14,
-    paddingVertical: 11,
-    paddingHorizontal: 13,
-  },
-  quotaText: {
-    flex: 1,
-    fontSize: 12,
-    fontWeight: '700',
-    color: theme.muted,
   },
   quickAsksRail: {
     flexGrow: 0,

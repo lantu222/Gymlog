@@ -708,7 +708,14 @@ module.exports = [
       // "styles.badge" followed by a control character no source file
       // contains, so the guard could never fail whatever the screen did.
       assert.doesNotMatch(chat, /styles[.]badge[^A-Za-z]/);
-      assert.match(chat, /styles[.]quotaRow[^A-Za-z]/);
+      // The count sits in the header for every Pro reader, always — not a
+      // row in the thread that appeared only in the last five questions: the
+      // owner looked for it, found nothing, and ran the month out to see
+      // (#bugs, 2026-09-30). Once, so the thread row is gone.
+      assert.match(chat, /\{proUnlocked \? \(\s*<Text style=\{styles\.headerQuota\}>\s*\{t\(language, 'coachChat\.quotaOf', \{ count: Math\.max\(0, questionsRemaining\), max: PRO_COACH_QUESTIONS_PER_MONTH \}\)\}/);
+      assert.doesNotMatch(chat, /styles[.]quotaRow[^A-Za-z]|coachChat[.]quotaLeft|PRO_COACH_QUESTIONS_PER_MONTH \/ 5/);
+      // And the coach says it is a beta, as a state beside its name.
+      assert.match(chat, /<Text style=\{styles\.headerTitle\}>\{t\(language, 'coachChat\.title'\)\}<\/Text>\s*\{\/\*[\s\S]*?\*\/\}\s*<View style=\{styles\.betaBadge\} accessibilityRole="text" accessibilityLabel=\{t\(language, 'coachChat\.betaA11y'\)\}>/);
 
       // The coach gets no bubble — it is the voice of the screen. Only the
       // user's own words are enclosed. Checked as the absence of a bubble
