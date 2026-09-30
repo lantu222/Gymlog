@@ -58,7 +58,7 @@ module.exports = [
       // between the query reset and unpause — still one path out, unpause still last.
       assert.match(
         player,
-        /\{swapOpen && actionExercise && \(\s*<GPSheet\s*title=\{[\s\S]*?\}\)\}\s*language=\{language\}\s*onClose=\{\(\) => \{\s*setSwapOpen\(false\);\s*setSwapQuery\(''\);\s*setSwapBrowseOpen\(false\);\s*setSwapBodyPartFilter\('all'\);\s*unpause\(\);/,
+        /\{swapOpen && actionExercise && \(\s*<GPSheet\s*title=\{[\s\S]*?\}\)\}\s*language=\{language\}\s*tall\s*onClose=\{\(\) => \{\s*setSwapOpen\(false\);\s*setSwapQuery\(''\);\s*setSwapBodyPartFilter\(null\);\s*unpause\(\);/,
         'closing the swap sheet resumes',
       );
       const applySwap = player.slice(player.indexOf('const applySwap = ('), player.indexOf('const resyncTargetRef'));

@@ -491,7 +491,7 @@ module.exports = [
     run() {
       assert.match(
         playerSource,
-        /swapBrowseOpen && swapBodyPartFilter !== 'all'\s*\?\s*libraryLabel\(swapBodyPartFilter, language\)\s*:\s*t\(language, 'guided\.swap\.library'\)/,
+        /swapBodyPart !== 'all'\s*\?\s*libraryLabel\(swapBodyPart, language\)\s*:\s*t\(language, 'guided\.swap\.library'\)/,
       );
     },
   },
@@ -755,6 +755,70 @@ module.exports = [
       assert.match(sheet, /const filteredItems = useMemo\(\(\) => \{[\s\S]*?if \(!visible\) \{\s*return \[\];\s*\}/);
       assert.match(sheet, /\}, \[bodyPart, category, commonStarterOrder, equipment, items, language, search, visible\]\);/);
       assert.match(sheet, /visible\s*\?\s*getSuggestedExerciseLibraryItems\(/);
+    },
+  },
+  {
+    /**
+     * #bugs 2026-09-30: "saisiko sen saman liikekirjaston missä on ne kuvat
+     * niin tuotua tähän" — the swap sheet's rows are the library's rows, the
+     * picture included, and the sheet is a fixed 90% rather than 55% dragged
+     * to 90% (the reader's call: with pictures the drag is not needed).
+     */
+    name: 'guided swap: the library\'s picture rows, in a sheet 90% tall',
+    run() {
+      const source = playerSource.replace(/\r\n/g, '\n');
+      assert.match(
+        source,
+        /import \{ ExerciseLibraryRow, exerciseLibraryRowMeta, getItemImage \} from '\.\.\/components\/ExerciseLibraryBrowser';/,
+      );
+      // Both lists, suggested and library, draw the shared row with a picture.
+      const sheet = source.slice(source.indexOf('{swapOpen && actionExercise && ('), source.indexOf('<AddExerciseSheet'));
+      assert.equal((sheet.match(/<ExerciseLibraryRow\b/g) ?? []).length, 2);
+      assert.match(sheet, /imageUrl=\{item \? getItemImage\(item\) : null\}/);
+      assert.match(sheet, /imageUrl=\{getItemImage\(item\)\}/);
+      assert.doesNotMatch(source, /SwapRow|swapRowText/);
+      // A suggestion is looked up in the library for its picture.
+      assert.match(source, /const swapSuggestionRows = useMemo\(/);
+      assert.match(source, /findGuidedLibraryIndex\(getDrillLibraryName\(name\) \?\? name, libraryNames\)/);
+      // Tall: 90%, fixed, and the list fills it rather than a 380 cap.
+      assert.match(sheet, /<GPSheet[\s\S]*?\btall\b[\s\S]*?onClose=/);
+      assert.match(source, /sheetFrameTall: \{ height: '90%', maxHeight: '90%' \},/);
+      assert.match(source, /swapList: \{\s*flex: 1,\s*\}/);
+      // Only the swap sheet is tall; the rest keep the 78% content-sized cap.
+      const openings = source.match(/<GPSheet\b[\s\S]*?onClose=/g) ?? [];
+      assert.ok(openings.length >= 5, 'the player lost its sheets');
+      assert.equal(openings.filter((opening) => /^\s*tall$/m.test(opening)).length, 1);
+      // And the library screen draws the same component.
+      const browser = fs
+        .readFileSync(path.join(__dirname, '..', '..', 'src', 'components', 'ExerciseLibraryBrowser.tsx'), 'utf8')
+        .replace(/\r\n/g, '\n');
+      assert.match(browser, /export function ExerciseLibraryRow\(/);
+      // Still a button to a screen reader, as SwapRow was.
+      assert.match(browser, /accessibilityRole=\{onPress \? 'button' : undefined\}/);
+      assert.match(browser, /<ExerciseLibraryRow\s+title=\{exerciseListLabel\(language, item\.name\)\}/);
+    },
+  },
+  {
+    /**
+     * The list opens on the lifts nearest the one being swapped: "filtteröinti
+     * siihen liikkeeseen perustuva eli lähin sitä mitä haluu tehdä" (#bugs
+     * 2026-09-29). A bench press swap opened on squats and deadlifts — the
+     * most popular lifts of any body part — with the chips behind a "browse
+     * all" link (device, 2026-09-30).
+     */
+    name: 'guided swap: the chips are always there, on the lift\'s own body part until the reader picks',
+    run() {
+      const source = playerSource.replace(/\r\n/g, '\n');
+      assert.match(source, /useState<BodyPartFilter \| null>\(null\);/);
+      assert.match(source, /const swapBodyPart: BodyPartFilter = swapBodyPartFilter \?\? swapBrowsePrefilter;/);
+      assert.match(source, /matchesBodyPartFilter\(item, swapBodyPart\),/);
+      assert.match(source, /const selected = swapBodyPart === option;/);
+      // No link in front of the chips any more, and no key for it.
+      assert.doesNotMatch(source, /swapBrowseOpen|guided\.swap\.browseAll/);
+      assert.doesNotMatch(i18nSource, /'guided\.swap\.browseAll'/);
+      // Both ways out start the next opening from the lift again.
+      assert.equal((source.match(/setSwapBodyPartFilter\(null\);/g) ?? []).length, 2);
+      assert.doesNotMatch(source, /setSwapBodyPartFilter\('all'\)/);
     },
   },
 ];
