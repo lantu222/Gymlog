@@ -600,10 +600,12 @@ module.exports = [
       // reader's and stays on this list (device, 2026-09-16).
       assert.match(app, /const runningRows = listHeldProgrammes\(\{/);
       assert.match(app, /authoredTemplateIds: authoredIds,/);
+      // The dedup loop must not come back anywhere in the shell: App.tsx or a
+      // src/app module (phase-B split, 2026-09-30).
       assert.doesNotMatch(
-        app,
+        readAppWiring(),
         /const seenTemplateIds = new Set/,
-        'the dedup loop moved back into App.tsx',
+        'the dedup loop moved back into App.tsx or src/app',
       );
 
       // "The programme you are training right now" is a claim about ONE row,

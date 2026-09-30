@@ -109,7 +109,18 @@ module.exports = [
     // A CSV import at the limit awaited the provider's refusal and sat there.
     name: 'programme limit: every import path shows the sheet instead of failing silently',
     run() {
-      const sources = [read('App.tsx'), read('src', 'app', 'renderWorkoutTab.tsx'), read('src', 'app', 'renderProfileTab.tsx')];
+      // App.tsx and every src/app module, not the two tabs by name: the
+      // phase-B split (2026-09-30) moved VinhaApp's hooks into src/app, and an
+      // import path in any of them is held to the same rule. Each file is read
+      // on its own, so no match can run from one into the next.
+      const sources = [
+        read('App.tsx'),
+        ...fs
+          .readdirSync(path.join(root, 'src', 'app'))
+          .filter((name) => /\.tsx?$/.test(name))
+          .sort()
+          .map((name) => read('src', 'app', name)),
+      ];
       let imports = 0;
       for (const source of sources) {
         for (const match of source.matchAll(/onImportProgram=\{async \(draft\) => \{([\s\S]*?)\n\s{8}\}\}/g)) {

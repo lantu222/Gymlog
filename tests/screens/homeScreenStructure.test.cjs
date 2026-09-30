@@ -1,6 +1,8 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+const { between } = require('../helpers/sourceSlices.cjs');
 
 const homeScreenSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'screens', 'HomeScreen.tsx'),
@@ -33,6 +35,11 @@ const workoutsScreenSource = fs.readFileSync(
 const routesSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'navigation', 'routes.ts'), 'utf8');
 const i18nSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'lib', 'i18n.ts'), 'utf8');
 const appSource = fs.readFileSync(path.join(__dirname, '..', '..', 'App.tsx'), 'utf8');
+// The whole shell — App.tsx plus the src/app modules the phase-A and phase-B
+// splits (2026-08-26, 2026-09-30) moved VinhaApp's wiring into — for the
+// absence guards: a name or a shape that must not come back must not come
+// back in a hook either. Presence pins keep reading App.tsx.
+const shellSource = readAppWiring();
 
 module.exports = [
   {
@@ -269,7 +276,7 @@ module.exports = [
       // left the reader on Programs with nothing behind them, so the next Back
       // closed the app instead of returning Home.
       assert.match(appSource, /onFindProgram=\{\(\) => navigate\(resolveTabRoute\('workout'\)\)\}/);
-      assert.doesNotMatch(appSource, /onFindProgram=\{\(\) => navigateToTab/);
+      assert.doesNotMatch(shellSource, /onFindProgram=\{\(\) => navigateToTab/);
       // Adapt is gone, whole (user 2026-08-30). Of its three rows, dropping the
       // programme and rebuilding it both already live in the programme's own
       // screen — doing them from Home was a second door onto the same
@@ -277,7 +284,7 @@ module.exports = [
       // house a question the player now answers set by set. The trim estimate
       // that fed it went with it: it had exactly one reader.
       assert.doesNotMatch(homeScreenSource, /adaptSheet\.|adaptTrim|onStartTrimmedSession|onRedoOnboarding|onRemoveActivePlan/);
-      assert.doesNotMatch(appSource, /previewSessionTrim|onStartTrimmedSession|onRedoOnboarding=/);
+      assert.doesNotMatch(shellSource, /previewSessionTrim|onStartTrimmedSession|onRedoOnboarding=/);
       assert.doesNotMatch(i18nSource, /'home\.adapt'|'home\.adaptSheet\./);
       // Home still must not compute a session preview for itself: it sees only
       // the first five exercises, which is why the estimate lived in App.tsx.
@@ -323,7 +330,7 @@ module.exports = [
       assert.match(workoutsScreenSource, /const \[showReadyLibrary, setShowReadyLibrary\] = useState\(true\)/);
       assert.match(workoutsScreenSource, /const \[showBrowseWorkouts, setShowBrowseWorkouts\] = useState\(true\)/);
       assert.match(workoutsScreenSource, /const \[readyEquipmentFilter, setReadyEquipmentFilter\] = useState<ReadyEquipmentFilter>\('all'\)/);
-      assert.doesNotMatch(appSource, /readyTemplateCount/);
+      assert.doesNotMatch(shellSource, /readyTemplateCount/);
       // Family-sectioned browse: every ready template is bucketed into one family section.
       assert.match(workoutsScreenSource, /const readySectionItems = new Map<string, ReadyDiscoveryItem\[\]>\(\)/);
       assert.match(workoutsScreenSource, /READY_FAMILY_SECTIONS\.find\(\(candidate\) => candidate\.match\(item\)\)/);
@@ -419,7 +426,7 @@ module.exports = [
       assert.match(appShellSource, /statusBarStyleOverride \?\? \(themeName === 'dark' \? 'light' : 'dark'\)/);
       // The composer screen's own shell tint went with the screen (user
       // 2026-08-26, "koostajaruudun voi poistaa").
-      assert.doesNotMatch(appSource, /aiSetupActive/);
+      assert.doesNotMatch(shellSource, /aiSetupActive/);
       assert.doesNotMatch(workoutsScreenSource, /Search for programs/);
       assert.doesNotMatch(workoutsScreenSource, /{activeSession \?/);
       assert.doesNotMatch(homeScreenSource, /YOUR PLAN/);
@@ -440,7 +447,7 @@ module.exports = [
       // hid a removed programme, an entry-less plan, and it started sessions
       // against a programme nobody had adopted. The plan branch is the only
       // source now, and a reader with no plan gets Home's no-plan state.
-      assert.doesNotMatch(appSource, /recommendedReadyTemplate\.splitType/);
+      assert.doesNotMatch(shellSource, /recommendedReadyTemplate\.splitType/);
       assert.match(appSource, /focusLabel: getSessionBodyFocusLabel\(/);
       // The rotation reads the programme's history, not one template record's:
       // a copy made by editing a lift carries new day ids, and the rotation
@@ -555,7 +562,20 @@ module.exports = [
       assert.match(appSource, /const homeRecentSessions = useMemo/);
       assert.match(appSource, /\[\.\.\.workoutSessions\][\s\S]*\.sort/);
       assert.match(appSource, /\.slice\(0, 3\)/);
-      assert.doesNotMatch(appSource, /<HomeScreen[\s\S]*recentSessions=\{homeRecentSessions\}/);
+      /*
+       * The props Home must not be handed are read off the <HomeScreen element
+       * alone, found in the whole shell. A `<HomeScreen[\s\S]*` over the
+       * concatenation would run on past App.tsx into the progress tab, where
+       * ProgressScreen is handed recentSessions on purpose. The element is
+       * rendered once, and none of its props renders JSX, so the first `/>`
+       * after the tag is its own; balanced braces say the slice did not stop
+       * inside a prop.
+       */
+      assert.equal(shellSource.split('<HomeScreen').length, 2, 'HomeScreen is rendered once in the shell');
+      const homeElement = between(shellSource, '<HomeScreen', '/>');
+      assert.equal(homeElement.split('{').length, homeElement.split('}').length, 'the slice stopped inside a prop of <HomeScreen>');
+      assert.match(homeElement, /activePlan=\{homeActivePlanCard\}/);
+      assert.doesNotMatch(homeElement, /<HomeScreen[\s\S]*recentSessions=\{homeRecentSessions\}/);
       // The ProgressScreen call moved to src/app with the progress tab
       // (phase A) — the recent-sessions pin follows it there.
       assert.match(
@@ -565,21 +585,21 @@ module.exports = [
         ),
         /<ProgressScreen[\s\S]*recentSessions=\{homeRecentSessions\}/,
       );
-      assert.doesNotMatch(appSource, /customTemplates=/);
+      assert.doesNotMatch(shellSource, /customTemplates=/);
       assert.match(
         appSource,
         /onCreateWorkoutFromExercises=\{\(\) =>\s*guardStrengthStartOverCardio\(\(\) => navigate\(\{ tab: 'workout', screen: 'empty' \}\)\)\s*\}/,
       );
-      assert.doesNotMatch(appSource, /onCreateWorkoutFromExercises=\{\(\) => navigate\(\{ tab: 'workout', screen: 'editor' \}\)\}/);
-      assert.doesNotMatch(appSource, /onBrowseReadyPlans=/);
-      assert.doesNotMatch(appSource, /<HomeScreen[\s\S]*onOpenProgressOverview=/);
-      assert.doesNotMatch(appSource, /<HomeScreen[\s\S]*onOpenTrackedProgress=/);
-      assert.doesNotMatch(appSource, /<HomeScreen[\s\S]*onOpenBodyStats=/);
+      assert.doesNotMatch(shellSource, /onCreateWorkoutFromExercises=\{\(\) => navigate\(\{ tab: 'workout', screen: 'editor' \}\)\}/);
+      assert.doesNotMatch(shellSource, /onBrowseReadyPlans=/);
+      assert.doesNotMatch(homeElement, /<HomeScreen[\s\S]*onOpenProgressOverview=/);
+      assert.doesNotMatch(homeElement, /<HomeScreen[\s\S]*onOpenTrackedProgress=/);
+      assert.doesNotMatch(homeElement, /<HomeScreen[\s\S]*onOpenBodyStats=/);
       // Wired in the progress module since phase A — read the whole wiring.
       const wiringSource = require('../helpers/appWiringSource.cjs').readAppWiring();
       assert.match(wiringSource, /onOpenSessionHistory=\{\(\) => navigate\(\{ tab: 'home', screen: 'history' \}\)\}/);
       assert.match(wiringSource, /onOpenRecentSession=\{\(sessionId\) => navigate\(\{ tab: 'home', screen: 'session', sessionId \}\)\}/);
-      assert.doesNotMatch(appSource, /onOpenAICoach=\{handleOpenAICoach\}/);
+      assert.doesNotMatch(shellSource, /onOpenAICoach=\{handleOpenAICoach\}/);
 
       assert.match(routesSource, /screen: 'empty'/);
       // workout/empty renders the dedicated HG freestyle screen; the editor
@@ -594,14 +614,14 @@ module.exports = [
       // The editor is gone: nothing could reach it (audit 3, 2026-09-20).
       assert.doesNotMatch(workoutTabSource, /route\.screen === 'editor'/);
       assert.match(workoutTabSource, /<EmptyWorkoutScreen/);
-      assert.doesNotMatch(appSource, /presentation=/);
+      assert.doesNotMatch(shellSource, /presentation=/);
       assert.doesNotMatch(workoutTabSource, /presentation=/);
       // The inline tip is gone entirely. It used to be passed as null from both
       // call sites, which meant a dark-themed card that could never render —
       // this guard pinned the null; now it pins the absence.
-      assert.doesNotMatch(appSource, /inlineTip/);
-      assert.doesNotMatch(appSource, /Start with the main lift first/);
-      assert.doesNotMatch(appSource, /WORKOUT_EDITOR_TIP_ID/);
+      assert.doesNotMatch(shellSource, /inlineTip/);
+      assert.doesNotMatch(shellSource, /Start with the main lift first/);
+      assert.doesNotMatch(shellSource, /WORKOUT_EDITOR_TIP_ID/);
       // The freestyle screen speaks the HG/AW3 language: empty state, add
       // sheet, shared set table with plate readout and the floating rest bar.
       assert.match(emptyWorkoutScreenSource, /emptyWorkout\.empty\.title/);
@@ -807,7 +827,9 @@ module.exports = [
       // and the rhythm strip on the programme screen — the last one added when
       // the two halves of the week were joined, so moving a day there moves the
       // reminders too. None of them fills an unknown week without being asked.
-      const writes = appSource.match(/setupAvailableDays: [^,\r\n]+/g) ?? [];
+      // Counted over the whole shell (App.tsx and src/app), so a writer added
+      // in a hook is counted too.
+      const writes = shellSource.match(/setupAvailableDays: [^,\r\n]+/g) ?? [];
       assert.ok(
         writes.length <= 4,
         'a new setupAvailableDays writer appeared — check whether the empty-week prompt is still needed',
@@ -840,7 +862,7 @@ module.exports = [
       // Home used to receive the first five lifts and a count of the rest, so
       // the header said "6 exercises" over five rows and a "+1 more" that did
       // nothing when tapped. The whole session comes through now.
-      assert.doesNotMatch(appSource, /exercises: session\.exercises\.slice\(0, 5\)/);
+      assert.doesNotMatch(shellSource, /exercises: session\.exercises\.slice\(0, 5\)/);
       assert.match(appSource, /exercises: session\.exercises\.map\(\(exercise\) => \(\{/);
 
       // One number, derived from the rows themselves rather than added back
