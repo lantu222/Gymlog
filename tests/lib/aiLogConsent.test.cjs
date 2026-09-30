@@ -101,6 +101,13 @@ module.exports = [
       // no, and this writer returns first. Turning them back on is a decision,
       // so it has to come through here.
       assert.match(read('src/lib/aiCoachLogId.ts'), /export const COACH_COPIES_KEPT = false;/);
+      // The ask is behind the switch, and Settings keeps a line only for a
+      // reader who said yes before — the way to take it back and delete.
+      assert.match(read('src/screens/AICoachChatScreen.tsx'), /\{COACH_COPIES_KEPT \? \(\s*<View style=\{styles\.keepBlock\}>/);
+      const settings = read('src/screens/SettingsScreen.tsx');
+      for (const key of ['aiLogChatConsent', 'aiLogComposerConsent', 'aiLogPhotoConsent']) {
+        assert.ok(settings.includes(`{COACH_COPIES_KEPT || preferences.${key} ? (`), key);
+      }
 
       // And the development switch is NOT a third one. It was, until
       // 2026-09-10, which meant a yes bought nothing in production: consent,
