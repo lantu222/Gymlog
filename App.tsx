@@ -20,8 +20,6 @@ import {
   isSetupDaysPerWeek,
   resolveFirstRunRecommendationWithTailoring,
 } from './src/lib/firstRunSetup';
-import { getExerciseTemplateDefaults } from './src/lib/exerciseSuggestions';
-import { getRecentExerciseLibraryItems } from './src/lib/exerciseSuggestions';
 import { formatWorkoutDisplayLabel } from './src/lib/displayLabel';
 import { buildCardioStatsLine, getCardioActivity } from './src/lib/cardio';
 import { haptics } from './src/utils/haptics';
@@ -58,7 +56,6 @@ import { useAccountBackup } from './src/features/account/useAccountBackup';
 import { hasWorkoutInProgress } from './src/lib/accountBackup';
 import { confirmUploadCopy, restoreQuestionCopy } from './src/lib/accountBackupCopy';
 import { useAccountOutcome } from './src/app/useAccountOutcome';
-import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { getReadyTemplatePresentation } from './src/lib/templatePresentation';
 import {
   activateOnboardingPlan,
@@ -97,7 +94,6 @@ import { useRecordsAndMilestones } from './src/app/useRecordsAndMilestones';
 import { markCoachDemoMomentUsed, resolveDueCoachDemoMoment } from './src/lib/coachDemoMoments';
 import { blockWeekOfSession, blockWeekTally, buildHomePlanProgress } from './src/lib/homePlanProgress';
 import { resolveHomePrompt } from './src/lib/homePrompts';
-import { silencedSuggestionKinds } from './src/lib/coachSuggestions';
 import { buildHomeStatCardCatalog, buildHomeStatCards, resolveHomeStatCardKeys } from './src/lib/homeStatCards';
 import {
   buildSessionEquipmentLabel,
@@ -121,10 +117,7 @@ import { trackEvent } from './src/features/analytics/analyticsClient';
 import { countsAsAppOpen, joinedRunningSet } from './src/lib/analyticsMoments';
 
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
-import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplication';
 import { isSupersetLinked, setSupersetLink, supersetGroupIndexes, supersetSetTargets } from './src/lib/supersetGrouping';
-import { buildExercisePrLookup } from './src/lib/workoutCompletionSummary';
-import { resolveObservedRate } from './src/lib/strengthGoalPlan';
 import type { GoalFlowLift, GoalFlowProposal } from './src/screens/StrengthGoalFlowScreen';
 import { CoachChatMemory } from './src/lib/coachChatMemory';
 import { CoachAdviceMemoryEntry } from './src/lib/coachAdviceMemory';
@@ -157,7 +150,7 @@ import {
 import { isMeasurementCardKey } from './src/lib/homeStatCards';
 import { planTrainedOnDay, resolveNextPlanEntryIndex } from './src/lib/planRotation';
 import { alignHistoryToCopiedDays, programmeHistoryIds } from './src/lib/programLineage';
-import { cycleSchedule, trainsOn, weekdaySchedule, withRestDays } from './src/lib/trainingSchedule';
+import { cycleSchedule, weekdaySchedule, withRestDays } from './src/lib/trainingSchedule';
 import {
   isLightenPending,
   lightenedFatigueSignal,
@@ -185,9 +178,6 @@ import {
   isEnrolled,
 } from './src/lib/seasonEnrolment';
 import { buildProgramFingerprint } from './src/lib/programFingerprint';
-import {
-  ExerciseProgressSummary,
-} from './src/lib/progression';
 import {
   countByCategory,
   filterByCategory,
