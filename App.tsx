@@ -38,8 +38,7 @@ import {
 import { getExerciseTemplateDefaults, getRecentExerciseLibraryItems } from './src/lib/exerciseSuggestions';
 import { formatWorkoutDisplayLabel } from './src/lib/displayLabel';
 import { buildCardioStatsLine, getCardioActivity } from './src/lib/cardio';
-import { setSoundCuesEnabled } from './src/utils/sound';
-import { haptics, setHapticsEnabled } from './src/utils/haptics';
+import { haptics } from './src/utils/haptics';
 import { useScheduledNotifications } from './src/hooks/useScheduledNotifications';
 import { usePendingAiLogDeletions } from './src/hooks/usePendingAiLogDeletions';
 import { ThemeProvider, themeForName, useTheme } from './src/theming';
@@ -153,7 +152,7 @@ import { ThemeChoiceDialog } from './src/components/ThemeChoiceDialog';
 import { toProgressionFatigueSignal } from './src/lib/progressionGate';
 import { resolveThemeName } from './src/lib/themePreference';
 import { localizeSessionFocus, localizeSessionName } from './src/lib/sessionNameLabel';
-import { setUsageStatisticsEnabled, trackEvent } from './src/features/analytics/analyticsClient';
+import { trackEvent } from './src/features/analytics/analyticsClient';
 import { countsAsAppOpen, countsAsPaywallView, joinedRunningSet } from './src/lib/analyticsMoments';
 
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
@@ -306,6 +305,8 @@ import {
   getEndOfWeek,
   getStartOfWeek,
 } from './src/app/workoutCompletionState';
+import { useDeviceSwitches } from './src/app/useDeviceSwitches';
+import { useInstallStamps } from './src/app/useInstallStamps';
 import { buildSessionAnalysis } from './src/lib/sessionAnalysis';
 import { AboutYouScreen, AboutYouValues } from './src/screens/AboutYouScreen';
 import { LaunchScreen } from './src/screens/LaunchScreen';
@@ -558,25 +559,7 @@ function VinhaApp() {
   const [tourFocus, setTourFocus] = useState<TourTargetId | null>(null);
   const [fontsLoaded, setFontsLoaded] = useState(false);
 
-  // Keep the cue utilities in sync with the user's preferences, so every call
-  // site across the app is gated by one switch.
-  useEffect(() => {
-    setSoundCuesEnabled(preferences.soundCuesEnabled);
-  }, [preferences.soundCuesEnabled]);
-  useEffect(() => {
-    setHapticsEnabled(preferences.hapticsEnabled);
-  }, [preferences.hapticsEnabled]);
-  // Usage statistics are the one thing the app sends on its own, so the
-  // switch has to reach the client before anything can leave: the client
-  // refuses to send until told, and it is only told once the stored
-  // preferences are in — the pre-hydration default is "on", and a reader who
-  // switched it off must never lose a batch to that default.
-  useEffect(() => {
-    if (!hydrated) {
-      return;
-    }
-    setUsageStatisticsEnabled(preferences.usageStatisticsEnabled);
-  }, [hydrated, preferences.usageStatisticsEnabled]);
+  useDeviceSwitches({ hydrated, preferences });
 
   // Mirrors the notification preferences onto the OS clock: reminders, the
   // comeback nudge, the Sunday summary and the morning-after record note.
@@ -778,30 +761,7 @@ function VinhaApp() {
       : new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).getTime();
   }, [todayKey]);
 
-  useEffect(() => {
-    if (!appHydrated || preferences.hasOpenedAppBefore) {
-      return;
-    }
-
-    void updatePreferences({
-      hasOpenedAppBefore: true,
-    });
-  }, [appHydrated, preferences.hasOpenedAppBefore, updatePreferences]);
-
-  /**
-   * The install date the coach demo moments count their 7 / 30 / 90 days from.
-   *
-   * Stamped separately from hasOpenedAppBefore rather than beside it, because
-   * an install that predates this field has already opened the app: it would
-   * never take that branch, and its moments would never fire. Keyed on the
-   * date being missing instead, so an upgrade starts the clock at the upgrade.
-   */
-  useEffect(() => {
-    if (!appHydrated || preferences.firstLaunchAt) {
-      return;
-    }
-    void updatePreferences({ firstLaunchAt: new Date().toISOString() });
-  }, [appHydrated, preferences.firstLaunchAt, updatePreferences]);
+  useInstallStamps({ appHydrated, preferences, updatePreferences });
 
   useEffect(() => {
     const timeout = setTimeout(() => setMinimumSplashElapsed(true), 1200);
