@@ -9,6 +9,8 @@ const tab = read('src', 'app', 'renderWorkoutTab.tsx');
 const i18n = read('src', 'lib', 'i18n.ts');
 const strip = (source) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 const { createHookRuntime, deferred, flush, requireWithStubs } = require('../helpers/hookHarness.cjs');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+const { windowBefore } = require('../helpers/sourceSlices.cjs');
 
 /** The arguments a screen passes to the moment, comments dropped. */
 function momentCall(source, name) {
@@ -217,12 +219,17 @@ module.exports = [
       }
       // The lock-screen card and the idle nudge: their own switches, and the
       // OS permission inside the module. A break does not silence a session.
-      const app = strip(read('App.tsx'));
+      // Read across the shell's wiring (App.tsx and src/app), so the guard
+      // follows the idle effect wherever the shell keeps it.
+      const app = strip(readAppWiring());
       assert.match(
         app,
         /if \(!activeSessionId \|\| activeSessionStatus !== 'active' \|\| !preferences\.notificationPrefs\.idleNudge\) \{\s*void cancelIdleNudge\(\);/,
       );
-      const idle = app.slice(app.indexOf('void scheduleIdleNudge({') - 800, app.indexOf('void scheduleIdleNudge({'));
+      // Bounded and asserted: a renamed scheduling call fails here, rather
+      // than leaving the window on whatever text ends the file.
+      const idle = windowBefore(app, 'void scheduleIdleNudge({', 800);
+      assert.ok(idle.includes('!preferences.notificationPrefs.idleNudge) {'), 'the window no longer covers the idle-nudge guard');
       assert.doesNotMatch(idle, /pushEnabled|trainingBreak/);
       const module = strip(read('src', 'utils', 'sessionNotifications.ts'));
       for (const fn of ['export function scheduleRestLadder', 'export function showOngoingSession', 'export function scheduleIdleNudge']) {
