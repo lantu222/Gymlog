@@ -79,6 +79,18 @@ export function useRestAlertPermissionMoment(input: {
   useEffect(() => {
     void getRestAlertPermission().then(setPermission);
     void isRestAlertChannelBlocked().then(setChannelMuted);
+    // Again on every return to the app: the answer can change in system
+    // settings while the session runs, and the "Alerts are off — the timer
+    // only runs while this screen is open" banner kept saying so after the
+    // reader had allowed them there (emulator, 2026-09-30). The banner reads
+    // these two on every render; the ask itself stays once per rest start.
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        void getRestAlertPermission().then(setPermission);
+        void isRestAlertChannelBlocked().then(setChannelMuted);
+      }
+    });
+    return () => subscription.remove();
   }, []);
 
   const resolved = permission !== null && channelMuted !== null;

@@ -127,7 +127,14 @@ function createFakeNotifications() {
   };
 }
 
-const FRESH_MODULES = ['utils/sessionNotifications.js', 'utils/notificationHandler.js', 'utils/appNotifications.js'];
+const FRESH_MODULES = [
+  'utils/sessionNotifications.js',
+  'utils/notificationHandler.js',
+  'utils/appNotifications.js',
+  // appNotifications asks it whether exact alarms are allowed; with no
+  // native module the answer is null, "cannot tell", which changes nothing.
+  'utils/exactAlarm.js',
+];
 
 /**
  * A fresh process: the modules load again (no queue, no memory), against the
@@ -138,6 +145,7 @@ function loadAgainst(fake) {
   const stubs = [
     ['expo-notifications', fake.api],
     ['react-native', { Platform: { OS: 'android', Version: 34 }, AppState: { currentState: 'background' } }],
+    ['expo', { requireOptionalNativeModule: () => null }],
   ];
   const saved = new Map();
   const put = (file, entry) => {
