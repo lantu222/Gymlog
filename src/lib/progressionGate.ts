@@ -1,5 +1,5 @@
 import type { WorkoutSlotHistoryEntry } from '../features/workout/workoutTypes';
-import { SetupLevel } from '../types/models';
+import { SetupCautionArea, SetupLevel } from '../types/models';
 import { getRollingWindowStart } from './completedSessions';
 
 /**
@@ -303,7 +303,15 @@ export function evaluateProgression(input: ProgressionGateInput): ProgressionDec
  * user can actually see, which it previously did not.
  */
 export function resolveProgressedLoadKg(
-  input: ProgressionGateInput & { automatedProgressionEnabled: boolean; fallbackLoadKg: number },
+  input: ProgressionGateInput & {
+    automatedProgressionEnabled: boolean;
+    fallbackLoadKg: number;
+    /**
+     * The body area this lift loads, when the reader flagged it in setup
+     * (careful or avoid). Null or absent for every other lift.
+     */
+    cautionArea?: SetupCautionArea | null;
+  },
 ): {
   loadKg: number;
   progressed: boolean;
@@ -316,9 +324,38 @@ export function resolveProgressedLoadKg(
    * so on the set, the same way it says where a raised load came from.
    */
   heldForFatigue: boolean;
+  /**
+   * The flagged area that held an earned jump, or null.
+   *
+   * Onboarding tells a reader with flagged areas that the app will not raise
+   * the weight on lifts that load them. This is that promise: the gate never
+   * moves such a load, and — like the recovery hold — it only says so when a
+   * jump had actually been earned.
+   */
+  heldForCautionArea: SetupCautionArea | null;
 } {
   if (!input.automatedProgressionEnabled) {
-    return { loadKg: input.fallbackLoadKg, progressed: false, fromLoadKg: null, heldForFatigue: false };
+    return {
+      loadKg: input.fallbackLoadKg,
+      progressed: false,
+      fromLoadKg: null,
+      heldForFatigue: false,
+      heldForCautionArea: null,
+    };
+  }
+
+  if (input.cautionArea) {
+    // A flagged area outranks recovery: the hold is permanent, not a bad week,
+    // so it is the reason worth naming. Checked with recovery out of the way
+    // for the same reason as below — only a jump that was earned was held.
+    const earned = evaluateProgression({ ...input, fatigueSignal: 'normal' }).recommendation === 'increase';
+    return {
+      loadKg: input.fallbackLoadKg,
+      progressed: false,
+      fromLoadKg: null,
+      heldForFatigue: false,
+      heldForCautionArea: earned ? input.cautionArea : null,
+    };
   }
 
   const decision = evaluateProgression(input);
@@ -331,6 +368,7 @@ export function resolveProgressedLoadKg(
       progressed: true,
       fromLoadKg: decision.fromLoadKg,
       heldForFatigue: false,
+      heldForCautionArea: null,
     };
   }
 
@@ -350,7 +388,7 @@ export function resolveProgressedLoadKg(
     && (decision.holdReason === 'fatigue_high' || decision.holdReason === 'fatigue_elevated')
     && evaluateProgression({ ...input, fatigueSignal: 'normal' }).recommendation === 'increase';
 
-  return { loadKg: input.fallbackLoadKg, progressed: false, fromLoadKg: null, heldForFatigue };
+  return { loadKg: input.fallbackLoadKg, progressed: false, fromLoadKg: null, heldForFatigue, heldForCautionArea: null };
 }
 
 /** One more rep, both tiers — a rep is already the smallest step there is. */
@@ -369,6 +407,8 @@ export interface ProgressedRepsResolution {
   fromReps: number | null;
   /** Same contract as the load resolver: earned, and recovery said not today. */
   heldForFatigue: boolean;
+  /** Same contract as the load resolver: earned, and a flagged area held it. */
+  heldForCautionArea: SetupCautionArea | null;
 }
 
 /** The weakest set is the level the session proved, so it is what we raise. */
@@ -386,6 +426,8 @@ export interface ProgressedRepsInput {
   fatigueSignal?: ProgressionFatigueSignal;
   trackingMode?: string;
   automatedProgressionEnabled: boolean;
+  /** The flagged area this exercise loads, if any — see resolveProgressedLoadKg. */
+  cautionArea?: SetupCautionArea | null;
 }
 
 type RepsRecommendation = 'silent' | 'hold' | 'increase';
@@ -452,10 +494,18 @@ export function resolveProgressedReps(input: ProgressedRepsInput): ProgressedRep
     progressed: false,
     fromReps: null,
     heldForFatigue: false,
+    heldForCautionArea: null,
   };
 
   if (!input.automatedProgressionEnabled || input.trackingMode !== 'bodyweight') {
     return base;
+  }
+
+  // A flagged area holds reps the way it holds load: the dose on that area
+  // does not climb on its own, and the hold is named only when it was earned.
+  if (input.cautionArea) {
+    const earned = evaluateRepsProgression({ ...input, fatigueSignal: 'normal' }) === 'increase';
+    return { ...base, heldForCautionArea: earned ? input.cautionArea : null };
   }
 
   const recommendation = evaluateRepsProgression(input);
@@ -468,6 +518,7 @@ export function resolveProgressedReps(input: ProgressedRepsInput): ProgressedRep
       progressed: true,
       fromReps,
       heldForFatigue: false,
+      heldForCautionArea: null,
     };
   }
 

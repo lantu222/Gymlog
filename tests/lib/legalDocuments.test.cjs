@@ -493,6 +493,8 @@ module.exports = [
         profile: 'profile',
         homeState: null,
         plannerSetup: 'setup',
+        // The body areas flagged in setup (2026-09-30): a setup answer.
+        cautionFlags: 'setup',
         coachMemory: 'pastAdvice',
         // Computed from the logged workouts already sent: the set screen's next
         // targets for the last session's lifts (2026-09-27).

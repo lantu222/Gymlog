@@ -108,7 +108,7 @@ import { classifySessionFocus, getDefaultCooldown, getDefaultWarmup } from '../l
 import { formatSetScheme, formatWeight, parseNumberInput, removeTrailingZeros } from '../lib/format';
 import { estimateSessionMinutes } from '../lib/sessionDuration';
 import { buildSupersetRuns, normalizeSupersetGroups, supersetGroupIndexes, supersetPositions } from '../lib/supersetGrouping';
-import { t } from '../lib/i18n';
+import { I18nKey, t } from '../lib/i18n';
 import { haptics } from '../utils/haptics';
 import { subscribeRestActions, useRestEndAlert } from '../hooks/useRestEndAlert';
 import { useRestAlertPermissionMoment } from '../hooks/useRestAlertPermissionMoment';
@@ -4996,6 +4996,26 @@ function SetStepView({
     && !prefilledFrom
     && autoFromReps === null
     && target?.heldForFatigue === true;
+  /**
+   * The load had earned a jump and an area the reader flagged held it.
+   * Onboarding told them the app would not raise the weight on lifts that
+   * load that area; this is where they can see it keep its word.
+   */
+  const heldForCautionArea =
+    (bodyweight ? repsUntouched : untouched) && !autoFromKg && !prefilledFrom && autoFromReps === null
+      ? target?.heldForCautionArea ?? null
+      : null;
+  // An area this build has no name for (a session saved by a later build, or
+  // a damaged store) says nothing rather than taking the set screen down.
+  const cautionAreaName = heldForCautionArea
+    ? (t(language, `onb.area.${heldForCautionArea}` as I18nKey) as string | undefined)
+    : undefined;
+  /** One hold badge, with whichever reason the gate gave. */
+  const holdLabel = heldForFatigue
+    ? t(language, 'guided.heldForRecovery')
+    : cautionAreaName
+      ? t(language, 'guided.heldForCaution', { area: cautionAreaName.toUpperCase() })
+      : null;
 
   return (
     <StepIn stepKey={`set-${stepIndex}`}>
@@ -5318,10 +5338,10 @@ function SetStepView({
                     })}
                   </Text>
                 </View>
-              ) : heldForFatigue ? (
+              ) : holdLabel ? (
                 <View style={styles.setHoldBadge}>
                   <GPIcon name="shield" size={13} color={theme.muted} sw={2.2} />
-                  <Text style={styles.setHoldBadgeText}>{t(language, 'guided.heldForRecovery')}</Text>
+                  <Text style={styles.setHoldBadgeText}>{holdLabel}</Text>
                 </View>
               ) : null}
           </View>
