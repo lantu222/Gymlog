@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 const { darkTheme, lightTheme } = require('../../.test-dist/theming.js');
 const { HG } = require('../../.test-dist/lightTheme.js');
@@ -125,8 +126,9 @@ module.exports = [
       // And the dialog closes onto the flow rather than navigating: it used to
       // reset to Home, which was right only when a purchase opened it.
       assert.match(app, /onDone=\{\(\) => setThemeChoiceVisible\(false\)\}/);
-      // The unlock screen no longer chains into it.
-      assert.doesNotMatch(app, /onDone=\{\(\) => setThemeChoiceVisible\(true\)\}/);
+      // The unlock screen no longer chains into it — from App.tsx or from any
+      // src/app module the shell's wiring now lives in (phase B, 2026-09-30).
+      assert.doesNotMatch(readAppWiring(), /onDone=\{\(\) => setThemeChoiceVisible\(true\)\}/);
     },
   },
   {

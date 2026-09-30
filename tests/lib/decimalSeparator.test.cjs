@@ -138,6 +138,35 @@ module.exports = [
         /\buseMemo\(|\buseEffect\(|\buseScheduledNotifications\(/,
         'setNumberLanguage must come before any hook that could format a number',
       );
+
+      /*
+       * This one stays positional, on App.tsx alone: the setter is a statement
+       * in VinhaApp's body and the question is what sits above it there. But
+       * the phase-B split (2026-09-30) moved many of those useMemo blocks into
+       * src/app hooks that VinhaApp now calls by name, and a call to one of
+       * them above the setter is the same stale-separator render — one the
+       * three names above cannot see. So every hook a src/app module exports
+       * is forbidden above it too, and at least one of them is asserted to be
+       * called below it, so the list is known to be read.
+       */
+      const appDir = path.join(root, 'src', 'app');
+      const shellHooks = [];
+      for (const name of fs.readdirSync(appDir).sort()) {
+        if (!/\.tsx?$/.test(name)) continue;
+        const moduleSource = fs.readFileSync(path.join(appDir, name), 'utf8');
+        for (const match of moduleSource.matchAll(/^export function (use[A-Z]\w*)\(/gm)) {
+          shellHooks.push(match[1]);
+        }
+      }
+      assert.ok(shellHooks.length > 0, 'no src/app module exports a hook any more — the list below reads nothing');
+      const shellHookCall = new RegExp(`\\b(?:${shellHooks.join('|')})\\(`);
+      const after = lines.slice(callIndex + 1).join(String.fromCharCode(10));
+      assert.match(after, shellHookCall, 'none of the src/app hooks is called below the setter');
+      assert.doesNotMatch(
+        before,
+        shellHookCall,
+        'setNumberLanguage must come before any src/app hook that could format a number',
+      );
     },
   },
   {

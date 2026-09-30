@@ -141,8 +141,10 @@ module.exports = [
       // The summary the guided finish sets once its save has resolved.
       const shown = through(app, app.indexOf('setCompletionSummary({', saveAt));
       assert.match(shown, /exercisesLogged: summary\.exercisesCompleted,/);
+      // Over the whole shell, App.tsx and its src/app modules (phase-B split,
+      // 2026-09-30): the card count must not come back from a hook either.
       assert.doesNotMatch(
-        app,
+        strip(readAppWiring().replace(/\r\n/g, '\n')),
         /exercisesLogged: completionCards\.exerciseCards\.filter/,
         'counted off the cards, the tile said 1 where History said 2',
       );

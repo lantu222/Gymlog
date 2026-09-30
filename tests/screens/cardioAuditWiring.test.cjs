@@ -83,7 +83,12 @@ module.exports = [
         app,
         /onCreateWorkoutFromExercises=\{\(\) =>\s*guardStrengthStartOverCardio\(\(\) => navigate\(\{ tab: 'workout', screen: 'empty' \}\)\)/,
       );
-      assert.doesNotMatch(app, /onCreateWorkoutFromExercises=\{\(\) => navigate\(/);
+      // The unguarded door must not come back anywhere in the shell: App.tsx or
+      // a src/app module (phase-B split, 2026-09-30).
+      assert.doesNotMatch(
+        code(readAppWiring().replace(/\r\n/g, '\n')),
+        /onCreateWorkoutFromExercises=\{\(\) => navigate\(/,
+      );
 
       const i18n = read('src', 'lib', 'i18n.ts');
       for (const key of ['home.cardio.inProgress', 'home.a11y.resumeCardio', 'toast.deleteFailed', 'export.log.cardioOne', 'export.log.cardioMany']) {

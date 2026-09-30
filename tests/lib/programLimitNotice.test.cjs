@@ -8,6 +8,7 @@ const {
   findReplaceableOnboardingTemplateId,
 } = require('../../.test-dist/lib/activeProgramSet.js');
 const { t } = require('../../.test-dist/lib/i18n.js');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 /**
  * The free programme limits, said before and at the wall (user 2026-09-14).
@@ -69,8 +70,10 @@ module.exports = [
     name: 'programme limit: a full set of running programmes shows the sheet, then Pro only if asked',
     run() {
       const app = read('App.tsx');
+      // The straight-to-paywall branch must not come back anywhere in the
+      // shell: App.tsx or a src/app module (phase-B split, 2026-09-30).
       assert.doesNotMatch(
-        app,
+        strip(readAppWiring()),
         /if \(decision\.canUpgrade\) \{\s*navigate\(\{ tab: 'profile', screen: 'premium', reason: 'program_cap' \}\)/,
         'a free reader at the running limit is still sent straight to the paywall',
       );

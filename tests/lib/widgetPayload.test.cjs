@@ -688,7 +688,13 @@ module.exports = [
         .replace(/\/\*[\s\S]*?\*\//g, '')
         .replace(/^\s*\/\/.*$/gm, '');
       assert.match(app, /todaySessionId: homeActivePlanCard\?\.todayPickSessionId \?\? null,/);
-      assert.doesNotMatch(app, /todaySessionId: homeActivePlanCard\?\.nextSession/);
+      // Next-session-as-today must not come back anywhere in the shell: App.tsx
+      // or a src/app module (phase-B split, 2026-09-30).
+      const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+      const shell = readAppWiring()
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '');
+      assert.doesNotMatch(shell, /todaySessionId: homeActivePlanCard\?\.nextSession/);
       assert.match(app, /todayPickSessionId: pickedToday\?\.id \?\? null,/);
       assert.match(
         app,

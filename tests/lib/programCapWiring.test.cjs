@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 /**
  * The two places the running set used to drift from what was running.
@@ -13,6 +14,9 @@ const path = require('node:path');
 const root = path.join(__dirname, '..', '..');
 const strip = (source) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 const app = strip(fs.readFileSync(path.join(root, 'App.tsx'), 'utf8'));
+// App.tsx plus the src/app modules (phase-B split, 2026-09-30): the old
+// activation must not come back anywhere in the shell, a hook included.
+const shell = strip(readAppWiring());
 const provider = strip(fs.readFileSync(path.join(root, 'src', 'state', 'AppProvider.tsx'), 'utf8'));
 const database = strip(fs.readFileSync(path.join(root, 'src', 'storage', 'database.ts'), 'utf8'));
 
@@ -39,7 +43,7 @@ module.exports = [
           `${signature} leads with its plan without counting it against the cap`,
         );
       }
-      assert.doesNotMatch(app, /activate: \(planId\) => \(\{ activePlanId: planId \}\)/);
+      assert.doesNotMatch(shell, /activate: \(planId\) => \(\{ activePlanId: planId \}\)/);
     },
   },
   {

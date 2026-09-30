@@ -117,7 +117,12 @@ module.exports = [
         /const startableIndex = nextStartableSessionIndex\(\s*homeSessions\.map\(\(session\) => session\.exercises\.length\),\s*nextSessionIndex,\s*\);/,
       );
       assert.match(app, /\(pickedToday && pickedToday\.exercises\.length > 0 \? pickedToday : null\) \?\?/);
-      assert.doesNotMatch(app, /pickedToday \?\? homeSessions\[nextSessionIndex\] \?\? homeSessions\[0\]/);
+      // The old fallback chain must not come back anywhere in the shell,
+      // App.tsx or a src/app module (phase-B split, 2026-09-30).
+      assert.doesNotMatch(
+        readAppWiring().split('\r\n').join('\n'),
+        /pickedToday \?\? homeSessions\[nextSessionIndex\] \?\? homeSessions\[0\]/,
+      );
 
       // And starting one is refused, and lands on the day where lifts are
       // added — not the template editor a programme page no longer opens.
