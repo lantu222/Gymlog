@@ -793,6 +793,8 @@ module.exports = [
         .readFileSync(path.join(__dirname, '..', '..', 'src', 'components', 'ExerciseLibraryBrowser.tsx'), 'utf8')
         .replace(/\r\n/g, '\n');
       assert.match(browser, /export function ExerciseLibraryRow\(/);
+      // Still a button to a screen reader, as SwapRow was.
+      assert.match(browser, /accessibilityRole=\{onPress \? 'button' : undefined\}/);
       assert.match(browser, /<ExerciseLibraryRow\s+title=\{exerciseListLabel\(language, item\.name\)\}/);
     },
   },

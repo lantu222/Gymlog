@@ -318,7 +318,14 @@ export function ExerciseLibraryRow({
   const styles = useThemedStyles(makeStyles);
 
   return (
-    <Pressable onPress={onPress} disabled={!onPress} style={styles.row}>
+    // A button when it does something: the swap sheet's rows were announced
+    // as buttons before they became library rows (review, 2026-09-30).
+    <Pressable
+      accessibilityRole={onPress ? 'button' : undefined}
+      onPress={onPress}
+      disabled={!onPress}
+      style={styles.row}
+    >
       <Thumb uri={imageUrl} radius={11} width={52} height={52} />
       <View style={styles.rowCopy}>
         <Text numberOfLines={2} style={styles.rowTitle} accessibilityLabel={accessibilityLabel}>
