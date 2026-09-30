@@ -950,6 +950,18 @@ export function AICoachChatScreen({
         if (token !== askToken.current) {
           return;
         }
+        if (result.limited) {
+          // Turned away for rate, not unreachable: the badge stays as it
+          // was, nothing is charged, and the question goes back into the
+          // field to send again. The canned answer and OFFLINE made a wait
+          // look like an outage (#bugs, 2026-09-30).
+          setMessages((current) => [
+            ...current,
+            { id: `coach:${token}`, fromCoach: true, text: t(language, 'coachChat.rateLimited') },
+          ]);
+          setDraft((current) => (current.trim() ? current : trimmed));
+          return;
+        }
         const answer = result.answer;
         // The endpoint answers with a canned offline reply when it cannot
         // reach the model — rate limited, upstream down, key missing. Until

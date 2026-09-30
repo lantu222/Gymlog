@@ -5186,7 +5186,10 @@ function VinhaApp() {
       // Today from the day key, like the count below it — the clock read
       // here was only as fresh as whatever last changed this memo's inputs.
       todaySessionTitle:
-        homeActivePlanCard?.nextSession && trainsOn(homeTrainingSchedule, new Date(todayStartMs))
+        // Or the reader picked today's session on a rest day — Home's hero
+        // then treats today as training, and so does the coach.
+        homeActivePlanCard?.nextSession &&
+        (Boolean(homeActivePlanCard.todayPickSessionId) || trainsOn(homeTrainingSchedule, new Date(todayStartMs)))
           ? localizeSessionFocus(
               formatWorkoutDisplayLabel(homeActivePlanCard.nextSession.title),
               preferences.appLanguage,

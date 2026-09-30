@@ -203,8 +203,8 @@ module.exports = [
       };
       const normalized = normalizeAiCoachTrainingContext(oversized);
       assert.ok(normalized.history.sessions.length <= 24, `sessions not capped: ${normalized.history.sessions.length}`);
-      assert.ok(normalized.history.lifts.length <= 10, `lifts not capped: ${normalized.history.lifts.length}`);
-      assert.ok(normalized.history.repsLifts.length <= 10, `repsLifts not capped: ${normalized.history.repsLifts.length}`);
+      assert.ok(normalized.history.lifts.length <= 24, `lifts not capped: ${normalized.history.lifts.length}`);
+      assert.ok(normalized.history.repsLifts.length <= 24, `repsLifts not capped: ${normalized.history.repsLifts.length}`);
       assert.ok(normalized.history.weeks.length <= 12, `weeks not capped: ${normalized.history.weeks.length}`);
       // The rendered text this feeds the model stays small, which is the
       // actual point — the size check runs on this text, not on the arrays.

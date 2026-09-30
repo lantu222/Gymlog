@@ -216,6 +216,14 @@ export interface AICoachHistory {
    * clients older than 2026-09-28, so the endpoint reads it as optional.
    */
   repsLifts?: AICoachHistoryRepsLift[];
+  /**
+   * The names of lifts logged in the window whose trajectory was left out for
+   * size. Without them the coach read a missing row as a lift nobody tracks:
+   * "Bench Press doesn't appear in your tracked lift trajectories" to a
+   * reader with weeks of bench in the log (emulator, 2026-09-30). Absent from
+   * older clients.
+   */
+  liftsNotShown?: string[];
   weeks: AICoachHistoryWeek[];
   schedule: AICoachHistorySchedule | null;
   /** True when older sessions were dropped to keep the payload small. */

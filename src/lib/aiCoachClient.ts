@@ -58,6 +58,13 @@ export interface RequestAiCoachAdviceResult {
   answer: AICoachAdvice;
   source: 'live' | 'preview';
   note?: string;
+  /**
+   * The server turned the question away for rate — too many from this
+   * address in its window, or the coach's spend window full. Not an outage:
+   * the chat says "ask again in a while" instead of going OFFLINE with the
+   * canned answer (#bugs, 2026-09-30: "menikö offlineen koska viestiraja?").
+   */
+  limited?: boolean;
 }
 
 /**
@@ -214,6 +221,15 @@ export async function requestAiCoachAdvice(input: AICoachAdviceRequest, upstream
         answer: payload.answer,
         source: payload.source,
         note: payload.note,
+      };
+    }
+
+    if (isErrorResponse(payload) && payload.error?.code === 'RATE_LIMIT') {
+      return {
+        answer: payload.fallback ?? buildAiCoachPreviewAnswer(input.prompt, input.context, input.language),
+        source: 'preview',
+        note: payload.note ?? payload.error.message,
+        limited: true,
       };
     }
 

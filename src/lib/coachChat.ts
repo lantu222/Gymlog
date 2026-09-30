@@ -183,6 +183,22 @@ export function buildCoachContextChips(
 }
 
 /**
+ * A lift's name for a line, in both the shapes a template may need: lower
+ * case where it sits inside the sentence ("What should I do about my leg
+ * press?"), capitalised where it opens one. Finnish cannot take a name after
+ * "asialle" without inflecting it, and a name the app does not own cannot be
+ * inflected safely, so the Finnish lines put the name first instead —
+ * "Mitä minun pitäisi tehdä asialle jalkaprässi?" came back from the chip
+ * (#bugs, 2026-09-30), and "jalkaprässi ei ole liikkunut" opened a sentence
+ * in lower case.
+ */
+export function nameVars(key: string, name: string): Record<string, string> {
+  const trimmed = name.trim();
+  const capitalised = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+  return { [key]: trimmed.toLowerCase(), [key.charAt(0).toUpperCase() + key.slice(1)]: capitalised };
+}
+
+/**
  * The line the coach opens with. It names what it can see and offers the two
  * obvious next moves; it never claims a trend it has not got the data for.
  */
@@ -197,7 +213,7 @@ export function buildCoachOpeningLine(input: CoachChatIntroInput, language: AppL
     });
   }
   if (stalled) {
-    return t(language, 'coachChat.open.stalled', { lift: stalled.name.toLowerCase() });
+    return t(language, 'coachChat.open.stalled', nameVars('lift', stalled.name));
   }
   if (input.todaySessionTitle) {
     return t(language, 'coachChat.open.plan', { session: input.todaySessionTitle });
@@ -241,7 +257,7 @@ export function buildCoachNoticed(
         tone: row.tone === 'red' ? 'alert' : 'warn',
         title: `${row.name} · ${row.status}`,
         body: row.locked ? row.locked.body : row.meta,
-        question: t(language, 'coachChat.ask.about', { subject: row.name.toLowerCase() }),
+        question: t(language, 'coachChat.ask.about', nameVars('subject', row.name)),
       });
     }
   }
@@ -258,7 +274,7 @@ export function buildCoachNoticed(
         tone: 'plan',
         title: `${row.name} · ${row.status}`,
         body: row.meta,
-        question: t(language, 'coachChat.ask.about', { subject: row.name.toLowerCase() }),
+        question: t(language, 'coachChat.ask.about', nameVars('subject', row.name)),
       });
     }
   }
@@ -340,7 +356,7 @@ export function buildCoachOpeningOffer(
   }
   if (stalled) {
     return {
-      question: t(language, 'coachChat.ask.about', { subject: stalled.name.toLowerCase() }),
+      question: t(language, 'coachChat.ask.about', nameVars('subject', stalled.name)),
       askLabel: t(language, 'coachChat.offer.lookAtIt'),
     };
   }

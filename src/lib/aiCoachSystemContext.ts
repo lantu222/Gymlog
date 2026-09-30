@@ -371,6 +371,15 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
     return `- ${liftName(lift.name)} (no added load): ${move} | best set per session ${series} | first ${lift.firstReps.join(', ')} | latest ${lift.latestReps.join(', ')}`;
   });
   trajectoryLines.push(...repsLiftLines);
+  // Named, so a lift without its row is still one the reader logs: bench
+  // press cut by the cap came back as "not in your tracked lifts"
+  // (emulator, 2026-09-30).
+  const notShown = (history.liftsNotShown ?? []).map((name) => liftName(name));
+  if (notShown.length > 0) {
+    trajectoryLines.push(
+      `- Also logged in this window, trajectory left out for size: ${notShown.join(', ')}. The reader does train these — never say one is not tracked; answer from the sessions above, or say its trajectory is not in view.`,
+    );
+  }
   const liftHistoryBlock = section('Lift trajectories (top set per session)', trajectoryLines);
   if (liftHistoryBlock) blocks.push(liftHistoryBlock);
 
