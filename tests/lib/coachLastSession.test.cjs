@@ -408,8 +408,73 @@ module.exports = [
       assert.equal(byName['Leg Curl'], null);
 
       const out = buildAiCoachSystemContext(baseContext({ lastSession: last }), 'fi');
-      assert.ok(out.includes("next time (the app's own prescription): 155 kg x 7, 7, 7"), out);
-      assert.ok(out.includes("next time (the app's own prescription): 11 reps"));
+      assert.ok(out.includes("next time (the app's own prescription): 155 kg x 7, 7, 7 — more reps at the same weight: moving on"), out);
+      assert.ok(out.includes("next time (the app's own prescription): 11 reps — more reps at the same weight: moving on"), out);
+    },
+  },
+  {
+    /**
+     * Every rep made at 155 kg and the app holding it — for recovery — read to
+     * the model as "time to move up", written over an example that held the
+     * weight: "kaikki toistot menivät, joten on aika edetä painossa" above
+     * "Tavoittele 155 kg x 6/6/6" (store shots, 2026-09-30). The line now says
+     * which way the prescription moves, and why when it holds.
+     */
+    name: 'the next-time line says which way it moves, and a recovery hold says so',
+    run() {
+      const now = new Date('2026-09-27T07:50:00.000Z');
+      const sessions = [session('last', '2026-09-26T08:46:40.000Z', 'Day 4: Lower Body')];
+      const sets = [{ weight: 155, reps: 6 }, { weight: 155, reps: 6 }, { weight: 155, reps: 6 }];
+      const logs = [log('last', 'Trap Bar Deadlift', 0, sets), log('last', 'Leg Press', 1, [{ weight: 215, reps: 10 }])];
+      const next = [
+        { exerciseName: 'Trap Bar Deadlift', sets: [{ loadKg: 155, reps: 6 }, { loadKg: 155, reps: 6 }, { loadKg: 155, reps: 6 }] },
+        { exerciseName: 'Leg Press', sets: [{ loadKg: 220, reps: 10 }] },
+      ];
+      const last = buildAiCoachLastSession(sessions, logs, now, next);
+      const hold = "next time (the app's own prescription): 155 kg x 6, 6, 6 — the same as this session: a hold";
+
+      const high = buildAiCoachSystemContext(
+        baseContext({ lastSession: last, fatigue: { acwr: 1.6, recoveryScore: 40, signal: 'high', sessionCount7d: 4, confident: true } }),
+        'fi',
+      );
+      assert.ok(high.includes(`${hold}, because the app keeps weights where they are while this week's lifting load is above usual. Say that is why — never that it is time to move up`), high);
+      assert.ok(high.includes("next time (the app's own prescription): 220 kg x 10 — up from 215 kg: moving on"), high);
+
+      // "Elevated" holds too — the gate's second rule.
+      const elevated = buildAiCoachSystemContext(
+        baseContext({ lastSession: last, fatigue: { acwr: 1.35, recoveryScore: 60, signal: 'elevated', sessionCount7d: 3, confident: true } }),
+        'fi',
+      );
+      assert.ok(elevated.includes(`${hold}, because the app keeps weights`), elevated);
+
+      // Not confident: the gate does not hold on a guess, so neither does the reason.
+      for (const fatigue of [
+        { acwr: 4, recoveryScore: 10, signal: 'high', sessionCount7d: 1, confident: false },
+        { acwr: 1.05, recoveryScore: 98, signal: 'optimal', sessionCount7d: 2, confident: true },
+      ]) {
+        const out = buildAiCoachSystemContext(baseContext({ lastSession: last, fatigue }), 'fi');
+        assert.ok(out.includes(`${hold}. Say to repeat it — never that it is time to move up`), out);
+        assert.ok(!out.includes('above usual. Say that is why'), out);
+      }
+    },
+  },
+  {
+    name: 'next-time direction: lighter, mixed and empty say what they can and no more',
+    run() {
+      const { nextTimeDirection } = require('../../.test-dist/lib/aiCoachSystemContext.js');
+      const at = (weightKg, ...reps) => reps.map((r) => ({ weightKg, reps: r }));
+      assert.equal(nextTimeDirection(at(100, 5, 5), { loadKg: 90, reps: [5, 5] }, false), "lighter than this session's 100 kg");
+      // One set up, one down: no single direction to claim.
+      assert.equal(nextTimeDirection(at(100, 5, 8), { loadKg: 100, reps: [6, 6] }, false), null);
+      // Fewer reps at the same weight is not a hold.
+      assert.equal(nextTimeDirection(at(100, 8, 8), { loadKg: 100, reps: [6, 6] }, true), null);
+      assert.equal(nextTimeDirection([], { loadKg: 100, reps: [5] }, false), null);
+      assert.equal(nextTimeDirection(at(100, 5), { loadKg: 100, reps: [] }, false), null);
+      // Warm-ups below the top weight do not count as the sets it repeats.
+      assert.equal(
+        nextTimeDirection([{ weightKg: 60, reps: 10 }, ...at(100, 5, 5)], { loadKg: 100, reps: [5, 5] }, false),
+        'the same as this session: a hold. Say to repeat it — never that it is time to move up',
+      );
     },
   },
   {
