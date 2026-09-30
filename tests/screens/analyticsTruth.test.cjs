@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+const { functionBody } = require('../helpers/sourceSlices.cjs');
 
 /**
  * Each usage event sent at the moment it names (analytics audit, 2026-09-21).
@@ -19,13 +20,14 @@ const strip = (source) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.
 
 const app = strip(readAppWiring());
 
-/** One of App's handlers, from its signature to the next member at the same depth. */
+/**
+ * One of App's handlers, from its signature to its own closing brace. It
+ * used to end at the next member at the same depth, and the phase-B split
+ * (2026-09-30) moved members: past the setup finish, a memo that stood next
+ * became a hook call, and the slice ran on over it.
+ */
 function appFunction(name) {
-  const start = app.search(new RegExp(`\\n  (?:async )?function ${name}\\(`));
-  assert.notEqual(start, -1, `${name} should exist in App`);
-  const rest = app.slice(start + 1);
-  const end = rest.slice(1).search(/\n  (?:async )?function \w+\(|\n  const \w+ = /);
-  return end === -1 ? rest : rest.slice(0, end + 1);
+  return functionBody(app, `function ${name}(`);
 }
 
 const ADOPTED = "trackEvent('plan_adopted')";
