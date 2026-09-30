@@ -9,7 +9,7 @@ import * as SplashScreen from 'expo-splash-screen';
 
 import { AppShell } from './src/components/AppShell';
 import { BottomTabBar } from './src/components/BottomTabBar';
-import { getHomeSummary, getMonthTrainingTotals } from './src/lib/dashboard';
+import { getMonthTrainingTotals } from './src/lib/dashboard';
 import { formatDurationMinutes, formatRepRange, formatSetScheme, formatShortDate, formatTime, formatVolume, formatWeight, pluralize, removeTrailingZeros } from './src/lib/format';
 import { createId } from './src/lib/ids';
 import { HistoryScrollMemory } from './src/lib/historyScrollMemory';
@@ -94,27 +94,11 @@ import {
   getCanonicalCompletedSessions,
   getRecentActivityStrip,
 } from './src/lib/completedSessions';
-import { getLifetimeTrainingSummary } from './src/lib/lifetimeSummary';
 import { buildMilestoneLedger, getMilestoneFacts } from './src/lib/milestoneFacts';
-import { getTrainingRhythm } from './src/lib/trainingRhythm';
-import { buildFatigueModel } from './src/lib/fatigueModel';
-import { buildLiftHistories } from './src/lib/trainingHistory';
-import {
-  buildCompletionConclusion,
-  buildNextSessionMoment,
-  buildPlateauConclusion,
-  buildPlateauDetection,
-  buildPlateauMoment,
-  buildWeeklyRead,
-  detectPlateau,
-  findPlateauDetection,
-  pickCompletionLift,
-  plateauEpisodeKey,
-} from './src/lib/proInsights';
+import { findPlateauDetection } from './src/lib/proInsights';
 import { markCoachDemoMomentUsed, resolveDueCoachDemoMoment } from './src/lib/coachDemoMoments';
 import { blockWeekOfSession, blockWeekTally, buildHomePlanProgress } from './src/lib/homePlanProgress';
 import { resolveHomePrompt } from './src/lib/homePrompts';
-import { buildHomeStatCardCatalog, buildHomeStatCards, resolveHomeStatCardKeys } from './src/lib/homeStatCards';
 import { silencedSuggestionKinds } from './src/lib/coachSuggestions';
 import {
   buildSessionEquipmentLabel,
@@ -132,7 +116,6 @@ import { I18nKey, t } from './src/lib/i18n';
 import { buildCoachModules } from './src/lib/aiCoachModules';
 import { isProUnlocked, resolveProEntitlement, resolveProgressionOptions } from './src/lib/proEntitlement';
 import { ThemeChoiceDialog } from './src/components/ThemeChoiceDialog';
-import { toProgressionFatigueSignal } from './src/lib/progressionGate';
 import { resolveThemeName } from './src/lib/themePreference';
 import { localizeSessionFocus, localizeSessionName } from './src/lib/sessionNameLabel';
 import { trackEvent } from './src/features/analytics/analyticsClient';
@@ -176,7 +159,6 @@ import {
   seasonWeek,
   seasonWeeksLeft,
 } from './src/lib/season';
-import { suggestHomeStatCardKeys } from './src/lib/homeCardSuggestions';
 import { isMeasurementCardKey } from './src/lib/homeStatCards';
 import { planTrainedOnDay, resolveNextPlanEntryIndex } from './src/lib/planRotation';
 import { alignHistoryToCopiedDays, programmeHistoryIds } from './src/lib/programLineage';
@@ -295,6 +277,9 @@ import { useFunnelAnalytics } from './src/app/useFunnelAnalytics';
 import { useInstallStamps } from './src/app/useInstallStamps';
 import { useSetupWeightSeed } from './src/app/useSetupWeightSeed';
 import { useTodayKey } from './src/app/useTodayKey';
+import { useDaySummaries } from './src/app/useDaySummaries';
+import { useProInsights } from './src/app/useProInsights';
+import { useHomeStatCards } from './src/app/useHomeStatCards';
 import { buildSessionAnalysis } from './src/lib/sessionAnalysis';
 import { AboutYouScreen, AboutYouValues } from './src/screens/AboutYouScreen';
 import { LaunchScreen } from './src/screens/LaunchScreen';
@@ -1143,110 +1128,20 @@ function VinhaApp() {
     return () => subscription.remove();
   }, [handoffLegalDocument]);
 
-  /*
-   * Keyed on the day as well as the data. All three read "this week" or "this
-   * month" off the clock, and keyed on the data alone they kept the day they
-   * were last computed: an app left open from Sunday night into Monday had the
-   * coach open with last week's "3 sessions this week", and on the 1st
-   * Progress drew last month's calendar and totals beside a widget already on
-   * the new one — until the next workout was logged (audit, 2026-09-20).
-   *
-   * The clock is read here, where the day key makes the memo re-run, rather
-   * than defaulted inside each function where no dependency list can see it.
-   * The moment, not the key's midnight: the thirty-day count ends at `now`,
-   * and midnight would leave out everything logged today.
-   */
-  const homeSummary = useMemo(
-    () => getHomeSummary(database, unitPreference, new Date()),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [database, unitPreference, todayKey],
-  );
-  const lifetimeSummary = useMemo(
-    () => getLifetimeTrainingSummary(database, new Date()),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [database, todayKey],
-  );
-  const progressTrainingRhythm = useMemo(
-    () => getTrainingRhythm(database, { now: new Date() }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [database, todayKey],
-  );
-  // The paywall-moments data layer: real lift histories → detections (free)
-  // and deterministic conclusions (Pro / blurred). Pure, from logged sets.
-  const proLiftHistories = useMemo(
-    () => buildLiftHistories(database.workoutSessions, database.exerciseLogs),
-    [database.exerciseLogs, database.workoutSessions],
-  );
-  const proFatigue = useMemo(
-    () =>
-      buildFatigueModel({
-        workoutSessions: database.workoutSessions,
-        exerciseLogs: database.exerciseLogs,
-      }),
-    [database.exerciseLogs, database.workoutSessions],
-  );
-  /**
-   * Recovery, in the shape the progression gate acts on.
-   *
-   * The gate has carried fatigue holds since it was written, and nothing ever
-   * passed a signal in — so the paywall's "Pro reads your load and eases off
-   * before fatigue costs you a week" described something that never happened
-   * on a single set. This is the wire.
-   *
-   * It rides on the progression options, which resolveProgressionOptions
-   * already gates behind Pro, so the hold is a paid behaviour by construction
-   * rather than by a second check that could drift from the first.
-   */
-  const progressionFatigueSignal = useMemo(
-    () => toProgressionFatigueSignal(proFatigue),
-    [proFatigue],
-  );
-  // Episodes the reader already said "selvä" to — one tap on Home, kept
-  // through database.ts normalisation like every other dismiss list. Read
-  // only here: the in-workout reminder (findPlateauDetection below) ignores
-  // it on purpose, per the owner's "muistutus kun seuraavalla kerralla on
-  // sumo" (#bugs 2026-09-29).
-  const dismissedPlateauEpisodes = useMemo(
-    () => new Set(preferences.dismissedPlateauEpisodes),
-    [preferences.dismissedPlateauEpisodes],
-  );
-  const proPlateauLift = useMemo(
-    () => detectPlateau(proLiftHistories, dismissedPlateauEpisodes),
-    [proLiftHistories, dismissedPlateauEpisodes],
-  );
-  const proPlateau = useMemo(
-    () =>
-      proPlateauLift
-        ? {
-            detection: buildPlateauDetection(proPlateauLift, preferences.appLanguage),
-            conclusion: buildPlateauConclusion(proPlateauLift, preferences.appLanguage, preferences.setupLevel),
-            moment: buildPlateauMoment(proPlateauLift, preferences.appLanguage, preferences.setupLevel),
-            episodeKey: plateauEpisodeKey(proPlateauLift),
-          }
-        : null,
-    [preferences.appLanguage, preferences.setupLevel, proPlateauLift],
-  );
-  const proWeeklyRead = useMemo(
-    () => buildWeeklyRead(proLiftHistories, proFatigue, preferences.appLanguage, preferences.setupLevel),
-    [preferences.appLanguage, preferences.setupLevel, proFatigue, proLiftHistories],
-  );
-  const proCompletionLift = useMemo(() => pickCompletionLift(proLiftHistories), [proLiftHistories]);
-  const proCompletionMoment = useMemo(
-    () =>
-      proCompletionLift
-        ? {
-            conclusion: buildCompletionConclusion(proCompletionLift, preferences.appLanguage, preferences.setupLevel),
-            moment: buildNextSessionMoment(proCompletionLift, preferences.appLanguage, preferences.setupLevel),
-          }
-        : null,
-    [preferences.appLanguage, preferences.setupLevel, proCompletionLift],
-  );
-  // The Pro page's coach specimen: the deterministic read of the user's own
-  // stalled lift — the same text Pro unlocks at the plateau moments.
-  const proCoachSpecimen = useMemo(
-    () => (proPlateau ? proPlateau.conclusion.body : null),
-    [proPlateau],
-  );
+  const { homeSummary, lifetimeSummary, progressTrainingRhythm } = useDaySummaries({
+    database,
+    unitPreference,
+    todayKey,
+  });
+  const {
+    proLiftHistories,
+    proFatigue,
+    progressionFatigueSignal,
+    proPlateau,
+    proWeeklyRead,
+    proCompletionMoment,
+    proCoachSpecimen,
+  } = useProInsights({ database, preferences });
   const homeActiveWorkoutSummary = useMemo(() => {
     if (!workout.activeSession) {
       return null;
@@ -4484,38 +4379,10 @@ function VinhaApp() {
   // The AI tab's opening state. Deterministic, so the most valuable-looking
   // part of the coach costs nothing to render and works offline.
   const progressWeeklyTarget = Number.parseInt(homeActivePlanCard?.sessionsPerWeek ?? '', 10) || null;
-  // "Your cards" on Home: full catalog computed once, pins resolved from prefs.
-  const homeStatCardSources = useMemo(
-    () => ({
-      bodyweightEntries: database.bodyweightEntries,
-      measurementEntries: database.measurementEntries,
-      trackedProgress,
-    }),
-    [database.bodyweightEntries, database.measurementEntries, trackedProgress],
-  );
-  const homeStatCatalogCards = useMemo(
-    () =>
-      buildHomeStatCards(
-        buildHomeStatCardCatalog(homeStatCardSources).map((item) => item.key),
-        homeStatCardSources,
-        preferences.appLanguage,
-      ),
-    [homeStatCardSources, preferences.appLanguage],
-  );
-  const homePinnedStatCardKeys = useMemo(
-    () => resolveHomeStatCardKeys(preferences.homeStatCardKeys),
-    [preferences.homeStatCardKeys],
-  );
-  /**
-   * The ONE prompt card Home may show (design frame 15). The suggester and
-   * the sign-in offer used to render independently and stacked; the queue
-   * decides, and the props below go quiet for whichever card is not up.
-   */
-  const homeSuggestedStatCardKeys = suggestHomeStatCardKeys({
-    focusAreas: preferences.setupFocusAreas,
-    goals: [preferences.setupGoal, ...preferences.setupGoals],
-    pinnedKeys: homePinnedStatCardKeys,
-    dismissedKeys: preferences.dismissedCardSuggestionKeys,
+  const { homeStatCatalogCards, homePinnedStatCardKeys, homeSuggestedStatCardKeys } = useHomeStatCards({
+    database,
+    trackedProgress,
+    preferences,
   });
   // Same equipment truth the composer filters exercises with, for the default
   // warmup/cooldown drills: null = setup never said, [] = no equipment at all.
