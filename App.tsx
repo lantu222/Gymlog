@@ -11,7 +11,6 @@ import { AppShell } from './src/components/AppShell';
 import { BottomTabBar } from './src/components/BottomTabBar';
 import { getMonthTrainingTotals } from './src/lib/dashboard';
 import { formatDurationMinutes, formatRepRange, formatSetScheme, formatShortDate, formatTime, formatVolume, formatWeight, pluralize, removeTrailingZeros } from './src/lib/format';
-import { createId } from './src/lib/ids';
 import { HistoryScrollMemory } from './src/lib/historyScrollMemory';
 import {
   buildFirstRunRecommendationReasons,
@@ -79,7 +78,6 @@ import {
   buildProgramWorkoutPlan,
 } from './src/lib/programAdoption';
 import { describeProgramCap, programCapLineKey } from './src/lib/programCapNotice';
-import { computePostSessionInsight } from './src/lib/postSessionInsight';
 import { composeProgramWeekForSelection } from './src/lib/programDayComposer';
 import { resolveAvailableEquipment } from './src/lib/equipmentExerciseFilter';
 import { getProgrammeBlockWeeks, getReadyProgramBlockWeeks } from './src/lib/readyProgramDuration';
@@ -103,7 +101,6 @@ import {
 } from './src/lib/homeSessionHero';
 import { estimateRoutineBlockSeconds } from './src/lib/guidedPlayer';
 import { estimateSessionMinutes } from './src/lib/sessionDuration';
-import { buildMuscleFocus, getVolumeDeltaVsPrevious } from './src/lib/workoutCompleteView';
 import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
 import { I18nKey, t } from './src/lib/i18n';
 import { buildCoachModules } from './src/lib/aiCoachModules';
@@ -182,7 +179,7 @@ import {
 } from './src/lib/programCategories';
 import { ProgramLimitSheet } from './src/components/ProgramLimitSheet';
 import { RateAppSheet } from './src/components/RateAppSheet';
-import { decideRatingPrompt, recordRatingAsked, recordRatingCompleted } from './src/lib/ratingPrompt';
+import { recordRatingCompleted } from './src/lib/ratingPrompt';
 
 /**
  * The listing, opened by every star. Not the in-app review API: Google's own
@@ -228,10 +225,6 @@ import {
   buildSetupSelectionFromPreferences,
 } from './src/app/onboardingHandoff';
 import {
-  buildCompletionCardsFromAdaptedSession,
-  buildSessionMovement,
-  buildExerciseLogsForCompletedSession,
-  CompletionSummaryState,
   getEndOfWeek,
   getStartOfWeek,
 } from './src/app/workoutCompletionState';
@@ -240,6 +233,11 @@ import { useFunnelAnalytics } from './src/app/useFunnelAnalytics';
 import { useInstallStamps } from './src/app/useInstallStamps';
 import { useSetupWeightSeed } from './src/app/useSetupWeightSeed';
 import { useTodayKey } from './src/app/useTodayKey';
+import { useFinishState } from './src/app/useFinishState';
+import { useFinishRefs } from './src/app/useFinishRefs';
+import { createFinishExits } from './src/app/finishExits';
+import { useFinishRouteGuard } from './src/app/useFinishRouteGuard';
+import { createFinishSaves } from './src/app/finishSaves';
 import { useDaySummaries } from './src/app/useDaySummaries';
 import { useProInsights } from './src/app/useProInsights';
 import { useHomeStatCards } from './src/app/useHomeStatCards';
@@ -265,9 +263,8 @@ import { accountNameStep } from './src/lib/accountNameAdoption';
 import type { CatalogScreenItem } from './src/screens/CatalogScreen';
 import { ProgramsExploreItem } from './src/screens/ProgramsHomeScreen';
 import { WorkoutCompletionScreen } from './src/screens/WorkoutCompletionScreen';
-import { FreestyleFinishSummary } from './src/lib/emptyWorkoutSession';
 import { WorkoutProvider, useWorkoutContext } from './src/features/workout/WorkoutProvider';
-import { AdaptedCompletedWorkoutExercise, adaptCompletedWorkoutSessionForAppDatabase } from './src/features/workout/workoutAppAdapter';
+import { AdaptedCompletedWorkoutExercise } from './src/features/workout/workoutAppAdapter';
 import { getWorkoutTemplateById, WORKOUT_TEMPLATES_V1 } from './src/features/workout/workoutCatalog';
 import { isTimedTrackingMode } from './src/features/workout/workoutTypes';
 import { AppProvider, useAppContext } from './src/state/AppProvider';
@@ -295,12 +292,6 @@ void SplashScreen.preventAutoHideAsync().catch(() => {
 interface NavigationState {
   route: AppRoute;
   history: AppRoute[];
-}
-
-interface FinishSaveState {
-  status: 'idle' | 'saving' | 'error';
-  sessionId: string | null;
-  message: string | null;
 }
 
 /**
@@ -462,13 +453,14 @@ function VinhaApp() {
   // list a tab switch had reset the search on landed the reader partway
   // down rows they had never scrolled past (recheck round 2026-09-29).
   const historyScrollOffsetRef = useRef<HistoryScrollMemory | null>(null);
-  const [completionSummary, setCompletionSummary] = useState<CompletionSummaryState | null>(null);
-  const [ratingSheetVisible, setRatingSheetVisible] = useState(false);
-  const [finishSaveState, setFinishSaveState] = useState<FinishSaveState>({
-    status: 'idle',
-    sessionId: null,
-    message: null,
-  });
+  const {
+    completionSummary,
+    setCompletionSummary,
+    ratingSheetVisible,
+    setRatingSheetVisible,
+    finishSaveState,
+    setFinishSaveState,
+  } = useFinishState();
   const [cardioSaving, setCardioSaving] = useState(false);
   // Settings' "Import plan (CSV)" opens the same sheet the Programs tab uses,
   // straight into its paste view. One importer, two doors.
@@ -516,12 +508,7 @@ function VinhaApp() {
   // hides a bad row, and hiding is how the two sets drifted apart in the first
   // place.
   const exerciseBrowserItems = exerciseLibrary;
-  const summaryExitRouteRef = useRef<AppRoute | null>(null);
-  const summaryNavigationPendingRef = useRef(false);
-  /** A finish that has started and not yet settled. See handleConfirmFinishWorkout. */
-  const finishInFlightRef = useRef(false);
-  /** Sessions whose `workout_completed` has been sent. See handleConfirmFinishWorkout. */
-  const completionCountedRef = useRef(new Set<string>());
+  const { summaryExitRouteRef, summaryNavigationPendingRef, finishInFlightRef, completionCountedRef } = useFinishRefs();
   const workoutLogNavigationAllowedAtRef = useRef<number | null>(null);
   const route = navigationState.route;
   const appHydrated = hydrated && workout.hydrated;
@@ -631,56 +618,15 @@ function VinhaApp() {
     );
   }
 
-  /**
-   * Leave a finished-workout screen: clear its data and move, in one commit.
-   *
-   * The single transition is the whole point. Every navigation helper here
-   * wraps setNavigationState in startTransition, which makes route changes
-   * non-urgent — so a plain `setCompletionSummary(null)` alongside them is
-   * urgent and lands *first*. That commits a frame where the route is still
-   * {workout, summary} while the summary data is already gone.
-   *
-   * The summary branch is guarded on `&& completionSummary`, so that frame
-   * matches no named workout screen and falls through to the tab's catch-all,
-   * which renders the exercise browser. Reported from the phone as "Ohjelmat
-   * flashes for a beat between the summary and Home".
-   *
-   * Clearing after navigating does not fix it: the clear would still be the
-   * urgent half. They have to be the same update.
-   */
-  function leaveFinishedWorkout(nextRoute: AppRoute) {
-    startTransition(() => {
-      setCompletionSummary(null);
-      setFinishSaveState({ status: 'idle', sessionId: null, message: null });
-      setNavigationState({ route: nextRoute, history: [] });
-    });
-    maybeAskForRating();
-  }
-
-  /**
-   * The rating ask, at the one moment the reader has just finished something.
-   *
-   * Fired on the way out of the finish screen rather than on it: the finish
-   * screen already asks how the session felt, and two sheets stacked on one
-   * tap is how a reader learns to dismiss sheets without reading them.
-   *
-   * The ask is recorded when the sheet is SHOWN, not when it is answered. A
-   * reader who closes it has still been asked, and counting only the answers
-   * would let the app ask forever.
-   */
-  function maybeAskForRating() {
-    const decision = decideRatingPrompt({
-      state: preferences.ratingPrompt,
-      sessionsLogged: database.workoutSessions.length + database.cardioSessions.length,
-      atPeakMoment: true,
-      nowMs: Date.now(),
-    });
-    if (!decision.ask) {
-      return;
-    }
-    setRatingSheetVisible(true);
-    void updatePreferences((current) => ({ ratingPrompt: recordRatingAsked(current.ratingPrompt, Date.now()) }));
-  }
+  const { leaveFinishedWorkout } = createFinishExits({
+    preferences,
+    database,
+    updatePreferences,
+    setCompletionSummary,
+    setFinishSaveState,
+    setNavigationState,
+    setRatingSheetVisible,
+  });
 
   /**
    * Where a tab lands. Programs-tab redesign (flagged): the workout tab lands
@@ -758,117 +704,23 @@ function VinhaApp() {
     return () => clearTimeout(timeout);
   }, [toastMessage]);
 
-  useEffect(() => {
-    if (finishSaveState.status === 'idle') {
-      return;
-    }
-
-    const activeSessionId = workout.activeSession?.sessionId ?? null;
-    if (activeSessionId === finishSaveState.sessionId) {
-      return;
-    }
-
-    setFinishSaveState({ status: 'idle', sessionId: null, message: null });
-  }, [finishSaveState.sessionId, finishSaveState.status, workout.activeSession?.sessionId]);
-
-  useEffect(() => {
-    if (route.tab === 'workout' && route.screen === 'guided') {
-      const allowedAt = workoutLogNavigationAllowedAtRef.current;
-      workoutLogNavigationAllowedAtRef.current = null;
-
-      if (
-        !workout.activeSession &&
-        finishSaveState.status !== 'saving' &&
-        !summaryNavigationPendingRef.current &&
-        (!allowedAt || Date.now() - allowedAt > 2000)
-      ) {
-        replaceRoute(ROOT_ROUTES.home);
-        return;
-      }
-    }
-
-    if (
-      route.tab === 'workout' &&
-      route.screen === 'guided' &&
-      !workout.templates.some((template) => template.id === route.workoutTemplateId) &&
-      !workoutTemplates.some((template) => template.id === route.workoutTemplateId)
-    ) {
-      replaceRoute(workoutHomeRoute);
-    }
-
-      if (
-        route.tab === 'workout' &&
-        route.screen === 'detail' &&
-        !exerciseBrowserItems.some((item) => item.id === route.exerciseId)
-      ) {
-        replaceRoute(ROOT_ROUTES.workout);
-      }
-
-    if (
-      route.tab === 'workout' &&
-      (route.screen === 'program' || route.screen === 'programDay') &&
-      ((route.programType === 'ready' && !workout.templates.some((template) => template.id === route.workoutTemplateId)) ||
-        (route.programType === 'custom' && !workoutTemplates.some((template) => template.id === route.workoutTemplateId)))
-    ) {
-      replaceRoute(workoutHomeRoute);
-    }
-
-    if (
-      route.tab === 'workout' &&
-      route.screen === 'template' &&
-      route.workoutTemplateId &&
-      !workoutTemplates.some((template) => template.id === route.workoutTemplateId)
-    ) {
-      replaceRoute(workoutHomeRoute);
-    }
-
-    if (
-      route.tab === 'progress' &&
-      route.screen === 'detail' &&
-      !trackedProgress.some((item) => item.key === route.exerciseKey)
-    ) {
-      replaceRoute(ROOT_ROUTES.progress);
-    }
-
-    if (
-      route.tab === 'home' &&
-      route.screen === 'session' &&
-      !workoutSessions.some((session) => session.id === route.sessionId)
-    ) {
-      replaceRoute({ tab: 'home', screen: 'history' });
-    }
-
-    if (
-      route.tab === 'workout' &&
-      route.screen === 'summary' &&
-      completionSummary &&
-      summaryNavigationPendingRef.current
-    ) {
-      summaryNavigationPendingRef.current = false;
-    }
-
-    if (
-      route.tab === 'workout' &&
-      route.screen === 'summary' &&
-      !completionSummary &&
-      finishSaveState.status !== 'saving' &&
-      !summaryNavigationPendingRef.current
-    ) {
-      const nextRoute = summaryExitRouteRef.current ?? workoutHomeRoute;
-      summaryExitRouteRef.current = null;
-      replaceRoute(nextRoute);
-    }
-  }, [
+  useFinishRouteGuard({
+    finishSaveState,
+    setFinishSaveState,
     completionSummary,
-    exerciseLibrary,
-    finishSaveState.status,
+    workout,
     route,
-    trackedProgress,
-    workout.activeSession,
-    workoutSessions,
-    workout.templates,
+    replaceRoute,
+    workoutHomeRoute,
+    workoutLogNavigationAllowedAtRef,
+    summaryNavigationPendingRef,
+    summaryExitRouteRef,
     workoutTemplates,
-  ]);
+    exerciseLibrary,
+    exerciseBrowserItems,
+    trackedProgress,
+    workoutSessions,
+  });
 
   const onboardingActive = !preferences.onboardingCompleted;
   const entryFlowActive = onboardingActive && !preferences.entryFlowCompleted;
@@ -1180,156 +1032,6 @@ function VinhaApp() {
       recommendedProgramId: preferences.recommendedProgramId,
       setupCompleted: preferences.setupCompleted,
     });
-  }
-
-  async function handleDiscardWorkout() {
-    if (!workout.activeSession) {
-      return;
-    }
-
-    const fallbackRoute = getWorkoutLoggerFallbackRoute();
-    await updatePreferences({ trainingFirstRunDismissed: true });
-    workout.discardWorkout();
-    setFinishSaveState({ status: 'idle', sessionId: null, message: null });
-    navigateBack(fallbackRoute);
-  }
-
-  async function handleConfirmFinishWorkout() {
-    const activeSession = workout.activeSession;
-    // A ref, not `finishSaveState`: two taps inside one render both read the
-    // state as idle, and each went on to save and finish.
-    if (!activeSession || finishInFlightRef.current) {
-      return;
-    }
-
-    const adaptedSession = adaptCompletedWorkoutSessionForAppDatabase(activeSession);
-    if (adaptedSession.logs.length === 0) {
-      await handleDiscardWorkout();
-      return;
-    }
-
-    finishInFlightRef.current = true;
-    setFinishSaveState({
-      status: 'saving',
-      sessionId: adaptedSession.sessionId,
-      message: null,
-    });
-
-    try {
-      const summary = await saveCompletedWorkoutSession({
-        ...adaptedSession,
-        performedAt: adaptedSession.performedAt,
-      });
-      if (!summary.sessionId || !summary.performedAt) {
-        throw new Error('Workout save did not produce a valid summary');
-      }
-      // Once per session. A write after this one can fail — the preferences
-      // below — and the retry saves again, which hands back the session
-      // already stored: counted on every pass, one workout was two
-      // (analytics audit, 2026-09-21).
-      if (!completionCountedRef.current.has(adaptedSession.sessionId)) {
-        completionCountedRef.current.add(adaptedSession.sessionId);
-        trackEvent('workout_completed');
-      }
-
-      // Only after the database save is verified: finishing flips the session
-      // to 'completed' and stamps slot history. Doing it before the save meant
-      // a failed save stranded the session in a state resume would not pick up
-      // — the logged sets were gone on the next launch (launch-scope Risk 1).
-      workout.finishWorkout(adaptedSession.performedAt);
-
-      const sessionExerciseLogs = buildExerciseLogsForCompletedSession(adaptedSession.sessionId, adaptedSession.logs);
-      const insight = computePostSessionInsight(
-        {
-          completedSession: {
-            id: adaptedSession.sessionId,
-            performedAt: summary.performedAt,
-            totalVolumeKg: summary.totalVolume,
-            setsCompleted: summary.setsCompleted,
-          },
-          sessionExerciseLogs,
-          allPriorSessions: database.workoutSessions,
-          allPriorExerciseLogs: database.exerciseLogs,
-          lastInsightSessionId: preferences.lastInsightSessionId,
-          lastInsightType: preferences.lastInsightType,
-          unitPreference,
-        },
-        new Date(summary.performedAt),
-      );
-
-      await updatePreferences({
-        trainingFirstRunDismissed: true,
-        ...(insight
-          ? {
-              lastInsightSessionId: adaptedSession.sessionId,
-              lastInsightType: insight.type,
-            }
-          : {}),
-      });
-      const completionCards = buildCompletionCardsFromAdaptedSession({
-        exercises: adaptedSession.exercises,
-        exerciseTemplates: database.exerciseTemplates,
-        exerciseLibrary,
-        exercisePrLookup,
-        language: preferences.appLanguage,
-      });
-      setCompletionSummary({
-        sessionId: adaptedSession.sessionId,
-        workoutName: adaptedSession.workoutNameSnapshot,
-        performedAt: summary.performedAt,
-        durationMinutes: summary.durationMinutes,
-        setsCompleted: summary.setsCompleted,
-        totalVolume: summary.totalVolume,
-        // The tile counts lifts that were done: the save's own count, by the
-        // rule History reads the same logs with (lib/sessionTotals), so this
-        // tile and the session's History row cannot disagree. The cards below
-        // agree too — a card with a completed set is a log the rule counts.
-        // Not summary.exercisesLogged, which is every persisted entry, skipped
-        // included: "6 LIIKETTÄ" above five rows of "0 sarjaa" was that number.
-        exercisesLogged: summary.exercisesCompleted,
-        volumeDeltaKg: getVolumeDeltaVsPrevious(
-          {
-            sessionId: adaptedSession.sessionId,
-            workoutName: adaptedSession.workoutNameSnapshot,
-            performedAt: summary.performedAt,
-            totalVolumeKg: summary.totalVolume,
-          },
-          database.workoutSessions,
-        ),
-        muscles: buildMuscleFocus(adaptedSession.exercises, exerciseLibrary),
-        exerciseCards: completionCards.exerciseCards,
-        prCards: completionCards.prCards,
-        // Read from the persisted logs. The builder excludes this session by
-        // id, so "last time" cannot mean today whether or not the save has
-        // already landed in the snapshot this closure holds.
-        ...buildSessionMovement({
-          exercises: adaptedSession.exercises,
-          exerciseLogs: database.exerciseLogs,
-          workoutSessions: database.workoutSessions,
-          sessionId: adaptedSession.sessionId,
-          language: preferences.appLanguage,
-          unitPreference,
-        }),
-        insight,
-      });
-      summaryNavigationPendingRef.current = true;
-      // Finish on the completion screen returns Home. Set the exit route so the
-      // summary-dismiss effect can't race onDone's navigation to WORKOUT_PLAN_ROUTE.
-      summaryExitRouteRef.current = ROOT_ROUTES.home;
-      workout.clearCompletedWorkout();
-      replaceRoute({ tab: 'workout', screen: 'summary' });
-      setFinishSaveState({ status: 'idle', sessionId: null, message: null });
-    } catch (error) {
-      console.error('Failed to save completed workout', error);
-      setFinishSaveState({
-        status: 'error',
-        sessionId: adaptedSession.sessionId,
-        message: 'Could not save this workout. Try again before leaving the screen.',
-      });
-      showToast(t(preferences.appLanguage, 'toast.saveWorkoutFailed'));
-    } finally {
-      finishInFlightRef.current = false;
-    }
   }
 
   /**
@@ -4990,85 +4692,28 @@ function VinhaApp() {
     return <LaunchScreen />;
   }
 
-  // Shared finish path for logged one-off sessions (freestyle + editor):
-  // template first, then the completed session, and only then the summary
-  // screen — a failed save must leave the logger open with its sets intact.
-  const finishLoggedWorkoutSave = async (draft: WorkoutTemplateDraft, summary: FreestyleFinishSummary) => {
-    const workoutTemplateId = await upsertWorkoutTemplate(draft);
-    const sessionId = createId('session');
-    try {
-      await saveCompletedWorkoutSession({
-        sessionId,
-        workoutTemplateId,
-        workoutNameSnapshot: summary.workoutName,
-        logs: summary.logs,
-        startedAt: summary.startedAt,
-        performedAt: summary.performedAt,
-      });
-    } catch (error) {
-      // The template is written first so the session can name it. A session
-      // that did not land must not leave the template behind — the retry made
-      // a second one (audit round 4, 2026-09-20). Best effort: the failure
-      // the reader hears about is the save.
-      await deleteWorkoutTemplate(workoutTemplateId).catch(() => undefined);
-      throw error;
-    }
-    // Counted once it is on disk, as the guided path counts it.
-    trackEvent('workout_completed');
-    /**
-     * Remembered for the next time these lifts come up.
-     *
-     * The weight a set opens on is read from the workout provider's slot
-     * history, and the only thing that ever wrote to it was the guided
-     * player's own finish — so a lift done here left no trace, and opened at
-     * nothing next time even though the numbers had just been written to the
-     * database ("paino automaattisesti siihen mitä on viimeksi tehnyt", #bugs
-     * 2026-08-27). Only completed sets with both numbers: a row that was put
-     * on the board and not done is not a weight.
-     */
-    workout.recordLoggedWorkout({
-      performedAt: summary.performedAt,
-      sessionId,
-      templateName: summary.workoutName,
-      exercises: summary.logs.map((log) => ({
-        exerciseName: log.exerciseNameSnapshot,
-        sets: log.sets
-          .filter((set) => set.outcome === 'completed' && set.reps > 0)
-          .map((set, setIndex) => ({
-            setIndex,
-            loadKg: set.weight,
-            reps: set.reps,
-            completedAt: set.completedAt ?? summary.performedAt,
-          })),
-      })),
-    });
-    setCompletionSummary({
-      sessionId,
-      ...summary,
-      // Freestyle sessions have no plan identity: no previous-session
-      // comparison, and muscle focus comes from the logged drafts.
-      volumeDeltaKg: null,
-      muscles: buildMuscleFocus(
-        summary.logs.map((log) => ({
-          exerciseName: log.exerciseNameSnapshot,
-          sets: log.sets.map((set) => ({
-            status: set.outcome === 'completed' ? ('completed' as const) : ('skipped' as const),
-            weightKg: set.weight,
-            reps: set.reps,
-          })),
-        })),
-        exerciseLibrary,
-      ),
-      // A freestyle session has no plan identity, and the comparison this
-      // screen makes is "against the last time you trained this lift" — a
-      // claim the empty-workout flow does not gather the history for.
-      whatMoved: [],
-      movementById: {},
-      insight: null,
-    });
-    summaryExitRouteRef.current = ROOT_ROUTES.home;
-    replaceRoute({ tab: 'workout', screen: 'summary' });
-  };
+  const { handleDiscardWorkout, handleConfirmFinishWorkout, finishLoggedWorkoutSave } = createFinishSaves({
+    workout,
+    database,
+    preferences,
+    unitPreference,
+    exerciseLibrary,
+    updatePreferences,
+    saveCompletedWorkoutSession,
+    upsertWorkoutTemplate,
+    deleteWorkoutTemplate,
+    exercisePrLookup,
+    setCompletionSummary,
+    setFinishSaveState,
+    finishInFlightRef,
+    completionCountedRef,
+    summaryNavigationPendingRef,
+    summaryExitRouteRef,
+    getWorkoutLoggerFallbackRoute,
+    navigateBack,
+    replaceRoute,
+    showToast,
+  });
 
   let content: React.ReactNode = null;
 
