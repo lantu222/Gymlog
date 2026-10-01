@@ -117,6 +117,22 @@ const SEARCH_ALIASES: Record<string, readonly string[]> = {
   jalanojennus: ['leg extension'],
   jalkaojennus: ['leg extension'],
   polvenojennus: ['leg extension'],
+  // "Vipunostot tai viparit ei löydy" (#bugs 2026-10-01): the gym calls the
+  // lateral raise a vipunosto, where the library says Sivunosto and keeps
+  // "vipunosto" for flyes. The English name is the target, as above. The
+  // plurals are their own keys: "vipunostot" is not a piece of "vipunosto",
+  // so the plural found nothing at all — the flyes included.
+  vipunosto: ['lateral raise'],
+  vipunostot: ['vipunosto', 'lateral raise'],
+  vipunostoa: ['vipunosto', 'lateral raise'],
+  vipari: ['lateral raise'],
+  viparit: ['lateral raise'],
+  vipareita: ['lateral raise'],
+  // The library's own Finnish word, plural or not, in either language: the
+  // English haystack carries no "sivunosto" to find.
+  sivunosto: ['lateral raise'],
+  sivunostot: ['sivunosto', 'lateral raise'],
+  sivunostoa: ['sivunosto', 'lateral raise'],
 };
 
 /**
