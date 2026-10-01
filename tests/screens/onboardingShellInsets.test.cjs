@@ -10,7 +10,8 @@ const button = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'components', 'OnboardingBackButton.tsx'),
   'utf8',
 );
-const app = fs.readFileSync(path.join(__dirname, '..', '..', 'App.tsx'), 'utf8');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+const { between } = require('../helpers/sourceSlices.cjs');
 
 /**
  * "step teksti menee back napin taakse" (user 2026-09-02, two screenshots).
@@ -83,16 +84,22 @@ module.exports = [
   {
     name: 'app shell: onboarding screens pad for the status bar themselves, so the shell does not',
     run() {
-      const rule = app.slice(
-        app.indexOf('safeAreaEdges={'),
-        app.indexOf('}', app.indexOf("['top', 'left', 'right', 'bottom']")),
-      );
-      assert.ok(rule.length > 0, 'safeAreaEdges rule not found');
+      // The rule moved with the shell's render tail into src/app (phase C):
+      // read from its declaration to the one prop that uses it, both in the
+      // same file.
+      const rule = between(readAppWiring(), 'const shellSafeAreaEdges', 'safeAreaEdges={shellSafeAreaEdges}');
       // onboardingScreenActive: first run AND the plan editor under Profile,
       // which is the same questionnaire reading the same inset.
       assert.match(rule, /onboardingScreenActive\s*\?[\s\S]{0,1200}\['left', 'right'\]\s*:\s*\['top', 'left', 'right', 'bottom'\]/);
       assert.doesNotMatch(rule, /onboardingActive\s*\?\s*\['top'/);
       assert.doesNotMatch(rule, /onboardingScreenActive\s*\?\s*\['top'/);
+      // The brand splash's shell stays in App.tsx. The slice above used to
+      // start there by accident (its first `safeAreaEdges={`); it is held to
+      // the same two shapes on purpose now that the rule lives elsewhere.
+      const splash = between(readAppWiring(), 'if (!brandSplashDone) {', '</AppShell>');
+      assert.match(splash, /<AppShell safeAreaEdges=\{\['left', 'right'\]\}>/);
+      assert.doesNotMatch(splash, /onboardingActive\s*\?\s*\['top'/);
+      assert.doesNotMatch(splash, /onboardingScreenActive\s*\?\s*\['top'/);
       // The guard is only right while the screens do read the inset.
       for (const rel of ['StartPathScreen', 'AboutYouScreen', 'OnboardingReadyCatalogScreen']) {
         const src = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'screens', `${rel}.tsx`), 'utf8');

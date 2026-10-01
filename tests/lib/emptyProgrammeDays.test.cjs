@@ -2,11 +2,11 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 const { getHomeDayView, sessionForSlot } = require('../../.test-dist/lib/homeCalendar.js');
 const { hasOnlyEmptyDays, nextStartableSessionIndex } = require('../../.test-dist/lib/programSessionList.js');
 const { weekdaySchedule } = require('../../.test-dist/lib/trainingSchedule.js');
 const { findHomeWidgetNextSession, resolveHomeWidgetSessionTap } = require('../../.test-dist/lib/widgetPayload.js');
-const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 const root = path.join(__dirname, '..', '..');
 const read = (...segments) => fs.readFileSync(path.join(root, ...segments), 'utf8').replace(/\r\n/g, '\n');
@@ -128,10 +128,11 @@ module.exports = [
       assert.equal(hasOnlyEmptyDays([0, 3]), false);
       assert.equal(hasOnlyEmptyDays([]), false);
 
-      const app = strip(read('App.tsx'));
-      // The reading itself, wherever in the shell it lives: App.tsx or the
-      // src/app module its block moved into (phase-C split, 2026-10-01).
-      const shell = strip(readAppWiring().replace(/\r\n/g, '\n'));
+      // The whole shell: the <HomeScreen> element moved out of App.tsx into
+      // src/app/renderHomeDashboard.tsx, and the reading into the src/app
+      // module its block moved into (phase-C split, 2026-10-01).
+      const app = strip(readAppWiring().replace(/\r\n/g, '\n'));
+      const shell = app;
       assert.match(
         shell,
         /const homeEmptyProgramme = useMemo\(\(\) => \{\s*if \(homeActivePlanCard\) \{\s*return null;\s*\}/,
@@ -155,7 +156,9 @@ module.exports = [
   {
     name: 'setup hand-off: the page stays up until its write lands, and a refusal is said on it',
     run() {
-      const app = strip(read('App.tsx'));
+      // The whole shell: the hand-off's hold and its Done handler left App.tsx
+      // for src/app in the phase-C split (2026-10-01).
+      const app = strip(readAppWiring().replace(/\r\n/g, '\n'));
       assert.match(app, /\(!preferences\.setupHandoffCompleted \|\| setupHandoffHeld\) &&/);
       // And what it shows is frozen for the write: the patch re-plans the page.
       assert.match(

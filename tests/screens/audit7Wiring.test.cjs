@@ -84,7 +84,9 @@ module.exports = [
       assert.match(shell, /const setupSelection = useMemo\(\(\) => buildSetupSelectionFromPreferences\(preferences\), \[setupSelectionKey\]\);/);
       assert.match(shell, /buildSetupSelectionFromPreferences\(preferences, latestWeighInKg\),\s*\[setupSelectionKey, latestWeighInKg\],/);
       const app = strip(read('App.tsx').replace(/\r\n/g, '\n'));
-      const editor = app.match(/<OnboardingScreen\s[^>]*?mode="edit"[\s\S]*?\/>/);
+      // The setup route's render moved to src/app/renderOnboarding.tsx
+      // (phase C, 2026-10-01), so the editor is looked for over the shell.
+      const editor = shell.match(/<OnboardingScreen\s[^>]*?mode="edit"[\s\S]*?\/>/);
       assert.ok(editor, 'the setup route renders the questionnaire in edit mode');
       assert.match(editor[0], /initialSelection=\{setupEditSelection\}/);
       assert.match(editor[0], /basicsSeed=\{setupEditSelection \? null : setupBasics\}/);

@@ -1,6 +1,9 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+
+const { functionBody } = require('../helpers/sourceSlices.cjs');
 
 const ROOT = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8').replace(/\r\n/g, '\n');
@@ -59,8 +62,9 @@ module.exports = [
       // the one that answers. This listener registers once on mount, and
       // App's re-subscribes on every route change after its children — so
       // without the stand-down back walked Home past both the question and
-      // the discard (CI review of #162).
-      assert.match(app, /if \(route\.tab === .workout. && route\.screen === .empty.\) \{\s*return undefined;/, "the app must stand down for the free workout");
+      // the discard (CI review of #162). The whole shell: the listener left
+      // App.tsx for a src/app hook in the phase-C split (2026-10-01).
+      assert.match(readAppWiring(), /if \(route\.tab === .workout. && route\.screen === .empty.\) \{\s*return undefined;/, "the app must stand down for the free workout");
     },
   },
   {
@@ -73,8 +77,12 @@ module.exports = [
       // left the bar drawing a fifteen-second rest one fifth full (CI review
       // of #162). See tests/lib/restSchedule.test.cjs.
       assert.match(screen, /setRest\(\(current\) => \(current \? extendRest\(current, deltaSeconds, Date\.now\(\)\) : current\)\)/);
-      const app = read('App.tsx');
-      const finish = app.slice(app.indexOf('const finishLoggedWorkoutSave = async'), app.indexOf('workout.recordLoggedWorkout({'));
+      // The save on its own, wherever the shell keeps it (it leaves VinhaApp
+      // in the phase-C split, 2026-10-01), up to the slot-history write.
+      const save = functionBody(readAppWiring().replace(/\r\n/g, '\n'), 'const finishLoggedWorkoutSave = async');
+      const recordAt = save.indexOf('workout.recordLoggedWorkout({');
+      assert.ok(recordAt > 0, 'the save still writes the slot history');
+      const finish = save.slice(0, recordAt);
       assert.match(finish, /\} catch \(error\) \{[\s\S]{0,400}await deleteWorkoutTemplate\(workoutTemplateId\)\.catch\(\(\) => undefined\);\s*throw error;/, 'a session save that fails must take its template with it');
       assert.ok(finish.indexOf("trackEvent('workout_completed')") > finish.indexOf('await saveCompletedWorkoutSession('), 'the event must fire after the save, not before');
     },

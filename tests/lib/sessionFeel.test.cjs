@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 /**
  * "Miltä treeni tuntui?" — one question on the way out of the finish screen
@@ -16,7 +17,9 @@ const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8');
 
 const completionSource = read('src/screens/WorkoutCompletionScreen.tsx');
 const historySource = read('src/screens/HistoryScreen.tsx');
-const appSource = read('App.tsx');
+// The whole shell: the finish screen's render moved from App.tsx to
+// src/app/renderWorkoutCompletion.tsx (phase C, 2026-10-01).
+const appSource = readAppWiring();
 const databaseSource = read('src/storage/database.ts');
 const modelsSource = read('src/types/models.ts');
 const i18nSource = read('src/lib/i18n.ts');

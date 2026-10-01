@@ -687,28 +687,30 @@ module.exports = [
         .readFileSync(path.join(__dirname, '..', '..', 'App.tsx'), 'utf8')
         .replace(/\/\*[\s\S]*?\*\//g, '')
         .replace(/^\s*\/\/.*$/gm, '');
-      assert.match(app, /todaySessionId: homeActivePlanCard\?\.todayPickSessionId \?\? null,/);
+      // The widget's feed and its taps left App.tsx for src/app hooks in the
+      // phase-C split (2026-10-01), so those are read from the whole shell.
       // Next-session-as-today must not come back anywhere in the shell: App.tsx
       // or a src/app module (phase-B split, 2026-09-30).
       const { readAppWiring } = require('../helpers/appWiringSource.cjs');
       const shell = readAppWiring()
         .replace(/\/\*[\s\S]*?\*\//g, '')
         .replace(/^\s*\/\/.*$/gm, '');
+      assert.match(shell, /todaySessionId: homeActivePlanCard\?\.todayPickSessionId \?\? null,/);
       assert.doesNotMatch(shell, /todaySessionId: homeActivePlanCard\?\.nextSession/);
       assert.match(shell, /todayPickSessionId: pickedToday\?\.id \?\? null,/);
       assert.match(
-        app,
+        shell,
         // And the rotation forecast the tile was drawn with (review of the
         // forecast, 2026-09-28): without it a later day's tap opened the
         // calendar's session.
         /resolveHomeWidgetSessionTap\(\{[\s\S]*?homeSessionId: homeActivePlanCard\?\.nextSession\.id \?\? null,\s*todayPicked: Boolean\(homeActivePlanCard\?\.todayPickSessionId\),[\s\S]*?sessionForecast: homeActivePlanCard\?\.sessionForecast \?\? null,\s*\}\)/,
       );
       assert.match(
-        app,
+        shell,
         /const widgetMonthTotals = useMemo\(\s*\(\) => getMonthTrainingTotals\(database, new Date\(todayStartMs\)\),\s*\[database, todayStartMs\],\s*\);/,
       );
       assert.match(
-        app,
+        shell,
         /getRecentActivityStrip\(database, new Date\(todayStartMs\), 45\)[\s\S]{0,120}\[database, todayStartMs\],/,
       );
     },

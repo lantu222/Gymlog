@@ -407,8 +407,10 @@ module.exports = [
       const proGate = chat.indexOf('if (!proUnlocked) {');
       assert.ok(catalogFirst > 0 && proGate > 0, 'the compose handler was restructured — recheck by hand');
       assert.ok(catalogFirst < proGate, 'the free catalog answer no longer runs before the Pro gate');
+      // The whole shell: the <BottomTabBar> element moved from App.tsx to
+      // src/app/renderAppShell.tsx (phase C, 2026-10-01).
       assert.match(
-        read('App.tsx'),
+        readAppWiring(),
         /<BottomTabBar[\s\S]{0,900}onAiPress=\{\(\) => navigate\(\{ tab: 'home', screen: 'ai_chat' \}\)\}/,
         'Home lost the ungated door to the coach, so the free answer has none',
       );
@@ -582,8 +584,10 @@ module.exports = [
       const app = read('App.tsx');
       // "Omat ohjelmasi", bounded to its own memo and found in the shell: it
       // left App.tsx for useProgramsCustomItems (phase-C split, 2026-10-01).
+      // CRLF-normalised: the end anchor spans line breaks, and a Windows
+      // checkout would otherwise miss it.
       const customItems = between(
-        readAppWiring(),
+        readAppWiring().replace(/\r\n/g, '\n'),
         'const programsCustomItems = useMemo(() => {',
         '\n  }, [\n    customWorkouts,\n',
       );

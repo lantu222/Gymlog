@@ -3,6 +3,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { t } = require('../../.test-dist/lib/i18n.js');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+const { between } = require('../helpers/sourceSlices.cjs');
 
 /**
  * A write the disk refuses does not stay in memory.
@@ -15,12 +17,12 @@ const { t } = require('../../.test-dist/lib/i18n.js');
  * React provider.
  */
 
-const read = (...parts) =>
-  fs
-    .readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8')
+const clean = (source) =>
+  source
     .replace(/\r\n/g, '\n')
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/\/\/.*$/gm, '');
+const read = (...parts) => clean(fs.readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8'));
 
 function functionBody(source, signature) {
   const start = source.indexOf(signature);
@@ -68,12 +70,17 @@ module.exports = [
   {
     name: 'commitRollsBack: a Hevy import whose write fails says so and keeps the pasted export on screen',
     run() {
-      const app = read('App.tsx');
-      const handler = app.slice(app.indexOf('onImportHistory={async (preview) => {'), app.indexOf('onImportHistory={async (preview) => {') + 900);
+      // The settings sheet mounts in the shell's render tail, which moved
+      // from App.tsx into src/app (phase C). The handler runs to its own
+      // closing `}}`, so the slice stays inside the one file that holds it.
+      const opener = 'onImportHistory={async (preview) => {';
+      const shell = clean(readAppWiring());
+      assert.equal(shell.split(opener).length - 1, 1, 'expected exactly one Hevy import handler');
+      const handler = between(shell, opener, '}}');
       // The throw: a handler that returned normally resolved the sheet's
       // await, and the sheet closed and cleared the export. No toast from
       // here — it would draw behind the sheet's modal.
-      const failurePath = handler.slice(handler.indexOf('} catch (error) {'), handler.indexOf('throw error;'));
+      const failurePath = between(handler, '} catch (error) {', 'throw error;');
       assert.match(handler, /try \{\s*result = await importWorkoutHistory\(preview\.workouts\);\s*\} catch \(error\) \{[\s\S]*?throw error;/);
       assert.doesNotMatch(failurePath, /showToast/, 'a toast on the failure path draws behind the open sheet');
       const sheet = read('src', 'components', 'NewProgramSheet.tsx');
