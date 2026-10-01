@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 
@@ -87,44 +87,6 @@ function weekday(iso: string, language: AppLanguage) {
   return t(language, WEEKDAY_KEYS[date.getDay()]);
 }
 
-/**
- * The lift's line — every session, both tiers.
- *
- * Free gets the curve and Pro gets the sets behind it, so this sits above the
- * lock rather than under it.
- */
-function Curve({ values, color, width, height = 92 }: {
-  values: number[];
-  color: string;
-  width: number;
-  height?: number;
-}) {
-  if (values.length < 2) {
-    return null;
-  }
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const span = Math.max(max - min, 0.001);
-  const pad = 8;
-  const x = (index: number) => pad + (index / (values.length - 1)) * (width - pad * 2);
-  const y = (value: number) => pad + (height - pad * 2) - ((value - min) / span) * (height - pad * 2);
-  const line = values.map((value, index) => `${x(index)},${y(value)}`).join(' ');
-
-  return (
-    <Svg width={width} height={height}>
-      <Path d={`M${line.split(' ').join(' L')}`} stroke={color} strokeWidth={2.4} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      <Rect
-        x={x(values.length - 1) - 3.5}
-        y={y(values[values.length - 1]) - 3.5}
-        width={7}
-        height={7}
-        rx={3.5}
-        fill={color}
-      />
-    </Svg>
-  );
-}
-
 function LockGlyph({ color, size = 22 }: { color: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -200,7 +162,6 @@ export function SetLogSheet({
 }: SetLogSheetProps) {
   const styles = useThemedStyles(makeStyles);
   const theme = useTheme();
-  const [curveWidth, setCurveWidth] = useState(280);
   /**
    * Pulled down from the top to close, like the exercise sheet: the backdrop
    * above it was the only way out, and a short sheet left little of it
@@ -339,15 +300,10 @@ export function SetLogSheet({
           </View>
         </View>
 
-        {log.curve.length > 1 ? (
-          <View
-            style={styles.curveCard}
-            onLayout={(event) => setCurveWidth(event.nativeEvent.layout.width - 24)}
-          >
-            <Curve values={log.curve} color={theme.purple} width={Math.max(curveWidth, 1)} />
-          </View>
-        ) : null}
-
+        {/* No line here. It drew the top set's weight only, so 6/6/6 then
+            6/6/7 at 60 kg came out flat — progress drawn as none (#bugs
+            2026-10-01, "kertooko tuo jana kehitystä? poistetaanko"). The bests
+            and the sets below say what happened. */}
         {empty ? (
           <View style={styles.emptyBlock}>
             <View style={styles.emptyIcon}>
@@ -584,15 +540,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   body: {
     paddingBottom: 12,
-  },
-  curveCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: theme.bg,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginBottom: 16,
   },
   bestRow: {
     flexDirection: 'row',
