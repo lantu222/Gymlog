@@ -13,7 +13,7 @@
       "backgroundColor": "#F7F3FF"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "app.vinha",
       "buildNumber": "1",
       "infoPlist": {
