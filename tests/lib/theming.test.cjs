@@ -125,7 +125,8 @@ module.exports = [
       );
       // And the dialog closes onto the flow rather than navigating: it used to
       // reset to Home, which was right only when a purchase opened it.
-      assert.match(app, /onDone=\{\(\) => setThemeChoiceVisible\(false\)\}/);
+      // The dialog mounts in the shell's render tail, which moved to src/app.
+      assert.match(readAppWiring(), /onDone=\{\(\) => setThemeChoiceVisible\(false\)\}/);
       // The unlock screen no longer chains into it — from App.tsx or from any
       // src/app module the shell's wiring now lives in (phase B, 2026-09-30).
       assert.doesNotMatch(readAppWiring(), /onDone=\{\(\) => setThemeChoiceVisible\(true\)\}/);

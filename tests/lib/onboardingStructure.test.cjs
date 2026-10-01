@@ -207,7 +207,12 @@ module.exports = [
       const readyPickCode = readyPick[0].replace(/^\s*\/\/.*$/gm, '');
       assert.doesNotMatch(readyPickCode, /activePlanId: null/);
       // And the fork reaches the catalog without the About form in between.
-      assert.match(appSource, /onBrowsePrograms=\{\(\) => \{[\s\S]*?setOnboardingStep\('ready_catalog'\)/);
+      // The fork's render moved to src/app/renderOnboarding.tsx (phase C,
+      // 2026-10-01): read the whole shell, bounded to the one handler.
+      assert.match(
+        between(shellSource, 'onBrowsePrograms={() => {', 'onBack='),
+        /^onBrowsePrograms=\{\(\) => \{[\s\S]*?setOnboardingStep\('ready_catalog'\);\s*\}\}\s*$/,
+      );
 
       // App-side save truthfulness: persist the plan and activate it before
       // landing on Home (no auto-started workout in the light flow).

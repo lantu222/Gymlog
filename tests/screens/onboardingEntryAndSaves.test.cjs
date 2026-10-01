@@ -209,6 +209,9 @@ module.exports = [
         pick.indexOf("trackEvent('onboarding_completed'") > pick.indexOf('await completeOnboarding('),
       );
 
+      // Both anchors are props of the one <StartPathScreen> (in
+      // src/app/renderOnboarding.tsx since phase C, 2026-10-01), so the slice
+      // stays inside that element.
       const empty = between(app, 'onStartEmpty={() => {', 'onBrowsePrograms=');
       assert.match(
         empty,

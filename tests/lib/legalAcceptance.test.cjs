@@ -8,6 +8,7 @@ const {
   normalizeLegalAcceptance,
 } = require('../../.test-dist/lib/legalAcceptance.js');
 const { LEGAL_LAST_UPDATED, formatLegalDate } = require('../../.test-dist/lib/legalDocuments.js');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 // Line endings normalised: a Windows checkout is CRLF.
 const read = (...parts) =>
@@ -127,7 +128,8 @@ module.exports = [
       // Held on screen while the answer is written: updatePreferences shows
       // the change before the disk has it (CI review of #184).
       assert.match(app, /const legalConsentDue = legalConsentOwed \?\? legalSheetHeld;/);
-      assert.match(app, /legalConsentDue \? renderLegalConsent\(shellSafeAreaEdges\.includes\('bottom'\)\) : tourElement/);
+      // The shell's overlay prop moved with the render tail into src/app (phase C).
+      assert.match(readAppWiring(), /legalConsentDue \? renderLegalConsent\(shellSafeAreaEdges\.includes\('bottom'\)\) : tourElement/);
       const overlay = between(app, 'const renderLegalConsent = (shellPadsBottom: boolean) => (', '\n  );\n');
       // The inset once, not twice: the shell usually pads the bottom already.
       assert.match(overlay, /shellPadsBottom=\{shellPadsBottom\}/);
@@ -159,8 +161,10 @@ module.exports = [
       // Ready means ticked now, or accepted already — a reader running the
       // questions again from Profile is not asked twice for one version.
       assert.match(handoff, /const legalReady = legalAlreadyAccepted \|\| legalChecked;/);
+      // The hand-off is mounted from src/app since the phase-C split.
+      const wiring = readAppWiring().split('\r\n').join('\n');
       assert.match(
-        read('App.tsx'),
+        wiring,
         /legalAlreadyAccepted=\{\s*legalAcceptanceDue\(preferences\.legalAcceptance, LEGAL_LAST_UPDATED\) === null\s*\}/,
       );
       assert.match(handoff, /legalAccepted: legalChecked,/);
@@ -170,7 +174,10 @@ module.exports = [
       const done = between(app, 'const handleSetupHandoffDone = async', 'await updatePreferences(patch);');
       assert.match(done, /if \(choices\.legalAccepted\) \{\s*patch\.legalAcceptance = acceptLegal\(LEGAL_LAST_UPDATED, new Date\(\)\);/);
       // Skipping the hand-off is not accepting.
-      assert.match(between(app, 'onSkip={() =>', '})'), /legalAccepted: false,/);
+      // The hand-off's own onSkip, read from where the screen is mounted.
+      const handoffAt = wiring.indexOf('<SetupHandoffScreen');
+      assert.ok(handoffAt >= 0, 'the hand-off is no longer mounted');
+      assert.match(between(wiring.slice(handoffAt), 'onSkip={() =>', '})'), /legalAccepted: false,/);
     },
   },
   {

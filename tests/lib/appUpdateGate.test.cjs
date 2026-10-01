@@ -1,6 +1,8 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+const { between } = require('../helpers/sourceSlices.cjs');
 
 const root = path.join(__dirname, '..', '..');
 const DIST = path.join(root, '.test-dist');
@@ -141,9 +143,10 @@ module.exports = [
 
       const app = read('App.tsx');
       assert.match(app, /registerAppIdentity\(Constants\.expoConfig\?\.version \?\? appInfo\.version, Platform\.OS\)/);
-      assert.match(app, /<AppUpdateDialog language=\{preferences\.appLanguage\} held=\{appUpdateHeld\} \/>/);
+      // The dialog mounts in the shell's render tail, which moved to src/app.
+      assert.match(strip(readAppWiring()), /<AppUpdateDialog language=\{preferences\.appLanguage\} held=\{appUpdateHeld\} \/>/);
       // Never over the terms sheet, the tour or a workout in progress (review, 2026-09-28).
-      const held = app.slice(app.indexOf('const appUpdateHeld ='), app.indexOf('const renderLegalConsent'));
+      const held = between(app, 'const appUpdateHeld =', 'const renderLegalConsent');
       assert.match(held, /legalConsentDue !== null/);
       assert.match(held, /workout\.activeSession !== null/);
       assert.match(held, /Boolean\(tourElement\)/);

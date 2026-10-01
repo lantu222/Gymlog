@@ -4,6 +4,7 @@ const path = require('node:path');
 
 const { getBodyweightProgress } = require('../../.test-dist/lib/progression.js');
 const { popRoute, pushRoute } = require('../../.test-dist/navigation/routeHistory.js');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 const root = path.join(__dirname, '..', '..');
 const read = (...segments) => fs.readFileSync(path.join(root, ...segments), 'utf8');
@@ -80,7 +81,10 @@ module.exports = [
       const app = strip(read('App.tsx').replace(/\r\n/g, '\n'));
       assert.match(app, /const setupSelection = useMemo\(\(\) => buildSetupSelectionFromPreferences\(preferences\), \[setupSelectionKey\]\);/);
       assert.match(app, /buildSetupSelectionFromPreferences\(preferences, latestWeighInKg\),\s*\[setupSelectionKey, latestWeighInKg\],/);
-      const editor = app.match(/<OnboardingScreen\s[^>]*?mode="edit"[\s\S]*?\/>/);
+      // The setup route's render moved to src/app/renderOnboarding.tsx
+      // (phase C, 2026-10-01), so the editor is looked for over the shell.
+      const shell = strip(readAppWiring().replace(/\r\n/g, '\n'));
+      const editor = shell.match(/<OnboardingScreen\s[^>]*?mode="edit"[\s\S]*?\/>/);
       assert.ok(editor, 'the setup route renders the questionnaire in edit mode');
       assert.match(editor[0], /initialSelection=\{setupEditSelection\}/);
       assert.match(editor[0], /basicsSeed=\{setupEditSelection \? null : setupBasics\}/);

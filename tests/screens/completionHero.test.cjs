@@ -7,7 +7,6 @@ const screenSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'screens', 'WorkoutCompletionScreen.tsx'),
   'utf8',
 );
-const appSource = fs.readFileSync(path.join(__dirname, '..', '..', 'App.tsx'), 'utf8');
 const i18nSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'lib', 'i18n.ts'), 'utf8');
 const kitSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'components', 'sheetKit.tsx'),
@@ -56,8 +55,9 @@ module.exports = [
       // The saved-session hero still is, and the Pro page joined it: both are
       // dark surfaces the bar sits directly on. Matched on the list rather
       // than on one exact expression, so adding a screen to it is not a
-      // failure — dropping the saved session off it is.
-      assert.match(appSource, /historySessionActive \|\| premiumActive[\s\S]{0,30}\? 'light'/);
+      // failure — dropping the saved session off it is. The bar's style moved
+      // with the shell's render tail into src/app (phase C).
+      assert.match(readAppWiring(), /historySessionActive \|\| premiumActive[\s\S]{0,30}\? 'light'/);
     },
   },
   {
