@@ -890,7 +890,7 @@ const EN = {
   'onb.building.sub3': 'Pairing lifts to your equipment...',
   'onb.building.sub4': 'Polishing the first week...',
   'onb.avoid.addOther': '+ Add something else',
-  'onb.avoid.advisory': 'With this many trouble areas, we recommend checking in with a physio or doctor before you start. If you continue, we keep loads light — take it very carefully.',
+  'onb.avoid.advisory': 'With this many trouble areas, we recommend checking in with a physio or doctor before you start. If you continue, we never add weight or reps on exercises that load these areas — take it very carefully.',
   'focusArea.chest': 'Chest',
   'focusArea.back': 'Back',
   'focusArea.shoulders': 'Shoulders',
@@ -1490,6 +1490,7 @@ const EN = {
   // raised, this one a weight the app deliberately did not. Says why, because
   // "unchanged" is otherwise indistinguishable from nothing having happened.
   'guided.heldForRecovery': 'HELD · RECOVERY',
+  'guided.heldForCaution': 'HELD · {area}',
   // {kg} is the dial's own step (lib/weightDial), filled in by the screen. The
   // copy said 2.5 kg while the dial moved 1.25 (accessibility audit,
   // 2026-09-21), so a screen-reader user was told twice the real change.
@@ -1757,6 +1758,7 @@ const EN = {
   'appUpdate.bodyNoStore': 'This version of Vinha is too old for our server, so its online features are paused until you update it from the App Store. Logging workouts works without updating.',
   'appUpdate.update': 'Update',
   'appUpdate.later': 'Later',
+  'serverNotice.ok': 'OK',
   // ── Training break, edit profile ──────────────────────────────────────
   'break.title': 'Training break',
   'break.switchSub': 'Silences reminders and notifications',
@@ -4110,7 +4112,7 @@ const FI: Record<I18nKey, string> = {
   'onb.building.sub3': 'Sovitetaan liikkeet välineisiisi...',
   'onb.building.sub4': 'Hiotaan ensimmäinen viikko...',
   'onb.avoid.addOther': '+ Lisää jokin muu',
-  'onb.avoid.advisory': 'Näin monella vaivakohdalla suosittelemme käymään fysioterapeutilla tai lääkärillä ennen aloitusta. Jos jatkat, pidämme kuormat kevyinä — etene hyvin varovasti.',
+  'onb.avoid.advisory': 'Näin monella vaivakohdalla suosittelemme käymään fysioterapeutilla tai lääkärillä ennen aloitusta. Jos jatkat, emme koskaan lisää painoa tai toistoja liikkeisiin, jotka kuormittavat näitä kohtia — etene hyvin varovasti.',
   'focusArea.chest': 'Rinta',
   'focusArea.back': 'Selkä',
   'focusArea.shoulders': 'Olkapäät',
@@ -4641,6 +4643,7 @@ const FI: Record<I18nKey, string> = {
   'guided.autoReps': 'AUTOMAATTINEN +{count}',
   'guided.autoRepsDown': 'AUTOMAATTINEN −{count}',
   'guided.heldForRecovery': 'PIDETÄÄN · PALAUTUMINEN',
+  'guided.heldForCaution': 'PIDETÄÄN · {area}',
   'guided.a11y.weightDown': 'Vähennä painoa {kg} kg',
   'guided.a11y.weightUp': 'Lisää painoa {kg} kg',
   'guided.weightInvalid': 'Ei kelvollinen paino',
@@ -4868,6 +4871,7 @@ const FI: Record<I18nKey, string> = {
   'appUpdate.bodyNoStore': 'Tämä Vinhan versio on liian vanha palvelimellemme, joten verkkotoiminnot ovat tauolla, kunnes päivität sen App Storesta. Treenien kirjaaminen toimii ilman päivitystäkin.',
   'appUpdate.update': 'Päivitä',
   'appUpdate.later': 'Myöhemmin',
+  'serverNotice.ok': 'Selvä',
   // ── Training break, edit profile ──────────────────────────────────────
   'break.title': 'Treenitauko',
   'break.switchSub': 'Hiljentää muistutukset ja ilmoitukset',

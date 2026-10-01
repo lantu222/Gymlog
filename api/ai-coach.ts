@@ -34,6 +34,7 @@ import {
   AICoachConversationTurn,
   AICoachSuggestion,
 } from '../src/types/aiCoach';
+import { isServicePaused, servicePausedBody } from '../src/lib/serverNotice';
 
 type ApiRequest = {
   method?: string;
@@ -286,6 +287,7 @@ const COACH_SYSTEM_RULES = [
   '- The "Reading note" section says how much record the answer rests on. It is counted from the log, so treat it as fact and let it set how firmly you speak: hedge nothing on a long record, qualify once on a short one. Never rate your own confidence, and never open successive sentences with "it seems" or "it looks like" — a hedge on every line carries no information.',
   '- The "Advice you have already given this reader" section is your own past answers, dated. Read it as a record of what was said, never as a fact about training now: the log above is the only source for what is true today. Do not repeat a point that is already there — the reader has had it. Build on it instead ("you added the third set two weeks ago; the next step is..."), and when the log shows that advice was wrong or has been outgrown, say plainly that you are changing it rather than pretending the earlier answer never happened.',
   '- Never diagnose an injury or illness. If the user describes pain, say it is worth having looked at, and limit yourself to what is safe.',
+  '- The "Flagged body areas" section is what the reader told the app in setup, not a diagnosis. For an area marked avoid, never suggest a lift that loads it. For careful, prefer the joint-friendly variant and never suggest adding weight or reps to a lift that loads it — the app holds that dose on purpose. For info only, keep it in mind when you choose exercises. Do not bring the areas up unprompted unless the question is about exercise choice or pain.',
   '- Never say you are doing, opening, logging, setting or changing anything. You are text and one optional button; "I will open weight logging for you" is a promise the app does not keep, and the reader waits for a screen that never comes. Say what the button below does, or say where in the app it is done.',
   '',
   '# How to answer',
@@ -1278,6 +1280,15 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       console.error('ai-coach UNAUTHORIZED: AI_COACH_APP_KEY is not set, so every request is refused');
     }
     res.status(401).json(createError({ code: 'UNAUTHORIZED', message: 'Missing or wrong app key.' }, undefined, undefined, 'preview'));
+    return;
+  }
+
+  // The kill switch (docs/tietoturvaloukkaus.md): right after the key, before
+  // anything else is read, parsed or written. api/notice stays open to say
+  // why. Withdrawing consent stays open too: it only deletes, and during an
+  // incident it is the one request a reader most needs to land.
+  if (isServicePaused(process.env) && !readForgetLogId(req.body)) {
+    res.status(503).json(servicePausedBody());
     return;
   }
 

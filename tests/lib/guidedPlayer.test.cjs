@@ -542,6 +542,7 @@ module.exports = [
         autoProgressedFromKg: null,
         prefilledFromPerformedAt: null,
         heldForFatigue: false,
+        heldForCautionArea: null,
         autoProgressedFromReps: null,
       });
       // No draft, no plan: the previous set's actual load.
@@ -551,6 +552,7 @@ module.exports = [
         autoProgressedFromKg: null,
         prefilledFromPerformedAt: null,
         heldForFatigue: false,
+        heldForCautionArea: null,
         autoProgressedFromReps: null,
       });
       // First set, no history: planned max reps, null load.
@@ -563,6 +565,7 @@ module.exports = [
         autoProgressedFromKg: null,
         prefilledFromPerformedAt: null,
         heldForFatigue: false,
+        heldForCautionArea: null,
         autoProgressedFromReps: null,
       });
       // Bodyweight never carries a load.
@@ -572,6 +575,7 @@ module.exports = [
         autoProgressedFromKg: null,
         prefilledFromPerformedAt: null,
         heldForFatigue: false,
+        heldForCautionArea: null,
         autoProgressedFromReps: null,
       });
       assert.equal(resolveGuidedSetTarget(sets, 9, 'load_and_reps'), null);
@@ -736,6 +740,7 @@ module.exports = [
         autoProgressedFromKg: null,
         prefilledFromPerformedAt: null,
         heldForFatigue: false,
+        heldForCautionArea: null,
         autoProgressedFromReps: null,
       });
 
@@ -747,6 +752,7 @@ module.exports = [
         autoProgressedFromKg: null,
         prefilledFromPerformedAt: null,
         heldForFatigue: false,
+        heldForCautionArea: null,
         autoProgressedFromReps: null,
       });
 
@@ -758,6 +764,34 @@ module.exports = [
       ];
       assert.equal(resolveGuidedSetTarget(afterSwap, 3, 'load_and_reps', 1).loadKg, 60);
       assert.equal(resolveGuidedSetTarget(afterSwap, 3, 'load_and_reps', 1).reps, 6);
+    },
+  },
+  {
+    name: 'a flagged-area hold is named only while the load is still the one the gate kept',
+    run() {
+      const held = (draftLoadText) => ({
+        setIndex: 0,
+        status: 'pending',
+        plannedLoadKg: 80,
+        heldForCautionArea: 'knees',
+        plannedRepsMin: 5,
+        plannedRepsMax: 8,
+        draftLoadText,
+        draftRepsText: '',
+      });
+
+      assert.equal(resolveGuidedSetTarget([held('80')], 0, 'load_and_reps').heldForCautionArea, 'knees');
+      // Moved by the reader: their number, no claim from the app.
+      assert.equal(resolveGuidedSetTarget([held('85')], 0, 'load_and_reps').heldForCautionArea, null);
+      // Bodyweight: the reps were held, named until the day has its own set.
+      assert.equal(resolveGuidedSetTarget([held('')], 0, 'bodyweight').heldForCautionArea, 'knees');
+      const afterOne = [
+        { ...held(''), status: 'completed', actualReps: 10 },
+        { ...held(''), setIndex: 1 },
+      ];
+      assert.equal(resolveGuidedSetTarget(afterOne, 1, 'bodyweight').heldForCautionArea, null);
+      // A timed hold's seconds are nobody's to hold.
+      assert.equal(resolveGuidedSetTarget([held('')], 0, 'hold').heldForCautionArea, null);
     },
   },
   {
@@ -781,6 +815,7 @@ module.exports = [
         autoProgressedFromKg: 60,
         prefilledFromPerformedAt: null,
         heldForFatigue: false,
+        heldForCautionArea: null,
         autoProgressedFromReps: null,
       });
 
@@ -792,6 +827,7 @@ module.exports = [
         autoProgressedFromKg: null,
         prefilledFromPerformedAt: null,
         heldForFatigue: false,
+        heldForCautionArea: null,
         autoProgressedFromReps: null,
       });
 
@@ -838,6 +874,7 @@ module.exports = [
         prefilledFromPerformedAt: null,
         autoProgressedFromReps: 12,
         heldForFatigue: false,
+        heldForCautionArea: null,
       });
 
       // A previous completed set wins, and takes the badge with it: the shown

@@ -1,7 +1,7 @@
 // Type-only, and explicitly so: this module now exports runtime predicates, and
 // format.ts imports them. Erasing these keeps workoutTypes a leaf at build time
 // instead of a node in a cycle through progressionGate and cardio.
-import type { SetupLevel, UnitPreference } from '../../types/models';
+import type { SetupCautionArea, SetupCautionFlag, SetupLevel, UnitPreference } from '../../types/models';
 import type { FreestyleDraftSnapshot } from '../../lib/emptyWorkoutSession';
 import type { ProgressionFatigueSignal } from '../../lib/progressionGate';
 import type { ActiveCardioSession } from '../../lib/cardio';
@@ -144,6 +144,20 @@ export interface WorkoutSetInstance {
    * can perceive is not one they can knowingly pay for.
    */
   heldForFatigue?: boolean;
+  /**
+   * The load had earned a jump and a flagged body area held it (Pro).
+   *
+   * The reader flagged this area careful or avoid in setup, and onboarding
+   * told them the app would not raise the weight on lifts that load it. Like
+   * heldForFatigue, set only when a jump was actually earned.
+   */
+  heldForCautionArea?: SetupCautionArea;
+  /**
+   * The reader added this set mid-session. Its opening weight is copied from
+   * the set before it — usually what the reader just lifted — so the saved
+   * plan must not present it as the app's suggestion.
+   */
+  addedMidSession?: boolean;
   /**
    * When the prefill came from the same lift in a DIFFERENT slot — another
    * program, another day, an empty workout — this is when that session was
@@ -401,6 +415,11 @@ export interface WorkoutProgressionOptions {
   fatigueSignal?: ProgressionFatigueSignal;
   /** When the session starts; the clock when absent. Tests pin it. */
   nowMs?: number;
+  /**
+   * The reader's setup flags. A lift that loads a careful or avoid area never
+   * has its load raised by the gate.
+   */
+  cautionFlags?: SetupCautionFlag[];
 }
 
 export interface WorkoutSessionMaterializeOptions {
@@ -419,4 +438,6 @@ export interface WorkoutSessionMaterializeOptions {
   fatigueSignal?: ProgressionFatigueSignal;
   /** When the session is being built; defaults to the clock. Tests pin it. */
   nowMs?: number;
+  /** Setup flags; a lift loading a careful or avoid area keeps its load. */
+  cautionFlags?: SetupCautionFlag[];
 }

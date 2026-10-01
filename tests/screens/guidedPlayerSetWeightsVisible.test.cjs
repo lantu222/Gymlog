@@ -74,4 +74,18 @@ module.exports = [
       assert.match(pillsStyle, /flexWrap:\s*'wrap'/);
     },
   },
+  {
+    // The recovery badge was computed, carried and dropped on its way to this
+    // screen for weeks. The caution hold takes the same hop, so the hop is
+    // guarded: the target's area is read, and the badge says it.
+    name: 'guided set card: a flagged-area hold reaches the badge, and an unknown area says nothing',
+    run() {
+      assert.match(playerSource, /\? target\?\.heldForCautionArea \?\? null/);
+      assert.match(playerSource, /t\(language, 'guided\.heldForCaution', \{ area: cautionAreaName\.toUpperCase\(\) \}\)/);
+      assert.match(playerSource, /<Text style=\{styles\.setHoldBadgeText\}>\{holdLabel\}<\/Text>/);
+      // t() answers undefined for a key it does not know; the badge checks
+      // for a name before upper-casing it.
+      assert.match(playerSource, /: cautionAreaName\r?\n\s+\? t\(language, 'guided\.heldForCaution'/);
+    },
+  },
 ];

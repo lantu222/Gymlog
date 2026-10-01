@@ -210,6 +210,10 @@ export function useCoachContext(deps: CoachContextDeps) {
           weighInReminderEnabled: preferences.notificationPrefs.weighInReminder,
           silencedSuggestions: silencedSuggestionKinds(preferences.coachSuggestionState),
         },
+        // The body areas flagged in setup. The privacy policy says the coach
+        // hears the reader's limitations; plannerSetup below never reaches it
+        // (nothing sets aiSetupCompleted), so this is where they travel.
+        cautionFlags: preferences.setupCautionFlags,
         plannerSetup: preferences.aiSetupCompleted
           ? {
               goal: preferences.aiPlannerGoal,
@@ -256,6 +260,7 @@ export function useCoachContext(deps: CoachContextDeps) {
       preferences.setupAge,
       preferences.setupGender,
       preferences.aiSetupCompleted,
+      preferences.setupCautionFlags,
       preferences.aiPlannerGoal,
       preferences.aiPlannerDaysPerWeek,
       preferences.aiPlannerExperience,

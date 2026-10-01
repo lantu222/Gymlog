@@ -7,7 +7,8 @@ import {
   resumeCardioSession,
   startCardioSession,
 } from '../../lib/cardio';
-import { CardioActivityType } from '../../types/models';
+import { CardioActivityType, SetupCautionArea } from '../../types/models';
+import { cautionAreaLoadedBy } from '../../lib/cautionExerciseFilter';
 import { isTimedTrackingMode, isUnloadedTrackingMode } from './workoutTypes';
 import { parseIntervalScheme } from '../../lib/intervalScheme';
 import { HOLD_DIAL, REPS_DIAL } from '../../lib/weightDial';
@@ -294,6 +295,7 @@ interface ResolvedSetDraft {
   plannedLoadKg: number | undefined;
   autoProgressedFromKg: number | undefined;
   heldForFatigue: boolean | undefined;
+  heldForCautionArea: SetupCautionArea | undefined;
   prefilledFromPerformedAt: string | undefined;
   plannedTargetReps: number | undefined;
   autoProgressedFromReps: number | undefined;
@@ -367,6 +369,7 @@ function resolveNamedHistoryDraft(
     plannedLoadKg: undefined,
     autoProgressedFromKg: undefined,
     heldForFatigue: undefined,
+    heldForCautionArea: undefined,
     prefilledFromPerformedAt: undefined,
     // Borrowed history does not feed the rep gate either — see above.
     plannedTargetReps: undefined,
@@ -395,6 +398,7 @@ function resolveNamedHistoryDraft(
     autoProgressedFromKg: undefined,
     // The gate never looked at this weight, so it has no hold to report on it.
     heldForFatigue: undefined,
+    heldForCautionArea: undefined,
     // Where it came from, so the logger can say so rather than presenting a
     // weight from another program as if it belonged to this slot.
     prefilledFromPerformedAt: entry.performedAt,
@@ -430,6 +434,7 @@ function resolveHistoricalSetDraft(
         plannedLoadKg: undefined,
         autoProgressedFromKg: undefined,
         heldForFatigue: undefined,
+        heldForCautionArea: undefined,
         prefilledFromPerformedAt: undefined,
         plannedTargetReps: undefined,
         autoProgressedFromReps: undefined,
@@ -442,7 +447,10 @@ function resolveHistoricalSetDraft(
   // ceiling on every working set, the prefill moves up by the level's
   // increment. Every other outcome repeats last time's load, which is what
   // this function did unconditionally before the gate existed.
-  const { loadKg, fromLoadKg, heldForFatigue } = resolveProgressedLoadKg({
+  // A lift that loads an area the reader flagged keeps its dose: onboarding
+  // says the app never adds weight or reps there.
+  const cautionArea = cautionAreaLoadedBy(exercise.exerciseName, options.cautionFlags);
+  const { loadKg, fromLoadKg, heldForFatigue, heldForCautionArea } = resolveProgressedLoadKg({
     history: entries,
     repsMin: exercise.repsMin,
     repsMax: exercise.repsMax,
@@ -457,6 +465,7 @@ function resolveHistoricalSetDraft(
     fallbackLoadKg: matched.loadKg,
     // The early jump reads a single session, and only a recent one counts.
     nowMs: options.nowMs ?? Date.now(),
+    cautionArea,
   });
 
   // Bodyweight progresses by reps where the load gate stays silent — same
@@ -470,6 +479,7 @@ function resolveHistoricalSetDraft(
     trackingMode: exercise.trackingMode,
     automatedProgressionEnabled: options.automatedProgressionEnabled ?? false,
     fatigueSignal: options.fatigueSignal,
+    cautionArea,
   });
 
   // Reps short of the programme last time: the same weight, a target the
@@ -495,6 +505,7 @@ function resolveHistoricalSetDraft(
     plannedLoadKg: loadKg,
     autoProgressedFromKg: fromLoadKg ?? undefined,
     heldForFatigue: (heldForFatigue || repsResolution.heldForFatigue) || undefined,
+    heldForCautionArea: (heldForCautionArea ?? repsResolution.heldForCautionArea) ?? undefined,
     // This slot's own history — the ordinary case, nothing to explain.
     prefilledFromPerformedAt: undefined,
     plannedTargetReps: repsResolution.progressed
@@ -539,6 +550,7 @@ function materializeExercise(
       // loads for recovery and the badge never once appeared — a Pro
       // behaviour the paywall sells by name, invisible since it was wired.
       heldForFatigue: resolved.heldForFatigue,
+      heldForCautionArea: resolved.heldForCautionArea,
       prefilledFromPerformedAt: resolved.prefilledFromPerformedAt,
       plannedTargetReps: resolved.plannedTargetReps,
       autoProgressedFromReps: resolved.autoProgressedFromReps,
@@ -1040,6 +1052,7 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
         fatigueSignal: action.payload.progression?.fatigueSignal,
         setupLevel: action.payload.progression?.setupLevel ?? null,
         nowMs: action.payload.progression?.nowMs,
+        cautionFlags: action.payload.progression?.cautionFlags,
       });
 
       return {
@@ -1062,6 +1075,7 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
         fatigueSignal: action.payload.progression?.fatigueSignal,
         setupLevel: action.payload.progression?.setupLevel ?? null,
         nowMs: action.payload.progression?.nowMs,
+        cautionFlags: action.payload.progression?.cautionFlags,
       });
 
       return {
@@ -1521,6 +1535,9 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
           {
             setIndex: memberNextIndex,
             plannedLoadKg: sourceLift ? undefined : sourceSet?.actualLoadKg ?? sourceSet?.plannedLoadKg,
+            // The reader added this set, and its weight is usually the one
+            // they just lifted — theirs, not the app's plan (lib/loggedSetPlan).
+            addedMidSession: true,
             plannedRepsMin: planned.repsMin,
             plannedRepsMax: planned.repsMax,
             draftLoadText: '',
@@ -1818,6 +1835,10 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
         set.draftLoadText = historical ? formatWeightInputValue(historical.loadKg, action.payload.unitPreference) : '';
         set.plannedLoadKg = historical?.loadKg;
         set.autoProgressedFromKg = undefined;
+        // So do the gate's holds: a badge on the new lift would name a
+        // decision nobody made about it.
+        set.heldForFatigue = undefined;
+        set.heldForCautionArea = undefined;
         // The rep target the gate picked belongs to the swapped-away lift too.
         set.plannedTargetReps = undefined;
         set.autoProgressedFromReps = undefined;

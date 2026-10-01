@@ -284,6 +284,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       aiCoachProQuota: null,
       firstLaunchAt: null,
       coachDemoMomentsUsed: [],
+      seenServerNoticeIds: [],
       automatedProgressionEnabled: true,
       aiSetupCompleted: false,
       hasOpenedAppBefore: false,

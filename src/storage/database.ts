@@ -40,6 +40,7 @@ import {
   WorkoutTemplate,
   WorkoutTemplateSessionRecord,
 } from '../types/models';
+import { normalizeSeenNoticeIds } from '../lib/serverNotice';
 
 const CAUTION_AREAS = ['neck', 'shoulders', 'elbows', 'wrists', 'lower_back', 'hips', 'knees', 'ankles'] as const;
 const CAUTION_LEVELS = ['info', 'careful', 'avoid'] as const;
@@ -864,6 +865,9 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
             (key: unknown): key is string => typeof key === 'string' && key.length > 0,
           )
         : fallback.preferences.coachDemoMomentsUsed,
+      seenServerNoticeIds: Array.isArray(input?.preferences?.seenServerNoticeIds)
+        ? normalizeSeenNoticeIds(input.preferences.seenServerNoticeIds)
+        : fallback.preferences.seenServerNoticeIds,
       // adaptiveCoachPremiumUnlocked was the demo build's free Pro switch. It
       // is not read any more and is not carried forward: an install that has
       // it stored simply stops having Pro from it, which is the point (user

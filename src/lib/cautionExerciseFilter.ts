@@ -165,6 +165,28 @@ export function exerciseHitsCautionArea(exerciseName: string, area: SetupCaution
   return AREA_AVOID_PATTERNS[area].some((pattern) => normalized.includes(pattern));
 }
 
+/**
+ * The flagged area a lift loads, for the progression hold, or null.
+ *
+ * Only `careful` and `avoid` count — `info` promises nothing about training.
+ * An `avoid` match normally never reaches a session (the filter removes it),
+ * but a lift the reader added by hand can, and it is held the same way. The
+ * same name patterns as the filter decide "loads this area", so a swap the
+ * filter picked because it spares the area (Leg Press -> Hip Thrust for knees)
+ * progresses normally, and one that still loads it (Box Squat) is held.
+ */
+export function cautionAreaLoadedBy(
+  exerciseName: string,
+  flags: SetupCautionFlag[] | null | undefined,
+): SetupCautionArea | null {
+  for (const flag of flags ?? []) {
+    if (flag.level !== 'info' && exerciseHitsCautionArea(exerciseName, flag.area)) {
+      return flag.area;
+    }
+  }
+  return null;
+}
+
 function findSwap(exerciseName: string, table: Array<[string, string]>): string | null {
   const normalized = normalize(exerciseName);
   for (const [pattern, replacement] of table) {
