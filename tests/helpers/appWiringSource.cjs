@@ -4,10 +4,13 @@ const path = require('node:path');
 const root = path.join(__dirname, '..', '..');
 
 /**
- * App.tsx plus every module the phase-A split moved its wiring into
- * (src/app/, 2026-08-26). Guards that pin how a screen is wired read this
- * concatenation, so extracting a tab from the switchboard does not read as
- * the wiring disappearing — and the next extraction needs no test edit.
+ * App.tsx plus every module the shell's splits moved its wiring into: the
+ * phase-A render functions (src/app/, 2026-08-26) and the phase-B hooks and
+ * factory VinhaApp calls where their code used to stand (2026-09-30). Guards
+ * that pin how a screen is wired read this concatenation, so extracting a
+ * tab or a hook from the switchboard does not read as the wiring
+ * disappearing — and the next extraction needs no test edit. It reads
+ * src/app one level deep, so the modules stay flat there.
  *
  * App.tsx comes first and the modules follow in name order, so assertions
  * about ordering WITHIN App.tsx keep their meaning. Cross-file [\s\S]*
