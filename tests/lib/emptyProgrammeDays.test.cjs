@@ -129,13 +129,15 @@ module.exports = [
       assert.equal(hasOnlyEmptyDays([]), false);
 
       // The whole shell: the <HomeScreen> element moved out of App.tsx into
-      // src/app/renderHomeDashboard.tsx; the memo stays in App.tsx.
+      // src/app/renderHomeDashboard.tsx, and the reading into the src/app
+      // module its block moved into (phase-C split, 2026-10-01).
       const app = strip(readAppWiring().replace(/\r\n/g, '\n'));
+      const shell = app;
       assert.match(
-        app,
+        shell,
         /const homeEmptyProgramme = useMemo\(\(\) => \{\s*if \(homeActivePlanCard\) \{\s*return null;\s*\}/,
       );
-      assert.match(app, /return hasOnlyEmptyDays\(counts\) \? \{ workoutTemplateId: template\.id, title: template\.name \} : null;/);
+      assert.match(shell, /return hasOnlyEmptyDays\(counts\) \? \{ workoutTemplateId: template\.id, title: template\.name \} : null;/);
       assert.match(app, /emptyProgramme=\{homeEmptyProgramme\}/);
       const home = strip(read('src', 'screens', 'HomeScreen.tsx'));
       // In place of "find a programme", not beside it: the two would say

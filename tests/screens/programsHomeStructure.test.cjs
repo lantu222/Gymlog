@@ -9,7 +9,7 @@ const programsHomeSource = fs.readFileSync(
 // The workout tab's wiring moved to src/app in the phase-A split (2026-08-26).
 const appSource = require('../helpers/appWiringSource.cjs').readAppWiring();
 const { readAppWiring } = require('../helpers/appWiringSource.cjs');
-const { functionBody } = require('../helpers/sourceSlices.cjs');
+const { between, functionBody } = require('../helpers/sourceSlices.cjs');
 const routesSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'navigation', 'routes.ts'), 'utf8');
 const bottomTabBarSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'components', 'BottomTabBar.tsx'),
@@ -582,13 +582,22 @@ module.exports = [
     run() {
       const home = read('src', 'screens', 'ProgramsHomeScreen.tsx');
       const app = read('App.tsx');
+      // "Omat ohjelmasi", bounded to its own memo and found in the shell: it
+      // left App.tsx for useProgramsCustomItems (phase-C split, 2026-10-01).
+      // CRLF-normalised: the end anchor spans line breaks, and a Windows
+      // checkout would otherwise miss it.
+      const customItems = between(
+        readAppWiring().replace(/\r\n/g, '\n'),
+        'const programsCustomItems = useMemo(() => {',
+        '\n  }, [\n    customWorkouts,\n',
+      );
 
       // The one you are training is first, authored or adopted. It used to
       // keep its authoring position, so ACTIVE was a tag you had to read the
       // list to find rather than a place in it.
-      assert.match(app, /const leadFirst = /);
-      assert.match(app, /\.\.\.rows\.filter\(\(row\) => row\.active\),/);
-      assert.match(app, /return leadFirst\(\[\.\.\.runningRows, \.\.\.authored\]\);/);
+      assert.match(customItems, /const leadFirst = /);
+      assert.match(customItems, /\.\.\.rows\.filter\(\(row\) => row\.active\),/);
+      assert.match(customItems, /return leadFirst\(\[\.\.\.runningRows, \.\.\.authored\]\);/);
 
       // And EVERY running programme is on the list, not only the leader. An
       // adopted ready programme has no row in `workoutTemplates`, so it was
@@ -600,8 +609,8 @@ module.exports = [
       // programme cannot appear both as authored and as running.
       // Held, not only running: a programme switched off is still the
       // reader's and stays on this list (device, 2026-09-16).
-      assert.match(app, /const runningRows = listHeldProgrammes\(\{/);
-      assert.match(app, /authoredTemplateIds: authoredIds,/);
+      assert.match(customItems, /const runningRows = listHeldProgrammes\(\{/);
+      assert.match(customItems, /authoredTemplateIds: authoredIds,/);
       // The dedup loop must not come back anywhere in the shell: App.tsx or a
       // src/app module (phase-B split, 2026-09-30).
       assert.doesNotMatch(
@@ -614,30 +623,32 @@ module.exports = [
       // and this list can hold several running programmes. Said on every one
       // it contradicted the ACTIVE tag beside it, which only the leader
       // carries (review, 2026-09-07).
-      assert.match(app, /subtitle: active\s*\r?\n?\s*\? t\(preferences\.appLanguage, 'programs\.activeSubtitle'\)/);
+      assert.match(customItems, /subtitle: active\s*\r?\n?\s*\? t\(preferences\.appLanguage, 'programs\.activeSubtitle'\)/);
       // A running programme that does not lead says its week; one switched
       // off says so instead (device, 2026-09-16).
-      assert.match(app, /\? t\(preferences\.appLanguage, 'programs\.card\.days', \{ count: template\.daysPerWeek \}\)\s*: t\(preferences\.appLanguage, 'programs\.card\.switchedOff'\),/);
+      assert.match(customItems, /\? t\(preferences\.appLanguage, 'programs\.card\.days', \{ count: template\.daysPerWeek \}\)\s*: t\(preferences\.appLanguage, 'programs\.card\.switchedOff'\),/);
       // Only what the catalog can open — a plan pointing at a deleted custom
       // template is neither authored nor ready, and its row would navigate
       // nowhere.
-      assert.match(app, /const template = getWorkoutTemplateById\(row\.templateId\);/);
-      assert.match(app, /if \(!template\) \{[\s\S]{0,40}?return null;/);
+      assert.match(customItems, /const template = getWorkoutTemplateById\(row\.templateId\);/);
+      assert.match(customItems, /if \(!template\) \{[\s\S]{0,40}?return null;/);
       // One notion of "active" for the whole list, the same one the authored
       // rows ask, so two rows cannot both be marked by different rules.
       // The lead plan's own template, not Home's hero card, which is null
       // whenever the hero cannot be built (device, 2026-09-16).
-      assert.match(app, /const active = leadingTemplateId === row\.templateId;/);
-      assert.match(app, /active: leadingTemplateId === template\.id,/);
-      assert.match(app, /^\s+active,$/m);
+      assert.match(customItems, /const active = leadingTemplateId === row\.templateId;/);
+      assert.match(customItems, /active: leadingTemplateId === template\.id,/);
+      assert.match(customItems, /^\s+active,$/m);
 
       // One name for one programme. Home resolved season titles and ready
       // presentations inline; the Programs tab now lists the same programmes,
       // so both go through the same resolver rather than growing a third
       // spelling of the rule.
       assert.match(app, /const runningProgrammeTitle = useCallback\(/);
+      // Counted across the shell, App.tsx and src/app, since Programs' list
+      // left App.tsx for its own module (phase-C split, 2026-10-01).
       assert.equal(
-        (app.match(/runningProgrammeTitle\(/g) ?? []).length,
+        (readAppWiring().match(/runningProgrammeTitle\(/g) ?? []).length,
         2,
         'the running-programme title rule was copied instead of shared',
       );

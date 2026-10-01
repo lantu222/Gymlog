@@ -2,7 +2,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const { readAppWiring } = require('../helpers/appWiringSource.cjs');
-const { functionBody } = require('../helpers/sourceSlices.cjs');
+const { between, functionBody } = require('../helpers/sourceSlices.cjs');
 
 const homeScreenSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'screens', 'HomeScreen.tsx'),
@@ -39,10 +39,19 @@ const appSource = fs.readFileSync(path.join(__dirname, '..', '..', 'App.tsx'), '
 // splits (2026-08-26, 2026-09-30) moved VinhaApp's wiring into — for the
 // absence guards: a name or a shape that must not come back must not come
 // back in a hook either. Presence pins keep reading App.tsx, except those on
-// the <HomeScreen> element and the shell's return (BottomTabBar), which phase
-// C (2026-10-01) moved into src/app/renderHomeDashboard.tsx and
-// renderAppShell.tsx: those read the whole shell.
+// blocks that have left it: the <HomeScreen> element and the shell's return
+// (BottomTabBar), which phase C (2026-10-01) moved into
+// src/app/renderHomeDashboard.tsx and renderAppShell.tsx, and Home's
+// derivations, which it moved into src/app hooks. Those read the whole shell,
+// bounded to the block where a pattern could match elsewhere.
 const shellSource = readAppWiring();
+/*
+ * Home's hero card, bounded to its own memo: from the declaration to its deps
+ * line. It left App.tsx for src/app/useHomeActivePlan.ts in the phase-C split
+ * (2026-10-01); both anchors are asserted, so the slice cannot quietly grow.
+ */
+const heroCardSource = () =>
+  between(shellSource, 'const homeActivePlanCard = useMemo(() => {', '\n  }, [database.workoutPlans, database.workoutSessions,');
 
 /**
  * The <HomeScreen …/> element, sliced out of the ONE shell file (App.tsx or a
@@ -471,35 +480,37 @@ module.exports = [
       assert.doesNotMatch(homeScreenSource, /activePlan\?\.weekLabel/);
       assert.doesNotMatch(homeScreenSource, /activePlan \? 'Week 3 of 8'/);
       assert.doesNotMatch(homeScreenSource, /activePlan \? 42/);
-      assert.match(appSource, /weekLabel: planProgress\.weekLabel/);
-      assert.match(appSource, /progressPercent: planProgress\.progressPercent/);
+      // The hero's numbers, read off the card itself.
+      const heroCard = heroCardSource();
+      assert.match(heroCard, /weekLabel: planProgress\.weekLabel/);
+      assert.match(heroCard, /progressPercent: planProgress\.progressPercent/);
       // v4 hero data comes from real stores: plan-wide session counts, week
       // position, split focus, and library-derived equipment.
-      assert.match(appSource, /sessionsDone: planProgress\.sessionsDone/);
-      assert.match(appSource, /sessionsTotal: planProgress\.sessionsTotal/);
-      assert.match(appSource, /currentWeek: planProgress\.currentWeek/);
-      assert.match(appSource, /planTotalWeeks: planProgress\.totalWeeks/);
+      assert.match(heroCard, /sessionsDone: planProgress\.sessionsDone/);
+      assert.match(heroCard, /sessionsTotal: planProgress\.sessionsTotal/);
+      assert.match(heroCard, /currentWeek: planProgress\.currentWeek/);
+      assert.match(heroCard, /planTotalWeeks: planProgress\.totalWeeks/);
       // The hero's focus label used to come from the recommendation fallback,
       // which impersonated an active plan whenever the reader had none: it
       // hid a removed programme, an entry-less plan, and it started sessions
       // against a programme nobody had adopted. The plan branch is the only
       // source now, and a reader with no plan gets Home's no-plan state.
       assert.doesNotMatch(shellSource, /recommendedReadyTemplate\.splitType/);
-      assert.match(appSource, /focusLabel: getSessionBodyFocusLabel\(/);
+      assert.match(heroCard, /focusLabel: getSessionBodyFocusLabel\(/);
       // The rotation reads the programme's history, not one template record's:
       // a copy made by editing a lift carries new day ids, and the rotation
       // found no match at all and offered day 1 to a reader who trained day 3
       // yesterday (2026-09-16).
       assert.match(
-        appSource,
+        heroCard,
         /const completedForTemplate = completedSessionsForTemplate\(firstEntry\.workoutTemplateId, completedPlanSessions\);\s*const nextSessionIndex = resolveNextPlanEntryIndex\(sortedEntries, completedForTemplate\);/,
       );
       // "Trained today" for the calendar forecast counts this plan's sessions
       // by the rotation's own match, not any workout logged today (recheck of
       // #224, 2026-09-28).
-      assert.match(appSource, /trainedToday: planTrainedOnDay\(sortedEntries, completedForTemplate, todayDayStart\),/);
-      assert.match(appSource, /equipmentLabel: buildSessionEquipmentLabel\(/);
-      assert.match(appSource, /totalSets: session\.exercises\.reduce/);
+      assert.match(heroCard, /trainedToday: planTrainedOnDay\(sortedEntries, completedForTemplate, todayDayStart\),/);
+      assert.match(heroCard, /equipmentLabel: buildSessionEquipmentLabel\(/);
+      assert.match(heroCard, /totalSets: session\.exercises\.reduce/);
       assert.doesNotMatch(homeScreenSource, /planChartBars/);
       assert.doesNotMatch(homeScreenSource, /View plan/);
       assert.doesNotMatch(homeScreenSource, /VIEW PLAN/);
@@ -596,9 +607,17 @@ module.exports = [
       assert.ok(titleHelper.includes('function formatHomeSessionTitle'), 'formatHomeSessionTitle should exist');
       assert.doesNotMatch(titleHelper, /slice\(0|\.\.\.`|…/, 'the session title must never be abbreviated at assembly');
       assert.match(shellSource, /activePlan=\{homeActivePlanCard\}/);
-      assert.match(appSource, /const homeRecentSessions = useMemo/);
-      assert.match(appSource, /\[\.\.\.workoutSessions\][\s\S]*\.sort/);
-      assert.match(appSource, /\.slice\(0, 3\)/);
+      // The recent-sessions memo, bounded to itself: an unbounded
+      // [\s\S]* over the file could pair a spread here with a sort anywhere
+      // below it. It left App.tsx for useRecentSessions (phase-C split,
+      // 2026-10-01), so it is found in the shell.
+      const recentSessionsMemo = between(
+        shellSource,
+        'const homeRecentSessions = useMemo',
+        '[getSessionLogs, preferences.appLanguage, unitPreference, workoutSessions],',
+      );
+      assert.match(recentSessionsMemo, /\[\.\.\.workoutSessions\]\s*\.sort\(/);
+      assert.match(recentSessionsMemo, /\.slice\(0, 3\)/);
       /*
        * The props Home must not be handed are read off the <HomeScreen element
        * alone, found in the one shell file that renders it (homeScreenElement).
@@ -817,8 +836,9 @@ module.exports = [
       assert.match(handler, /dayStart:/);
       assert.match(handler, /pickedAt: now\.getTime\(\)/);
 
-      // And the card asks the rule rather than restating it.
-      assert.match(appSource, /resolveTodaySessionPick\(\{/);
+      // And the card asks the rule rather than restating it — the card
+      // itself, wherever in the shell it is built.
+      assert.match(heroCardSource(), /resolveTodaySessionPick\(\{/);
 
       // The pencil is offered only where a rename can actually land: the
       // catalog's templates are immutable at runtime.
@@ -908,7 +928,12 @@ module.exports = [
       // the header said "6 exercises" over five rows and a "+1 more" that did
       // nothing when tapped. The whole session comes through now.
       assert.doesNotMatch(shellSource, /exercises: session\.exercises\.slice\(0, 5\)/);
-      assert.match(appSource, /exercises: session\.exercises\.map\(\(exercise\) => \(\{/);
+      // Read off the hero's own session rows: the same map is written in
+      // other places in the shell, which would satisfy a whole-file match.
+      assert.match(
+        between(heroCardSource(), 'const homeSessions = orderedPlanSessions.map(', 'const completedForTemplate = '),
+        /exercises: session\.exercises\.map\(\(exercise\) => \(\{/,
+      );
 
       // One number, derived from the rows themselves rather than added back
       // from a second field that could disagree with them.

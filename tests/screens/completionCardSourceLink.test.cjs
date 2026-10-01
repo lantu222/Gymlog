@@ -1,8 +1,11 @@
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
 
-const appSource = fs.readFileSync(path.join(__dirname, '..', '..', 'App.tsx'), 'utf8');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+
+// The shell — App.tsx and the src/app modules. Home's hero card, which builds
+// the completion card, left App.tsx for src/app/useHomeActivePlan.ts in the
+// phase-C split (2026-10-01).
+const appSource = readAppWiring();
 
 /**
  * A copy made by editing a lift in a ready programme (see programmeCopyLink)

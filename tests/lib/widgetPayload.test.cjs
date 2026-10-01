@@ -697,7 +697,7 @@ module.exports = [
         .replace(/^\s*\/\/.*$/gm, '');
       assert.match(shell, /todaySessionId: homeActivePlanCard\?\.todayPickSessionId \?\? null,/);
       assert.doesNotMatch(shell, /todaySessionId: homeActivePlanCard\?\.nextSession/);
-      assert.match(app, /todayPickSessionId: pickedToday\?\.id \?\? null,/);
+      assert.match(shell, /todayPickSessionId: pickedToday\?\.id \?\? null,/);
       assert.match(
         shell,
         // And the rotation forecast the tile was drawn with (review of the

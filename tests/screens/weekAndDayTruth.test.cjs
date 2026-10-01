@@ -154,7 +154,9 @@ module.exports = [
   {
     name: 'week and block: the week pill reads one block tally, on both sides of the save',
     run() {
-      const memo = between(app, 'const weekProgressBase = useMemo', 'const guidedNextUp = useMemo');
+      // The memos read across the shell: they left App.tsx for usePlanReadouts
+      // and useHomeActivePlan in the phase-C split (2026-10-01).
+      const memo = between(wiring, 'const weekProgressBase = useMemo', 'const guidedNextUp = useMemo');
       assert.match(memo, /blockWeekTally\(\{\s*sessionsDone,\s*sessionsTotal: homeActivePlanCard\.sessionsTotal,\s*totalWeeks: homeActivePlanCard\.planTotalWeeks,/);
       // Before the save the session in hand is not in the log; after it is.
       assert.match(memo, /beforeSave: reading\(homeActivePlanCard\.sessionsDone \+ 1\),/);
@@ -169,15 +171,15 @@ module.exports = [
   {
     name: 'week and block: the analysis names the week its own session filled, counted as Home counts',
     run() {
-      const memo = between(app, 'const sessionAnalysis = useMemo', 'const profilePlanSummary = useMemo');
+      const memo = between(wiring, 'const sessionAnalysis = useMemo', 'const profilePlanSummary = useMemo');
       assert.match(
         memo,
         /weekNumber: homeActivePlanCard\s*\? blockWeekOfSession\(\{\s*sessionId: analysisSessionId,\s*sessions: getCanonicalCompletedSessions\(database\),\s*templateIds: new Set\(homeActivePlanCard\.planTemplateIds\),\s*blockStartedAt: homeActivePlanCard\.blockStartedAt,/,
       );
       assert.doesNotMatch(memo, /currentWeek/, 'the week the reader is in is not the week an analysed session filled');
       // The boundary it counts from is the one the hero counts from.
-      assert.match(app, /countSessionsSince\(\s*completedPlanSessions,\s*planTemplateIds,\s*activeWorkoutPlan\.updatedAt,\s*\);/);
-      assert.match(app, /blockStartedAt: activeWorkoutPlan\.updatedAt,/);
+      assert.match(wiring, /countSessionsSince\(\s*completedPlanSessions,\s*planTemplateIds,\s*activeWorkoutPlan\.updatedAt,\s*\);/);
+      assert.match(wiring, /blockStartedAt: activeWorkoutPlan\.updatedAt,/);
     },
   },
   {
@@ -199,8 +201,8 @@ module.exports = [
         /const progressTrainingRhythm = useMemo\(\s*\(\) => getTrainingRhythm\(database, \{ now: new Date\(\) \}\),[\s\S]{0,120}\[database, todayKey\],/,
       );
       // The player's entry eyebrow names today's weekday from the key.
-      assert.match(app, /`guided\.weekday\.\$\{new Date\(todayStartMs\)\.getDay\(\)\}`/);
-      assert.match(app, /\}, \[homeActivePlanCard\?\.currentWeek, preferences\.appLanguage, todayStartMs\]\);/);
+      assert.match(wiring, /`guided\.weekday\.\$\{new Date\(todayStartMs\)\.getDay\(\)\}`/);
+      assert.match(wiring, /\}, \[homeActivePlanCard\?\.currentWeek, preferences\.appLanguage, todayStartMs\]\);/);
       // And the coach's "on the plan today" reads the same day.
       assert.match(wiring, /trainsOn\(homeTrainingSchedule, new Date\(todayStartMs\)\)/);
     },
