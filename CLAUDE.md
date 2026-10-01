@@ -10,6 +10,9 @@ npm run android         # Launch on Android emulator / device
 npm run typecheck       # TypeScript type check (no emit)
 npm run test:unit       # Run all unit tests (requires .test-dist to be up to date)
 npm run android:release # Build signed Android APK via Gradle
+npm run release:ios      # Store build for iOS, behind the version guard (scripts/releaseGuard.cjs)
+npm run release:android  # The same for Android
+npm run release:ios:done # After the store accepted it: tags ios-v<version>, so that version cannot ship twice
 npm run exercise:sync   # Regenerate src/data/generatedExerciseLibrary.ts
 npm run texts:export    # Regenerate outputs/app-texts-fi-en/ (every static text, EN beside FI)
 npm run slack:notify    # Post a note to a Slack channel (see docs/slack-workflow.md)
