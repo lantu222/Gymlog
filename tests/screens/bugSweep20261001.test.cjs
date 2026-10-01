@@ -36,4 +36,40 @@ module.exports = [
       assert.match(source, /activityTick,\s*(\/\/[^\n]*\n\s*)*workout\.activeSession\?\.templateName,/);
     },
   },
+  {
+    // React #520 on finish: GuidedPlayer returned early before ~20 hooks and
+    // rendered once with no session while the route moved to the summary.
+    name: 'guided player: no session is decided before the player and its hooks mount',
+    run() {
+      const source = read('src', 'screens', 'GuidedPlayerScreen.tsx');
+      const outer = source.slice(
+        source.indexOf('export function GuidedPlayerScreen('),
+        source.indexOf('function GuidedPlayer({'),
+      );
+      assert.match(outer, /const \{ activeSession \} = useWorkoutContext\(\);/);
+      const gate = outer.indexOf('if (!activeSession) {');
+      assert.ok(gate > 0 && gate < outer.indexOf('<GuidedPlayer {...props} />'), 'the player mounts before the session check');
+      // Every hook of the outer component sits above its return.
+      assert.ok(outer.lastIndexOf('use') < gate || !/\buse[A-Z]\w*\(/.test(outer.slice(gate)), 'a hook after the early return');
+    },
+  },
+  {
+    // "Warm up your own way" read as disabled on web: its splash wrapper was a
+    // disabled Pressable, which marks its children aria-disabled.
+    name: 'guided splash: a choice splash is inert by having no onPress, not by being disabled',
+    run() {
+      const source = read('src', 'screens', 'GuidedPlayerScreen.tsx');
+      assert.match(source, /onPress=\{splashCarriesChoice\(step\) \? undefined : advance\}/);
+      assert.doesNotMatch(source, /disabled=\{splashCarriesChoice\(step\)\}/);
+      assert.match(source, /focusable=\{!splashCarriesChoice\(step\)\}/);
+    },
+  },
+  {
+    // Web: the font patch put an array style on a DOM <span> and crashed.
+    name: 'font patch: a host element gets one style object, never an array',
+    run() {
+      const source = read('src', 'globalFont.ts');
+      assert.match(source, /typeof \(element as \{ type\?: unknown \}\)\.type === 'string'\s*\? \{ \.\.\.flat, \.\.\.resolved \}\s*: \[element\.props\.style, resolved\]/);
+    },
+  },
 ];

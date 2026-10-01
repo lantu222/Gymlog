@@ -80,7 +80,14 @@ export function useNotificationRoute(deps: NotificationRouteDeps): void {
      * destination for is still a response that has been seen, and leaving it
      * stored only means re-reading it on the next launch to ignore it again.
      */
-    const cold = Notifications.getLastNotificationResponse();
+    // Throws on web, where there is no stored response to read (#bugs
+    // 2026-10-01 browser smoke test): nothing launched the app from a shade.
+    let cold: Notifications.NotificationResponse | null = null;
+    try {
+      cold = Notifications.getLastNotificationResponse();
+    } catch {
+      cold = null;
+    }
     if (cold) {
       handle(cold);
       Notifications.clearLastNotificationResponse();

@@ -75,6 +75,7 @@ function applyBaseFont(component: RenderableComponent) {
 
     const family = familyForWeight(flat.fontWeight);
 
+    const resolved = { fontFamily: family, fontWeight: 'normal' as const };
     return {
       ...element,
       props: {
@@ -82,7 +83,15 @@ function applyBaseFont(component: RenderableComponent) {
         // Append so the resolved static family wins. The static file already
         // carries the weight, so force fontWeight normal to avoid Android
         // synthesizing a second bold on top of it.
-        style: [element.props.style, { fontFamily: family, fontWeight: 'normal' as const }],
+        //
+        // One object, not an array, when the render returned a host element:
+        // on web that is a DOM <span>, whose `style` is a CSSStyleDeclaration
+        // and cannot take an array ("Failed to set an indexed property [0]",
+        // #bugs 2026-10-01 browser smoke test). Native keeps the array.
+        style:
+          typeof (element as { type?: unknown }).type === 'string'
+            ? { ...flat, ...resolved }
+            : [element.props.style, resolved],
       },
     };
   };
