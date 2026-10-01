@@ -1,6 +1,8 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+const { between } = require('../helpers/sourceSlices.cjs');
 
 const root = path.join(__dirname, '..', '..');
 const DIST = path.join(root, '.test-dist');
@@ -8,8 +10,6 @@ const gate = require(path.join(DIST, 'lib', 'appUpdateGate.js'));
 
 // Comments are stripped before the source guards read a file: the comments
 // here name the very calls the guards look for.
-const { readAppWiring } = require('../helpers/appWiringSource.cjs');
-const { between } = require('../helpers/sourceSlices.cjs');
 const strip = (source) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 const read = (file) => strip(fs.readFileSync(path.join(root, file), 'utf8'));
 
@@ -143,7 +143,8 @@ module.exports = [
 
       const app = read('App.tsx');
       assert.match(app, /registerAppIdentity\(Constants\.expoConfig\?\.version \?\? appInfo\.version, Platform\.OS\)/);
-      assert.match(app, /<AppUpdateDialog language=\{preferences\.appLanguage\} held=\{appUpdateHeld\} \/>/);
+      // The dialog mounts in the shell's render tail, which moved to src/app.
+      assert.match(strip(readAppWiring()), /<AppUpdateDialog language=\{preferences\.appLanguage\} held=\{appUpdateHeld\} \/>/);
       // Never over the terms sheet, the tour or a workout in progress (review, 2026-09-28).
       // Bounded on both anchors, read from the whole shell: the hold left
       // App.tsx for a src/app hook in the phase-C split (2026-10-01).

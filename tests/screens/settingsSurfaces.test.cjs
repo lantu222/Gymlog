@@ -260,7 +260,6 @@ module.exports = [
       for (const name of ['renderRecommendation', 'renderProjectedPreview', 'onCompleteToProgramDetail', 'onCompleteToCustom', 'onSkip']) {
         assert.doesNotMatch(onboarding, new RegExp(`\\b${name}\\b`), `${name} is back in OnboardingScreen`);
       }
-      const app = stripComments(read('App.tsx'));
       // The dead handlers are checked over the whole shell — App.tsx and the
       // src/app modules the phase-B split (2026-09-30) moved VinhaApp's hooks
       // into — so none of them can come back in a hook either.
@@ -279,7 +278,9 @@ module.exports = [
       }
       // The back button on the first question still has somewhere to go.
       assert.match(onboarding, /void runAction\(\(\) => onBackToEntry\?\.\(\)\);/);
-      assert.match(app, /onBackToEntry=\{\(\) => setOnboardingStep\('about'\)\}/);
+      // Over the shell: the first run's render moved to
+      // src/app/renderOnboarding.tsx (phase C, 2026-10-01).
+      assert.match(shell, /onBackToEntry=\{\(\) => setOnboardingStep\('about'\)\}/);
     },
   },
 ];

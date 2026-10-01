@@ -188,7 +188,11 @@ module.exports = [
       //      free reader already has for nothing.
       //
       // Nothing fails at runtime when this slips. Only this holds it.
-      const send = app.match(/onSendDemoQuestion=\{\(\) => \{[\s\S]*?\n {8}\}\}/);
+      // Ends at the handler's own `}}` whatever its indent: the completion
+      // screen moved to src/app/renderWorkoutCompletion.tsx (phase C,
+      // 2026-10-01) one level shallower, and a fixed-indent end ran on past it
+      // into the next file.
+      const send = app.match(/onSendDemoQuestion=\{\(\) => \{[\s\S]*?\r?\n[ \t]*\}\}/);
       assert.ok(send, 'the completion screen should wire onSendDemoQuestion');
       assert.doesNotMatch(
         send[0],
@@ -200,6 +204,11 @@ module.exports = [
       const home = read('src', 'app', 'renderHomeScreens.tsx');
       const writes = home.match(/markCoachDemoMomentUsed\(/g) || [];
       assert.equal(writes.length, 1, 'exactly one place in the app may spend a moment');
+      assert.equal(
+        (app.match(/markCoachDemoMomentUsed\(/g) || []).length,
+        1,
+        'and no other place in the shell spends one either',
+      );
 
       const sentAt = home.indexOf('onDemoQuestionSent={');
       const answeredAt = home.indexOf('onDemoQuestionAnswered={');

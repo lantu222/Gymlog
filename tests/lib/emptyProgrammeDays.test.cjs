@@ -2,13 +2,13 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 const { getHomeDayView, sessionForSlot } = require('../../.test-dist/lib/homeCalendar.js');
 const { hasOnlyEmptyDays, nextStartableSessionIndex } = require('../../.test-dist/lib/programSessionList.js');
 const { weekdaySchedule } = require('../../.test-dist/lib/trainingSchedule.js');
 const { findHomeWidgetNextSession, resolveHomeWidgetSessionTap } = require('../../.test-dist/lib/widgetPayload.js');
 
 const root = path.join(__dirname, '..', '..');
-const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 const read = (...segments) => fs.readFileSync(path.join(root, ...segments), 'utf8').replace(/\r\n/g, '\n');
 const strip = (source) =>
   source.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
@@ -128,7 +128,9 @@ module.exports = [
       assert.equal(hasOnlyEmptyDays([0, 3]), false);
       assert.equal(hasOnlyEmptyDays([]), false);
 
-      const app = strip(read('App.tsx'));
+      // The whole shell: the <HomeScreen> element moved out of App.tsx into
+      // src/app/renderHomeDashboard.tsx; the memo stays in App.tsx.
+      const app = strip(readAppWiring().replace(/\r\n/g, '\n'));
       assert.match(
         app,
         /const homeEmptyProgramme = useMemo\(\(\) => \{\s*if \(homeActivePlanCard\) \{\s*return null;\s*\}/,

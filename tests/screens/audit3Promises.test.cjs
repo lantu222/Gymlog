@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { readAppWiring } = require('../helpers/appWiringSource.cjs');
-const { windowBefore } = require('../helpers/sourceSlices.cjs');
+const { between, windowBefore } = require('../helpers/sourceSlices.cjs');
 
 const ROOT = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8').replace(/\r\n/g, '\n');
@@ -141,15 +141,41 @@ module.exports = [
         'the import error renders in one branch only',
       );
 
-      // And every caller answers it.
-      for (const file of [['App.tsx'], ['src', 'app', 'renderProfileTab.tsx'], ['src', 'app', 'renderWorkoutTab.tsx']]) {
+      // And every caller answers it — found in App.tsx and every src/app
+      // module rather than listed by file, since the shell's render tail (the
+      // settings sheet's caller) moved into src/app (phase C). Each file is
+      // read on its own, so a handler cannot run on into the next file.
+      const opener = 'onImportProgram={async (draft) => {';
+      const shellFiles = [
+        ['App.tsx'],
+        ...fs
+          .readdirSync(path.join(ROOT, 'src', 'app'))
+          .filter((name) => /\.tsx?$/.test(name))
+          .sort()
+          .map((name) => ['src', 'app', name]),
+      ];
+      let callers = 0;
+      const perFile = new Map();
+      for (const file of shellFiles) {
         const source = strip(read(...file));
-        const at = source.indexOf('onImportProgram={async (draft) => {');
-        assert.notEqual(at, -1, `${file.join('/')} no longer imports programmes`);
-        const wiring = source.slice(at, source.indexOf('}}', at));
-        assert.match(wiring, /if \(!workoutTemplateId\) \{[\s\S]{0,200}return false;/, `${file.join('/')} does not report a refusal`);
-        assert.match(wiring, /return true;/, `${file.join('/')} does not report a save`);
+        for (let at = source.indexOf(opener); at !== -1; at = source.indexOf(opener, at + opener.length)) {
+          callers += 1;
+          perFile.set(file.join('/'), (perFile.get(file.join('/')) ?? 0) + 1);
+          const wiring = between(source.slice(at), opener, '}}');
+          assert.match(wiring, /if \(!workoutTemplateId\) \{[\s\S]{0,200}return false;/, `${file.join('/')} does not report a refusal`);
+          assert.match(wiring, /return true;/, `${file.join('/')} does not report a save`);
+        }
       }
+      // The settings sheet, the profile tab and the workout tab: one each, so
+      // a lost caller cannot be made up for by a duplicated one.
+      assert.equal(callers, 3, `expected three programme import callers, found ${callers}`);
+      assert.equal(perFile.get('src/app/renderProfileTab.tsx'), 1, 'the profile tab no longer imports programmes');
+      assert.equal(perFile.get('src/app/renderWorkoutTab.tsx'), 1, 'the workout tab no longer imports programmes');
+      assert.equal(
+        (perFile.get('App.tsx') ?? 0) + (perFile.get('src/app/renderAppShell.tsx') ?? 0),
+        1,
+        "the settings sheet's import is not in the shell",
+      );
     },
   },
   {

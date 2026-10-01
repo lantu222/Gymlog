@@ -67,8 +67,11 @@ module.exports = [
       assert.match(wiring, /const recordDates = useMemo\(\(\) => firstRecordDates\(personalRecords\), \[personalRecords\]\)/);
       // The ledger travels to the tab; the facts stop at it, because the card
       // no longer takes a second model of the same log.
-      const deps = between(app, 'lifetimeSummary,\n      milestoneLedger,', 'distinctRecordCount,\n    });');
-      assert.ok(deps.length > 10, 'the deps block moved — recheck by hand');
+      // Matched at any indent; lazy, so it ends at the first close after it.
+      const depsMatch = app.match(/lifetimeSummary,\n[ \t]*milestoneLedger,[\s\S]*?distinctRecordCount,\n[ \t]*\}\);/);
+      assert.ok(depsMatch, 'the deps block moved — recheck by hand');
+      const deps = depsMatch[0];
+      assert.ok(deps.length > 10 && deps.length < 400, 'the deps block moved — recheck by hand');
       assert.match(tab, /milestoneLedger: React\.ComponentProps<typeof MilestonesScreen>\['ledger'\]/);
       assert.doesNotMatch(tab, /milestoneFacts/);
     },

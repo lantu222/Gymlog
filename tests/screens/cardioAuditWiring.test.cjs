@@ -77,7 +77,9 @@ module.exports = [
       // Near the top: before the plateau card and the session hero.
       assert.ok(home.indexOf('{activeCardioActivity && onOpenCardio ? (') < home.indexOf('{plateau ? ('));
 
-      const app = code(read('App.tsx'));
+      // The <HomeScreen> element moved from App.tsx to
+      // src/app/renderHomeDashboard.tsx (phase C, 2026-10-01): read the shell.
+      const app = code(readAppWiring().replace(/\r\n/g, '\n'));
       assert.match(app, /activeCardioActivity=\{workout\.activeCardio\?\.activityType \?\? null\}/);
       assert.match(
         app,
