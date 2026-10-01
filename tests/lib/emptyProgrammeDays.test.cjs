@@ -154,7 +154,9 @@ module.exports = [
   {
     name: 'setup hand-off: the page stays up until its write lands, and a refusal is said on it',
     run() {
-      const app = strip(read('App.tsx'));
+      // The whole shell: the hand-off's hold and its Done handler left App.tsx
+      // for src/app in the phase-C split (2026-10-01).
+      const app = strip(readAppWiring().replace(/\r\n/g, '\n'));
       assert.match(app, /\(!preferences\.setupHandoffCompleted \|\| setupHandoffHeld\) &&/);
       // And what it shows is frozen for the write: the patch re-plans the page.
       assert.match(

@@ -158,7 +158,14 @@ module.exports = [
 
       // The shell's route listener, newest after onboarding closes, hands the
       // key on while the hand-off is up — after closing a document over it.
-      const listener = between(app, "BackHandler.addEventListener('hardwareBackPress', () => {", 'navigateBack(nextRoute);');
+      // Found by its own first stand-down and bounded by its deps, not as
+      // "the first listener" in the shell: it left App.tsx for a src/app hook
+      // (phase-C split, 2026-10-01), and the first one in the file order of
+      // App.tsx + src/app is whichever module sorts first.
+      const standDown = "if (cardioRunActive && route.tab === 'home' && route.screen === 'cardio') {";
+      assert.equal(app.split(standDown).length - 1, 1, 'the route-level back is not one listener');
+      const routeBack = between(app, standDown, '}, [cardioRunActive, navigationState.history.length, onboardingActive, route]);');
+      const listener = between(routeBack, "BackHandler.addEventListener('hardwareBackPress', () => {", 'navigateBack(nextRoute);');
       assert.match(listener, /if \(setupHandoffActiveRef\.current\) \{\s*return false;\s*\}/);
       assert.ok(
         listener.indexOf('handoffLegalOpenRef.current') < listener.indexOf('setupHandoffActiveRef.current'),

@@ -5,6 +5,8 @@ const path = require('node:path');
 const { localizeSessionName, localizeSessionFocus } = require('../../.test-dist/lib/sessionNameLabel.js');
 const { formatHomeSessionTitle } = require('../../.test-dist/app/homeSessionTitle.js');
 const { bodyPartLabel } = require('../../.test-dist/lib/i18n.js');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+const { between } = require('../helpers/sourceSlices.cjs');
 
 const root = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(root, ...parts), 'utf8').replace(/\r\n/g, '\n');
@@ -88,8 +90,14 @@ module.exports = [
       assert.doesNotMatch(builder, /`Day \$\{index \+ 1\}`/, 'a blank day name uses tpl.dayWord');
       assert.match(builder, /name: name\.trim\(\) \|\| t\(language, 'tpl\.namePlaceholder'\)/);
 
-      const app = read('App.tsx');
-      const draft = app.slice(app.indexOf('const templateBuilderDraft = useMemo'), app.indexOf('if (!nativeSplashHidden'));
+      // The whole shell, App.tsx and src/app, so the draft is found wherever
+      // the split puts it; bounded at its own deps line, not at the early
+      // return it no longer has to sit above.
+      const draft = between(
+        readAppWiring(),
+        'const templateBuilderDraft = useMemo',
+        '}, [getWorkoutTemplateSessions, preferences.appLanguage, route, workoutTemplates]);',
+      );
       assert.ok(draft.length > 200, 'templateBuilderDraft moved — recheck by hand');
       assert.doesNotMatch(draft, /'Day [123]'/, 'the builder\'s starting days are named in the reader\'s language');
       assert.match(draft, /t\(preferences\.appLanguage, 'tpl\.dayWord'\)/);

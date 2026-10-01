@@ -7,6 +7,7 @@ const {
   planSetupHandoff,
   resolveSetupTrackingOffer,
 } = require('../../.test-dist/lib/setupHandoff.js');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 module.exports = [
   {
@@ -350,7 +351,10 @@ module.exports = [
      */
     name: 'the back key closes a document opened over the hand-off',
     run() {
-      const app = fs.readFileSync(path.join(__dirname, '..', '..', 'App.tsx'), 'utf8');
+      // The whole shell: both listeners left App.tsx for one src/app hook in
+      // the phase-C split (2026-10-01), in the order they were declared, so
+      // `route < own` still compares positions within one file.
+      const app = readAppWiring();
       const own = app.search(
         /if \(!handoffLegalDocument\) \{\s*return undefined;\s*\}\s*const subscription = BackHandler\.addEventListener\('hardwareBackPress', \(\) => \{\s*setHandoffLegalDocument\(null\);\s*return true;/,
       );

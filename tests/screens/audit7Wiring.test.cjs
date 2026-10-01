@@ -36,8 +36,10 @@ module.exports = [
       const tab = strip(read('src', 'app', 'renderProfileTab.tsx').replace(/\r\n/g, '\n'));
       const myData = elementBlock(tab, 'MyDataScreen');
       assert.match(myData, /latestWeighInKg=\{latestWeighInKg\}/);
-      const app = strip(read('App.tsx').replace(/\r\n/g, '\n'));
-      assert.match(app, /const latestWeighInKg = bodyweightProgress\.latest\?\.weight \?\? null;/);
+      // The whole shell, App.tsx and src/app: the setup readings left
+      // VinhaApp for a hook in the phase-C split (2026-10-01).
+      const shell = strip(readAppWiring().replace(/\r\n/g, '\n'));
+      assert.match(shell, /const latestWeighInKg = bodyweightProgress\.latest\?\.weight \?\? null;/);
       assert.match(myData, /onOpenWeighIns=\{\(\) => navigate\(\{ tab: 'progress', screen: 'bodyweight' \}\)\}/);
 
       // Newest by date, whatever order the log is stored in — the same entry
@@ -78,12 +80,12 @@ module.exports = [
 
       // Only the questionnaire reads the log's weight. The recommendation and
       // the composed onboarding week stay on the stored answers.
+      const shell = strip(readAppWiring().replace(/\r\n/g, '\n'));
+      assert.match(shell, /const setupSelection = useMemo\(\(\) => buildSetupSelectionFromPreferences\(preferences\), \[setupSelectionKey\]\);/);
+      assert.match(shell, /buildSetupSelectionFromPreferences\(preferences, latestWeighInKg\),\s*\[setupSelectionKey, latestWeighInKg\],/);
       const app = strip(read('App.tsx').replace(/\r\n/g, '\n'));
-      assert.match(app, /const setupSelection = useMemo\(\(\) => buildSetupSelectionFromPreferences\(preferences\), \[setupSelectionKey\]\);/);
-      assert.match(app, /buildSetupSelectionFromPreferences\(preferences, latestWeighInKg\),\s*\[setupSelectionKey, latestWeighInKg\],/);
       // The setup route's render moved to src/app/renderOnboarding.tsx
       // (phase C, 2026-10-01), so the editor is looked for over the shell.
-      const shell = strip(readAppWiring().replace(/\r\n/g, '\n'));
       const editor = shell.match(/<OnboardingScreen\s[^>]*?mode="edit"[\s\S]*?\/>/);
       assert.ok(editor, 'the setup route renders the questionnaire in edit mode');
       assert.match(editor[0], /initialSelection=\{setupEditSelection\}/);

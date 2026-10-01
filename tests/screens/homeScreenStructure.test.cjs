@@ -877,8 +877,15 @@ module.exports = [
       // editSchedule: true, because landing on a read-only schedule with an
       // Edit button is not what "Pick your training days" promised. The
       // receiving end moved to src/app with the profile tab (phase A), so it
-      // is read from the whole wiring, not App.tsx alone.
-      assert.match(appSource, /screen: 'training_plan', editSchedule: true/);
+      // is read from the whole wiring, not App.tsx alone. The sending end is
+      // Home's own "Pick your training days" handler, read from the whole
+      // shell too: phase C moved both App.tsx writers of this route (the
+      // widget tap and the Home element) into src/app, and a pin on App.tsx
+      // alone held only while one of them was still there.
+      assert.match(
+        shellSource,
+        /onSetTrainingDays=\{\(\) =>\s*navigate\(\{ tab: 'profile', screen: 'training_plan', editSchedule: true \}\)\s*\}/,
+      );
       assert.match(
         require('../helpers/appWiringSource.cjs').readAppWiring(),
         /startEditingSchedule=\{route\.editSchedule === true\}/,

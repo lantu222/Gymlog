@@ -146,7 +146,9 @@ module.exports = [
       // The dialog mounts in the shell's render tail, which moved to src/app.
       assert.match(strip(readAppWiring()), /<AppUpdateDialog language=\{preferences\.appLanguage\} held=\{appUpdateHeld\} \/>/);
       // Never over the terms sheet, the tour or a workout in progress (review, 2026-09-28).
-      const held = between(app, 'const appUpdateHeld =', 'const renderLegalConsent');
+      // Bounded on both anchors, read from the whole shell: the hold left
+      // App.tsx for a src/app hook in the phase-C split (2026-10-01).
+      const held = between(strip(readAppWiring()), 'const appUpdateHeld =', 'const renderLegalConsent');
       assert.match(held, /legalConsentDue !== null/);
       assert.match(held, /workout\.activeSession !== null/);
       assert.match(held, /Boolean\(tourElement\)/);

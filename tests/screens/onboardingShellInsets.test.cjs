@@ -93,6 +93,13 @@ module.exports = [
       assert.match(rule, /onboardingScreenActive\s*\?[\s\S]{0,1200}\['left', 'right'\]\s*:\s*\['top', 'left', 'right', 'bottom'\]/);
       assert.doesNotMatch(rule, /onboardingActive\s*\?\s*\['top'/);
       assert.doesNotMatch(rule, /onboardingScreenActive\s*\?\s*\['top'/);
+      // The brand splash's shell stays in App.tsx. The slice above used to
+      // start there by accident (its first `safeAreaEdges={`); it is held to
+      // the same two shapes on purpose now that the rule lives elsewhere.
+      const splash = between(readAppWiring(), 'if (!brandSplashDone) {', '</AppShell>');
+      assert.match(splash, /<AppShell safeAreaEdges=\{\['left', 'right'\]\}>/);
+      assert.doesNotMatch(splash, /onboardingActive\s*\?\s*\['top'/);
+      assert.doesNotMatch(splash, /onboardingScreenActive\s*\?\s*\['top'/);
       // The guard is only right while the screens do read the inset.
       for (const rel of ['StartPathScreen', 'AboutYouScreen', 'OnboardingReadyCatalogScreen']) {
         const src = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'screens', `${rel}.tsx`), 'utf8');

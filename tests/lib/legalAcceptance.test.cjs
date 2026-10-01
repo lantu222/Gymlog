@@ -122,15 +122,19 @@ module.exports = [
       assert.doesNotMatch(sheet, /setVisible|visible/);
 
       const app = read('App.tsx');
-      const owed = between(app, 'const legalConsentOwed =', ';\n');
+      // The terms' state, the tour's gate and the route-level back left App.tsx
+      // for src/app hooks in the phase-C split (2026-10-01); the shell's JSX
+      // that mounts the sheet is still App.tsx's own.
+      const shell = readAppWiring().split('\r\n').join('\n');
+      const owed = between(shell, 'const legalConsentOwed =', ';\n');
       assert.match(owed, /appHydrated && brandSplashDone && !onboardingActive && !setupHandoffActive/);
       assert.match(owed, /legalAcceptanceDue\(preferences\.legalAcceptance, LEGAL_LAST_UPDATED\)/);
       // Held on screen while the answer is written: updatePreferences shows
       // the change before the disk has it (CI review of #184).
-      assert.match(app, /const legalConsentDue = legalConsentOwed \?\? legalSheetHeld;/);
+      assert.match(shell, /const legalConsentDue = legalConsentOwed \?\? legalSheetHeld;/);
       // The shell's overlay prop moved with the render tail into src/app (phase C).
-      assert.match(readAppWiring(), /legalConsentDue \? renderLegalConsent\(shellSafeAreaEdges\.includes\('bottom'\)\) : tourElement/);
-      const overlay = between(app, 'const renderLegalConsent = (shellPadsBottom: boolean) => (', '\n  );\n');
+      assert.match(shell, /legalConsentDue \? renderLegalConsent\(shellSafeAreaEdges\.includes\('bottom'\)\) : tourElement/);
+      const overlay = between(shell, 'const renderLegalConsent = (shellPadsBottom: boolean) => (', '\n  );\n');
       // The inset once, not twice: the shell usually pads the bottom already.
       assert.match(overlay, /shellPadsBottom=\{shellPadsBottom\}/);
       assert.match(
@@ -145,9 +149,9 @@ module.exports = [
       // The documents open over it, not instead of it.
       assert.ok(overlay.indexOf('<LegalDocumentScreen') > overlay.indexOf('<LegalConsentSheet'));
       // The tour waits: it would point at a screen the sheet covers.
-      assert.match(between(app, 'const tourActive =', ';\n'), /legalConsentDue === null/);
+      assert.match(between(shell, 'const tourActive =', ';\n'), /legalConsentDue === null/);
       // And the route-level back does not walk the screen behind the sheet.
-      assert.match(app, /if \(legalConsentDueRef\.current\) \{\s*return false;\s*\}/);
+      assert.match(shell, /if \(legalConsentDueRef\.current\) \{\s*return false;\s*\}/);
     },
   },
   {
@@ -171,7 +175,9 @@ module.exports = [
       assert.doesNotMatch(handoff, /handoff\.legal/);
 
       const app = read('App.tsx');
-      const done = between(app, 'const handleSetupHandoffDone = async', 'await updatePreferences(patch);');
+      // The handler left App.tsx for src/app in the phase-C split (2026-10-01).
+      const shell = readAppWiring().split('\r\n').join('\n');
+      const done = between(shell, 'const handleSetupHandoffDone = async', 'await updatePreferences(patch);');
       assert.match(done, /if \(choices\.legalAccepted\) \{\s*patch\.legalAcceptance = acceptLegal\(LEGAL_LAST_UPDATED, new Date\(\)\);/);
       // Skipping the hand-off is not accepting.
       // The hand-off's own onSkip, read from where the screen is mounted.

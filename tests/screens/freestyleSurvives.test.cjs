@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 const ROOT = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8').replace(/\r\n/g, '\n');
@@ -59,8 +60,9 @@ module.exports = [
       // the one that answers. This listener registers once on mount, and
       // App's re-subscribes on every route change after its children — so
       // without the stand-down back walked Home past both the question and
-      // the discard (CI review of #162).
-      assert.match(app, /if \(route\.tab === .workout. && route\.screen === .empty.\) \{\s*return undefined;/, "the app must stand down for the free workout");
+      // the discard (CI review of #162). The whole shell: the listener left
+      // App.tsx for a src/app hook in the phase-C split (2026-10-01).
+      assert.match(readAppWiring(), /if \(route\.tab === .workout. && route\.screen === .empty.\) \{\s*return undefined;/, "the app must stand down for the free workout");
     },
   },
   {
