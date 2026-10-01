@@ -19,6 +19,16 @@ lists what iOS needs beyond it.
   `modules/home-widget` (no widget card), `modules/exact-alarm` (iOS needs no
   grant; rest alerts go through expo-notifications).
 
+## Version numbers
+
+- `expo.version` (`1.1.0`) is what the stores show. It changes only when
+  someone edits it, so the first App Store release is 1.1.0.
+- Build numbers (`ios.buildNumber`, `android.versionCode`) are kept by EAS
+  (`appVersionSource: "remote"`) and every `production` build raises them on
+  its own (`autoIncrement`). The values in app.json are ignored by EAS builds;
+  the local Gradle release (`npm run android:release`) still reads
+  `android.versionCode` from app.json.
+
 ## Manual steps
 
 1. **Apple Developer Program** (99 USD / year). Create the App ID
