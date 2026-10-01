@@ -102,6 +102,10 @@ module.exports = [
       const afterFirst = logSet(next, instance.slotId, 0, '40', '10', '2026-10-01T09:05:00.000Z');
       assert.equal(dial(afterFirst, 1), 8);
       assert.equal(dial(afterFirst, 2), 6);
+      // Off the plan — warm-ups skipped, 60 kg from set 1 for 5 — set 2 is no
+      // longer the 50 kg set its target was for: it follows the set before.
+      const skippedWarmups = logSet(next, instance.slotId, 0, '60', '5', '2026-10-01T09:05:00.000Z');
+      assert.equal(dial(skippedWarmups, 1), 5);
     },
   },
   {

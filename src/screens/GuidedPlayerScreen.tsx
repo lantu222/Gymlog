@@ -2909,7 +2909,16 @@ function GuidedPlayer({
           ? // A ramp's plan is set by set — "10/8/6", the heaviest one more
             // than last time — not one number for every set (2026-10-01).
             t(language, 'guided.walk.planRamp', {
-              reps: instance.sets.map((set) => set.rampTargetReps ?? set.plannedRepsMax).join('/'),
+              // What the dial will open each set at when the sets go as
+              // planned: its own ramp target, and a set past the ramp carries
+              // the one before, as the dial does — not the ceiling.
+              reps: instance.sets
+                .reduce<number[]>((shown, set, index) => {
+                  const own = set.rampTargetReps ?? (index > 0 ? shown[index - 1] : undefined);
+                  shown.push(own ?? resolveTarget(step.slotId, index)?.reps ?? set.plannedRepsMax);
+                  return shown;
+                }, [])
+                .join('/'),
               rest: instance.restSecondsMin,
             })
         : loweredTarget

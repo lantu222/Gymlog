@@ -531,6 +531,10 @@ module.exports = [
       assert.equal(at(ramp, 2, { trackingMode: 'bodyweight' }), null);
       assert.equal(at(entry([[40, 10], [60, 5]], '2026-05-01T09:00:00.000Z'), 1), null);
       assert.equal(at({ ...ramp, skipped: true }, 2), null);
+      // A flagged area or a recovery hold repeats the top set, never adds.
+      assert.equal(at(ramp, 2, { cautionArea: 'lower_back' }), 5);
+      assert.equal(at(ramp, 2, { fatigueSignal: 'elevated' }), 5);
+      assert.equal(at(ramp, 2, { fatigueSignal: 'normal' }), 6);
     },
   },
 ];

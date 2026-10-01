@@ -656,6 +656,10 @@ export interface RampSetTargetInput {
   automatedProgressionEnabled: boolean;
   /** As for the missed-reps target: a session older than 90 days says nothing about today. */
   nowMs?: number;
+  /** A flagged area this lift loads: its dose does not climb on its own. */
+  cautionArea?: SetupCautionArea | null;
+  /** Recovery says not today: the top set repeats rather than adds. */
+  fatigueSignal?: ProgressionFatigueSignal;
 }
 
 /**
@@ -701,7 +705,11 @@ export function resolveRampSetTarget(input: RampSetTargetInput): number | null {
   if (!own || !(own.reps > 0)) {
     return null;
   }
-  if (Math.abs(own.loadKg - top) < 0.001 && own.reps < repsMax) {
+  // The +1 is a progression like any other: never on a lift that loads a
+  // flagged area (onboarding's promise), and not on a day recovery holds.
+  const mayAdd =
+    !input.cautionArea && input.fatigueSignal !== 'high' && input.fatigueSignal !== 'elevated';
+  if (mayAdd && Math.abs(own.loadKg - top) < 0.001 && own.reps < repsMax) {
     return own.reps + REP_INCREMENT;
   }
   return own.reps;

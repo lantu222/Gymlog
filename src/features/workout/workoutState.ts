@@ -415,6 +415,8 @@ function resolveNamedHistoryDraft(
     trackingMode: exercise.trackingMode,
     automatedProgressionEnabled: options.automatedProgressionEnabled ?? false,
     nowMs: options.nowMs ?? Date.now(),
+    cautionArea: cautionAreaLoadedBy(exercise.exerciseName, options.cautionFlags),
+    fatigueSignal: options.fatigueSignal,
   });
   // Reps short of this prescription in the borrowed session: the same weight,
   // a target those sets can meet — the one rule that may read a borrow, since
@@ -535,6 +537,8 @@ function resolveHistoricalSetDraft(
         trackingMode: exercise.trackingMode,
         automatedProgressionEnabled: options.automatedProgressionEnabled ?? false,
         nowMs: options.nowMs ?? Date.now(),
+        cautionArea,
+        fatigueSignal: options.fatigueSignal,
       });
   const missedReps = repsResolution.progressed || rampTarget !== null
     ? null

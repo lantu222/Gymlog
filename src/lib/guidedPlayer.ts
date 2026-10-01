@@ -759,10 +759,6 @@ export function resolveGuidedSetTarget(
   // the dial where the reader can meet it; the programme's reps otherwise.
   // The previous set still wins mid-session, as for bodyweight.
   //
-  // A ramp's own per-set target comes first: in 40×10, 50×8, 60×5 the set
-  // before was lifted lighter, and carrying its 10 onto the 60 kg set asked
-  // for twice what that set did (user 2026-10-01).
-  const reps = set.rampTargetReps ?? previous?.actualReps ?? set.plannedTargetReps ?? set.plannedRepsMax;
   const draftLoad = parseNumberInput(set.draftLoadText);
   // Lift what was planned and the plan stands for the next set — a ramp
   // prefilled set by set (60/70/80) stays a ramp. Change the weight and the
@@ -776,6 +772,13 @@ export function resolveGuidedSetTarget(
   // no longer the weight the app put there, and neither badge may claim it.
   const untouched =
     loadKg !== null && set.plannedLoadKg !== undefined && Math.abs(loadKg - set.plannedLoadKg) < 0.001;
+  // A ramp's own per-set target comes first while the set is on its planned
+  // weight: in 40×10, 50×8, 60×5 the set before was lifted lighter, and
+  // carrying its 10 onto the 60 kg set asked for twice what that set did
+  // (user 2026-10-01). Off the plan — warm-ups skipped, 60 kg from set 1 —
+  // the set before is the better guide, as it always was.
+  const reps =
+    (untouched ? set.rampTargetReps : undefined) ?? previous?.actualReps ?? set.plannedTargetReps ?? set.plannedRepsMax;
   return {
     reps,
     loadKg,
