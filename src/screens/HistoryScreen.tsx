@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Dimensions, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -313,7 +313,11 @@ export function HistoryScreen({
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
-  const [searchQuery, setSearchQuery] = useState('');
+  // The search field is gone (#bugs 2026-10-01, "poistetaan tuo hakukenttä
+  // ylhäältä"): the month groups are the way through a history. Kept as a
+  // name, like historyFilter below, so the scroll memory and the filter
+  // still have one place to read it from.
+  const searchQuery = '';
   // The list and the detail share one screen (below), so opening a session
   // and coming back re-renders the SAME scroll view onto much shorter
   // content and back — which snaps its native offset to 0 on the way in and
@@ -470,10 +474,10 @@ export function HistoryScreen({
                   log.sessionInserted ? t(language, 'history.badge.added') : null,
                 ].filter((flag): flag is string => Boolean(flag));
 
+                // The done sets are already on the result line above ("60 kg -
+                // 6,6,7"), so "3 tehtyä sarjaa" only said it twice (#bugs
+                // 2026-10-01). What the result line cannot show stays.
                 const statusSummary = [
-                  counts.completed > 0
-                    ? countLabel(language, counts.completed, 'history.completedSetOne', 'history.completedSetMany')
-                    : null,
                   counts.skipped > 0
                     ? countLabel(language, counts.skipped, 'history.skippedSetOne', 'history.skippedSetMany')
                     : null,
@@ -572,6 +576,18 @@ export function HistoryScreen({
           listScrollRef.current?.scrollTo({ y: target, animated: false });
         }}
       >
+        {/* History opens from Home and from Progress, so the way back is on
+            the page, not only in the system gesture (#bugs 2026-10-01). */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t(language, 'common.back')}
+          onPress={onBack}
+          style={({ pressed }) => [styles.listBack, pressed && styles.pressed]}
+        >
+          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+            <Path d="M15 5l-7 7 7 7" stroke={theme.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+          </Svg>
+        </Pressable>
         <Text style={styles.pageTitle}>{t(language, 'history.title')}</Text>
         <Text style={styles.pageSubtitle}>{t(language, 'history.subtitle')}</Text>
 
@@ -589,31 +605,6 @@ export function HistoryScreen({
           <EmptyState title={t(language, 'history.empty.title')} body={t(language, 'history.empty.body')} />
         ) : (
           <>
-            {/* The search is over the lifted sessions, and its count is of
-                them — so with runs and no lifts it printed "0 treeniä" directly
-                above the list of the reader's actual runs (CI review of #147).
-                Nothing to search, nothing to count: the card stays away and the
-                cardio section speaks for itself. */}
-            {sessions.length > 0 ? (
-              <View style={styles.browseCard}>
-                <TextInput
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  placeholder={t(language, 'history.searchPlaceholder')}
-                  placeholderTextColor={theme.faint}
-                  selectionColor={theme.purple}
-                  style={styles.searchInput}
-                />
-                {/* A list of what happened, and a search over it. The review /
-                    tracked filter chips and their "N tarkistettavaa" count are
-                    gone: they were a triage layer over a history, and a history
-                    is not a to-do list. */}
-                <Text style={styles.browseMeta}>
-                  {t(language, 'history.browse.meta', { sessions: filteredSessions.length })}
-                </Text>
-              </View>
-            ) : null}
-
             <FeelSummaryCard summary={feelSummary} language={language} />
 
             {/* "Nothing matched your search" only when there was a search.
@@ -789,6 +780,16 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingTop: spacing.lg,
     gap: 14,
   },
+  listBack: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   pageTitle: {
     color: theme.ink,
     fontSize: 30,
@@ -802,31 +803,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 14,
     lineHeight: 19,
     fontWeight: '600',
-  },
-  browseCard: {
-    backgroundColor: theme.surface,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: HAIRLINE,
-    padding: 14,
-    gap: 12,
-    ...CARD_SHADOW,
-  },
-  searchInput: {
-    height: 44,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    backgroundColor: theme.bg,
-    color: theme.ink,
-    fontSize: 14.5,
-    fontWeight: '700',
-  },
-  browseMeta: {
-    color: theme.faint,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
   },
   monthHead: {
     flexDirection: 'row',
@@ -1142,18 +1118,20 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  // A step up and in ink: the weights and reps are what the row is for, and
+  // they read as small grey print under the name (#bugs 2026-10-01).
   liftName: {
     flexShrink: 1,
     color: theme.ink,
-    fontSize: 15,
-    lineHeight: 20,
+    fontSize: 16.5,
+    lineHeight: 22,
     fontWeight: '800',
   },
   liftResult: {
-    marginTop: 2,
-    color: theme.muted,
-    fontSize: 13,
-    lineHeight: 18,
+    marginTop: 3,
+    color: theme.ink,
+    fontSize: 15,
+    lineHeight: 20,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },

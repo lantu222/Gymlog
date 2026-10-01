@@ -183,6 +183,23 @@ export function logRecordedWork(
   return getComparableLogSets(log).some((set) => set.reps > 0);
 }
 
+/**
+ * Did this workout record any work at all — one set with reps, in any log?
+ *
+ * The finish kept a session whenever it had logs, and a log survives for a
+ * skipped exercise, a swap or a note with no set done, so a workout where
+ * nothing was lifted went into History as a finished one ("ei tallenneta
+ * enää tyhjiä treenejä", #bugs 2026-10-01).
+ */
+export function sessionRecordedWork(
+  logs: ReadonlyArray<Pick<ExerciseLog, 'sets' | 'skipped'> & { weight?: number; repsPerSet?: number[] }>,
+): boolean {
+  // A draft may carry no flat weight or reps; its sets carry their own.
+  return logs.some((log) =>
+    logRecordedWork({ ...log, weight: log.weight ?? 0, repsPerSet: log.repsPerSet ?? [] }),
+  );
+}
+
 export function getLogSetStatusCounts(
   log: Pick<ExerciseLog, 'sets' | 'weight' | 'repsPerSet' | 'skipped'> | null | undefined,
 ) {

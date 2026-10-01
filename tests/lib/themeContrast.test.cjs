@@ -215,7 +215,7 @@ module.exports = [
       assert.match(progress, /\{ dot: PW\.green, soft: PW\.greenSoft, ink: theme\.greenInk \}/);
       assert.match(progress, /\{ dot: PW\.amber, soft: PW\.amberSoft, ink: theme\.amberInk \}/);
       assert.match(progress, /\{ dot: PW\.red, soft: PW\.redSoft, ink: theme\.danger \}/);
-      assert.match(progress, /<Text style=\{\{ color: tone\.ink \}\}>\{row\.status\}<\/Text>/);
+      assert.match(progress, /<Text style=\{\[styles\.readStatus, \{ color: tone\.ink \}\]\}>\{row\.status\}<\/Text>/);
       for (const [name, theme] of THEMES) {
         for (const ink of ['greenInk', 'amberInk', 'danger']) {
           atLeast(contrastRatio(theme[ink], theme.surface), WCAG_AA_TEXT, `${name} ${ink} on the read's card`);

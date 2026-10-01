@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 
 import { ExerciseSetLog, SET_LOG_SESSIONS } from '../lib/exerciseSetLog';
@@ -10,7 +10,7 @@ import { BlurredPreview } from './BlurredPreview';
 import { CutSurface } from './CutSurface';
 import { libraryLabel } from '../lib/libraryLabel';
 import { PersonalRecord } from '../lib/personalRecords';
-import { Theme, useTheme, useThemedStyles } from '../theming';
+import { Theme, darkTheme, useTheme, useThemedStyles } from '../theming';
 import type { AppLanguage } from '../types/models';
 import { formatDateNumeric, removeTrailingZeros } from '../lib/format';
 
@@ -28,6 +28,8 @@ import { formatDateNumeric, removeTrailingZeros } from '../lib/format';
  * been worse than either, because what is behind this lock is the reader's own
  * training.
  */
+
+type BestTone = 'weight' | 'reps' | 'volume';
 
 /** One blurred line per session, and the box is sized from it. */
 const BLURRED_LINE_HEIGHT = 30;
@@ -199,6 +201,36 @@ export function SetLogSheet({
   const styles = useThemedStyles(makeStyles);
   const theme = useTheme();
   const [curveWidth, setCurveWidth] = useState(280);
+  /**
+   * Pulled down from the top to close, like the exercise sheet: the backdrop
+   * above it was the only way out, and a short sheet left little of it
+   * (#bugs 2026-10-01, "vedettävä nappi ylhäältä alas"). A transform, so the
+   * drag moves pixels, not layout.
+   */
+  const dragY = useRef(new Animated.Value(0)).current;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  useEffect(() => {
+    dragY.setValue(0);
+  }, [visible, dragY]);
+  const pan = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, gesture) =>
+          gesture.dy > 4 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+        onPanResponderMove: (_, gesture) => dragY.setValue(Math.max(0, gesture.dy)),
+        onPanResponderRelease: (_, gesture) => {
+          if (gesture.dy > 90 || gesture.vy > 0.8) {
+            onCloseRef.current();
+          } else {
+            Animated.spring(dragY, { toValue: 0, useNativeDriver: true, bounciness: 0, speed: 18 }).start();
+          }
+        },
+        onPanResponderTerminate: () =>
+          Animated.spring(dragY, { toValue: 0, useNativeDriver: true, bounciness: 0, speed: 18 }).start(),
+      }),
+    [dragY],
+  );
 
   if (!log) {
     return null;
@@ -228,19 +260,19 @@ export function SetLogSheet({
         ? t(language, 'setlog.recentOne')
         : t(language, 'setlog.recent', { count: log.sessions.length });
 
-  const bests: Array<{ labelKey: I18nKey; value: string; meta: string } | null> = [
-    best(log.bestWeight, 'setlog.best.weight', (record) => ({
+  const bests: Array<{ labelKey: I18nKey; value: string; meta: string; tone: BestTone } | null> = [
+    best(log.bestWeight, 'setlog.best.weight', 'weight', (record) => ({
       value: `${decimal(record.value, language)} kg`,
       meta: `× ${record.companion ?? 0} · ${formatDay(record.performedAt, language)}`,
     })),
-    best(log.bestReps, 'setlog.best.reps', (record) => ({
+    best(log.bestReps, 'setlog.best.reps', 'reps', (record) => ({
       value:
         record.companion === null
           ? `${record.value}`
           : `${record.value} × ${decimal(record.companion, language)}`,
       meta: formatDay(record.performedAt, language),
     })),
-    best(log.bestVolume, 'setlog.best.volume', (record) => ({
+    best(log.bestVolume, 'setlog.best.volume', 'volume', (record) => ({
       value: `${thousands(record.value, language)} kg`,
       meta: formatDay(record.performedAt, language),
     })),
@@ -249,46 +281,62 @@ export function SetLogSheet({
   function best(
     record: PersonalRecord | null,
     labelKey: I18nKey,
+    tone: BestTone,
     format: (record: PersonalRecord) => { value: string; meta: string },
   ) {
     if (!record) {
       return null;
     }
-    return { labelKey, ...format(record) };
+    return { labelKey, tone, ...format(record) };
   }
 
   const shownBests = bests.filter(Boolean) as Array<{
     labelKey: I18nKey;
     value: string;
     meta: string;
+    tone: BestTone;
   }>;
+  // One colour per kind of best, so the three read apart at a glance
+  // (#bugs 2026-10-01, "isompi ja värikoodattu"): weight violet, reps green,
+  // the session's volume amber — each a wash with its own ink on top.
+  const bestColors: Record<BestTone, { fill: string; border: string; ink: string }> = {
+    weight: { fill: theme.purpleLight, border: theme.purple, ink: theme.proInk },
+    reps: { fill: theme.greenSoft, border: theme.green, ink: theme.greenInk },
+    volume: { fill: theme.amberSoft, border: theme.amberBorder, ink: theme.amberInk },
+  };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose} />
-      <View style={[styles.sheet, { paddingBottom: 26 + bottomInset }]}>
-        <View style={styles.grabber} />
+      <Animated.View
+        style={[styles.sheet, { paddingBottom: 26 + bottomInset, transform: [{ translateY: dragY }] }]}
+      >
+        {/* The pull zone is the grip and the title together, not the grip's
+            four pixels alone. */}
+        <View {...pan.panHandlers} style={styles.dragArea}>
+          <View style={styles.grabber} />
 
-        <View style={styles.head}>
-          <View style={styles.headCopy}>
-            <Text style={styles.title} numberOfLines={1}>
-              {title}
-            </Text>
-            <Text style={styles.subtitle} numberOfLines={1}>
-              {[part, shownLabel].filter(Boolean).join(' · ')}
-            </Text>
-          </View>
-          {locked ? (
-            <View style={styles.freePill}>
-              <Text style={styles.freePillText}>
-                {t(language, 'setlog.freePill', { months: FREE_RECORD_MONTHS })}
+          <View style={styles.head}>
+            <View style={styles.headCopy}>
+              <Text style={styles.title} numberOfLines={1}>
+                {title}
+              </Text>
+              <Text style={styles.subtitle} numberOfLines={1}>
+                {[part, shownLabel].filter(Boolean).join(' · ')}
               </Text>
             </View>
-          ) : (
-            <View style={styles.proTag}>
-              <Text style={styles.proTagText}>PRO</Text>
-            </View>
-          )}
+            {locked ? (
+              <View style={styles.freePill}>
+                <Text style={styles.freePillText}>
+                  {t(language, 'setlog.freePill', { months: FREE_RECORD_MONTHS })}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.proTag}>
+                <Text style={styles.proTagText}>PRO</Text>
+              </View>
+            )}
+          </View>
         </View>
 
         {log.curve.length > 1 ? (
@@ -398,13 +446,24 @@ export function SetLogSheet({
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
             {shownBests.length > 0 ? (
               <View style={styles.bestRow}>
-                {shownBests.map((entry) => (
-                  <View key={entry.labelKey} style={styles.bestCard}>
-                    <Text style={styles.bestLabel}>{t(language, entry.labelKey)}</Text>
-                    <Text style={styles.bestValue}>{entry.value}</Text>
-                    <Text style={styles.bestMeta}>{entry.meta}</Text>
-                  </View>
-                ))}
+                {shownBests.map((entry) => {
+                  const colors = bestColors[entry.tone];
+                  return (
+                    <View
+                      key={entry.labelKey}
+                      style={[styles.bestCard, { backgroundColor: colors.fill, borderColor: colors.border }]}
+                    >
+                      <Text style={[styles.bestLabel, { color: colors.ink }]}>{t(language, entry.labelKey)}</Text>
+                      {/* Three abreast on a 360 dp phone leave a tile ~77 dp of
+                          text; "1 140 kg" at full size needs more, so it scales
+                          down rather than clip. */}
+                      <Text style={styles.bestValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                        {entry.value}
+                      </Text>
+                      <Text style={styles.bestMeta}>{entry.meta}</Text>
+                    </View>
+                  );
+                })}
               </View>
             ) : null}
 
@@ -423,7 +482,7 @@ export function SetLogSheet({
             ))}
           </ScrollView>
         )}
-      </View>
+      </Animated.View>
     </Modal>
   );
 }
@@ -446,12 +505,16 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 26,
   },
+  dragArea: { paddingTop: 10, marginTop: -10 },
+  // White on the dark sheet, where the border tone all but vanished (#bugs
+  // 2026-10-01); light keeps a grey that shows on white.
   grabber: {
     alignSelf: 'center',
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: theme.border,
+    width: 48,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: theme === darkTheme ? theme.ink : theme.border,
+    opacity: theme === darkTheme ? 0.85 : 1,
     marginBottom: 14,
   },
   head: {
@@ -536,36 +599,34 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 8,
     marginBottom: 16,
   },
+  // Fill, border and label colour come per tile (bestColors).
   bestCard: {
     flex: 1,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: theme.bg,
-    paddingHorizontal: 11,
-    paddingVertical: 10,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    paddingHorizontal: 12,
+    paddingVertical: 13,
   },
   bestLabel: {
-    color: theme.faint,
-    fontSize: 9,
-    lineHeight: 12,
+    fontSize: 10.5,
+    lineHeight: 14,
     fontWeight: '900',
-    letterSpacing: 0.7,
+    letterSpacing: 0.6,
   },
   bestValue: {
     color: theme.ink,
-    fontSize: 15,
-    lineHeight: 20,
+    fontSize: 20,
+    lineHeight: 26,
     fontWeight: '800',
-    letterSpacing: -0.2,
-    marginTop: 4,
+    letterSpacing: -0.3,
+    marginTop: 5,
   },
   bestMeta: {
-    color: theme.faint,
-    fontSize: 10,
-    lineHeight: 13,
+    color: theme.muted,
+    fontSize: 11.5,
+    lineHeight: 15,
     fontWeight: '700',
-    marginTop: 2,
+    marginTop: 3,
   },
   setsHead: {
     flexDirection: 'row',

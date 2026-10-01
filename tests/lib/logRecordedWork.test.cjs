@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 
-const { logRecordedWork } = require('../../.test-dist/lib/exerciseLog.js');
+const { logRecordedWork, sessionRecordedWork } = require('../../.test-dist/lib/exerciseLog.js');
 const { getTrackedExerciseProgress } = require('../../.test-dist/lib/progression.js');
 
 function set(reps, weight, status) {
@@ -18,6 +18,17 @@ function db(logs, strengthGoals = []) {
 }
 
 module.exports = [
+  {
+    name: 'a workout of skips, swaps and notes with no set done recorded no work (#bugs 2026-10-01)',
+    run() {
+      const skipped = { sets: [set(5, 80, 'completed')], skipped: true };
+      const untouched = { sets: [set(0, 0, 'pending'), set(0, 0, 'skipped')] };
+      // Drafts carry no flat weight or reps — the sets do.
+      assert.equal(sessionRecordedWork([skipped, untouched]), false);
+      assert.equal(sessionRecordedWork([]), false);
+      assert.equal(sessionRecordedWork([untouched, { sets: [set(6, 60, 'completed')] }]), true);
+    },
+  },
   {
     name: 'a set nobody did is not work; a bodyweight set is',
     run() {
