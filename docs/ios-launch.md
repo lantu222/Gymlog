@@ -10,6 +10,8 @@ lists what iOS needs beyond it.
   on every upload; the app only uses HTTPS).
 - `eas.json` → `preview` (internal / TestFlight-style device build) and
   `production` profiles.
+- Sign in with Apple beside Google on iPhone, with the privacy policy
+  updated (2026-10-01).
 - `app.config.js` → turns `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` into the Google
   Sign-In URL scheme. Without it, iOS has no sign-in (googleAuth.ts) and
   prebuild still succeeds.
@@ -24,10 +26,8 @@ lists what iOS needs beyond it.
 2. **Google Cloud Console** → same project as the Android client → create an
    **iOS** OAuth client for bundle id `app.vinha`. Its id goes to
    `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` (EAS env for the iOS profiles).
-3. **Sign in with Apple — decide before submitting.** App Review guideline 4.8
-   expects an equivalent privacy-focused login when an app offers a
-   third-party one. Either add Apple sign-in to the backup flow, or ship iOS
-   1.0 without `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` (backup hidden on iOS).
+3. **Sign in with Apple** is built (docs/account-backup.md). Enable the
+   "Sign in with Apple" capability on the App ID if EAS has not already.
 4. Build: `npx eas build -p ios --profile production`, then
    `npx eas submit -p ios` → TestFlight.
 5. Store listing: 6.7" and 6.5" iPhone screenshots (iPad too, since

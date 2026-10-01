@@ -153,11 +153,12 @@ async function withHook({ local, stored = null, cloud = null }, scenario) {
         return { ok: true };
       },
     },
-    './googleAuth': {
-      isGoogleSignInConfigured: () => true,
-      signInWithGoogle: async () => google.signIn,
+    './accountAuth': {
+      availableSignInProviders: () => ['google'],
+      isAccountSignInConfigured: () => true,
+      signInWith: async () => google.signIn,
       getFreshIdToken: async () => google.silent,
-      signOutGoogle: async () => undefined,
+      signOutAccount: async () => undefined,
     },
     './accountStore': {
       loadStoredAccount: async () => store.account,
@@ -362,7 +363,7 @@ module.exports = [
 
         const copy = restoreQuestionCopy(outcome.summary, 'fi');
         assert.equal(copy.title, 'Puhelimessa on toisen tilin tiedot');
-        assert.match(copy.body, /kirjattiin, kun puhelimessa oli kirjautuneena toinen Google-tili/);
+        assert.match(copy.body, /kirjattiin, kun puhelimessa oli kirjautuneena toinen tili/);
         assert.equal(copy.useBackup, 'Palauta oma varmuuskopioni');
         // Always asked twice, however the counts compare.
         assert.ok(copy.replace, 'keeping another account\'s data over your own backup was asked once');

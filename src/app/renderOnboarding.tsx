@@ -1,6 +1,7 @@
 import React from 'react';
 import { View } from 'react-native';
 
+import { availableSignInProviders } from '../features/account/accountAuth';
 import { trackEvent } from '../features/analytics/analyticsClient';
 import { FirstRunSetupSelection, getFocusAreaTitle } from '../lib/firstRunSetup';
 import { t } from '../lib/i18n';
@@ -236,11 +237,13 @@ export function renderSetupHandoff(deps: SetupHandoffDeps): React.ReactNode {
           ? getFocusAreaTitle(setupHandoffPlan.tracking.focus, preferences.appLanguage)
           : null
       }
+      signInProviders={availableSignInProviders()}
       onDone={(choices) => void handleSetupHandoffDone(choices)}
       onSkip={() =>
         void handleSetupHandoffDone({
           addWidget: false,
           signInForBackup: false,
+          signInProvider: null,
           showPro: false,
           trackedSites: [],
           legalAccepted: false,

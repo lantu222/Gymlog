@@ -1,6 +1,6 @@
 # Tietosuojaseloste
 
-*Päivitetty 30.9.2026*
+*Päivitetty 1.10.2026*
 
 Mitä Vinha tallentaa, mikä lähtee puhelimestasi ja mitä voit sille tehdä.
 
@@ -8,7 +8,7 @@ Mitä Vinha tallentaa, mikä lähtee puhelimestasi ja mitä voit sille tehdä.
 
 Vinha tallentaa treenitietosi puhelimeesi. Tämä seloste kertoo, mitä sovellus lähettää palvelimellemme, milloin ja miksi.
 
-Tällä hetkellä asioita on neljä. Vapaaehtoinen pilvivarmuuskopio lähtee, kun kirjaudut Googlella, ja AI-valmentajan verkkotila, kun luet ilmoituksen ja lähetät sen jälkeen kysymyksen, pyydät ohjelman tai tuot sellaisen valokuvasta. Nimettömät käyttötilastot sovellus lähettää itse, ellet kytke niitä pois asetuksista — niissä ei ole sisältöä eikä henkilöllisyyttä, ja ne kuvataan kokonaan alla. Jokaisessa näistä pyynnöistä kulkee lisäksi sovelluksen versionumero ja tieto siitä, onko puhelin Android vai iOS, jotta palvelimemme tunnistaa liian vanhan sovelluksen ja voi pyytää sinua päivittämään sen.
+Tällä hetkellä asioita on neljä. Vapaaehtoinen pilvivarmuuskopio lähtee, kun kirjaudut Googlella tai Applella, ja AI-valmentajan verkkotila, kun luet ilmoituksen ja lähetät sen jälkeen kysymyksen, pyydät ohjelman tai tuot sellaisen valokuvasta. Nimettömät käyttötilastot sovellus lähettää itse, ellet kytke niitä pois asetuksista — niissä ei ole sisältöä eikä henkilöllisyyttä, ja ne kuvataan kokonaan alla. Jokaisessa näistä pyynnöistä kulkee lisäksi sovelluksen versionumero ja tieto siitä, onko puhelin Android vai iOS, jotta palvelimemme tunnistaa liian vanhan sovelluksen ja voi pyytää sinua päivittämään sen.
 
 Neljäs on tarkistus, jonka sovellus tekee itse: käynnistyessään ja palatessasi siihen muutaman tunnin jälkeen se kysyy palvelimeltamme, onko kaikille Vinhan käyttäjille tiedotetta — esimerkiksi palvelukatkosta tai tietoturvaongelmasta — ja näyttää sen kerran. Pyynnössä ei kulje muuta kuin sovelluksen versio ja alusta; kuten mikä tahansa pyyntö, se näyttää palvelimellemme puhelimen internet-osoitteen, eikä siitä tallenneta mitään.
 
@@ -42,15 +42,17 @@ Uusi puhelin aloittaa siis tyhjästä, ellet käytä alla kuvattua pilvivarmuusk
 
 ## Pilvivarmuuskopio (vapaaehtoinen)
 
-Jos kirjaudut Googlella, kopio kaikesta kohdassa ”Mitä sovellus tallentaa puhelimeesi” luetellusta — paitsi kesken olevasta treenistä — lähetetään salattua yhteyttä pitkin palvelimellemme ja säilytetään siellä, jotta uusi puhelin voi palauttaa sen, kun kirjaudut uudelleen. Kirjautumista ei koskaan vaadita; jokainen toiminto toimii ilman sitä.
+Jos kirjaudut Googlella tai Applella, kopio kaikesta kohdassa ”Mitä sovellus tallentaa puhelimeesi” luetellusta — paitsi kesken olevasta treenistä — lähetetään salattua yhteyttä pitkin palvelimellemme ja säilytetään siellä, jotta uusi puhelin voi palauttaa sen, kun kirjaudut uudelleen. Kirjautumista ei koskaan vaadita; jokainen toiminto toimii ilman sitä.
 
 Googlelta saamme Google-tilisi tunnisteen, sähköpostiosoitteesi ja nimesi. Ne säilyvät puhelimessasi, jotta sovellus voi näyttää, mikä tili on kirjautuneena. Palvelimella varmuuskopio tallennetaan tunnisteen sekoitetun muodon alle; sähköpostiasi ja nimeäsi ei tallenneta sinne. Kun kirjaudut ulos, puhelin säilyttää vain niiden tilien tunnisteet, jotka ovat kirjautuneet siitä ulos, jotta sovellus kysyy ennen kuin se varmuuskopioi puhelimen tiedot seuraavaksi kirjautuvalle toiselle Google-tilille; tunnisteet poistetaan, kun tämä kirjautuminen on ratkaistu.
 
-Varmuuskopio lähetetään hetki sen jälkeen, kun kirjaat treenin, ja aina kun painat Varmuuskopioi nyt. Palvelin tarkistaa kirjautumisesi Googlelta joka pyynnöllä, tallentaa tiedoston ja luovuttaa sen vain samalle Google-tilille. Se ei lue, analysoi eikä lokita sisältöä.
+iPhonella voit kirjautua Googlen sijaan Applella. Applelta saamme Apple ID:llesi tunnisteen, jonka vain Vinha saa, ja vain ensimmäisellä kerralla nimen ja sähköpostin, jotka päätät jakaa — sähköposti voi olla Applen välittämä yksityinen osoite. Ne säilyvät puhelimessasi kuten Googlen tiedot. Puhelin vaihtaa Applen kirjautumisen kerran omaksi kirjautumiseksemme, joka säilytetään puhelimessa ja on voimassa enintään 180 päivää ja joka tarkistetaan joka varmuuskopiopyynnöllä; ennen käyttöä puhelin kysyy Applelta, oletko lopettanut Apple ID:si käytön Vinhassa, ja kirjaa sinut ulos, jos olet.
+
+Varmuuskopio lähetetään hetki sen jälkeen, kun kirjaat treenin, ja aina kun painat Varmuuskopioi nyt. Palvelin tarkistaa kirjautumisesi joka pyynnöllä, tallentaa tiedoston ja luovuttaa sen vain samalle tilille. Se ei lue, analysoi eikä lokita sisältöä.
 
 Varmuuskopion säilyttää Vercel, palvelintarjoajamme, Euroopan unionin alueella. Se säilyy, kunnes poistat sen.
 
-Asetukset → Poista pilvivarmuuskopio poistaa palvelinkopion heti. Uloskirjautuminen ei poista sitä, eikä puhelimen tietojen nollaus — nollaus kirjaa sinut ensin ulos juuri siksi, ettei tyhjä varmuuskopio koskaan korvaisi täyttä. Kopio odottaa, kunnes kirjaudut uudelleen. Jos et enää pääse sovellukseen, kirjaudu samalla Google-tilillä millä tahansa Android-puhelimella ja poista se sieltä, tai kirjoita meille.
+Asetukset → Poista pilvivarmuuskopio poistaa palvelinkopion heti. Uloskirjautuminen ei poista sitä, eikä puhelimen tietojen nollaus — nollaus kirjaa sinut ensin ulos juuri siksi, ettei tyhjä varmuuskopio koskaan korvaisi täyttä. Kopio odottaa, kunnes kirjaudut uudelleen. Jos et enää pääse sovellukseen, kirjaudu samalla tilillä millä tahansa puhelimella ja poista se sieltä, tai kirjoita meille.
 
 ## AI-valmentaja
 
@@ -95,11 +97,12 @@ Tapahtumat menevät omalle palvelimellemme eivätkä mihinkään muualle. Niitä
 
 ## Ketkä auttavat meitä
 
-Meillä ei ole omia palvelimia. Neljä yritystä käsittelee tietoja puolestamme sopimuksilla, jotka velvoittavat ne käsittelemään tietoja vain meidän ohjeidemme mukaan ja vain tässä kuvattuihin tarkoituksiin.
+Meillä ei ole omia palvelimia. Viisi yritystä käsittelee tietoja puolestamme sopimuksilla, jotka velvoittavat ne käsittelemään tietoja vain meidän ohjeidemme mukaan ja vain tässä kuvattuihin tarkoituksiin.
 
 - Vercel (Yhdysvallat): ajaa palvelimemme ja säilyttää pilvivarmuuskopiot ja käyttötapahtumat. Tallennustila on Euroopan unionin alueella.
 - Anthropic (Yhdysvallat): vastaa valmentajan kysymyksiin, koostaa ohjelmia ja lukee ohjelmakuvia, kuten yllä kuvattiin.
 - Google (Yhdysvallat): vahvistaa Google-kirjautumisesi ja hoitaa Google Playn maksut. Suhdettasi Googleen koskee Googlen oma tietosuojakäytäntö.
+- Apple (Yhdysvallat): vahvistaa Apple-kirjautumisesi iPhonella. Suhdettasi Appleen koskee Applen oma tietosuojakäytäntö.
 - Slack (Yhdysvallat): toimittaa meille tarkistettaviksi valmentajan vastaukset, joista ilmoitat, kuten yllä kuvattiin.
 
 ## Tiedot Euroopan unionin ulkopuolella
@@ -158,7 +161,7 @@ Ohjelman tai treenilokin vienti CSV-muodossa sekä kaverin kutsuminen kulkevat p
 
 ## Tietoturva
 
-Kaikki puhelimestasi lähtevä kulkee salattua yhteyttä pitkin. Palvelimella jokainen varmuuskopiopyyntö tarkistetaan Googlelta ennen kuin mitään luetaan tai kirjoitetaan, varmuuskopiot tallennetaan sekoitetun tunnisteen alle yksityiseen tallennustilaan, treenitietoja ei koskaan kirjoiteta lokeihin, ja pyyntöjen määrää rajoitetaan.
+Kaikki puhelimestasi lähtevä kulkee salattua yhteyttä pitkin. Palvelimella jokainen varmuuskopiopyyntö tarkistetaan kirjautumistasi vasten ennen kuin mitään luetaan tai kirjoitetaan, varmuuskopiot tallennetaan sekoitetun tunnisteen alle yksityiseen tallennustilaan, treenitietoja ei koskaan kirjoiteta lokeihin, ja pyyntöjen määrää rajoitetaan.
 
 Puhelimessasi sovelluksen tietoja suojaavat puhelimen oma lukitus ja Androidin sovellusten välinen eristys; sovellus ei lisää omaa salaustaan. Kuka tahansa, joka saa puhelimesi auki, voi avata Vinhan ja nähdä treenitietosi — pidä siis puhelin lukittuna.
 

@@ -1,8 +1,8 @@
 /**
- * Cloud backup endpoint: one JSON blob per Google account.
+ * Cloud backup endpoint: one JSON blob per Google or Apple account.
  *
  * Identity is a Google ID token, verified against Google's tokeninfo endpoint
- * on every request — this function keeps no session state, exactly like the
+ * on every request — or, on iPhone, an Apple session (below) — this function keeps no session state, exactly like the
  * coach endpoint keeps none. The blob pathname is an HMAC of the Google
  * subject with a server secret, so the storage URL is deterministic for the
  * server and unguessable for anyone else. The store is PRIVATE access: no
@@ -17,6 +17,8 @@
  * - Blob auth: connecting the store adds BLOB_STORE_ID and the SDK uses the
  *   function's OIDC identity — there is no BLOB_READ_WRITE_TOKEN in this flow
  * - BACKUP_PATH_SECRET     — any long random string; changing it orphans stored backups
+ * - APPLE_BUNDLE_ID        — optional, default app.vinha; an Apple identity
+ *   token's audience must match
  * - BACKUP_MAX_BYTES       — optional payload cap, default 4 MB (Vercel refuses
  *   request and response bodies over 4.5 MB whatever this says)
  *
@@ -37,7 +39,7 @@
  *   overwrites: refusing it would stop every installed phone backing up until
  *   the reader updates, which is a worse loss than the one this closes.
  */
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, createPublicKey, timingSafeEqual, verify } from 'node:crypto';
 import { BlobNotFoundError, BlobPreconditionFailedError, del, get, head, put } from '@vercel/blob';
 
 import { appUpdateRefusalBody, isAppVersionRefused } from '../src/lib/appUpdateGate';
@@ -135,6 +137,129 @@ async function verifyGoogleIdToken(idToken: string, clientId: string): Promise<V
   return { sub: info.sub };
 }
 
+/**
+ * Sign in with Apple. An Apple identity token lives ten minutes and Apple has
+ * no silent refresh like Google's, so a background backup an hour later would
+ * have nothing to send. The phone trades the identity token once, here, for an
+ * Apple session: `vs1.<payload>.<mac>`, signed with a key derived from
+ * BACKUP_PATH_SECRET, naming the Apple subject and an expiry. The phone checks
+ * with Apple that the sign-in has not been revoked before it sends one.
+ *
+ * Apple subjects are stored as `apple:<sub>`, so they can never land on a
+ * Google account's blob. Google subjects stay bare: prefixing them now would
+ * orphan every backup already stored.
+ */
+const APPLE_ISSUER = 'https://appleid.apple.com';
+const APPLE_KEYS_URL = 'https://appleid.apple.com/auth/keys';
+const APPLE_SESSION_PREFIX = 'vs1.';
+const APPLE_SESSION_DAYS = 180;
+/** The request header that asks for an Apple session instead of a backup operation. */
+const ACTION_HEADER = 'x-backup-action';
+const APPLE_SESSION_ACTION = 'apple-session';
+/** Trades a still-valid Apple session for a fresh one, so an active reader is never timed out. */
+const APPLE_RENEW_ACTION = 'apple-renew';
+
+type AppleKey = { kty: string; n: string; e: string; kid?: string; alg?: string };
+let appleKeys: { keys: AppleKey[]; fetchedAt: number } | null = null;
+
+async function loadAppleKeys(forceRefresh: boolean): Promise<AppleKey[]> {
+  // Apple rotates its keys rarely; an hour per instance spares the call,
+  // and an unknown kid refetches once.
+  if (!forceRefresh && appleKeys && Date.now() - appleKeys.fetchedAt < 60 * 60 * 1000) {
+    return appleKeys.keys;
+  }
+  const response = await fetch(APPLE_KEYS_URL);
+  if (!response.ok) {
+    return appleKeys?.keys ?? [];
+  }
+  const body = (await response.json()) as { keys?: AppleKey[] };
+  appleKeys = { keys: Array.isArray(body.keys) ? body.keys : [], fetchedAt: Date.now() };
+  return appleKeys.keys;
+}
+
+function decodeSegment<T>(segment: string): T | null {
+  try {
+    return JSON.parse(Buffer.from(segment, 'base64url').toString('utf8')) as T;
+  } catch {
+    return null;
+  }
+}
+
+function sameText(a: string, b: string): boolean {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  return left.length === right.length && timingSafeEqual(left, right);
+}
+
+/** Verifies an Apple identity token (RS256, Apple's published keys) for this app. */
+async function verifyAppleIdentityToken(idToken: string, bundleId: string): Promise<{ sub: string } | null> {
+  const parts = idToken.split('.');
+  if (parts.length !== 3) {
+    return null;
+  }
+  const [headerPart, payloadPart, signaturePart] = parts;
+  const header = decodeSegment<{ alg?: string; kid?: string }>(headerPart);
+  const payload = decodeSegment<{ iss?: string; aud?: string; sub?: string; exp?: number }>(payloadPart);
+  if (!header || !payload || header.alg !== 'RS256' || !header.kid) {
+    return null;
+  }
+  let key = (await loadAppleKeys(false)).find((candidate) => candidate.kid === header.kid);
+  if (!key) {
+    key = (await loadAppleKeys(true)).find((candidate) => candidate.kid === header.kid);
+  }
+  if (!key) {
+    return null;
+  }
+  const valid = verify(
+    'RSA-SHA256',
+    Buffer.from(`${headerPart}.${payloadPart}`),
+    createPublicKey({ key, format: 'jwk' }),
+    Buffer.from(signaturePart, 'base64url'),
+  );
+  if (!valid || payload.iss !== APPLE_ISSUER || typeof payload.sub !== 'string' || !payload.sub) {
+    return null;
+  }
+  if (typeof payload.aud !== 'string' || !sameText(payload.aud, bundleId)) {
+    console.error('backup apple aud mismatch:', String(payload.aud).slice(0, 32), 'expected:', bundleId);
+    return null;
+  }
+  if (typeof payload.exp !== 'number' || payload.exp * 1000 < Date.now()) {
+    return null;
+  }
+  return { sub: payload.sub };
+}
+
+function appleSessionKey(pathSecret: string): Buffer {
+  // Derived, not BACKUP_PATH_SECRET itself: a session mac must never double as a blob pathname.
+  return createHmac('sha256', pathSecret).update('apple-session-v1').digest();
+}
+
+function issueAppleSession(sub: string, pathSecret: string): { sessionToken: string; expiresAt: string } {
+  const expiresAtMs = Date.now() + APPLE_SESSION_DAYS * 24 * 60 * 60 * 1000;
+  const payload = Buffer.from(JSON.stringify({ sub, exp: Math.floor(expiresAtMs / 1000) })).toString('base64url');
+  const mac = createHmac('sha256', appleSessionKey(pathSecret)).update(payload).digest('base64url');
+  return { sessionToken: `${APPLE_SESSION_PREFIX}${payload}.${mac}`, expiresAt: new Date(expiresAtMs).toISOString() };
+}
+
+function verifyAppleSession(token: string, pathSecret: string): VerifiedIdentity | null {
+  const [payload, mac, extra] = token.slice(APPLE_SESSION_PREFIX.length).split('.');
+  if (!payload || !mac || extra !== undefined) {
+    return null;
+  }
+  const expected = createHmac('sha256', appleSessionKey(pathSecret)).update(payload).digest('base64url');
+  if (!sameText(mac, expected)) {
+    return null;
+  }
+  const claims = decodeSegment<{ sub?: string; exp?: number }>(payload);
+  if (!claims || typeof claims.sub !== 'string' || !claims.sub || typeof claims.exp !== 'number') {
+    return null;
+  }
+  if (claims.exp * 1000 < Date.now()) {
+    return null;
+  }
+  return { sub: `apple:${claims.sub}` };
+}
+
 /** Deterministic, unguessable pathname for one account's backup. */
 function backupPathname(sub: string, secret: string): string {
   return `backups/${createHmac('sha256', secret).update(sub).digest('hex')}.json`;
@@ -224,9 +349,46 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     return;
   }
 
+  const actionHeader = req.headers[ACTION_HEADER];
+  const action = Array.isArray(actionHeader) ? actionHeader[0] : actionHeader;
+  if (action === APPLE_RENEW_ACTION) {
+    if (req.method !== 'POST') {
+      res.status(405).json({ ok: false, error: 'METHOD_NOT_ALLOWED' });
+      return;
+    }
+    const current = token.startsWith(APPLE_SESSION_PREFIX) ? verifyAppleSession(token, pathSecret) : null;
+    if (!current) {
+      res.status(401).json({ ok: false, error: 'INVALID_TOKEN' });
+      return;
+    }
+    res.status(200).json({ ok: true, ...issueAppleSession(current.sub.slice('apple:'.length), pathSecret) });
+    return;
+  }
+  if (action === APPLE_SESSION_ACTION) {
+    if (req.method !== 'POST') {
+      res.status(405).json({ ok: false, error: 'METHOD_NOT_ALLOWED' });
+      return;
+    }
+    let apple: { sub: string } | null = null;
+    try {
+      apple = await verifyAppleIdentityToken(token, (process.env.APPLE_BUNDLE_ID ?? '').trim() || 'app.vinha');
+    } catch {
+      apple = null;
+    }
+    if (!apple) {
+      console.error('backup INVALID_APPLE_TOKEN');
+      res.status(401).json({ ok: false, error: 'INVALID_TOKEN' });
+      return;
+    }
+    res.status(200).json({ ok: true, ...issueAppleSession(apple.sub, pathSecret) });
+    return;
+  }
+
   let identity: VerifiedIdentity | null = null;
   try {
-    identity = await verifyGoogleIdToken(token, clientId);
+    identity = token.startsWith(APPLE_SESSION_PREFIX)
+      ? verifyAppleSession(token, pathSecret)
+      : await verifyGoogleIdToken(token, clientId);
   } catch {
     identity = null;
   }

@@ -4,9 +4,11 @@ import Svg, { Path } from 'react-native-svg';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AppleSignInButton } from '../components/AppleSignInButton';
 import { VinhaIcon } from '../components/VinhaIcon';
 import { LegalConsentCheck } from '../components/LegalConsentCheck';
 import { TrackChangeDialog } from '../components/TrackChangeDialog';
+import type { SignInProvider } from '../features/account/accountAuth';
 import { useHardwareBack } from '../hooks/useHardwareBack';
 import { t } from '../lib/i18n';
 import { type SetupHandoffPlan } from '../lib/setupHandoff';
@@ -16,8 +18,10 @@ import type { AppLanguage, MeasurementKind } from '../types/models';
 
 export interface SetupHandoffChoices {
   addWidget: boolean;
-  /** Start Google sign-in after the other choices land. Free and Pro alike. */
+  /** Start sign-in after the other choices land. Free and Pro alike. */
   signInForBackup: boolean;
+  /** Which sign-in the button pressed was; null when none was. */
+  signInProvider: SignInProvider | null;
   /**
    * Open the Pro page once everything else has landed.
    *
@@ -68,6 +72,8 @@ interface SetupHandoffScreenProps {
    * nothing waits for one.
    */
   legalAlreadyAccepted: boolean;
+  /** The sign-ins this build offers (accountAuth): Apple on iPhone, Google where configured. */
+  signInProviders: SignInProvider[];
 }
 
 /**
@@ -89,6 +95,7 @@ export function SetupHandoffScreen({
   onSkip,
   onOpenLegal,
   legalAlreadyAccepted,
+  signInProviders,
 }: SetupHandoffScreenProps) {
   const styles = useThemedStyles(makeStyles);
   const theme = useTheme();
@@ -99,6 +106,9 @@ export function SetupHandoffScreen({
   // ask than a widget, and the decision (2026-08-22) is that sign-in stands
   // beside the door, never in it.
   const [signInForBackup, setSignInForBackup] = useState(false);
+  // A ref, not state: the press that sets it finishes in the same handler,
+  // before state would be read back (the double-tap audit below).
+  const signInProviderRef = useRef<SignInProvider | null>(null);
   // One box for both pages that carry it: ticked on the sign-in page, it is
   // still ticked on the last one.
   const [legalChecked, setLegalChecked] = useState(false);
@@ -157,6 +167,7 @@ export function SetupHandoffScreen({
       addWidget: plan.offerWidget && widget,
       trackedSites,
       signInForBackup: plan.offerAccountBackup && signIn,
+      signInProvider: plan.offerAccountBackup && signIn ? signInProviderRef.current : null,
       showPro: plan.offerPro,
       legalAccepted: legalChecked,
     });
@@ -219,7 +230,8 @@ export function SetupHandoffScreen({
       <View style={styles.screen}>
         <View style={[styles.pageBody, styles.pageBodyCentred]}>
           <View style={styles.pageGlyph}>
-            <GoogleGlyph size={34} />
+            {/* The G only where Google is the one sign-in; beside Apple's it would pick a side. */}
+            {signInProviders.includes('apple') ? <ShieldGlyph size={34} color={theme.green} /> : <GoogleGlyph size={34} />}
           </View>
           {/* No heading (user, 2026-09-10). The G says which sign-in this is
               and the sentence says what it buys; a title between them was a
@@ -240,24 +252,40 @@ export function SetupHandoffScreen({
               onOpenLegal={onOpenLegal}
             />
           )}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !legalReady }}
-            disabled={!legalReady}
-            onPress={() => {
-              setSignInForBackup(true);
-              advance(true);
-            }}
-            style={({ pressed }) => [
-              styles.googleCta,
-              !legalAlreadyAccepted && styles.afterConsent,
-              !legalReady && styles.ctaWaiting,
-              pressed && styles.pressed,
-            ]}
-          >
-            <GoogleGlyph size={18} />
-            <Text style={styles.googleCtaText}>{t(language, 'handoff.signin.cta')}</Text>
-          </Pressable>
+          {signInProviders.includes('apple') ? (
+            <AppleSignInButton
+              variant="whiteOutline"
+              height={54}
+              disabled={!legalReady}
+              style={!legalAlreadyAccepted && styles.afterConsent}
+              onPress={() => {
+                signInProviderRef.current = 'apple';
+                setSignInForBackup(true);
+                advance(true);
+              }}
+            />
+          ) : null}
+          {signInProviders.includes('google') ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !legalReady }}
+              disabled={!legalReady}
+              onPress={() => {
+                signInProviderRef.current = 'google';
+                setSignInForBackup(true);
+                advance(true);
+              }}
+              style={({ pressed }) => [
+                styles.googleCta,
+                !legalAlreadyAccepted && styles.afterConsent,
+                !legalReady && styles.ctaWaiting,
+                pressed && styles.pressed,
+              ]}
+            >
+              <GoogleGlyph size={18} />
+              <Text style={styles.googleCtaText}>{t(language, 'handoff.signin.cta')}</Text>
+            </Pressable>
+          ) : null}
           <Pressable accessibilityRole="button" onPress={() => advance()} style={({ pressed }) => pressed && styles.pressed}>
             <Text style={styles.pageSkip}>{t(language, 'handoff.signin.skip')}</Text>
           </Pressable>
@@ -352,6 +380,15 @@ export function SetupHandoffScreen({
 }
 
 /** The four-colour Google G, for the sign-in offer row. */
+function ShieldGlyph({ size = 20, color }: { size?: number; color: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 3l7 3v6c0 4-3 6.6-7 8-4-1.4-7-4-7-8V6z" stroke={color} strokeWidth={1.8} strokeLinejoin="round" />
+      <Path d="M9 12l2 2 4-4" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 function GoogleGlyph({ size = 20 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 48 48">

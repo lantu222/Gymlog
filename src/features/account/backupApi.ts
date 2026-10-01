@@ -1,6 +1,6 @@
 /**
  * The app's side of the backup endpoint. Thin on purpose: identity comes from
- * googleAuth, the payload shape from lib/accountBackup, and this file only
+ * accountAuth, the payload shape from lib/accountBackup, and this file only
  * moves bytes. Configured by EXPO_PUBLIC_BACKUP_API_URL; without it the
  * feature is absent, same rule as the coach URL.
  */
@@ -134,6 +134,45 @@ export async function deleteBackup(idToken: string): Promise<{ ok: boolean }> {
     const body = (await response.json().catch(() => null)) as { ok?: boolean } | null;
     noteServerAnswer(response.status, body);
     return { ok: response.ok && body?.ok === true };
+  } catch {
+    return { ok: false };
+  } finally {
+    cleanup();
+  }
+}
+
+export type AppleSessionResult = { ok: true; sessionToken: string; expiresAt: string } | { ok: false };
+
+/**
+ * Trades a ten-minute Apple identity token for the server's Apple session,
+ * which the backup calls then carry instead (api/backup.ts, Sign in with Apple).
+ */
+export async function exchangeAppleSession(identityToken: string): Promise<AppleSessionResult> {
+  return requestAppleSession(identityToken, 'apple-session');
+}
+
+/** Trades a still-valid Apple session for a fresh one before it runs out. */
+export async function renewAppleSession(sessionToken: string): Promise<AppleSessionResult> {
+  return requestAppleSession(sessionToken, 'apple-renew');
+}
+
+async function requestAppleSession(bearer: string, action: 'apple-session' | 'apple-renew'): Promise<AppleSessionResult> {
+  if (!BACKUP_API_URL) {
+    return { ok: false };
+  }
+  const { signal, cleanup } = withTimeout();
+  try {
+    const response = await fetch(BACKUP_API_URL, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${bearer}`, 'x-backup-action': action, ...appVersionHeaders() },
+      signal,
+    });
+    const body = (await response.json().catch(() => null)) as { ok?: boolean; sessionToken?: unknown; expiresAt?: unknown } | null;
+    noteServerAnswer(response.status, body);
+    if (!response.ok || body?.ok !== true || typeof body.sessionToken !== 'string' || typeof body.expiresAt !== 'string') {
+      return { ok: false };
+    }
+    return { ok: true, sessionToken: body.sessionToken, expiresAt: body.expiresAt };
   } catch {
     return { ok: false };
   } finally {
