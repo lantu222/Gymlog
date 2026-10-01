@@ -207,6 +207,9 @@ export function useSessionNotifications(deps: SessionNotificationsDeps) {
     activeSessionStatus,
     completedSetCount,
     activityTick,
+    // The body names the workout: a rename mid-session reaches the nudge now,
+    // not only after the next logged set (#bugs 2026-10-01).
+    workout.activeSession?.templateName,
     preferences.notificationPrefs.idleNudge,
     preferences.appLanguage,
   ]);

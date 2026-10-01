@@ -314,6 +314,7 @@ const suites = [
   ...require('./lib/sessionClock.test.cjs'),
   ...require('./lib/sessionClockWindow.test.cjs'),
   ...require('./lib/programmeDeletion.test.cjs'),
+  ...require('./lib/programmeCopyRollback.test.cjs'),
   ...require('./features/workout/liveWorkoutKept.test.cjs'),
   ...require('./screens/liveWorkoutWiring.test.cjs'),
   ...require('./lib/historyDelete.test.cjs'),
@@ -491,6 +492,7 @@ const suites = [
   ...require('./screens/accessibilityAudit.test.cjs'),
   ...require('./screens/sheetBottomInset.test.cjs'),
   ...require('./screens/finishRouteGuard.test.cjs'),
+  ...require('./screens/bugSweep20261001.test.cjs'),
 ];
 
 (async () => {

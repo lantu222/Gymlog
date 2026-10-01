@@ -1263,6 +1263,7 @@ function VinhaApp() {
     upsertWorkoutPlan,
     updatePreferences,
     forgetHeldProgramme,
+    deleteWorkoutTemplate,
     navigate,
     showToast,
     adaptSession,

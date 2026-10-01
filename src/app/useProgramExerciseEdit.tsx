@@ -79,6 +79,8 @@ export interface ProgramExerciseEditDeps {
   upsertWorkoutPlan: (plan: WorkoutPlan) => Promise<void>;
   updatePreferences: (patch: PreferencesPatch) => Promise<void>;
   forgetHeldProgramme: (workoutTemplateId: string) => Promise<void>;
+  /** Takes back a copy whose follow-up writes failed (it stops the programme too). */
+  deleteWorkoutTemplate: (workoutTemplateId: string) => Promise<void>;
   /** VinhaApp's hoisted navigate. */
   navigate: (route: AppRoute) => void;
   /** VinhaApp's hoisted showToast. */
@@ -104,6 +106,7 @@ export function useProgramExerciseEdit(deps: ProgramExerciseEditDeps) {
     upsertWorkoutPlan,
     updatePreferences,
     forgetHeldProgramme,
+    deleteWorkoutTemplate,
     navigate,
     showToast,
     adaptSession,
@@ -509,8 +512,19 @@ export function useProgramExerciseEdit(deps: ProgramExerciseEditDeps) {
     // The link the next edit will look for.
     draft.sourceTemplateId = programId;
 
+    /**
+     * The copy, once written, until the reader's programme points at it.
+     *
+     * A failure between the two used to leave the copy behind under a toast
+     * saying the copy failed — and the next edit found it by its source and
+     * went to it (#bugs 2026-10-01, phase-B list). Until the preferences
+     * land, a failure takes it back; after that the copy IS the programme,
+     * and only the held record's cleanup is left.
+     */
+    let uncommittedCopyId: string | null = null;
     try {
       const workoutTemplateId = await upsertWorkoutTemplate(draft);
+      uncommittedCopyId = workoutTemplateId;
       const planId = buildCustomProgramPlanId(workoutTemplateId);
       // Read the ids back rather than trusting the draft's: the repository
       // assigns them, and a plan pointing at ids that were never stored is a
@@ -565,6 +579,7 @@ export function useProgramExerciseEdit(deps: ProgramExerciseEditDeps) {
             }
           : {},
       );
+      uncommittedCopyId = null;
       if (wasHeld) {
         // The record the copy replaced goes with it, whether or not it was
         // the one running. Left behind, it listed
@@ -573,7 +588,11 @@ export function useProgramExerciseEdit(deps: ProgramExerciseEditDeps) {
         // untouched original beside the copy, two slots for one programme
         // (audit round 4, 2026-09-20). The block boundary was read off it
         // above, before this.
-        await forgetHeldProgramme(template.id);
+        // Cleanup by now: the copy is the reader's programme and the edit is
+        // in, so a failure here is logged, not reported as a failed copy.
+        await forgetHeldProgramme(template.id).catch((error) => {
+          console.error('Failed to forget the held ready programme after copying it', error);
+        });
       }
       copiedInThisEditBurst.current.add(programId);
       void haptics.success();
@@ -608,6 +627,10 @@ export function useProgramExerciseEdit(deps: ProgramExerciseEditDeps) {
       );
       return true;
     } catch (error) {
+      if (uncommittedCopyId) {
+        // Best effort: the failure the reader hears about is the copy's.
+        await deleteWorkoutTemplate(uncommittedCopyId).catch(() => undefined);
+      }
       if (error instanceof ProgramLimitReachedError) {
         setProgramLimitVisible(true);
         return false;
