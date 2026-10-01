@@ -130,11 +130,6 @@ export function getProgramSeason(templateId: string): ProgramSeason | null {
   return PROGRAM_SEASONS[templateId] ?? null;
 }
 
-/** Template ids in a season, in catalog order — the caller resolves them. */
-export function getSeasonProgramIds(season: ProgramSeason): string[] {
-  return Object.keys(PROGRAM_SEASONS).filter((id) => PROGRAM_SEASONS[id] === season);
-}
-
 /**
  * The season to lead with, and the one to offer second.
  *

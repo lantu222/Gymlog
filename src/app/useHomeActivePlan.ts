@@ -196,7 +196,6 @@ export function useHomeActivePlan(deps: HomeActivePlanDeps) {
           .map((exercise) => [exercise.id, exercise] as const),
       );
       const homeSessions = orderedPlanSessions.map((session, sessionIndex) => {
-        const exerciseCount = session.exercises.length;
         // Was `exercises × 10 min`, which ignored both sets and rest. Same
         // formula as the guided entry now, so the two screens agree.
         const durationInputs = session.exercises.map((exercise) => ({

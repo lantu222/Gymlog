@@ -67,7 +67,7 @@ export function createFinishExits(deps: FinishExitsDeps) {
   function leaveFinishedWorkout(nextRoute: AppRoute) {
     startTransition(() => {
       setCompletionSummary(null);
-      setFinishSaveState({ status: 'idle', sessionId: null, message: null });
+      setFinishSaveState({ status: 'idle', sessionId: null });
       setNavigationState({ route: nextRoute, history: [] });
     });
     maybeAskForRating();

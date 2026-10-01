@@ -74,7 +74,7 @@ function compileGuard() {
 }
 
 const HOME_ROUTE = { tab: 'workout', screen: 'programs_home' };
-const IDLE = { status: 'idle', sessionId: null, message: null };
+const IDLE = { status: 'idle', sessionId: null };
 const NOW = 1_000_000;
 
 /** One mounted VinhaApp's worth of the guard: render it, read back what it did. */
@@ -165,17 +165,17 @@ module.exports = [
     run() {
       assert.deepEqual(once({}), [], 'idle is left alone');
       assert.deepEqual(
-        once({ finishSaveState: { status: 'saving', sessionId: 's_a', message: null }, workout: running('s_a') }),
+        once({ finishSaveState: { status: 'saving', sessionId: 's_a' }, workout: running('s_a') }),
         [],
         'a save for the running session stands',
       );
       assert.deepEqual(
-        once({ finishSaveState: { status: 'error', sessionId: 's_a', message: 'x' }, workout: running('s_b') }),
+        once({ finishSaveState: { status: 'error', sessionId: 's_a' }, workout: running('s_b') }),
         [['setFinishSaveState', IDLE]],
         'another session is running: back to idle',
       );
       assert.deepEqual(
-        once({ finishSaveState: { status: 'saving', sessionId: 's_a', message: null } }),
+        once({ finishSaveState: { status: 'saving', sessionId: 's_a' } }),
         [['setFinishSaveState', IDLE]],
         'nothing is running: back to idle',
       );
@@ -210,7 +210,7 @@ module.exports = [
 
       // A finish in flight, or a summary on its way, holds the route.
       assert.deepEqual(
-        once({ route: guided('ready_full_body'), finishSaveState: { status: 'saving', sessionId: null, message: null } }),
+        once({ route: guided('ready_full_body'), finishSaveState: { status: 'saving', sessionId: null } }),
         [],
       );
       const pending = { current: true };
@@ -219,7 +219,7 @@ module.exports = [
 
       // An error is not a save in flight.
       assert.deepEqual(
-        once({ route: guided('ready_full_body'), finishSaveState: { status: 'error', sessionId: null, message: 'x' } }),
+        once({ route: guided('ready_full_body'), finishSaveState: { status: 'error', sessionId: null } }),
         replaced(ROOT_ROUTES.home),
       );
 
@@ -289,7 +289,7 @@ module.exports = [
 
       // Still on its way: saving, or the flag still up — stay.
       assert.deepEqual(
-        once({ route: summaryRoute, finishSaveState: { status: 'saving', sessionId: 's_a', message: null }, workout: running('s_a') }),
+        once({ route: summaryRoute, finishSaveState: { status: 'saving', sessionId: 's_a' }, workout: running('s_a') }),
         [],
       );
       assert.deepEqual(once({ route: summaryRoute, summaryNavigationPendingRef: { current: true } }), []);
@@ -308,7 +308,7 @@ module.exports = [
     name: 'finish route guard: the reset runs before the guard in the same commit',
     run() {
       assert.deepEqual(
-        once({ route: guided('ready_full_body'), finishSaveState: { status: 'error', sessionId: 's_a', message: 'x' } }),
+        once({ route: guided('ready_full_body'), finishSaveState: { status: 'error', sessionId: 's_a' } }),
         [['setFinishSaveState', IDLE], ['replaceRoute', ROOT_ROUTES.home]],
       );
     },
@@ -328,12 +328,12 @@ module.exports = [
       assert.deepEqual(app.render({ ...base, exerciseBrowserItems: [] }), replaced(ROOT_ROUTES.workout));
 
       // The reset watches the save's status and session and the running session's id, not the objects.
-      const saving = { status: 'saving', sessionId: 's_a', message: null };
+      const saving = { status: 'saving', sessionId: 's_a' };
       const resetWorld = world({ finishSaveState: saving, workout: running('s_a') });
       const reset = mount();
       assert.deepEqual(reset.render(resetWorld), []);
       assert.deepEqual(
-        reset.render({ ...resetWorld, finishSaveState: { ...saving, message: 'changed' }, workout: running('s_a') }),
+        reset.render({ ...resetWorld, finishSaveState: { ...saving }, workout: running('s_a') }),
         [],
         'the same fields in new objects re-run neither',
       );
@@ -348,7 +348,7 @@ module.exports = [
           key === 'route'
             ? { ...at.route }
             : key === 'finishSaveState'
-              ? { status: 'error', sessionId: null, message: 'x' }
+              ? { status: 'error', sessionId: null }
               : key === 'workout'
                 ? { ...at.workout, activeSession: { sessionId: 's_z' } }
                 : key === 'completionSummary'

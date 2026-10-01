@@ -38,7 +38,6 @@ export interface RouteBackDeps {
   setFinishSaveState: (value: {
     status: 'idle' | 'saving' | 'error';
     sessionId: string | null;
-    message: string | null;
   }) => void;
   /** The workout context, through the ref that always holds the latest one. */
   workoutRef: { current: { clearCompletedWorkout: () => void } };
@@ -145,7 +144,7 @@ export function useRouteBack(deps: RouteBackDeps): void {
 
       if (route.tab === 'workout' && route.screen === 'summary') {
         setCompletionSummary(null);
-        setFinishSaveState({ status: 'idle', sessionId: null, message: null });
+        setFinishSaveState({ status: 'idle', sessionId: null });
         workoutRef.current.clearCompletedWorkout();
         navigateBack(summaryExitRouteRef.current ?? workoutHomeRoute);
         return true;

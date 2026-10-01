@@ -75,7 +75,7 @@ export function useFinishRouteGuard(deps: FinishRouteGuardDeps) {
       return;
     }
 
-    setFinishSaveState({ status: 'idle', sessionId: null, message: null });
+    setFinishSaveState({ status: 'idle', sessionId: null });
   }, [finishSaveState.sessionId, finishSaveState.status, workout.activeSession?.sessionId]);
 
   useEffect(() => {

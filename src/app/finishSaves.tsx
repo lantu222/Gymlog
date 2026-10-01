@@ -120,7 +120,7 @@ export function createFinishSaves(deps: FinishSavesDeps) {
     const fallbackRoute = getWorkoutLoggerFallbackRoute();
     await updatePreferences({ trainingFirstRunDismissed: true });
     workout.discardWorkout();
-    setFinishSaveState({ status: 'idle', sessionId: null, message: null });
+    setFinishSaveState({ status: 'idle', sessionId: null });
     navigateBack(fallbackRoute);
   }
 
@@ -144,7 +144,6 @@ export function createFinishSaves(deps: FinishSavesDeps) {
     setFinishSaveState({
       status: 'saving',
       sessionId: adaptedSession.sessionId,
-      message: null,
     });
 
     try {
@@ -247,13 +246,12 @@ export function createFinishSaves(deps: FinishSavesDeps) {
       summaryExitRouteRef.current = ROOT_ROUTES.home;
       workout.clearCompletedWorkout();
       replaceRoute({ tab: 'workout', screen: 'summary' });
-      setFinishSaveState({ status: 'idle', sessionId: null, message: null });
+      setFinishSaveState({ status: 'idle', sessionId: null });
     } catch (error) {
       console.error('Failed to save completed workout', error);
       setFinishSaveState({
         status: 'error',
         sessionId: adaptedSession.sessionId,
-        message: 'Could not save this workout. Try again before leaving the screen.',
       });
       showToast(t(preferences.appLanguage, 'toast.saveWorkoutFailed'));
     } finally {

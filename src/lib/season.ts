@@ -160,32 +160,3 @@ export function seasonLastDay(window: SeasonWindow): Date {
   return day;
 }
 
-/**
- * "1.4.–30.9.2026" / "1/4–30/9/2026".
- *
- * One formatter, because two call sites building this by hand produced
- * "1/4–30/92026" in English: the Finnish day format ends in a dot, so gluing
- * the year straight on reads correctly there and only there.
- *
- * `year` says whether the range carries its year at all. The Programs tab lists
- * seasons under a year heading, so repeating it in every tile is noise — but a
- * winter season crosses into the next year, and there the second year is the
- * whole point.
- */
-export function formatSeasonDateRange(
-  window: SeasonWindow,
-  language: 'fi' | 'en',
-  year: 'always' | 'whenSpanning' = 'always',
-): string {
-  const lastDay = seasonLastDay(window);
-  const spansYears = lastDay.getFullYear() !== window.year;
-  const showYear = year === 'always' || spansYears;
-
-  const day = (date: Date) =>
-    language === 'fi' ? `${date.getDate()}.${date.getMonth() + 1}.` : `${date.getDate()}/${date.getMonth() + 1}`;
-
-  // Finnish already ends the day with a dot; English has to be given a slash.
-  const yearSuffix = showYear ? `${language === 'fi' ? '' : '/'}${lastDay.getFullYear()}` : '';
-
-  return `${day(window.start)}–${day(lastDay)}${yearSuffix}`;
-}

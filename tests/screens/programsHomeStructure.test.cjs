@@ -344,8 +344,10 @@ module.exports = [
       const library = read('src', 'screens', 'ExercisesScreen.tsx');
       assert.match(library, /onBack,/);
       assert.match(library, /onPress=\{onBack\}/);
-      // Status-bar/shell treatment matches the other light workout screens.
-      assert.match(appSource, /const programsHomeActive = route\.tab === 'workout' && route\.screen === 'programs_home'/);
+      // Status-bar/shell treatment matches the other light workout screens —
+      // by the shell's light default, not a flag: `programsHomeActive` was
+      // never read and went with the other dead flags (#bugs 2026-10-01).
+      assert.doesNotMatch(appSource, /const programsHomeActive =/);
     },
   },
   {
