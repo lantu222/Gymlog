@@ -1485,11 +1485,13 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       model: CLAUDE_MODEL,
       durationMs: Date.now() - startedAt,
       prompt: input.prompt,
-      source: result.ok ? result.source : `error:${result.error.code}`,
-      answer: result.ok ? result.answer : null,
+      source: result.ok === true ? result.source : `error:${result.error.code}`,
+      answer: result.ok === true ? result.answer : null,
     });
   }
-  if (result.ok) {
+  // The literal discriminant, as in the composer branch above: Vercel compiles
+  // without strictNullChecks, where `result.ok` alone narrows nothing.
+  if (result.ok === true) {
     res.status(200).json(result);
     return;
   }
