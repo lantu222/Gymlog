@@ -8,6 +8,7 @@ const {
   withoutTrailingRoute,
 } = require('../../.test-dist/navigation/routeHistory.js');
 const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+const { functionBody } = require('../helpers/sourceSlices.cjs');
 
 module.exports = [
   {
@@ -63,10 +64,13 @@ module.exports = [
     name: 'deleting a programme replaces the page rather than pushing over it',
     run() {
       const wiring = readAppWiring();
-      const body = wiring.slice(
-        wiring.indexOf('async function handleDeleteCustomWorkout'),
-        wiring.indexOf('async function handleOnboardingPickReadyProgram'),
-      );
+      // The delete and the leave it calls, each to its own closing brace: the
+      // slice used to run on to the onboarding pick that stood below them, and
+      // phase C (2026-10-01) moves that pick out of App.tsx.
+      const body = [
+        functionBody(wiring, 'async function handleDeleteCustomWorkout('),
+        functionBody(wiring, 'function leaveDeletedProgramme('),
+      ].join('\n');
       assert.match(
         body,
         /history: withoutTrailingRoute\(\s*forgetRoutesForTemplate\(current\.history, workoutTemplateId\),\s*workoutHomeRoute,\s*\)/,

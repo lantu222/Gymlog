@@ -49,9 +49,16 @@ module.exports = [
       // that was written here went with it rather than being copied.
       const adopt = between('async function handleAdoptReadyProgram(', 'const dayLabels = planLabelsForProgramme(');
       assert.match(adopt, /const resumedHeld = await resumeHeldProgramme\(workoutTemplateId, options\);\s*if \(resumedHeld !== null\) \{\s*return resumedHeld;/, 'a held programme must be resumed, not rebuilt');
-      assert.match(app, /async function resumeHeldProgramme\([\s\S]{0,400}resumeProgramme\(\{/, 'and the helper is the one that resumes');
+      // The helper and the rhythm editor over the shell: both move to src/app
+      // in phase C (2026-10-01). The rhythm is read to its first
+      // setupScheduleMode inside its own body, not on to whatever follows it.
+      assert.match(wiring, /async function resumeHeldProgramme\([\s\S]{0,400}resumeProgramme\(\{/, 'and the helper is the one that resumes');
 
-      const rhythm = between('async function handleSaveRhythm(', 'setupScheduleMode:');
+      const rhythm = sourceSlices.between(
+        sourceSlices.functionBody(wiring, 'async function handleSaveRhythm('),
+        'async function handleSaveRhythm(',
+        'setupScheduleMode:',
+      );
       // Not the running set: two programmes may run at once, and the second
       // one's rhythm is not the app's availability either (CI review of #161).
       assert.match(rhythm, /if \(days\.length > 0 && plan\.id === preferences\.activePlanId\) \{/, "availability must follow the lead plan's rhythm only");

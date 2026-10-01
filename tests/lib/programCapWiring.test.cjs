@@ -15,7 +15,6 @@ const { functionBody } = require('../helpers/sourceSlices.cjs');
 
 const root = path.join(__dirname, '..', '..');
 const strip = (source) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-const app = strip(fs.readFileSync(path.join(root, 'App.tsx'), 'utf8'));
 // App.tsx plus the src/app modules (phase-B split, 2026-09-30): the old
 // activation must not come back anywhere in the shell, a hook included.
 const shell = strip(readAppWiring());
@@ -41,7 +40,7 @@ module.exports = [
       // VinhaApp's blocks leave for src/app.
       for (const signature of ['async function handleOnboardingCompleteToTraining', 'async function handleSetupCompleteToTraining']) {
         assert.match(
-          functionBody(app, signature),
+          functionBody(shell, signature),
           // A block since the analytics audit (2026-09-21): the activation is
           // also read for plan_adopted, and what it returns is still the rule.
           /activate: \(planId, current\) => \{\s*const next = activateOnboardingPlan\(current, planId, resolveActiveProgramCap\(resolveProEntitlement\(current\)\.unlocked\)\);[\s\S]{0,300}?return next;\s*\}/,
@@ -54,7 +53,9 @@ module.exports = [
   {
     name: 'program cap wiring: the catalogue onboarding finish follows the same rule',
     run() {
-      const pick = body(app, 'async function handleOnboardingPickReadyProgram');
+      // Over the shell, to its own closing brace: the pick moves to src/app in
+      // phase C (2026-10-01), and body() ran on to the next declaration.
+      const pick = functionBody(shell, 'async function handleOnboardingPickReadyProgram(');
       assert.match(pick, /activateOnboardingPlan\(\s*preferences,\s*adoptedPlanId,\s*resolveActiveProgramCap\(resolveProEntitlement\(preferences\)\.unlocked\),?\s*\)/);
       assert.doesNotMatch(pick, /activePlanIds: adoptedPlanId \? \[adoptedPlanId\] : \[\]/, 're-running onboarding stops a season');
     },
@@ -78,7 +79,9 @@ module.exports = [
     // back and nothing happened.
     name: 'program cap wiring: a refused onboarding save shows the limit sheet and goes nowhere',
     run() {
-      const helper = body(app, 'async function saveOnboardingOrExplain');
+      // Over the shell, each to its own closing brace: the onboarding finishes
+      // move to src/app in phase C (2026-10-01).
+      const helper = functionBody(shell, 'async function saveOnboardingOrExplain(');
       assert.match(helper, /catch \(error\) \{\s*if \(error instanceof ProgramLimitReachedError\) \{\s*setProgramLimitVisible\(true\);\s*return false;/);
       assert.match(helper, /showToast\(t\(preferences\.appLanguage, 'toast\.planSaveFailed'\)\)/);
 
@@ -87,7 +90,7 @@ module.exports = [
         // next declaration: past the setup finish that is the recovery
         // handlers, and when they leave App.tsx it becomes some 1,600 lines of
         // other code, where an unrelated resetToRoute stands in for its own.
-        const finish = functionBody(app, signature);
+        const finish = functionBody(shell, signature);
         const guard = finish.search(/if \(!saved\) \{\s*return;/);
         assert.ok(guard > 0, `${signature} carries on after a refused save`);
         assert.doesNotMatch(finish, /await saveOnboardingResult\(/, `${signature} saves around the explanation`);

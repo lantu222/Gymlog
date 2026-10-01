@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const { LEVEL_STREAKS } = require('../../.test-dist/lib/levelStreaks.js');
 const path = require('node:path');
 const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+const { functionBody } = require('../helpers/sourceSlices.cjs');
 
 const onboardingSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'screens', 'OnboardingScreen.tsx'),
@@ -192,8 +193,10 @@ module.exports = [
       // no programme at all after the reader had just chosen one, and Profile
       // said "no programme selected". Verified on device 2026-08-13.
       // \r?\n throughout: App.tsx is CRLF on this checkout, and a \n-only
-      // terminator matches nothing at all rather than failing loudly.
-      const readyPick = appSource.match(
+      // terminator matches nothing at all rather than failing loudly. Over the
+      // shell: the pick moves to src/app in phase C (2026-10-01), at the same
+      // two-space indent, so the match still ends at its own closing brace.
+      const readyPick = shellSource.match(
         /async function handleOnboardingPickReadyProgram\(programId: string\)[\s\S]*?\r?\n {2}\}\r?\n/,
       );
       assert.ok(readyPick, 'handleOnboardingPickReadyProgram not found');
@@ -224,8 +227,11 @@ module.exports = [
       // is now one write instead of four. The template, its exercises, the plan
       // and the preferences land in a single commit, and the plan is built
       // inside that lock from the id the template upsert generates.
+      // The finish to its own closing brace, over the shell: it moves to
+      // src/app in phase C (2026-10-01), and the greedy match used to run on
+      // to the last resetToRoute in App.tsx.
       assert.match(
-        appSource,
+        functionBody(shellSource, 'async function handleOnboardingCompleteToTraining('),
         /handleOnboardingCompleteToTraining[\s\S]*saveOnboardingOrExplain\(\{[\s\S]*onboardingCompleted: true[\s\S]*templateDraft: withReplaceableOnboardingId\(savedPlan\.draft\)[\s\S]*buildPlan:[\s\S]*buildSavedOnboardingWorkoutPlan[\s\S]*activate: \(planId, current\) => \{\s*const next = activateOnboardingPlan\(current, planId, resolveActiveProgramCap\(resolveProEntitlement\(current\)\.unlocked\)\);[\s\S]{0,300}?return next;[\s\S]*resetToRoute\(ROOT_ROUTES\.home\)/,
       );
       // And the four-call chain must not come back.

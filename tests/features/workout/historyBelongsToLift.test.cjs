@@ -9,6 +9,8 @@ const { isUnloadedTrackingMode } = require('../../../.test-dist/features/workout
 const { persistCompletedWorkoutSessionToDatabase } = require('../../../.test-dist/state/completedWorkoutPersistence');
 const { applyProgramSessionEdit } = require('../../../.test-dist/lib/programSessionEdit');
 const { createCompletedSession, createExercise, createSet } = require('../../helpers/workoutFixtures.cjs');
+const { readAppWiring } = require('../../helpers/appWiringSource.cjs');
+const { functionBody } = require('../../helpers/sourceSlices.cjs');
 
 /**
  * Session and history audit, 2026-09-15: what a finished workout leaves behind
@@ -278,13 +280,20 @@ module.exports = [
     name: 'history: the finish is guarded by a ref, and History’s delete reaches the workout store',
     run() {
       const app = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'App.tsx'), 'utf8').replace(/\r\n/g, '\n');
-      const finish = app.slice(app.indexOf('async function handleConfirmFinishWorkout()'), app.indexOf('async function handleDeleteCompletedSession('));
+      // Each handler to its own closing brace. These slices used to end at the
+      // next declaration, and phase C moves the delete handler out of App.tsx
+      // (2026-10-01): the finish's slice would have run on to the end of the
+      // file, and the delete's would have started at -1.
+      const finish = functionBody(app, 'async function handleConfirmFinishWorkout()');
       // Two taps inside one render both read the state as idle.
       assert.match(finish, /if \(!activeSession \|\| finishInFlightRef\.current\) \{\s*return;/);
       assert.doesNotMatch(finish, /finishSaveState\.status === 'saving'/);
       assert.match(finish, /finally \{\s*finishInFlightRef\.current = false;\s*\}/);
 
-      const remove = app.slice(app.indexOf('async function handleDeleteCompletedSession('), app.indexOf('async function handleDismissTip('));
+      // The delete over the whole shell: App.tsx or the src/app module it
+      // stands in.
+      const remove = functionBody(readAppWiring().replace(/\r\n/g, '\n'), 'async function handleDeleteCompletedSession(');
+      assert.ok(remove.indexOf('await deleteCompletedWorkoutSession(sessionId);') >= 0);
       assert.ok(remove.indexOf('await deleteCompletedWorkoutSession(sessionId);') < remove.indexOf('workout.forgetHistorySession(sessionId);'));
       assert.match(app, /deleteCompletedWorkoutSession: handleDeleteCompletedSession,/);
     },
