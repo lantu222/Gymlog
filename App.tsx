@@ -1,7 +1,7 @@
 import './src/globalFont';
 
 import React, { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, BackHandler, Linking, Platform, View } from 'react-native';
+import { Alert, Linking, Platform, View } from 'react-native';
 import Constants from 'expo-constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Font from 'expo-font';
@@ -9,7 +9,6 @@ import * as SplashScreen from 'expo-splash-screen';
 
 import { AppShell } from './src/components/AppShell';
 import { BottomTabBar } from './src/components/BottomTabBar';
-import { getMonthTrainingTotals } from './src/lib/dashboard';
 import { formatDurationMinutes, formatRepRange, formatSetScheme, formatShortDate, formatTime, formatVolume, formatWeight, pluralize, removeTrailingZeros } from './src/lib/format';
 import { createId } from './src/lib/ids';
 import { HistoryScrollMemory } from './src/lib/historyScrollMemory';
@@ -26,31 +25,20 @@ import { haptics } from './src/utils/haptics';
 import { useScheduledNotifications } from './src/hooks/useScheduledNotifications';
 import { usePendingAiLogDeletions } from './src/hooks/usePendingAiLogDeletions';
 import { ThemeProvider, themeForName, useTheme } from './src/theming';
-import { writeHomeWidgetPayload } from './src/utils/homeWidget';
 import {
   isHomeWidgetAdded,
   isHomeWidgetSupported,
   refreshHomeWidget,
   requestPinHomeWidget,
 } from './modules/home-widget';
-import { buildHomeWidgetPayload, HomeWidgetTarget, resolveHomeWidgetSessionTap } from './src/lib/widgetPayload';
-import { parseWidgetDeepLink } from './src/lib/widgetDeepLink';
-import { planSetupHandoff } from './src/lib/setupHandoff';
-import { SetupHandoffChoices, SetupHandoffScreen } from './src/screens/SetupHandoffScreen';
+import { SetupHandoffScreen } from './src/screens/SetupHandoffScreen';
 import { LegalDocumentScreen } from './src/screens/LegalDocumentScreen';
-import { LEGAL_LAST_UPDATED, formatLegalDate, type LegalDocumentId } from './src/lib/legalDocuments';
-import { acceptLegal, legalAcceptanceDue } from './src/lib/legalAcceptance';
-import { LegalConsentSheet } from './src/components/LegalConsentSheet';
-import { FirstRunTour } from './src/components/FirstRunTour';
+import { LEGAL_LAST_UPDATED } from './src/lib/legalDocuments';
+import { legalAcceptanceDue } from './src/lib/legalAcceptance';
 import { createTourTargetRegistry } from './src/features/tour/tourTargets';
 import {
-  isTourDue,
-  markTourSeen,
-  resolveTourBeats,
-  resolveTourSurface,
   TourBarStop,
   TourTargetId,
-  TourSurface,
 } from './src/lib/firstRunTour';
 import { useAccountBackup } from './src/features/account/useAccountBackup';
 import { hasWorkoutInProgress } from './src/lib/accountBackup';
@@ -85,14 +73,11 @@ import { resolveAvailableEquipment } from './src/lib/equipmentExerciseFilter';
 import { getProgrammeBlockWeeks, getReadyProgramBlockWeeks } from './src/lib/readyProgramDuration';
 import { getReadyProgramContent } from './src/lib/readyProgramContent';
 import {
-  getCalendarDayStartTimestamp,
   getCanonicalCompletedSessions,
-  getRecentActivityStrip,
 } from './src/lib/completedSessions';
 import { useRecordsAndMilestones } from './src/app/useRecordsAndMilestones';
 import { markCoachDemoMomentUsed, resolveDueCoachDemoMoment } from './src/lib/coachDemoMoments';
 import { blockWeekOfSession, blockWeekTally, buildHomePlanProgress } from './src/lib/homePlanProgress';
-import { resolveHomePrompt } from './src/lib/homePrompts';
 import {
   buildSessionEquipmentLabel,
   classifySessionFocus,
@@ -112,7 +97,7 @@ import { ThemeChoiceDialog } from './src/components/ThemeChoiceDialog';
 import { resolveThemeName } from './src/lib/themePreference';
 import { localizeSessionFocus, localizeSessionName } from './src/lib/sessionNameLabel';
 import { trackEvent } from './src/features/analytics/analyticsClient';
-import { countsAsAppOpen, joinedRunningSet } from './src/lib/analyticsMoments';
+import { joinedRunningSet } from './src/lib/analyticsMoments';
 
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
 import { CoachChatMemory } from './src/lib/coachChatMemory';
@@ -208,7 +193,6 @@ import { buildTailoringPreferences } from './src/lib/tailoringFit';
 import { forgetRoutesForTemplate, popRoute, pushRoute, withoutTrailingRoute } from './src/navigation/routeHistory';
 import { liveSessionBlocksProgrammeDelete } from './src/lib/programmeDeletion';
 import { AppRoute, ROOT_ROUTES, RootTabKey, WORKOUT_PLAN_ROUTE } from './src/navigation/routes';
-import { backSkipsHistory, getBackRoute } from './src/app/backRoute';
 import { renderProfileTab } from './src/app/renderProfileTab';
 import { resolveTodaySessionPick } from './src/lib/todaySessionPick';
 import { renderHomeScreens } from './src/app/renderHomeScreens';
@@ -245,6 +229,13 @@ import { useProInsights } from './src/app/useProInsights';
 import { useHomeStatCards } from './src/app/useHomeStatCards';
 import { useCoachAdviceMemory } from './src/app/useCoachAdviceMemory';
 import { useCustomProgramViews } from './src/app/useCustomProgramViews';
+import { useHandoffLegalHolders } from './src/app/useHandoffLegalHolders';
+import { useRouteBack } from './src/app/useRouteBack';
+import { useHomeWidgetPinState } from './src/app/useHomeWidgetPinState';
+import { useSetupHandoffOverlays } from './src/app/useSetupHandoffOverlays';
+import { createSetupHandoffDone } from './src/app/setupHandoffDone';
+import { useHomeWidgetFeed } from './src/app/useHomeWidgetFeed';
+import { useWidgetTaps } from './src/app/useWidgetTaps';
 import { buildSessionAnalysis } from './src/lib/sessionAnalysis';
 import { AboutYouScreen, AboutYouValues } from './src/screens/AboutYouScreen';
 import { LaunchScreen } from './src/screens/LaunchScreen';
@@ -273,12 +264,10 @@ import { isTimedTrackingMode } from './src/features/workout/workoutTypes';
 import { AppProvider, useAppContext } from './src/state/AppProvider';
 import { AppUpdateDialog } from './src/features/appUpdate/AppUpdateDialog';
 import { ServerNoticeDialog } from './src/features/serverNotice/ServerNoticeDialog';
-import { rememberServerNotice } from './src/lib/serverNotice';
 import { registerAppIdentity } from './src/features/appUpdate/appUpdateSignal';
 import { appInfo } from './src/theme';
 import {
   AppLanguage,
-  AppPreferences,
   ExerciseTemplateDraft,
   SetupCautionFlag,
   SetupDaysPerWeek,
@@ -891,30 +880,15 @@ function VinhaApp() {
     }
   }, [preferences.entryFlowCompleted, preferences.onboardingCompleted]);
   const [aboutYouValues, setAboutYouValues] = useState<AboutYouValues | null>(null);
-  /**
-   * The document the hand-off screen has open, if any. Kept here rather than
-   * routed: the legal screen belongs to the Profile tab, and navigating to it
-   * mid-onboarding would end onboarding. Null puts the hand-off back.
-   */
-  const [handoffLegalDocument, setHandoffLegalDocument] = useState<LegalDocumentId | null>(null);
-  /** Read by the route-level back, which is declared before the value is. */
-  const legalConsentDueRef = useRef(false);
-  /**
-   * The terms sheet, held on screen while its answer is being written.
-   *
-   * `updatePreferences` shows a change before the disk has it and takes it
-   * back if the disk refuses. Derived from the preferences alone, the sheet
-   * vanished on the optimistic half — before the acceptance was durable — and
-   * a refused write mounted a fresh sheet whose error the old one could never
-   * show (CI review of #184). Held, it leaves only after the write resolves,
-   * and a refusal lands on the sheet that asked.
-   */
-  const [legalSheetHeld, setLegalSheetHeld] = useState<'first' | 'changed' | null>(null);
-  const handoffLegalOpenRef = useRef(false);
-  handoffLegalOpenRef.current = handoffLegalDocument !== null;
-  // Whether the hand-off is on screen, for the route-level back below. Set
-  // where the hand-off plan is worked out, further down.
-  const setupHandoffActiveRef = useRef(false);
+  const {
+    handoffLegalDocument,
+    setHandoffLegalDocument,
+    legalConsentDueRef,
+    legalSheetHeld,
+    setLegalSheetHeld,
+    handoffLegalOpenRef,
+    setupHandoffActiveRef,
+  } = useHandoffLegalHolders();
   /**
    * Today's swaps and left-out slots, chosen on Home or a programme's day page
    * before the session exists — each held for the session it was made on, on
@@ -979,119 +953,24 @@ function VinhaApp() {
 
   useSetupWeightSeed({ hydrated, preferences, database, addBodyweightEntry, updatePreferences });
 
-  /**
-   * The route-level back. BackHandler calls the newest listener first, and a
-   * screen with its own answer to back (the cardio end sheet, the guided
-   * player's exit sheet, the free workout's discard question) registers after
-   * this one. That only holds while this effect stays put: it used to depend on
-   * the workout context, which is a new object every second while a rest timer
-   * or cardio runs, so it re-subscribed every second, became the newest
-   * listener, and walked the reader Home past the screen's own handler.
-   */
-  useEffect(() => {
-    // Stands down on the cardio screen while a run is on the clock. The
-    // player's back opens its end sheet, but this listener re-subscribes on
-    // every route change and a parent's effect runs after its child's — so
-    // coming back to a running session made this the newest listener, and
-    // back walked Home past the sheet. The screen answers back in every mode.
-    if (cardioRunActive && route.tab === 'home' && route.screen === 'cardio') {
-      return undefined;
-    }
-    // Stands down on the free workout, in every state. Its own listener
-    // answers back — the question before logged sets are lost, and the
-    // discard when there is nothing to lose — and it registers once, on
-    // mount. This listener re-subscribes on every route change and a
-    // parent's effect runs after its child's, so it was the newest one:
-    // back walked Home past the question and past the discard (CI review
-    // of #162). Same stand-down as the cardio player and the questionnaire.
-    if (route.tab === 'workout' && route.screen === 'empty') {
-      return undefined;
-    }
-    // Stands down on the guided player, in both of its modes. Its own
-    // listener answers back — the exit sheet in the player, a plain leave on
-    // the overview. But "Continue" from Home mounts it straight into the
-    // player in the same commit as the route change, and a parent's effect
-    // runs after its child's: this listener was the newest, and back walked
-    // Home past the exit sheet (live-session audit, 2026-09-20).
-    if (route.tab === 'workout' && route.screen === 'guided') {
-      return undefined;
-    }
-    // Stands down for the questionnaire in BOTH of its forms. The setup route
-    // is the same OnboardingScreen, which answers back itself, stage by
-    // stage — but this listener re-subscribes on every route change, and a
-    // parent's effect runs after its child's, so it was always the newest
-    // one: back from any question of "create a new programme" went straight
-    // to settings (device, 2026-09-16).
-    if (onboardingActive || (route.tab === 'profile' && route.screen === 'setup')) {
-      return undefined;
-    }
-
-    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      // A document open over the hand-off is not a route; back closes it
-      // before anything behind it moves. Asked here as well as below, because
-      // this listener re-subscribes on route changes and can end up newest.
-      if (handoffLegalOpenRef.current) {
-        setHandoffLegalDocument(null);
-        return true;
-      }
-      // The hand-off answers back itself. It is drawn over the route rather
-      // than routed, so this listener — re-subscribed as onboarding closes,
-      // after the hand-off's own — was the newest and popped the route
-      // behind it. False hands the key on to the hand-off's listener.
-      if (setupHandoffActiveRef.current) {
-        return false;
-      }
-      // The terms sheet answers back itself (it leaves the app). Walking the
-      // route behind a sheet nobody can see past would change the screen the
-      // reader returns to, for a key they pressed to get away.
-      if (legalConsentDueRef.current) {
-        return false;
-      }
-      const nextRoute = getBackRoute(route, workoutHomeRoute);
-      if (!nextRoute && navigationState.history.length === 0) {
-        return false;
-      }
-
-      if (nextRoute && backSkipsHistory(route)) {
-        resetToRoute(nextRoute);
-        return true;
-      }
-
-      if (route.tab === 'workout' && route.screen === 'summary') {
-        setCompletionSummary(null);
-        setFinishSaveState({ status: 'idle', sessionId: null, message: null });
-        workoutRef.current.clearCompletedWorkout();
-        navigateBack(summaryExitRouteRef.current ?? workoutHomeRoute);
-        return true;
-      }
-
-      navigateBack(nextRoute);
-      return true;
-    });
-
-    return () => subscription.remove();
-  }, [cardioRunActive, navigationState.history.length, onboardingActive, route]);
-
-  /**
-   * The back key closes a policy or terms page opened over the hand-off.
-   *
-   * The page is drawn over the hand-off rather than routed, so the handler
-   * above never knew it was open: on a fresh install the route behind has no
-   * history, back returned false, and Android put the app away with the terms
-   * still up (backfill review of #92, 2026-09-16). Registered while the page
-   * is open and after the route handler, so it is the newest listener — and it
-   * works on the setup route too, where the route handler stands down.
-   */
-  useEffect(() => {
-    if (!handoffLegalDocument) {
-      return undefined;
-    }
-    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      setHandoffLegalDocument(null);
-      return true;
-    });
-    return () => subscription.remove();
-  }, [handoffLegalDocument]);
+  useRouteBack({
+    cardioRunActive,
+    route,
+    navigationState,
+    onboardingActive,
+    workoutHomeRoute,
+    handoffLegalDocument,
+    setHandoffLegalDocument,
+    handoffLegalOpenRef,
+    setupHandoffActiveRef,
+    legalConsentDueRef,
+    resetToRoute,
+    navigateBack,
+    setCompletionSummary,
+    setFinishSaveState,
+    workoutRef,
+    summaryExitRouteRef,
+  });
 
   const { homeSummary, lifetimeSummary, progressTrainingRhythm } = useDaySummaries({
     database,
@@ -3635,54 +3514,14 @@ function VinhaApp() {
     }
   }, [appHydrated, database.workoutPlans, preferences.activePlanId, preferences.activePlanIds, updatePreferences]);
 
-  // What Android says about pinning the widget. Re-asked on every foreground,
-  // because the user may have added or removed it while we were away.
-  useEffect(() => {
-    if (!appHydrated) {
-      return undefined;
-    }
-    let cancelled = false;
-    const refresh = async () => {
-      const supported = await isHomeWidgetSupported();
-      const added = supported ? await isHomeWidgetAdded() : false;
-      if (!cancelled) {
-        setHomeWidgetState({ supported, added });
-      }
-    };
-    void refresh();
-    // Also app_open, which daily actives and retention are counted from: the
-    // cold start, and a return after a real absence. Every foreground used to
-    // count, and the app sends the reader out and back itself — the photo
-    // picker, a permission dialog, the system settings — so one sitting read
-    // as several opens (analytics audit, 2026-09-21).
-    trackEvent('app_open');
-    let backgroundedAtMs: number | null = null;
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'background') {
-        backgroundedAtMs = Date.now();
-        return;
-      }
-      if (state === 'active') {
-        void refresh();
-        if (countsAsAppOpen(backgroundedAtMs, Date.now())) {
-          trackEvent('app_open');
-        }
-        backgroundedAtMs = null;
-      }
-    });
-    return () => {
-      cancelled = true;
-      subscription.remove();
-    };
-  }, [appHydrated]);
-
-  // Android never reports whether the user accepted the pin dialog, so the
-  // offer is retired on the attempt, not on a success we cannot observe. The
-  // Settings row stays available either way.
-  const handleAddHomeWidget = async () => {
-    await requestPinHomeWidget();
-    void updatePreferences({ homeWidgetPromptDismissed: true });
-  };
+  const { handleAddHomeWidget } = useHomeWidgetPinState({
+    appHydrated,
+    setHomeWidgetState,
+    updatePreferences,
+    isHomeWidgetSupported,
+    isHomeWidgetAdded,
+    requestPinHomeWidget,
+  });
 
   // Feeds the home-screen widget. The launcher redraws it on its own schedule,
   // so all this has to do is keep the file current. Placed after the plan card
@@ -3691,214 +3530,43 @@ function VinhaApp() {
   // The calendar reaches back two weeks, so the widget needs the days that were
   // trained — not just this week's weekdays. 21 days covers two past weeks plus
   // every day of the current one, whichever weekday today is.
-  // ── The hand-off after onboarding ────────────────────────────────────────
-  // Onboarding used to end by dropping the reader on Home with the widget
-  // unplaced and nothing being tracked. This offers both, once, while the app
-  // still remembers which body part they just named.
-  //
-  // It waits for `homeWidgetState`: until Android has answered whether it can
-  // pin a widget, showing the step would either hide an offer that was
-  // available or make one that is not.
-  //
-  // Held while its own closing write is in flight, the way the terms sheet is:
-  // `updatePreferences` shows the write before the disk has it, so the page
-  // left on the optimistic half, and a refused write brought a fresh one back
-  // at page one, tick cleared, nothing said (audit 8, 2026-09-26).
-  const [setupHandoffHeld, setSetupHandoffHeld] = useState(false);
-  const setupHandoffHeldRef = useRef(false);
-  const setupHandoffReady =
-    preferences.onboardingCompleted &&
-    (!preferences.setupHandoffCompleted || setupHandoffHeld) &&
-    homeWidgetState !== null;
-  // Read once and depended on by value: the whole preferences object as a
-  // dependency made a fresh plan on every unrelated write.
-  const proUnlockedForHandoff = resolveProEntitlement(preferences).unlocked;
-  const liveSetupHandoffPlan = useMemo(
-    () =>
-      setupHandoffReady
-        ? planSetupHandoff({
-            canOfferWidget: Boolean(homeWidgetState?.supported) && !homeWidgetState?.added,
-            pinnedCardKeys: homePinnedStatCardKeys,
-            focusAreas: preferences.setupFocusAreas,
-            canOfferAccountBackup: accountBackup.available && accountBackup.state.status === 'signed_out',
-            // A reader who already bought Pro is not offered the page that
-            // sells it.
-            canOfferPro: !proUnlockedForHandoff,
-          })
-        : null,
-    [
-      accountBackup.available,
-      accountBackup.state.status,
-      homePinnedStatCardKeys,
-      homeWidgetState,
-      preferences.setupFocusAreas,
-      proUnlockedForHandoff,
-      setupHandoffReady,
-    ],
-  );
-  // Frozen while its closing write is held: that write pins the tracked
-  // sites and marks the widget asked, which re-plans the page — and a plan
-  // with nothing left to offer unmounted the page mid-write anyway.
-  const heldSetupHandoffPlanRef = useRef(liveSetupHandoffPlan);
-  if (!setupHandoffHeld) {
-    heldSetupHandoffPlanRef.current = liveSetupHandoffPlan;
-  }
-  const setupHandoffPlan = setupHandoffHeld ? heldSetupHandoffPlanRef.current : liveSetupHandoffPlan;
-  const setupHandoffActive = setupHandoffPlan?.shouldShow ?? false;
-  setupHandoffActiveRef.current = setupHandoffActive;
-
-  /**
-   * The terms, owed (#bugs 2026-09-22; decided 2026-09-26): never accepted, or
-   * accepted before the documents last changed. Asked over the app once the
-   * questions and the hand-off are behind the reader — the hand-off asks it
-   * itself, and this catches whoever skipped that page, everyone who was here
-   * before the question existed, and every change to the documents after.
-   * Not before hydration: the stored answer is not known until then, and a
-   * reader who had accepted would see the sheet flash.
-   */
-  const legalConsentOwed =
-    appHydrated && brandSplashDone && !onboardingActive && !setupHandoffActive
-      ? legalAcceptanceDue(preferences.legalAcceptance, LEGAL_LAST_UPDATED)
-      : null;
-  const legalConsentDue = legalConsentOwed ?? legalSheetHeld;
-  legalConsentDueRef.current = legalConsentDue !== null;
-
-  /**
-   * The first-run tour: once per surface, only on a tab's root, only after
-   * onboarding and its hand-off have finished. It goes in front of Home's
-   * one-card prompt queue — the widget offer and the card suggestion wait
-   * until the surface is marked seen. See lib/firstRunTour.ts.
-   */
-  const tourSurface = resolveTourSurface(route);
-  const tourActive =
-    brandSplashDone &&
-    !onboardingActive &&
-    !setupHandoffActive &&
-    // The tour waits for the terms: it points at a screen the sheet covers.
-    legalConsentDue === null &&
-    tourSurface !== null &&
-    isTourDue(preferences.firstRunToursSeen, tourSurface);
-  const homeTourActive = tourActive && tourSurface === 'home';
-  // The queue decides with the tour in it, so it is computed here, after
-  // the tour, rather than up with the suggester.
-  const homePrompt = resolveHomePrompt({
-    signInAvailable: accountBackup.available && accountBackup.state.status === 'signed_out',
-    signInDismissed: preferences.accountBackupPromptDismissed,
-    loggedSessionCount: database.workoutSessions.length + database.cardioSessions.length,
-    suggestionKey: homeSuggestedStatCardKeys[0] ?? null,
-    tourActive: homeTourActive,
+  const {
+    setupHandoffHeldRef,
+    setSetupHandoffHeld,
+    setupHandoffPlan,
+    setupHandoffActive,
+    legalConsentDue,
+    homeTourActive,
+    homePrompt,
+    tourElement,
+    handleServerNoticeSeen,
+    appUpdateHeld,
+    renderLegalConsent,
+  } = useSetupHandoffOverlays({
+    preferences,
+    updatePreferences,
+    appHydrated,
+    brandSplashDone,
+    onboardingActive,
+    route,
+    homeWidgetState,
+    homePinnedStatCardKeys,
+    homeSuggestedStatCardKeys,
+    accountBackup,
+    database,
+    homeActivePlanCard,
+    workout,
+    tourRegistry,
+    setTourSweep,
+    setTourFocus,
+    setupHandoffActiveRef,
+    legalConsentDueRef,
+    legalSheetHeld,
+    setLegalSheetHeld,
+    handoffLegalDocument,
+    setHandoffLegalDocument,
+    LEGAL_OVER_CONSENT,
   });
-  const tourHasProgram = Boolean(homeActivePlanCard && homeActivePlanCard.sessions.length > 0);
-  const tourBeats = useMemo(
-    () => (tourSurface ? resolveTourBeats(tourSurface, { hasProgram: tourHasProgram }) : []),
-    [tourHasProgram, tourSurface],
-  );
-  const firstRunToursSeenRef = useRef(preferences.firstRunToursSeen);
-  firstRunToursSeenRef.current = preferences.firstRunToursSeen;
-  // Stable: the layer calls this from its unmount, and a fresh closure per
-  // render would be a fresh reason to fire it.
-  const handleTourFinish = useCallback(
-    (surface: TourSurface) => {
-      const seen = firstRunToursSeenRef.current;
-      if (!isTourDue(seen, surface)) {
-        return;
-      }
-      void updatePreferences({ firstRunToursSeen: markTourSeen(seen, surface) });
-    },
-    [updatePreferences],
-  );
-  const tourElement =
-    tourActive && tourSurface ? (
-      <FirstRunTour
-        key={tourSurface}
-        surface={tourSurface}
-        beats={tourBeats}
-        registry={tourRegistry}
-        language={preferences.appLanguage}
-        onSweep={setTourSweep}
-        onBeatChange={setTourFocus}
-        onFinish={handleTourFinish}
-      />
-    ) : null;
-
-  /**
-   * The terms sheet, when owed, in the shell's overlay slot — above the tab
-   * bar, where the tour draws. The two never meet: the tour waits for it.
-   *
-   * Told whether the shell already pads the bottom edge: it usually does, and
-   * the sheet adding the navigation bar's height on top of that left a band
-   * of empty sheet under Continue (#bugs 2026-09-26, "jatka buttoni
-   * alemmas"). On the screens that drop the edge it pads for itself.
-   */
-  /**
-   * The update prompt waits for a calm moment. A refusal can arrive at any
-   * time — the statistics flush runs in the background — and the prompt is a
-   * modal of its own, which must not land on the terms sheet, the tour or a
-   * workout in progress (review, 2026-09-28).
-   */
-  /**
-   * A server notice the reader closed is not shown again. A refused write
-   * leaves it unmarked, so it comes back next launch rather than being lost.
-   */
-  const handleServerNoticeSeen = useCallback(
-    (id: string) => {
-      void updatePreferences({
-        seenServerNoticeIds: rememberServerNotice(preferences.seenServerNoticeIds, id),
-      }).catch(() => undefined);
-    },
-    [preferences.seenServerNoticeIds, updatePreferences],
-  );
-  const appUpdateHeld =
-    !appHydrated ||
-    !brandSplashDone ||
-    onboardingActive ||
-    setupHandoffActive ||
-    legalConsentDue !== null ||
-    Boolean(tourElement) ||
-    (workout.activeSession !== null && workout.activeSession.status !== 'completed');
-
-  const renderLegalConsent = (shellPadsBottom: boolean) => (
-    <>
-      <LegalConsentSheet
-        shellPadsBottom={shellPadsBottom}
-        language={preferences.appLanguage}
-        reason={legalConsentDue ?? 'first'}
-        updatedLabel={formatLegalDate(preferences.appLanguage)}
-        onOpenLegal={(document) => setHandoffLegalDocument(document)}
-        // The sheet goes when the stored answer says it is no longer owed —
-        // after this write, never on the tap.
-        onAccept={async () => {
-          setLegalSheetHeld(legalConsentDue);
-          try {
-            await updatePreferences({ legalAcceptance: acceptLegal(LEGAL_LAST_UPDATED, new Date()) });
-          } finally {
-            // Refused, the preferences are already rolled back and the sheet
-            // stays owed; accepted, it goes now — after the write.
-            setLegalSheetHeld(null);
-          }
-        }}
-      />
-      {/* Over the sheet, the way the documents open over the hand-off:
-          reading them is not an answer, and the box keeps its tick. */}
-      {handoffLegalDocument ? (
-        <View style={LEGAL_OVER_CONSENT}>
-          <LegalDocumentScreen
-            document={handoffLegalDocument}
-            language={preferences.appLanguage}
-            onBack={() => setHandoffLegalDocument(null)}
-          />
-        </View>
-      ) : null}
-    </>
-  );
-
-  // Nothing left to offer — a reader running onboarding a second time. Close the
-  // door rather than leave it to open on some later launch.
-  useEffect(() => {
-    if (setupHandoffReady && setupHandoffPlan && !setupHandoffPlan.shouldShow) {
-      void updatePreferences({ setupHandoffCompleted: true });
-    }
-  }, [setupHandoffPlan, setupHandoffReady, updatePreferences]);
 
   /**
    * The name comes from Google, so the About form stopped asking for one
@@ -3942,272 +3610,41 @@ function VinhaApp() {
 
   const { handleAccountSignIn, handleAccountBackupNow } = useAccountOutcome({ accountBackup, preferences, showToast });
 
-  const handleSetupHandoffDone = async (choices: SetupHandoffChoices) => {
-    const patch: Partial<AppPreferences> = { setupHandoffCompleted: true };
-    // Asked here, so Home's one-time card must not ask again. Settings keeps its
-    // permanent row either way.
-    if (setupHandoffPlan?.offerWidget) {
-      patch.homeWidgetPromptDismissed = true;
-    }
-    // In the same write as the page closing, so the sheet over the app never
-    // opens for a reader who has just ticked the box.
-    if (choices.legalAccepted) {
-      patch.legalAcceptance = acceptLegal(LEGAL_LAST_UPDATED, new Date());
-    }
-    const pinned = [...homePinnedStatCardKeys];
-    // The site's name IS its card key, so the dialog's answer goes straight to
-    // Home. Only what is not already there: pinning a card twice would draw it
-    // twice.
-    for (const site of choices.trackedSites) {
-      if (!pinned.includes(site)) {
-        pinned.push(site);
-      }
-    }
-    if (pinned.length !== homePinnedStatCardKeys.length) {
-      patch.homeStatCardKeys = pinned;
-    }
-    // One write at a time: a second Done during the first was a second patch.
-    if (setupHandoffHeldRef.current) {
-      return;
-    }
-    setupHandoffHeldRef.current = true;
-    setSetupHandoffHeld(true);
-    try {
-      await updatePreferences(patch);
-    } catch (error) {
-      // The page stays as the reader left it — their answers, their tick —
-      // and says so; nothing below runs on a write that did not happen.
-      console.error('Failed to finish the setup hand-off', error);
-      showToast(t(preferences.appLanguage, 'toast.setupHandoffFailed'));
-      return;
-    } finally {
-      setupHandoffHeldRef.current = false;
-      setSetupHandoffHeld(false);
-    }
-    // The system dialog last, so it is not racing a state write.
-    if (choices.addWidget) {
-      await requestPinHomeWidget();
-    }
-    // And sign-in after that: it opens its own sheet, and the reader asked for
-    // it — a cancel there is a change of mind, not an error.
-    if (choices.signInForBackup) {
-      await handleAccountSignIn();
-    }
-    // Pro last, and only if it was asked for. It is a page, not a sheet: it
-    // takes the screen, so anything that had to happen first has happened.
-    if (choices.showPro) {
-      navigate({ tab: 'profile', screen: 'premium' });
-    }
-  };
+  const { handleSetupHandoffDone } = createSetupHandoffDone({
+    setupHandoffPlan,
+    homePinnedStatCardKeys,
+    setupHandoffHeldRef,
+    setSetupHandoffHeld,
+    updatePreferences,
+    showToast,
+    preferences,
+    requestPinHomeWidget,
+    handleAccountSignIn,
+    navigate,
+  });
 
-  // The programme the widget offers when there is none running: the app's own
-  // recommendation, under its curated title.
-  const widgetSuggestion = useMemo(() => {
-    if (!recommendedReadyTemplate) {
-      return null;
-    }
-    const presentation = getReadyTemplatePresentation(recommendedReadyTemplate, preferences.appLanguage);
-    return { title: presentation.title };
-  }, [preferences.appLanguage, recommendedReadyTemplate]);
-  // The widget's calendar is a whole month, and a Monday-first grid drags in up
-  // to six days of the month before it — so 45 days back covers the longest
-  // grid whatever today's date is. (21 was right for the four-week strip this
-  // replaced, and would have left the first fortnight of every month blank.)
-  //
-  // Both of these read "today", so both are keyed on the day as well as the
-  // data: keyed on the data alone, an app left open over the last night of a
-  // month drew the new month's calendar beside last month's totals until the
-  // next workout was logged.
-  const widgetCompletedDayStarts = useMemo(
-    () =>
-      getRecentActivityStrip(database, new Date(todayStartMs), 45)
-        .filter((day) => day.active)
-        .map((day) => day.dayStart),
-    [database, todayStartMs],
-  );
-  // This month's totals, for the three figures the 4x2 draws beside the
-  // calendar, and the streak the 2x1 counts.
-  const widgetMonthTotals = useMemo(
-    () => getMonthTrainingTotals(database, new Date(todayStartMs)),
-    [database, todayStartMs],
-  );
-
-  // The narrower set, for the one question the strip cannot answer: is today's
-  // session behind you. The strip counts cardio, and a run leaves the planned
-  // workout undone — fed to the skip, it would have the widget name tomorrow
-  // while Home still offers today.
-  const widgetCompletedWorkoutDayStarts = useMemo(
-    () =>
-      getCanonicalCompletedSessions(database).map((session) =>
-        getCalendarDayStartTimestamp(session.performedAt),
-      ),
-    [database],
-  );
-  useEffect(() => {
-    if (!appHydrated) {
-      return;
-    }
-
-    const written = writeHomeWidgetPayload(
-      buildHomeWidgetPayload({
-        nowMs: Date.now(),
-        language: preferences.appLanguage,
-        // The widget shows whatever the app resolved, Pro gate included — it
-        // cannot re-derive this, it is drawn in the launcher's process.
-        theme: resolveThemeName(preferences),
-        planName: homeActivePlanCard?.title ?? null,
-        // With no programme the widget names the one the app would recommend
-        // rather than asking an empty question. Presented here, because the
-        // catalog's curated titles live on this side of the bridge.
-        suggestion: widgetSuggestion,
-        schedule: homeTrainingSchedule,
-        // The session the reader picked for today, and only that. Home's next
-        // session is always set — it is the rotation's answer for whenever the
-        // reader trains next — and passed here it made every rest day read
-        // "Treeni" on the 2x1.
-        todaySessionId: homeActivePlanCard?.todayPickSessionId ?? null,
-        completedDayStarts: widgetCompletedDayStarts,
-        completedWorkoutDayStarts: widgetCompletedWorkoutDayStarts,
-        sessions: homeActivePlanCard?.sessions ?? [],
-        sessionForecast: homeActivePlanCard?.sessionForecast ?? null,
-        monthTotals: widgetMonthTotals,
-        // Every workout ever, not a week streak: the 2x1 counts what you have
-        // done, asked for on the home screen 2026-08-20.
-        totalWorkouts: lifetimeSummary.sessionCount,
-      }),
-    );
-
-    // Ask the widget to read it now rather than within the next half hour. The
-    // delay used to be invisible because the content was day-granular; it stops
-    // being invisible the moment the file's shape changes, and the widget falls
-    // back to "create your first program" while the real file sits on disk.
-    if (written) {
-      void refreshHomeWidget();
-    }
-  }, [
+  const { widgetCompletedWorkoutDayStarts } = useHomeWidgetFeed({
     appHydrated,
     preferences,
+    database,
+    todayStartMs,
+    recommendedReadyTemplate,
     homeActivePlanCard,
     homeTrainingSchedule,
-    widgetCompletedDayStarts,
-    widgetCompletedWorkoutDayStarts,
-    widgetMonthTotals,
-    widgetSuggestion,
     lifetimeSummary,
-  ]);
+    refreshHomeWidget,
+  });
 
-  // ── Widget taps ──────────────────────────────────────────────────────────
-  // A widget can only ask Android to open a URL, so each tap arrives as
-  // `vinha://widget/<target>` and is resolved here against live state. The
-  // widget's own file can be half an hour old; the workout it named is looked
-  // up again now, so a tap never opens yesterday's session.
-  const [pendingWidgetTarget, setPendingWidgetTarget] = useState<HomeWidgetTarget | null>(null);
-
-  useEffect(() => {
-    function handleUrl(url: string | null | undefined) {
-      const target = parseWidgetDeepLink(url);
-      if (target) {
-        setPendingWidgetTarget(target);
-      }
-    }
-
-    // Cold start: the URL is already waiting. Warm start: it arrives here.
-    void Linking.getInitialURL().then(handleUrl).catch(() => undefined);
-    const subscription = Linking.addEventListener('url', (event) => handleUrl(event.url));
-    return () => subscription.remove();
-  }, []);
-
-  useEffect(() => {
-    // Held until the database is loaded: resolving "the session you named"
-    // against an empty store would land on Home every time.
-    if (!appHydrated || !pendingWidgetTarget) {
-      return;
-    }
-    setPendingWidgetTarget(null);
-
-    if (pendingWidgetTarget === 'calendar') {
-      // The widget's month opens the same calendar it is a small copy of:
-      // Progress → Activity, scrolled to the calendar itself — the block
-      // lives mid-page, and landing at the top of the overview is landing
-      // somewhere else (user 2026-08-25). The standalone calendar screen
-      // this used to open was retired as a duplicate.
-      resetToRoute({ tab: 'progress', screen: 'list', section: 'overview', scrollTo: 'activity' });
-      return;
-    }
-    if (pendingWidgetTarget === 'programs') {
-      resetToRoute({ tab: 'workout', screen: 'programs_home' });
-      return;
-    }
-    if (pendingWidgetTarget === 'suggestion') {
-      // The programme the widget named, resolved again now — the catalog cannot
-      // change under it, but the recommendation can, and the widget's copy of it
-      // may be half an hour old.
-      if (recommendedReadyTemplate) {
-        resetToRoute({
-          tab: 'workout',
-          screen: 'program',
-          programType: 'ready',
-          workoutTemplateId: recommendedReadyTemplate.id,
-        });
-        return;
-      }
-      resetToRoute({ tab: 'workout', screen: 'programs_home' });
-      return;
-    }
-    if (pendingWidgetTarget === 'schedule') {
-      resetToRoute({ tab: 'profile', screen: 'training_plan', editSchedule: true });
-      return;
-    }
-    if (pendingWidgetTarget === 'home') {
-      resetToRoute(ROOT_ROUTES.home);
-      return;
-    }
-
-    const tap = resolveHomeWidgetSessionTap({
-      hasActiveSession: workout.activeSession !== null,
-      hasActivePlan: homeActivePlanCard !== null,
-      nowMs: Date.now(),
-      schedule: homeTrainingSchedule,
-      sessions: homeActivePlanCard?.sessions ?? [],
-      completedWorkoutDayStarts: widgetCompletedWorkoutDayStarts,
-      // Today's session is the one Home offers, not the calendar's slot for
-      // today: the two differ whenever the rotation and the weekday disagree,
-      // and the tap opened the one Home was not showing.
-      homeSessionId: homeActivePlanCard?.nextSession.id ?? null,
-      todayPicked: Boolean(homeActivePlanCard?.todayPickSessionId),
-      // The same rotation the tile was drawn with, so a later day opens the
-      // session it showed.
-      sessionForecast: homeActivePlanCard?.sessionForecast ?? null,
-    });
-
-    // A running workout wins. The tile means "my training", and a reader who
-    // stepped out to Home mid-set is asking for the set back, not for the
-    // schedule to be looked up again (device report 2026-09-01).
-    if (tap.kind === 'resume') {
-      navigateToActiveWorkout({ resume: true });
-      return;
-    }
-    // No session to open any more — the plan changed while the widget was
-    // showing the old one. Home is the honest landing, not an empty screen.
-    if (tap.kind === 'home' || !homeActivePlanCard) {
-      resetToRoute(ROOT_ROUTES.home);
-      return;
-    }
-    resetToRoute({
-      tab: 'workout',
-      screen: 'programDay',
-      programType: homeActivePlanCard.programType,
-      workoutTemplateId: homeActivePlanCard.programId,
-      sessionId: tap.next.session.id,
-    });
-  }, [
+  useWidgetTaps({
     appHydrated,
+    workout,
     homeActivePlanCard,
     homeTrainingSchedule,
-    pendingWidgetTarget,
     recommendedReadyTemplate,
     widgetCompletedWorkoutDayStarts,
-  ]);
+    resetToRoute,
+    navigateToActiveWorkout,
+  });
 
   useNotificationRoute({ appHydrated, resetToRoute });
 
