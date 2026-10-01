@@ -122,8 +122,16 @@ module.exports = [
       // reading without clearing answers every later cold start with the same
       // tap and the app reopens on Records forever (found in review,
       // 2026-09-05). The async pair is deprecated in expo-notifications 55.
-      assert.match(appWiring, /Notifications\.getLastNotificationResponse\(\)/);
-      assert.match(appWiring, /Notifications\.clearLastNotificationResponse\(\)/);
+      //
+      // Pinned to the cold-start block itself: a bare
+      // `/clearLastNotificationResponse\(\)/` is also satisfied by the live
+      // listener's clear below, so deleting this one stayed green (#bugs
+      // 2026-10-01).
+      assert.match(
+        appWiring,
+        // Read inside a try since it throws on web (#bugs 2026-10-01).
+        /cold = Notifications\.getLastNotificationResponse\(\);\s*\} catch \(error\) \{[\s\S]{0,300}?cold = null;\s*\}\s*if \(cold\) \{\s*handle\(cold\);\s*Notifications\.clearLastNotificationResponse\(\);\s*\}/,
+      );
       // And a tap while the app runs is forgotten too, once routed: it is
       // stored for as long as the native module lives, which outlasts a
       // remount — and the remount read it back as a cold start.

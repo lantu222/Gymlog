@@ -29,6 +29,8 @@ const END = '    workoutTemplates,\n  ]);\n';
 const SCOPE = [
   'useEffect',
   'Date',
+  'setTimeout',
+  'clearTimeout',
   'finishSaveState',
   'setFinishSaveState',
   'workout',
@@ -41,7 +43,6 @@ const SCOPE = [
   'workoutTemplates',
   'workoutHomeRoute',
   'exerciseBrowserItems',
-  'exerciseLibrary',
   'trackedProgress',
   'workoutSessions',
   'completionSummary',
@@ -75,7 +76,7 @@ function compileGuard() {
 }
 
 const HOME_ROUTE = { tab: 'workout', screen: 'programs_home' };
-const IDLE = { status: 'idle', sessionId: null, message: null };
+const IDLE = { status: 'idle', sessionId: null };
 const NOW = 1_000_000;
 
 /** One mounted VinhaApp's worth of the guard: render it, read back what it did. */
@@ -84,8 +85,20 @@ function mount() {
   const calls = [];
   const guard = compileGuard();
   const clock = { now: () => NOW };
+  // Timers the guard schedules, fired by hand: `fire()` runs every live one.
+  const timers = new Map();
+  let nextTimer = 1;
   return {
     calls,
+    timers,
+    fire() {
+      calls.length = 0;
+      for (const [id, fn] of [...timers]) {
+        timers.delete(id);
+        fn();
+      }
+      return calls.slice();
+    },
     render(world) {
       calls.length = 0;
       runtime.render(
@@ -94,6 +107,12 @@ function mount() {
             ...props,
             useEffect: runtime.react.useEffect,
             Date: clock,
+            setTimeout: (fn) => {
+              const id = nextTimer++;
+              timers.set(id, fn);
+              return id;
+            },
+            clearTimeout: (id) => timers.delete(id),
             ROOT_ROUTES,
             setFinishSaveState: (next) => calls.push(['setFinishSaveState', next]),
             replaceRoute: (next) => calls.push(['replaceRoute', next]),
@@ -120,7 +139,6 @@ function world(overrides = {}) {
     workoutTemplates: customTemplates,
     workoutHomeRoute: HOME_ROUTE,
     exerciseBrowserItems: exercises,
-    exerciseLibrary: exercises,
     trackedProgress: [{ key: 'bench press' }],
     workoutSessions: [{ id: 'session_1' }],
     completionSummary: null,
@@ -156,7 +174,7 @@ module.exports = [
         ts.forEachChild(node, visit);
       };
       visit(program);
-      for (const local of ['template', 'item', 'session', 'activeSessionId', 'allowedAt', 'nextRoute', 'undefined']) {
+      for (const local of ['template', 'item', 'session', 'activeSessionId', 'allowedAt', 'nextRoute', 'windowExpiry', 'ReturnType', 'undefined']) {
         free.delete(local);
       }
       assert.deepEqual([...free].sort(), [...SCOPE].sort());
@@ -167,17 +185,17 @@ module.exports = [
     run() {
       assert.deepEqual(once({}), [], 'idle is left alone');
       assert.deepEqual(
-        once({ finishSaveState: { status: 'saving', sessionId: 's_a', message: null }, workout: running('s_a') }),
+        once({ finishSaveState: { status: 'saving', sessionId: 's_a' }, workout: running('s_a') }),
         [],
         'a save for the running session stands',
       );
       assert.deepEqual(
-        once({ finishSaveState: { status: 'error', sessionId: 's_a', message: 'x' }, workout: running('s_b') }),
+        once({ finishSaveState: { status: 'error', sessionId: 's_a' }, workout: running('s_b') }),
         [['setFinishSaveState', IDLE]],
         'another session is running: back to idle',
       );
       assert.deepEqual(
-        once({ finishSaveState: { status: 'saving', sessionId: 's_a', message: null } }),
+        once({ finishSaveState: { status: 'saving', sessionId: 's_a' } }),
         [['setFinishSaveState', IDLE]],
         'nothing is running: back to idle',
       );
@@ -195,7 +213,29 @@ module.exports = [
       // A start stamps the time; inside two seconds the session is still on its way.
       const recent = { current: NOW - 2000 };
       assert.deepEqual(once({ route: guided('ready_full_body'), workoutLogNavigationAllowedAtRef: recent }), []);
-      assert.equal(recent.current, null, 'the stamp is used once');
+      // Kept while the session is still on its way: a second run inside the
+      // window (any dep changing) must hold too, not find the stamp spent
+      // and send the start Home (#bugs 2026-10-01).
+      assert.equal(recent.current, NOW - 2000, 'the stamp is spent before the session it waits for');
+      assert.deepEqual(once({ route: guided('ready_full_body'), workoutLogNavigationAllowedAtRef: recent }), []);
+      // And if the session never lands, the window's end sends the route Home
+      // on its own — nothing else would re-run the guard (review of #bugs
+      // 2026-10-01).
+      const lost = mount();
+      const lostStamp = { current: NOW - 500 };
+      assert.deepEqual(lost.render(world({ route: guided('ready_full_body'), workoutLogNavigationAllowedAtRef: lostStamp })), []);
+      assert.equal(lost.timers.size, 1, 'no expiry scheduled for a start still on its way');
+      assert.deepEqual(lost.fire(), replaced(ROOT_ROUTES.home));
+      assert.equal(lostStamp.current, null);
+      // A session that lands first cancels it.
+      const landed = mount();
+      const landedWorld = world({ route: guided('ready_full_body'), workoutLogNavigationAllowedAtRef: { current: NOW - 500 } });
+      landed.render(landedWorld);
+      landed.render({ ...landedWorld, workout: running('s_a') });
+      assert.equal(landed.timers.size, 0, 'the expiry outlives the session it waited for');
+      // Spent once the session has landed.
+      once({ route: guided('ready_full_body'), workout: running('s_a'), workoutLogNavigationAllowedAtRef: recent });
+      assert.equal(recent.current, null, 'the stamp outlives the session it waited for');
       const stale = { current: NOW - 2001 };
       assert.deepEqual(
         once({ route: guided('ready_full_body'), workoutLogNavigationAllowedAtRef: stale }),
@@ -205,7 +245,7 @@ module.exports = [
 
       // A finish in flight, or a summary on its way, holds the route.
       assert.deepEqual(
-        once({ route: guided('ready_full_body'), finishSaveState: { status: 'saving', sessionId: null, message: null } }),
+        once({ route: guided('ready_full_body'), finishSaveState: { status: 'saving', sessionId: null } }),
         [],
       );
       const pending = { current: true };
@@ -214,7 +254,7 @@ module.exports = [
 
       // An error is not a save in flight.
       assert.deepEqual(
-        once({ route: guided('ready_full_body'), finishSaveState: { status: 'error', sessionId: null, message: 'x' } }),
+        once({ route: guided('ready_full_body'), finishSaveState: { status: 'error', sessionId: null } }),
         replaced(ROOT_ROUTES.home),
       );
 
@@ -237,7 +277,7 @@ module.exports = [
     name: 'finish route guard: detail routes whose subject has gone are replaced',
     run() {
       // The exercise detail reads the browser list, not the library.
-      assert.deepEqual(once({ route: { tab: 'workout', screen: 'detail', exerciseId: 'ex_bench' }, exerciseLibrary: [] }), []);
+      assert.deepEqual(once({ route: { tab: 'workout', screen: 'detail', exerciseId: 'ex_bench' } }), []);
       assert.deepEqual(
         once({ route: { tab: 'workout', screen: 'detail', exerciseId: 'ex_gone' } }),
         replaced(ROOT_ROUTES.workout),
@@ -284,7 +324,7 @@ module.exports = [
 
       // Still on its way: saving, or the flag still up — stay.
       assert.deepEqual(
-        once({ route: summaryRoute, finishSaveState: { status: 'saving', sessionId: 's_a', message: null }, workout: running('s_a') }),
+        once({ route: summaryRoute, finishSaveState: { status: 'saving', sessionId: 's_a' }, workout: running('s_a') }),
         [],
       );
       assert.deepEqual(once({ route: summaryRoute, summaryNavigationPendingRef: { current: true } }), []);
@@ -303,7 +343,7 @@ module.exports = [
     name: 'finish route guard: the reset runs before the guard in the same commit',
     run() {
       assert.deepEqual(
-        once({ route: guided('ready_full_body'), finishSaveState: { status: 'error', sessionId: 's_a', message: 'x' } }),
+        once({ route: guided('ready_full_body'), finishSaveState: { status: 'error', sessionId: 's_a' } }),
         [['setFinishSaveState', IDLE], ['replaceRoute', ROOT_ROUTES.home]],
       );
     },
@@ -319,17 +359,16 @@ module.exports = [
       assert.deepEqual(app.render({ ...base }), []);
       // Refs are read, not watched.
       assert.deepEqual(app.render({ ...base, summaryNavigationPendingRef: { current: true } }), []);
-      // The guard watches the library, not the browser list it reads.
-      assert.deepEqual(app.render({ ...base, exerciseBrowserItems: [] }), []);
-      assert.deepEqual(app.render({ ...base, exerciseLibrary: [] }), replaced(ROOT_ROUTES.workout));
+      // The guard watches the browser list it reads (#bugs 2026-10-01).
+      assert.deepEqual(app.render({ ...base, exerciseBrowserItems: [] }), replaced(ROOT_ROUTES.workout));
 
       // The reset watches the save's status and session and the running session's id, not the objects.
-      const saving = { status: 'saving', sessionId: 's_a', message: null };
+      const saving = { status: 'saving', sessionId: 's_a' };
       const resetWorld = world({ finishSaveState: saving, workout: running('s_a') });
       const reset = mount();
       assert.deepEqual(reset.render(resetWorld), []);
       assert.deepEqual(
-        reset.render({ ...resetWorld, finishSaveState: { ...saving, message: 'changed' }, workout: running('s_a') }),
+        reset.render({ ...resetWorld, finishSaveState: { ...saving }, workout: running('s_a') }),
         [],
         'the same fields in new objects re-run neither',
       );
@@ -344,7 +383,7 @@ module.exports = [
           key === 'route'
             ? { ...at.route }
             : key === 'finishSaveState'
-              ? { status: 'error', sessionId: null, message: 'x' }
+              ? { status: 'error', sessionId: null }
               : key === 'workout'
                 ? { ...at.workout, activeSession: { sessionId: 's_z' } }
                 : key === 'completionSummary'

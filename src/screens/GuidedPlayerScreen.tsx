@@ -16,6 +16,7 @@ import {
   Image,
   Modal,
   PanResponder,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -1394,6 +1395,8 @@ function GPSheet({
  * helper that always answers (accessibility audit, 2026-09-21).
  */
 export function GuidedPlayerScreen(props: GuidedPlayerScreenProps) {
+  const theme = useTheme();
+  const { activeSession } = useWorkoutContext();
   const [reduceMotion, setReduceMotion] = useState(false);
   useEffect(() => {
     let mounted = true;
@@ -1406,6 +1409,21 @@ export function GuidedPlayerScreen(props: GuidedPlayerScreenProps) {
       mounted = false;
     };
   }, []);
+  /*
+   * No session, no player — decided out here, before the player's hooks.
+   *
+   * GuidedPlayer returned early on a missing session with some twenty hooks
+   * after that return. Finishing clears the session on the default lane and
+   * moves to the summary inside a transition, so the player rendered once
+   * with no session, rendered fewer hooks than the time before, and threw:
+   * React error #520, recovered by a synchronous re-render, on the screen
+   * that saves the workout (#bugs 2026-10-01, browser smoke test; reproduced
+   * on web, gone with this). Its own early return stays for the type
+   * narrowing, and can no longer run.
+   */
+  if (!activeSession) {
+    return <View style={{ flex: 1, backgroundColor: theme.bg }} />;
+  }
   return (
     <ReducedMotionContext.Provider value={reduceMotion}>
       <GuidedPlayer {...props} />
@@ -3315,7 +3333,14 @@ function GuidedPlayer({
               <Pressable
                 style={skippablePhase ? styles.splashChoiceRoot : styles.splashRoot}
                 onPress={splashCarriesChoice(step) ? undefined : advance}
-                disabled={splashCarriesChoice(step)}
+                // Disabled on native, where that keeps the wrapper silent to
+                // TalkBack and off the touch path between the buttons. Not on
+                // web: there a disabled Pressable is aria-disabled, which
+                // marked its own choice buttons — "Warm up your own way",
+                // "Add exercise" — disabled to assistive tech and automation
+                // (#bugs 2026-10-01); no onPress keeps it inert there.
+                disabled={Platform.OS === 'web' ? undefined : splashCarriesChoice(step)}
+                focusable={!splashCarriesChoice(step)}
               >
                 {/* The block name owns the upper half; the decision sits down
                     where a thumb already is (user 2026-08-26). */}

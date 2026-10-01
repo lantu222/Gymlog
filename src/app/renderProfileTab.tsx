@@ -136,7 +136,6 @@ export interface ProfileTabDeps {
   setFinishSaveState: (value: {
     status: 'idle' | 'saving' | 'error';
     sessionId: string | null;
-    message: string | null;
   }) => void;
   workout: { resetWorkoutData: () => Promise<void> };
   lifetimeSummary: React.ComponentProps<typeof ProfileScreen>['lifetime'];
@@ -144,7 +143,6 @@ export interface ProfileTabDeps {
   trackedProgress: React.ComponentProps<typeof ProfileScreen>['trackedProgress'];
   exerciseLibrary: React.ComponentProps<typeof ProfileScreen>['exerciseLibrary'];
   unitPreference: React.ComponentProps<typeof ProfileScreen>['unitPreference'];
-  homeTrainingDayIndexes: number[];
   distinctRecordCount: number;
 }
 
@@ -231,7 +229,6 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
     trackedProgress,
     exerciseLibrary,
     unitPreference,
-    homeTrainingDayIndexes,
     distinctRecordCount,
   } = deps;
 
@@ -816,7 +813,7 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
           await accountBackup.signOut();
           await resetAllData();
           setCompletionSummary(null);
-          setFinishSaveState({ status: 'idle', sessionId: null, message: null });
+          setFinishSaveState({ status: 'idle', sessionId: null });
           await workout.resetWorkoutData();
           resetToRoute(ROOT_ROUTES.home);
           if (logId) {

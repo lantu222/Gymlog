@@ -32,8 +32,8 @@ import type { AppDatabase, AppPreferences, UnitPreference } from '../types/model
  *
  * Moved verbatim from VinhaApp in App.tsx in the phase-B split (2026-09-30),
  * docs, comments and deps arrays included — the eslint-disabled one that
- * leaves programmeStart out, and aiCoachTrainingContext's, which reads
- * preferences.setupAgeRange without listing it. A hook, not a helper: it is
+ * leaves programmeStart out, and aiCoachTrainingContext's, which read
+ * preferences.setupAgeRange without listing it (listed now). A hook, not a helper: it is
  * three memos, and VinhaApp calls it exactly where they stood — after the
  * recovery sheet's handlers, before the lead-plan repair effect — so React's
  * hook order is unchanged. coachNextSessionTargets stays in here; the context
@@ -258,6 +258,9 @@ export function useCoachContext(deps: CoachContextDeps) {
       preferences.bodyweightGoalKg,
       preferences.setupHeightCm,
       preferences.setupAge,
+      // Read above as the age band; missing here, a changed band only reached
+      // the coach when something else rebuilt the context (#bugs 2026-10-01).
+      preferences.setupAgeRange,
       preferences.setupGender,
       preferences.aiSetupCompleted,
       preferences.setupCautionFlags,

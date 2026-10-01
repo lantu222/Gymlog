@@ -37,7 +37,7 @@ import { isReaderNamedSession } from '../lib/sessionNameLabel';
 import { nextSeasonWindow, resolveSeasonWindow } from '../lib/season';
 import { isEnrolled } from '../lib/seasonEnrolment';
 import { computeSeasonProgress, countSeasonRecords, resolveSeasonBadges } from '../lib/seasonScoring';
-import { removeStrengthGoal, upsertStrengthGoal } from '../lib/strengthGoals';
+import { removeStrengthGoal } from '../lib/strengthGoals';
 import { buildTailoringBadgeLabels } from '../lib/tailoringFit';
 import { AppRoute, ROOT_ROUTES } from '../navigation/routes';
 import { haptics } from '../utils/haptics';
@@ -235,7 +235,6 @@ export interface WorkoutTabDeps {
    * nothing (2026-09-16).
    */
   handlePickProgramImage?: () => Promise<ProgramImageImportResult>;
-  coachProUnlocked: boolean;
 }
 
 export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | null {
@@ -328,7 +327,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     exerciseNameBook,
     teachExerciseName,
     handlePickProgramImage,
-    coachProUnlocked,
   } = deps;
 
   /**

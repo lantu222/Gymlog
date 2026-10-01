@@ -8,17 +8,13 @@ import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 
 import { AppShell } from './src/components/AppShell';
-import { formatDurationMinutes, formatRepRange, formatShortDate, formatTime, formatVolume, formatWeight, pluralize, removeTrailingZeros } from './src/lib/format';
+import { formatTime, pluralize } from './src/lib/format';
 import { HistoryScrollMemory } from './src/lib/historyScrollMemory';
-import {
-  buildFirstRunRecommendationReasons,
-} from './src/lib/firstRunSetup';
 import { formatWorkoutDisplayLabel } from './src/lib/displayLabel';
-import { buildCardioStatsLine, getCardioActivity } from './src/lib/cardio';
 import { haptics } from './src/utils/haptics';
 import { useScheduledNotifications } from './src/hooks/useScheduledNotifications';
 import { usePendingAiLogDeletions } from './src/hooks/usePendingAiLogDeletions';
-import { ThemeProvider, themeForName, useTheme } from './src/theming';
+import { ThemeProvider, themeForName } from './src/theming';
 import {
   isHomeWidgetAdded,
   isHomeWidgetSupported,
@@ -44,10 +40,8 @@ import {
   buildProgramWorkoutPlan,
 } from './src/lib/programAdoption';
 import { useRecordsAndMilestones } from './src/app/useRecordsAndMilestones';
-import { markCoachDemoMomentUsed } from './src/lib/coachDemoMoments';
-import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
 import { I18nKey, t } from './src/lib/i18n';
-import { isProUnlocked, resolveProEntitlement } from './src/lib/proEntitlement';
+import { resolveProEntitlement } from './src/lib/proEntitlement';
 import { resolveThemeName } from './src/lib/themePreference';
 import { trackEvent } from './src/features/analytics/analyticsClient';
 
@@ -57,29 +51,12 @@ import { CoachAdviceMemoryEntry } from './src/lib/coachAdviceMemory';
 import { clearCoachAdviceMemory } from './src/storage/coachAdviceMemoryStore';
 import type { ChatMessage } from './src/screens/AICoachChatScreen';
 import { useProgramExerciseEdit } from './src/app/useProgramExerciseEdit';
-import { getSeasonProgramId } from './src/lib/programSeasons';
-import { getSeasonProgramIds } from './src/lib/programSeasons';
-import {
-  SEASON_COLORS,
-  SEASON_WEEKS,
-  SeasonWindow,
-  formatSeasonDateRange,
-  nextSeasonWindow,
-  resolveSeasonWindow,
-  seasonLastDay,
-  seasonProgressRatio,
-  seasonWeek,
-  seasonWeeksLeft,
-} from './src/lib/season';
 import { useRecoverySheet } from './src/app/useRecoverySheet';
 import {
   planLabelsForProgramme,
 } from './src/lib/trainingWeekSync';
 import { findReadyProgrammeCopyId } from './src/lib/programmeCopyLink';
 import { useGoalFlow } from './src/app/useGoalFlow';
-import {
-  isEnrolled,
-} from './src/lib/seasonEnrolment';
 
 /**
  * The listing, opened by every star. Not the in-app review API: Google's own
@@ -109,7 +86,6 @@ import { renderOnboardingFlow, renderSetupEditor, renderSetupHandoff } from './s
 import { renderWorkoutCompletion } from './src/app/renderWorkoutCompletion';
 import { renderWorkoutTab } from './src/app/renderWorkoutTab';
 import { renderProgressTab } from './src/app/renderProgressTab';
-import { formatGoalLabel } from './src/app/homeSessionTitle';
 import { useSessionNotifications } from './src/app/useSessionNotifications';
 import { useNotificationRoute } from './src/app/useNotificationRoute';
 import { useCoachContext } from './src/app/useCoachContext';
@@ -159,19 +135,12 @@ import { LaunchScreen } from './src/screens/LaunchScreen';
 import { setNumberLanguage } from './src/lib/format';
 import { VinhaSplashScreen } from './src/screens/VinhaSplashScreen';
 import { NewProgramSheet } from './src/components/NewProgramSheet';
-import { buildCoachContextChips } from './src/lib/coachChat';
 import { accountNameStep } from './src/lib/accountNameAdoption';
 import { WorkoutProvider, useWorkoutContext } from './src/features/workout/WorkoutProvider';
-import { AdaptedCompletedWorkoutExercise } from './src/features/workout/workoutAppAdapter';
 import { getWorkoutTemplateById } from './src/features/workout/workoutCatalog';
 import { AppProvider, useAppContext } from './src/state/AppProvider';
 import { registerAppIdentity } from './src/features/appUpdate/appUpdateSignal';
 import { appInfo } from './src/theme';
-import {
-  AppLanguage,
-  ExerciseTemplateDraft,
-  SetupGender,
-} from './src/types/models';
 
 void SplashScreen.preventAutoHideAsync().catch(() => {
   // Native splash may already be controlled by the host app during fast refresh.
@@ -199,7 +168,6 @@ function SettingsImportSheet(props: Omit<React.ComponentProps<typeof NewProgramS
 }
 
 function VinhaApp() {
-  const theme = useTheme();
   const {
     database,
     hydrated,
@@ -606,7 +574,6 @@ function VinhaApp() {
     summaryNavigationPendingRef,
     summaryExitRouteRef,
     workoutTemplates,
-    exerciseLibrary,
     exerciseBrowserItems,
     trackedProgress,
     workoutSessions,
@@ -1263,6 +1230,7 @@ function VinhaApp() {
     upsertWorkoutPlan,
     updatePreferences,
     forgetHeldProgramme,
+    deleteWorkoutTemplate,
     navigate,
     showToast,
     adaptSession,
@@ -1410,7 +1378,6 @@ function VinhaApp() {
     handleBackToEntry,
     handleOnboardingCompleteToTraining,
     handleSaveSetupLimitations,
-    handleOpenPremium,
     handleSetupCompleteToTraining,
   } = createOnboardingFinishes({
     database,
@@ -1424,7 +1391,6 @@ function VinhaApp() {
     setBusySavingReadyPick,
     setThemeChoiceVisible,
     setProgramLimitVisible,
-    navigate,
     navigateBack,
     resetToRoute,
     showToast,
@@ -1465,7 +1431,7 @@ function VinhaApp() {
     setHeldSessionAdaptations,
   });
 
-  const { premiumTrialEndsAt, analysisSessionId, coachLastSession } = useCoachEntryReadings({
+  const { analysisSessionId, coachLastSession } = useCoachEntryReadings({
     route,
     workoutSessions,
     database,
@@ -1481,9 +1447,7 @@ function VinhaApp() {
     setupBasics,
     tailoringPreferences,
     setupRecommendation,
-    currentFitReadyTemplate,
     recommendedReadyTemplate,
-    recommendedReadyContent,
   } = useSetupReadings({
     preferences,
     bodyweightProgress,
@@ -1517,7 +1481,6 @@ function VinhaApp() {
   // Same equipment truth the composer filters exercises with, for the default
   // warmup/cooldown drills: null = setup never said, [] = no equipment at all.
   const {
-    homeTrainingDayIndexes,
     homeDoneThisWeekSessionIds,
     baseTrainingSchedule,
     homeTrainingSchedule,
@@ -1726,155 +1689,6 @@ function VinhaApp() {
     workout,
     WEEKDAY_LABEL_KEYS,
   });
-  const nextPlannedWorkout = useMemo(() => {
-    if (!homeSummary.nextWorkout?.plan) {
-      return null;
-    }
-
-    const template = homeSummary.nextWorkout.workout;
-    return {
-      source: 'custom' as const,
-      workoutTemplateId: template.id,
-      title: template.name,
-      subtitle: homeSummary.nextWorkout.subtitle,
-      meta: `${pluralize(getWorkoutTemplateSessions(template.id).length, 'session')} | ${pluralize(getWorkoutExercises(template.id).length, 'exercise')}`,
-    };
-  }, [getWorkoutExercises, getWorkoutTemplateSessions, homeSummary.nextWorkout]);
-  const lastReusableWorkout = useMemo(() => {
-    const lastSession = homeSummary.lastSession?.session;
-    if (!lastSession) {
-      return null;
-    }
-
-    const readyTemplate = getWorkoutTemplateById(lastSession.workoutTemplateId);
-    if (readyTemplate) {
-      return {
-        source: 'ready' as const,
-        workoutTemplateId: readyTemplate.id,
-        title: readyTemplate.name,
-        subtitle: `Last completed ${formatShortDate(lastSession.performedAt)}`,
-        meta: `${readyTemplate.daysPerWeek} days | ${formatGoalLabel(readyTemplate.goalType)} | ${readyTemplate.estimatedSessionDuration} min`,
-      };
-    }
-
-    const customTemplate = workoutTemplates.find((item) => item.id === lastSession.workoutTemplateId);
-    if (!customTemplate) {
-      return null;
-    }
-
-    return {
-      source: 'custom' as const,
-      workoutTemplateId: customTemplate.id,
-      title: customTemplate.name,
-      subtitle: `Last completed ${formatShortDate(lastSession.performedAt)}`,
-      meta: `${pluralize(getWorkoutTemplateSessions(customTemplate.id).length, 'session')} | ${pluralize(getWorkoutExercises(customTemplate.id).length, 'exercise')}`,
-    };
-  }, [getWorkoutExercises, getWorkoutTemplateSessions, homeSummary.lastSession, workoutTemplates]);
-  const recommendedHomeWorkout = useMemo(
-    () =>
-      recommendedReadyTemplate
-        ? {
-            source: 'ready' as const,
-            workoutTemplateId: recommendedReadyTemplate.id,
-            title: recommendedReadyTemplate.name,
-            subtitle: recommendedReadyContent?.summary ?? 'Open a proven split and start the next session fast.',
-            meta: `${recommendedReadyTemplate.daysPerWeek} days | ${formatGoalLabel(recommendedReadyTemplate.goalType)} | ${recommendedReadyTemplate.estimatedSessionDuration} min`,
-          }
-        : null,
-    [recommendedReadyContent, recommendedReadyTemplate],
-  );
-  const hasSavedTrainingSetup = useMemo(
-    () => preferences.trainingFirstRunDismissed || Boolean(workout.activeSession),
-    [preferences.trainingFirstRunDismissed, workout.activeSession],
-  );
-  const homeQuickStats = useMemo(
-    () =>
-      buildHomeQuickStats({
-        sessionsThisWeek: homeSummary.sessionsThisWeek,
-        streakValue: homeSummary.streak.value,
-        streakLabel: homeSummary.streak.label,
-        deltaValue: homeSummary.lastSessionDelta?.value ?? null,
-      }),
-    [homeSummary.lastSessionDelta?.value, homeSummary.sessionsThisWeek, homeSummary.streak.label, homeSummary.streak.value],
-  );
-  const homeUpcomingSessions = useMemo(
-    () =>
-      buildHomeUpcomingSessions({
-        database,
-        readyTemplates: workout.templates,
-        customTemplates: workoutTemplates,
-        setupSelection,
-        recommendedReadyTemplate,
-      }),
-    [database, recommendedReadyTemplate, setupSelection, workout.templates, workoutTemplates],
-  );
-  const weeklySnapshot = useMemo(() => {
-    const workoutsDelta = homeSummary.weeklySnapshot.workoutsCurrent - homeSummary.weeklySnapshot.workoutsPrevious;
-    const durationDeltaMinutes =
-      homeSummary.weeklySnapshot.durationCurrentMinutes - homeSummary.weeklySnapshot.durationPreviousMinutes;
-    const volumeDeltaKg = homeSummary.weeklySnapshot.volumeCurrentKg - homeSummary.weeklySnapshot.volumePreviousKg;
-    const latestBodyweight = homeSummary.bodyweight.latest
-      ? formatWeight(homeSummary.bodyweight.latest.weight, unitPreference)
-      : '--';
-    const bodyweightDelta =
-      homeSummary.bodyweight.latest && homeSummary.bodyweight.previous
-        ? homeSummary.bodyweight.latest.weight - homeSummary.bodyweight.previous.weight
-        : null;
-
-    return [
-      {
-        value: `${homeSummary.weeklySnapshot.workoutsCurrent}`,
-        label: 'Workouts',
-        trendLabel: workoutsDelta === 0 ? '-' : `${workoutsDelta > 0 ? '+' : ''}${workoutsDelta}`,
-        trendDirection:
-          workoutsDelta === 0 ? ('flat' as const) : workoutsDelta > 0 ? ('up' as const) : ('down' as const),
-      },
-      {
-        value:
-          homeSummary.weeklySnapshot.durationCurrentMinutes > 0
-            ? formatDurationMinutes(homeSummary.weeklySnapshot.durationCurrentMinutes)
-            : '0 min',
-        label: 'Duration',
-        trendLabel:
-          durationDeltaMinutes === 0
-            ? '-'
-            : `${durationDeltaMinutes > 0 ? '+' : ''}${formatDurationMinutes(Math.abs(durationDeltaMinutes))}`,
-        trendDirection:
-          durationDeltaMinutes === 0
-            ? ('flat' as const)
-            : durationDeltaMinutes > 0
-              ? ('up' as const)
-              : ('down' as const),
-      },
-      {
-        value:
-          homeSummary.weeklySnapshot.volumeCurrentKg > 0
-            ? formatVolume(homeSummary.weeklySnapshot.volumeCurrentKg, unitPreference)
-            : `0 ${unitPreference}`,
-        label: 'Volume',
-        trendLabel:
-          volumeDeltaKg === 0
-            ? '-'
-            : `${volumeDeltaKg > 0 ? '+' : ''}${formatVolume(Math.abs(volumeDeltaKg), unitPreference)}`,
-        trendDirection:
-          volumeDeltaKg === 0 ? ('flat' as const) : volumeDeltaKg > 0 ? ('up' as const) : ('down' as const),
-      },
-      {
-        value: latestBodyweight,
-        label: 'Bodyweight',
-        trendLabel:
-          bodyweightDelta === null
-            ? '-'
-            : `${bodyweightDelta > 0 ? '+' : ''}${formatWeight(Math.abs(bodyweightDelta), unitPreference)}`,
-        trendDirection:
-          bodyweightDelta === null || Math.abs(bodyweightDelta) < 0.001
-            ? ('flat' as const)
-            : bodyweightDelta > 0
-              ? ('up' as const)
-              : ('down' as const),
-      },
-    ];
-  }, [homeSummary.bodyweight.latest, homeSummary.bodyweight.previous, homeSummary.weeklySnapshot, unitPreference]);
   const { completedWorkoutSessions, homeRecentSessions } = useRecentSessions({
     database,
     workoutSessions,
@@ -2207,7 +2021,6 @@ function VinhaApp() {
       exerciseNameBook,
       teachExerciseName,
       handlePickProgramImage,
-      coachProUnlocked,
     });
   } else if (route.tab === 'progress') {
     content = renderProgressTab({
@@ -2295,7 +2108,6 @@ function VinhaApp() {
       trackedProgress,
       exerciseLibrary,
       unitPreference,
-      homeTrainingDayIndexes,
       distinctRecordCount,
     });
   }
@@ -2379,28 +2191,9 @@ function VinhaApp() {
   const setupOnboardingActive = route.tab === 'profile' && route.screen === 'setup';
   const onboardingScreenActive = onboardingActive || setupOnboardingActive;
   const welcomeActive = onboardingActive && entryFlowActive;
-  const emptyWorkoutActive = route.tab === 'workout' && route.screen === 'empty';
-  const readyTemplatesActive = route.tab === 'workout' && route.screen === 'plans';
-  const programDetailActive = route.tab === 'workout' && route.screen === 'program';
-  const workoutLogActive = route.tab === 'workout' && route.screen === 'guided';
   // Workout Complete opens on a full-bleed purple hero — the status bar joins it
   // rather than sitting above it as a dark strip.
   const workoutSummaryActive = route.tab === 'workout' && route.screen === 'summary';
-  const exerciseDetailActive = route.tab === 'workout' && route.screen === 'detail';
-  const exercisesListActive = route.tab === 'workout' && route.screen === 'list';
-  const programsHomeActive = route.tab === 'workout' && route.screen === 'programs_home';
-  const profileListActive = route.tab === 'profile' && route.screen === 'list';
-  const profileSettingsActive =
-    route.tab === 'profile' &&
-    (route.screen === 'settings' ||
-      route.screen === 'my_data' ||
-      route.screen === 'export_plan' ||
-      route.screen === 'edit_profile' ||
-      route.screen === 'training_plan' ||
-      route.screen === 'notifications' ||
-      route.screen === 'training_break' ||
-      route.screen === 'subscription' ||
-      route.screen === 'legal');
   /**
    * The Pro page commits to one dark treatment in BOTH themes (theme.ts,
    * PRO_TIER): the tier's colour is the only thing telling Free from Pro from
@@ -2413,11 +2206,9 @@ function VinhaApp() {
    * pale strips framing a black page.
    */
   const premiumActive = route.tab === 'profile' && route.screen === 'premium';
-  const historyActive = route.tab === 'home' && (route.screen === 'history' || route.screen === 'session' || route.screen === 'cardio');
   // The saved-session view opens on the same purple hero as Workout Complete,
   // so the status bar joins it instead of sitting above it as a light strip.
   const historySessionActive = route.tab === 'home' && route.screen === 'session';
-  const progressActive = route.tab === 'progress';
 
   // The brand animation, once per cold start. It sits outside AppShell's
   // status-bar plumbing on purpose: it is a full-bleed field, and it must not

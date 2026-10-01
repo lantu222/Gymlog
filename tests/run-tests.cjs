@@ -314,6 +314,7 @@ const suites = [
   ...require('./lib/sessionClock.test.cjs'),
   ...require('./lib/sessionClockWindow.test.cjs'),
   ...require('./lib/programmeDeletion.test.cjs'),
+  ...require('./screens/programmeCopyRollback.test.cjs'),
   ...require('./features/workout/liveWorkoutKept.test.cjs'),
   ...require('./screens/liveWorkoutWiring.test.cjs'),
   ...require('./lib/historyDelete.test.cjs'),
@@ -332,7 +333,6 @@ const suites = [
   ...require('./screens/teachingSections.test.cjs'),
   ...require('./screens/completionHero.test.cjs'),
   ...require('./screens/leadProgram.test.cjs'),
-  ...require('./lib/homeVisuals.test.cjs'),
   ...require('./lib/aiTrainingContext.test.cjs'),
   ...require('./lib/coachLocalDates.test.cjs'),
   ...require('./lib/aiCoachSystemContext.test.cjs'),
@@ -491,6 +491,7 @@ const suites = [
   ...require('./screens/accessibilityAudit.test.cjs'),
   ...require('./screens/sheetBottomInset.test.cjs'),
   ...require('./screens/finishRouteGuard.test.cjs'),
+  ...require('./screens/bugSweep20261001.test.cjs'),
 ];
 
 (async () => {

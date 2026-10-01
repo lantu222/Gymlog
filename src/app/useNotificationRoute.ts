@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 
 import { routeForNotification } from '../lib/notificationRoute';
@@ -80,7 +81,18 @@ export function useNotificationRoute(deps: NotificationRouteDeps): void {
      * destination for is still a response that has been seen, and leaving it
      * stored only means re-reading it on the next launch to ignore it again.
      */
-    const cold = Notifications.getLastNotificationResponse();
+    // Throws on web, where there is no stored response to read (#bugs
+    // 2026-10-01 browser smoke test): nothing launched the app from a shade.
+    let cold: Notifications.NotificationResponse | null = null;
+    try {
+      cold = Notifications.getLastNotificationResponse();
+    } catch (error) {
+      // Expected on web; anywhere else it is a broken module, said aloud.
+      if (Platform.OS !== 'web') {
+        console.error('Could not read the notification that opened the app', error);
+      }
+      cold = null;
+    }
     if (cold) {
       handle(cold);
       Notifications.clearLastNotificationResponse();

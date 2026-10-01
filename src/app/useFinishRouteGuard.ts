@@ -20,9 +20,10 @@ import type { FinishSaveState } from './useFinishState';
  * A hook, not a helper: these are effects, and VinhaApp calls this exactly
  * where the lines stood — after the toast timer, ahead of the onboarding
  * step's state — so every hook keeps its slot and the two effects still run
- * in this order, the reset first. The dependency lists are as they were,
- * exerciseLibrary standing for the exerciseBrowserItems the body reads (the
- * same array; see App.tsx). The refs are VinhaApp's own objects, handed in,
+ * in this order, the reset first. The guard lists exerciseBrowserItems, the
+ * array it reads — it listed exerciseLibrary, the same array today, which
+ * would stop noticing the day the browser list filters (#bugs 2026-10-01).
+ * The refs are VinhaApp's own objects, handed in,
  * so this reads and clears the flags the finish handlers set.
  * tests/screens/finishRouteGuard.test.cjs runs this source branch by branch.
  */
@@ -41,7 +42,6 @@ export interface FinishRouteGuardDeps {
   summaryNavigationPendingRef: MutableRefObject<boolean>;
   summaryExitRouteRef: MutableRefObject<AppRoute | null>;
   workoutTemplates: AppDatabase['workoutTemplates'];
-  exerciseLibrary: AppDatabase['exerciseLibrary'];
   exerciseBrowserItems: AppDatabase['exerciseLibrary'];
   trackedProgress: ReturnType<typeof getTrackedExerciseProgress>;
   workoutSessions: AppDatabase['workoutSessions'];
@@ -60,7 +60,6 @@ export function useFinishRouteGuard(deps: FinishRouteGuardDeps) {
     summaryNavigationPendingRef,
     summaryExitRouteRef,
     workoutTemplates,
-    exerciseLibrary,
     exerciseBrowserItems,
     trackedProgress,
     workoutSessions,
@@ -76,13 +75,21 @@ export function useFinishRouteGuard(deps: FinishRouteGuardDeps) {
       return;
     }
 
-    setFinishSaveState({ status: 'idle', sessionId: null, message: null });
+    setFinishSaveState({ status: 'idle', sessionId: null });
   }, [finishSaveState.sessionId, finishSaveState.status, workout.activeSession?.sessionId]);
 
   useEffect(() => {
+    /** Re-checks the guided route when a start's window runs out with nothing landed. */
+    let windowExpiry: ReturnType<typeof setTimeout> | null = null;
     if (route.tab === 'workout' && route.screen === 'guided') {
       const allowedAt = workoutLogNavigationAllowedAtRef.current;
-      workoutLogNavigationAllowedAtRef.current = null;
+      // Spent once the session it waited for has landed, or once it has run
+      // out — not on the first read. Cleared on every guided render, a second
+      // run inside the two seconds (anything else in the deps changing) found
+      // no stamp and sent a starting workout Home (#bugs 2026-10-01, phase C).
+      if (workout.activeSession || !allowedAt || Date.now() - allowedAt > 2000) {
+        workoutLogNavigationAllowedAtRef.current = null;
+      }
 
       if (
         !workout.activeSession &&
@@ -92,6 +99,20 @@ export function useFinishRouteGuard(deps: FinishRouteGuardDeps) {
       ) {
         replaceRoute(ROOT_ROUTES.home);
         return;
+      }
+
+      // Inside the window with no session yet: nothing re-runs this effect if
+      // the session never lands, so the expiry has to be scheduled, or a lost
+      // start sat on an empty player screen until Back (review of #bugs
+      // 2026-10-01). A session, a route change or a finish re-runs the effect
+      // first, and the cleanup below cancels this.
+      if (!workout.activeSession && allowedAt && Date.now() - allowedAt <= 2000) {
+        windowExpiry = setTimeout(() => {
+          workoutLogNavigationAllowedAtRef.current = null;
+          if (!summaryNavigationPendingRef.current) {
+            replaceRoute(ROOT_ROUTES.home);
+          }
+        }, 2000 - (Date.now() - allowedAt) + 1);
       }
     }
 
@@ -166,9 +187,15 @@ export function useFinishRouteGuard(deps: FinishRouteGuardDeps) {
       summaryExitRouteRef.current = null;
       replaceRoute(nextRoute);
     }
+
+    return () => {
+      if (windowExpiry) {
+        clearTimeout(windowExpiry);
+      }
+    };
   }, [
     completionSummary,
-    exerciseLibrary,
+    exerciseBrowserItems,
     finishSaveState.status,
     route,
     trackedProgress,

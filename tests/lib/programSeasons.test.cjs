@@ -4,7 +4,6 @@ const {
   PROGRAM_SEASONS,
   getProgramSeason,
   getSeasonForDate,
-  getSeasonProgramIds,
   orderSeasons,
 } = require('../../.test-dist/lib/programSeasons.js');
 const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog');
@@ -27,8 +26,11 @@ module.exports = [
   {
     name: 'both seasons have enough programs to be worth a row',
     run() {
-      const winter = getSeasonProgramIds('winter');
-      const summer = getSeasonProgramIds('summer');
+      // Read off the map itself: its id-list helper had no caller left and went
+      // with App.tsx's dead imports (#bugs 2026-10-01).
+      const idsIn = (season) => Object.keys(PROGRAM_SEASONS).filter((id) => PROGRAM_SEASONS[id] === season);
+      const winter = idsIn('winter');
+      const summer = idsIn('summer');
       // A row with two entries reads as an oversight rather than a selection.
       assert.ok(winter.length >= 8, `winter has ${winter.length}`);
       assert.ok(summer.length >= 8, `summer has ${summer.length}`);

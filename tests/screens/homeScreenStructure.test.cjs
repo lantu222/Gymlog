@@ -458,7 +458,9 @@ module.exports = [
       assert.doesNotMatch(workoutsScreenSource, /readyTemplateSummary/);
       assert.doesNotMatch(workoutsScreenSource, /formatTemplateSubtitle/);
       assert.doesNotMatch(workoutsScreenSource, /Next: \{firstExercise\}/);
-      assert.match(appSource, /const readyTemplatesActive = route\.tab === 'workout' && route\.screen === 'plans'/);
+      // The per-screen `*Active` flag was never read once the shell defaulted
+      // to light (below), and went with the other dead ones (#bugs 2026-10-01).
+      assert.doesNotMatch(appSource, /const readyTemplatesActive =/);
       // The safe area must match the content it frames. App.tsx used to
       // enumerate every light screen to achieve that, and any screen left off
       // the list fell through to the legacy dark theme — which is how Home got

@@ -8,6 +8,7 @@ const { isRecordLocked } = require('../../.test-dist/lib/historyWindow.js');
 const { measurementUnitForKind } = require('../../.test-dist/lib/measurementKinds.js');
 const { resolveSeasonWindow, seasonLastDay } = require('../../.test-dist/lib/season.js');
 const { createFakeAsyncStorage, loadAgainstFake } = require('../storage/fakeAsyncStorage.cjs');
+const { withHelsinkiClocks } = require('../helpers/clockChange.cjs');
 
 const ROOT = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8').replace(/\r\n/g, '\n');
@@ -94,20 +95,24 @@ module.exports = [
   {
     name: 'records: the free window steps by calendar month, like the charts it promises to match',
     run() {
-      // 31 May minus three months is 28 February, not 3 March — the raw
-      // construction asked for 31 February and JavaScript answered next month.
-      const now = new Date(2026, 4, 31, 12, 0);
-      const raw = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
-      const calendar = subtractCalendarMonths(now, 3);
-      assert.notEqual(raw.getMonth(), calendar.getMonth(), 'the two constructions must differ on the 31st');
+      // In Helsinki time whatever the machine's zone: the dates below are the
+      // reader's local days, and on a UTC runner this failed (#bugs 2026-10-01).
+      withHelsinkiClocks(() => {
+        // 31 May minus three months is 28 February, not 3 March — the raw
+        // construction asked for 31 February and JavaScript answered next month.
+        const now = new Date(2026, 4, 31, 12, 0);
+        const raw = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+        const calendar = subtractCalendarMonths(now, 3);
+        assert.notEqual(raw.getMonth(), calendar.getMonth(), 'the two constructions must differ on the 31st');
 
-      // A record from 2 March is inside three calendar months of 31 May.
-      assert.equal(isRecordLocked('2026-03-02T10:00:00.000Z', false, now), false);
-      assert.equal(isRecordLocked('2026-02-28T10:00:00.000Z', false, now), false);
-      // And one genuinely older is still locked.
-      assert.equal(isRecordLocked('2026-01-05T10:00:00.000Z', false, now), true);
-      // Pro is never locked.
-      assert.equal(isRecordLocked('2020-01-05T10:00:00.000Z', true, now), false);
+        // A record from 2 March is inside three calendar months of 31 May.
+        assert.equal(isRecordLocked('2026-03-02T10:00:00.000Z', false, now), false);
+        assert.equal(isRecordLocked('2026-02-28T10:00:00.000Z', false, now), false);
+        // And one genuinely older is still locked.
+        assert.equal(isRecordLocked('2026-01-05T10:00:00.000Z', false, now), true);
+        // Pro is never locked.
+        assert.equal(isRecordLocked('2020-01-05T10:00:00.000Z', true, now), false);
+      });
 
       const source = strip(read('src', 'lib', 'historyWindow.ts'));
       assert.match(source, /const cutoff = subtractCalendarMonths\(now, FREE_RECORD_MONTHS\);/);
@@ -191,12 +196,18 @@ module.exports = [
   {
     name: 'seasons: the end date steps by calendar date, so it survives the clock change',
     run() {
-      // Winter 2029 ends 1 April 2030; a fixed day of milliseconds back from
-      // local midnight lands at 23:00 on 30 March.
-      const window = resolveSeasonWindow(new Date(2029, 10, 15));
-      const raw = new Date(window.end.getTime() - 86_400_000);
-      const calendar = seasonLastDay(window);
-      assert.notEqual(raw.getDate(), calendar.getDate(), 'this season must straddle the change');
+      // Under Helsinki's clocks whatever the machine's zone: in UTC there is no
+      // change to straddle, and the guard below failed (#bugs 2026-10-01).
+      withHelsinkiClocks(() => {
+        // Winter 2029 ends 1 April 2030; a fixed day of milliseconds back from
+        // local midnight lands at 23:00 on 30 March.
+        const window = resolveSeasonWindow(new Date(2029, 10, 15));
+        const raw = new Date(window.end.getTime() - 86_400_000);
+        const calendar = seasonLastDay(window);
+        assert.notEqual(raw.getDate(), calendar.getDate(), 'this season must straddle the change');
+        // And the calendar step lands on the season's last day, 31 March.
+        assert.deepEqual([calendar.getFullYear(), calendar.getMonth(), calendar.getDate()], [2030, 2, 31]);
+      });
 
       const screen = strip(read('src', 'screens', 'SeasonScreen.tsx'));
       assert.match(screen, /end: formatDay\(seasonLastDay\(window\), language\),/);

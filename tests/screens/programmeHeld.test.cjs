@@ -41,7 +41,9 @@ module.exports = [
       // On the record, not on the running set: a programme switched off
       // still has its plan, and editing a lift in one left that record
       // behind while the copy started from week 1 (CI review of #161).
-      assert.match(fork, /if \(wasHeld\) \{[\s\S]{0,600}await forgetHeldProgramme\(template\.id\);/, 'the replaced plan record must go with the copy');
+      // Its failure is cleanup, not a failed copy, since #bugs 2026-10-01 —
+      // hence the .catch and the longer comment before it.
+      assert.match(fork, /if \(wasHeld\) \{[\s\S]{0,900}await forgetHeldProgramme\(template\.id\)\.catch\(/, 'the replaced plan record must go with the copy');
       assert.match(wiring, /const wasHeld = database\.workoutPlans\.some\(\(item\) => item\.id === readyPlanId\);/, 'held is read off the plan records');
 
       // Resuming is one rule in one place now: the reader's own copy of a

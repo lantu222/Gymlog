@@ -38,8 +38,8 @@ type AppContextValue = ReturnType<typeof useAppContext>;
  * exactly where the declarations stood (after leaveDeletedProgramme), so each
  * handler is still a fresh closure over that render's values, and
  * handlePickProgramImage is still decided on every render, at the same point;
- * every use of them in App.tsx sits below the call. handleOpenPremium is
- * returned unread, as it was declared unread.
+ * every use of them in App.tsx sits below the call. handleOpenPremium, which
+ * nothing read, is gone (#bugs 2026-10-01).
  *
  * .tsx only because the context types come from src/state/AppProvider.tsx and
  * the About form's from src/screens/AboutYouScreen.tsx; no .ts module imports
@@ -60,8 +60,6 @@ export interface OnboardingFinishesDeps {
   setThemeChoiceVisible: (visible: boolean) => void;
   /** Opens the programme-limit sheet. */
   setProgramLimitVisible: (visible: boolean) => void;
-  /** VinhaApp's hoisted navigate. */
-  navigate: (nextRoute: AppRoute) => void;
   /** VinhaApp's hoisted navigateBack. */
   navigateBack: (fallback?: AppRoute | null) => void;
   /** VinhaApp's hoisted resetToRoute. */
@@ -83,7 +81,6 @@ export function createOnboardingFinishes(deps: OnboardingFinishesDeps) {
     setBusySavingReadyPick,
     setThemeChoiceVisible,
     setProgramLimitVisible,
-    navigate,
     navigateBack,
     resetToRoute,
     showToast,
@@ -441,10 +438,6 @@ export function createOnboardingFinishes(deps: OnboardingFinishesDeps) {
     navigateBack(ROOT_ROUTES.profile);
   }
 
-  function handleOpenPremium() {
-    navigate({ tab: 'profile', screen: 'premium' });
-  }
-
   async function handleSetupCompleteToTraining(selection: FirstRunSetupSelection, recommendedProgramId: string) {
     // Was three seconds of setTimeout before any of this ran, so finishing
     // onboarding took the real work plus a flat 3s of nothing — reported from
@@ -510,7 +503,6 @@ export function createOnboardingFinishes(deps: OnboardingFinishesDeps) {
     handleBackToEntry,
     handleOnboardingCompleteToTraining,
     handleSaveSetupLimitations,
-    handleOpenPremium,
     handleSetupCompleteToTraining,
   };
 }

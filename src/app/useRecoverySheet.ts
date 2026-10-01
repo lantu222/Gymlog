@@ -11,6 +11,7 @@ import {
 } from '../lib/recoverySheet';
 import { localizeSessionName } from '../lib/sessionNameLabel';
 import { trainsOn, type TrainingSchedule } from '../lib/trainingSchedule';
+import type { PreferencesPatch } from '../state/AppProvider';
 import { AppDatabase, AppPreferences } from '../types/models';
 import { haptics } from '../utils/haptics';
 
@@ -35,7 +36,8 @@ export interface RecoverySheetDeps {
   baseTrainingSchedule: TrainingSchedule;
   /** A dependency only: the sheet reads the clock, so it is keyed on the day. */
   todayStartMs: number;
-  updatePreferences: (patch: Partial<AppPreferences>) => Promise<unknown>;
+  /** Functional patches too: the rest-day list is written from the stored one. */
+  updatePreferences: (patch: PreferencesPatch) => Promise<unknown>;
   showToast: (message: string) => void;
 }
 
@@ -106,9 +108,12 @@ export function useRecoverySheet(deps: RecoverySheetDeps) {
         showToast(t(preferences.appLanguage, 'recovery.toast.lighten'));
         return;
       }
-      await updatePreferences({
-        restDayStarts: withRestDay(preferences.restDayStarts, dayStartPlus(now, 1), now),
-      });
+      // From the stored list, not this render's: two quick taps (rest, then
+      // undo, then rest) each read the same snapshot, and the later write
+      // dropped what the earlier one had just stored (#bugs 2026-10-01).
+      await updatePreferences((current) => ({
+        restDayStarts: withRestDay(current.restDayStarts, dayStartPlus(now, 1), now),
+      }));
       void haptics.success();
       showToast(t(preferences.appLanguage, 'recovery.toast.rest'));
     } catch (error) {
@@ -124,7 +129,7 @@ export function useRecoverySheet(deps: RecoverySheetDeps) {
       await updatePreferences(
         kind === 'lighten'
           ? { lightNextSession: null }
-          : { restDayStarts: withoutRestDay(preferences.restDayStarts, dayStartPlus(now, 1), now) },
+          : (current) => ({ restDayStarts: withoutRestDay(current.restDayStarts, dayStartPlus(now, 1), now) }),
       );
     } catch (error) {
       console.error('Failed to undo the recovery action', error);

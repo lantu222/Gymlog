@@ -1,4 +1,4 @@
-import { StyleSheet, Text, TextInput } from 'react-native';
+import { Platform, StyleSheet, Text, TextInput } from 'react-native';
 
 /**
  * Applies the app typeface (Manrope) as the default font on every Text and
@@ -91,5 +91,12 @@ function applyBaseFont(component: RenderableComponent) {
   component.render = patched;
 }
 
-applyBaseFont(Text as unknown as RenderableComponent);
-applyBaseFont(TextInput as unknown as RenderableComponent);
+// Native only. On web the render returns a DOM <span> whose `style` cannot
+// take an array ("Failed to set an indexed property [0]"), and its weights
+// already sit in react-native-web's class names, out of reach of a flatten —
+// patching there either crashed or set every weight to Regular. The browser
+// drives the weight itself (#bugs 2026-10-01 browser smoke test).
+if (Platform.OS !== 'web') {
+  applyBaseFont(Text as unknown as RenderableComponent);
+  applyBaseFont(TextInput as unknown as RenderableComponent);
+}

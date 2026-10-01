@@ -1,7 +1,7 @@
 import React from 'react';
 
 import { trackEvent } from '../features/analytics/analyticsClient';
-import { forgetAiCoachLog, isAiCoachLiveConfigured, requestProgrammeComposition } from '../lib/aiCoachClient';
+import { isAiCoachLiveConfigured, requestProgrammeComposition } from '../lib/aiCoachClient';
 import { randomLogId } from '../lib/aiCoachLogId';
 import { recordCoachQuestion, resolveCoachQuota } from '../lib/aiCoachQuota';
 import { markCoachDemoMomentUsed } from '../lib/coachDemoMoments';
@@ -54,7 +54,6 @@ export interface HomeScreensDeps {
   setFinishSaveState: (value: {
     status: 'idle' | 'saving' | 'error';
     sessionId: string | null;
-    message: string | null;
   }) => void;
   showToast: (message: string) => void;
   aiCoachTrainingContext: ChatScreenProps['trainingContext'];
@@ -232,7 +231,7 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
         }}
         onDiscardStrengthSession={() => {
           workout.discardWorkout();
-          setFinishSaveState({ status: 'idle', sessionId: null, message: null });
+          setFinishSaveState({ status: 'idle', sessionId: null });
         }}
         onSaveCardioSession={async (input) => {
           setCardioSaving(true);

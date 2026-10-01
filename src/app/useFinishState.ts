@@ -17,7 +17,6 @@ import type { CompletionSummaryState } from './workoutCompletionState';
 interface FinishSaveState {
   status: 'idle' | 'saving' | 'error';
   sessionId: string | null;
-  message: string | null;
 }
 
 export type { FinishSaveState };
@@ -28,7 +27,6 @@ export function useFinishState() {
   const [finishSaveState, setFinishSaveState] = useState<FinishSaveState>({
     status: 'idle',
     sessionId: null,
-    message: null,
   });
 
   return {
