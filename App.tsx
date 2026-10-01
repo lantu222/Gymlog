@@ -54,7 +54,6 @@ import {
 } from './src/lib/firstRunTour';
 import { useAccountBackup } from './src/features/account/useAccountBackup';
 import { hasWorkoutInProgress } from './src/lib/accountBackup';
-import { confirmUploadCopy, restoreQuestionCopy } from './src/lib/accountBackupCopy';
 import { useAccountOutcome } from './src/app/useAccountOutcome';
 import { getReadyTemplatePresentation } from './src/lib/templatePresentation';
 import {
@@ -94,7 +93,6 @@ import { useRecordsAndMilestones } from './src/app/useRecordsAndMilestones';
 import { markCoachDemoMomentUsed, resolveDueCoachDemoMoment } from './src/lib/coachDemoMoments';
 import { blockWeekOfSession, blockWeekTally, buildHomePlanProgress } from './src/lib/homePlanProgress';
 import { resolveHomePrompt } from './src/lib/homePrompts';
-import { buildHomeStatCardCatalog, buildHomeStatCards, resolveHomeStatCardKeys } from './src/lib/homeStatCards';
 import {
   buildSessionEquipmentLabel,
   classifySessionFocus,
@@ -117,8 +115,6 @@ import { trackEvent } from './src/features/analytics/analyticsClient';
 import { countsAsAppOpen, joinedRunningSet } from './src/lib/analyticsMoments';
 
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
-import { isSupersetLinked, setSupersetLink, supersetGroupIndexes, supersetSetTargets } from './src/lib/supersetGrouping';
-import type { GoalFlowLift, GoalFlowProposal } from './src/screens/StrengthGoalFlowScreen';
 import { CoachChatMemory } from './src/lib/coachChatMemory';
 import { CoachAdviceMemoryEntry } from './src/lib/coachAdviceMemory';
 import { clearCoachAdviceMemory } from './src/storage/coachAdviceMemoryStore';

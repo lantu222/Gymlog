@@ -16,9 +16,9 @@ import { AppDatabase, AppPreferences, UnitPreference } from '../types/models';
  * Moved out of App.tsx in the phase-B split (2026-09-30), verbatim and in the
  * order it stood there, docs and eslint-disable lines with it. A hook because
  * every value here is a memo. recordDates and milestoneFacts stay inside it;
- * toSetLogSource goes back out because App.tsx maps the goal lifts through it
- * as well. exercisePrLookup, which liftHistory's doc compares itself to, is in
- * App.tsx.
+ * toSetLogSource goes back out because useGoalFlow maps the goal lifts through
+ * it as well. exercisePrLookup, which liftHistory's doc compares itself to, is
+ * in useCustomProgramViews.
  */
 export interface RecordsAndMilestonesDeps {
   exerciseBrowserItems: AppDatabase['exerciseLibrary'];
