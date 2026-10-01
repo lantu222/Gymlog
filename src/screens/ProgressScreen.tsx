@@ -1362,12 +1362,13 @@ export function ProgressScreen({
                     {/* The status on its own line: sharing one line with the
                         name, a long lift cut it to "Jumi…" and "Vähis…"
                         (#bugs 2026-10-01). The plateau's "Sama huippusarja × 3"
-                        goes — the fix under the row says it better. */}
+                        goes for Pro, whose fix under the row says it better;
+                        free, that line IS the finding — the fix is blurred. */}
                     <Text style={styles.readName} numberOfLines={1}>
                       {row.name}
                     </Text>
                     <Text style={[styles.readStatus, { color: tone.ink }]}>{row.status}</Text>
-                    {row.tone === 'amber' && row.key !== 'recovery' ? null : (
+                    {proUnlocked && row.tone === 'amber' && row.key !== 'recovery' ? null : (
                       <Text style={styles.readMeta}>{row.meta}</Text>
                     )}
                   </View>
