@@ -51,7 +51,8 @@ module.exports = [
       // copies it and forgets the original — asks the same rule first.
       const edit = app.slice(app.indexOf('async function runProgramExerciseEdit('));
       const guardAt = edit.indexOf('if (wasHeld && liveSessionBlocksProgrammeDelete(workout.activeSession, programId)) {');
-      const forgetAt = edit.indexOf('await forgetHeldProgramme(template.id);');
+      // No semicolon: since #bugs 2026-10-01 the call carries a .catch, as cleanup.
+      const forgetAt = edit.indexOf('await forgetHeldProgramme(template.id)');
       assert.ok(guardAt > 0 && forgetAt > guardAt, 'the edit copies a held programme and forgets it without the rule');
       assert.equal((app.match(/await forgetHeldProgramme\(/g) ?? []).length, 2, 'a new call to forgetHeldProgramme needs the rule too');
     },

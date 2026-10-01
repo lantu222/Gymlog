@@ -353,7 +353,8 @@ module.exports = [
       // Done is said after the write.
       const action = between(wiring, 'async function handleRecoveryAction(', '\n  }\n');
       const lightenWrite = action.indexOf('await updatePreferences({ lightNextSession');
-      const restWrite = action.indexOf('await updatePreferences({\n        restDayStarts');
+      // Functional since #bugs 2026-10-01: written from the stored list.
+      const restWrite = action.indexOf('await updatePreferences((current) => ({\n        restDayStarts');
       assert.ok(lightenWrite >= 0, 'the lighten write is not awaited');
       assert.ok(restWrite >= 0, 'the rest-day write is not awaited');
       assert.ok(action.indexOf("'recovery.toast.lighten'") > lightenWrite);
