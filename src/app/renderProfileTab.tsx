@@ -1,10 +1,12 @@
 import React from 'react';
 import { TourTargetRegistry } from '../features/tour/tourTargets';
-import { Alert, Linking } from 'react-native';
+import { Alert, Linking, Platform } from 'react-native';
 
 import type { SignInProvider } from '../features/account/accountAuth';
 import { AccountBackupApi } from '../features/account/useAccountBackup';
 import { buildCancelSurveyAnswer } from '../lib/cancelSurvey';
+import { recordRatingCompleted } from '../lib/ratingPrompt';
+import { storePlatformOf, usesSystemReviewPrompt, writeReviewUrl } from '../lib/storeLinks';
 import { isDemoBuild } from '../lib/demoMode';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { t } from '../lib/i18n';
@@ -849,7 +851,21 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
       onOpenMilestones={() => navigate({ tab: 'profile', screen: 'milestones' })}
       onOpenRecords={() => navigate({ tab: 'progress', screen: 'list', section: 'records' })}
       onEditProfile={() => navigate({ tab: 'profile', screen: 'edit_profile' })}
-      onOpenRating={() => setRatingSheetVisible(true)}
+      onOpenRating={(() => {
+        // iPhone: no star sheet of ours (App Review 5.6.1) — the row opens the
+        // App Store's write-review page, and is hidden until that URL exists.
+        const store = storePlatformOf(Platform.OS);
+        if (!usesSystemReviewPrompt(store)) {
+          return () => setRatingSheetVisible(true);
+        }
+        const reviewUrl = writeReviewUrl(store, process.env.EXPO_PUBLIC_APP_STORE_URL);
+        return reviewUrl
+          ? () => {
+              void updatePreferences((current) => ({ ratingPrompt: recordRatingCompleted(current.ratingPrompt) }));
+              void Linking.openURL(reviewUrl);
+            }
+          : undefined;
+      })()}
     />
   );
 }

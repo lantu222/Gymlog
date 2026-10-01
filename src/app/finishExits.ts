@@ -1,7 +1,10 @@
 import { startTransition } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
+import { Platform } from 'react-native';
 
 import { decideRatingPrompt, recordRatingAsked } from '../lib/ratingPrompt';
+import { storePlatformOf, usesSystemReviewPrompt } from '../lib/storeLinks';
+import { requestSystemReview } from '../utils/systemReview';
 import type { AppRoute } from '../navigation/routes';
 import type { AppDatabase, AppPreferences } from '../types/models';
 import type { CompletionSummaryState } from './workoutCompletionState';
@@ -94,7 +97,13 @@ export function createFinishExits(deps: FinishExitsDeps) {
     if (!decision.ask) {
       return;
     }
-    setRatingSheetVisible(true);
+    // iPhone: Apple's own prompt, with no sheet of ours in front of it. Same
+    // cadence either way; Apple caps its prompt again on top.
+    if (usesSystemReviewPrompt(storePlatformOf(Platform.OS))) {
+      void requestSystemReview();
+    } else {
+      setRatingSheetVisible(true);
+    }
     void updatePreferences((current) => ({ ratingPrompt: recordRatingAsked(current.ratingPrompt, Date.now()) }));
   }
 

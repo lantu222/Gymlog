@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -9,6 +9,9 @@ import { CARD_SHADOW, SectionLabel } from '../components/SettingsUi';
 import { SubscriptionSheet } from '../components/SubscriptionSheet';
 import { formatDate } from '../lib/format';
 import { t } from '../lib/i18n';
+import { manageSubscriptionsUrl, paymentMethodsUrl, storePlatformOf, storeTextKey } from '../lib/storeLinks';
+
+const STORE = storePlatformOf(Platform.OS);
 import { PRO_LIVE_BENEFITS } from '../lib/proBenefits';
 import { ProEntitlement } from '../lib/proEntitlement';
 import {
@@ -234,7 +237,7 @@ export function SubscriptionScreen({
           {
             key: 'method',
             label: t(language, 'subs.meta.method'),
-            value: t(language, MOCK_BILLING.methods[0].titleKey),
+            value: t(language, storeTextKey(MOCK_BILLING.methods[0].titleKey, STORE)),
             onPress: () => setSheet('pay'),
           },
         ]
@@ -356,7 +359,7 @@ export function SubscriptionScreen({
                   <Row
                     icon="card"
                     title={t(language, 'subs.row.changeMethod')}
-                    sub={t(language, MOCK_BILLING.methods[0].titleKey)}
+                    sub={t(language, storeTextKey(MOCK_BILLING.methods[0].titleKey, STORE))}
                     onPress={() => setSheet('pay')}
                     divider
                   />
@@ -421,7 +424,7 @@ export function SubscriptionScreen({
                 an otherwise empty page. */}
             {model.grant ? null : (
               <Text style={styles.footer}>
-                {t(language, lifetime ? 'subs.foot.lifetime' : 'subs.foot.play')}
+                {t(language, lifetime ? 'subs.foot.lifetime' : storeTextKey('subs.foot.play', STORE))}
               </Text>
             )}
           </>
@@ -514,10 +517,10 @@ export function SubscriptionScreen({
                   />
                   <Row
                     icon="external"
-                    title={t(language, 'subs.row.play')}
-                    sub={t(language, 'subs.row.playSub')}
+                    title={t(language, storeTextKey('subs.row.play', STORE))}
+                    sub={t(language, storeTextKey('subs.row.playSub', STORE))}
                     onPress={() =>
-                      void Linking.openURL('https://play.google.com/store/account/subscriptions')
+                      void Linking.openURL(manageSubscriptionsUrl(STORE))
                     }
                   />
                 </CutSurface>
@@ -549,16 +552,16 @@ export function SubscriptionScreen({
                     title={t(language, 'subs.row.restore')}
                     sub={t(language, 'subs.row.restoreSub')}
                     onPress={() =>
-                      void Linking.openURL('https://play.google.com/store/account/subscriptions')
+                      void Linking.openURL(manageSubscriptionsUrl(STORE))
                     }
                     divider
                   />
                   <Row
                     icon="external"
-                    title={t(language, 'subs.row.play')}
-                    sub={t(language, 'subs.row.playSub')}
+                    title={t(language, storeTextKey('subs.row.play', STORE))}
+                    sub={t(language, storeTextKey('subs.row.playSub', STORE))}
                     onPress={() =>
-                      void Linking.openURL('https://play.google.com/store/account/subscriptions')
+                      void Linking.openURL(manageSubscriptionsUrl(STORE))
                     }
                   />
                 </CutSurface>
@@ -574,7 +577,7 @@ export function SubscriptionScreen({
                     ? 'subs.foot.trial'
                     : lifetime
                     ? 'subs.foot.lifetime'
-                    : 'subs.foot.play',
+                    : storeTextKey('subs.foot.play', STORE),
               )}
             </Text>
           </>
@@ -682,7 +685,7 @@ export function SubscriptionScreen({
                   <Glyph name={method.icon} color={theme.purple} />
                 </View>
                 <View style={styles.optionCopy}>
-                  <Text style={styles.optionName}>{t(language, method.titleKey)}</Text>
+                  <Text style={styles.optionName}>{t(language, storeTextKey(method.titleKey, STORE))}</Text>
                   <Text style={styles.optionPrice}>{t(language, method.subKey)}</Text>
                 </View>
                 {picked ? (
@@ -698,7 +701,7 @@ export function SubscriptionScreen({
           <Pressable
             accessibilityRole="button"
             onPress={() =>
-              void Linking.openURL('https://play.google.com/store/paymentmethods')
+              void Linking.openURL(paymentMethodsUrl(STORE))
             }
             style={({ pressed }) => [styles.addMethodRow, pressed && { opacity: 0.75 }]}
           >
@@ -722,7 +725,7 @@ export function SubscriptionScreen({
       <SubscriptionSheet
         visible={sheet === 'receipts'}
         title={t(language, 'subs.receipts.title')}
-        sub={t(language, 'subs.receipts.sub')}
+        sub={t(language, storeTextKey('subs.receipts.sub', STORE))}
         bottomInset={insets.bottom}
         onClose={() => setSheet(null)}
       >
