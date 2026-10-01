@@ -387,6 +387,8 @@ function VinhaApp() {
     workout,
     preferences,
     showToast,
+    // appHydrated is declared further down; the same two flags.
+    appHydrated: hydrated && workout.hydrated,
   });
 
   // Every seeded row is browsable now that the legacy `lib_*` tier is gone
