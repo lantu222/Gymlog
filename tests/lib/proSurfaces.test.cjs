@@ -566,13 +566,24 @@ module.exports = [
       // any gate is consulted. What Pro buys is the sentence about what to do
       // next, which hangs off `row.locked` further down. So: exactly one gate
       // in the whole readout, and it sits inside that branch.
-      assert.equal((readout.match(/proUnlocked/g) ?? []).length, 1, 'a second lock appeared');
+      // One more mention is allowed, and it takes away from Pro, never from
+      // free: the plateau's "Same top set × N" is dropped for a reader who
+      // can read the fix under it, and stays as the free finding for one who
+      // cannot (#bugs 2026-10-01).
+      const proOnlyHide = /\{proUnlocked && row\.tone === 'amber' && row\.key !== 'recovery' \? null : \(/;
+      assert.match(readout, proOnlyHide);
+      const gated = readout.replace(proOnlyHide, '');
+      assert.equal(
+        (gated.match(/proUnlocked/g) ?? []).length,
+        1,
+        'a second lock appeared',
+      );
       // `&& !recoveryDoor` since 2026-09-26: the recovery row's conclusion
       // moved into its sheet, which draws the same lock (RecoverySheet).
       const gate = 'row.locked && !recoveryDoor ? (';
       assert.ok(readout.indexOf(gate) > 0, 'the conclusion gate was restructured — recheck by hand');
       assert.ok(
-        readout.indexOf(gate) < readout.indexOf('proUnlocked'),
+        gated.indexOf(gate) < gated.indexOf('proUnlocked'),
         'the lock moved out of the conclusion and onto the status itself',
       );
       assert.ok(
