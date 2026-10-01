@@ -436,7 +436,7 @@ export function ProgramPickScreen({
             height={18}
             viewBox="0 0 24 24"
             fill="none"
-            stroke={topSelected ? '#FFFFFF' : paletteFor(theme).purpleDark}
+            stroke={topSelected ? '#FFFFFF' : HG.purpleDark}
             strokeWidth={2.6}
             strokeLinecap="round"
             strokeLinejoin="round"

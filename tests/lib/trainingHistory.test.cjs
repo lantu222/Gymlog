@@ -256,6 +256,45 @@ module.exports = [
     },
   },
   {
+    name: 'getting back to an earlier rep best, or adding a set at the same reps, is not a gain',
+    run() {
+      const run = (reps) => {
+        const sessions = reps.map((_, index) =>
+          session(`s${index}`, 'Push', at((reps.length - 1 - index) * 7), 1),
+        );
+        return buildLiftHistories(
+          sessions,
+          sessions.map((entry, index) => log(entry.id, 'Bench Press', 60, reps[index])),
+        )[0].stalledSessions;
+      };
+
+      // A bad day and back, five times: nothing beat 6/6/7 after the first.
+      assert.equal(run([[6, 6, 7], [6, 6, 6], [6, 6, 7], [6, 6, 6], [6, 6, 7]]), 5);
+      // A fourth set of six is more work, not more reps per set.
+      assert.equal(run([[6, 6, 6], [6, 6, 6], [6, 6, 6, 6]]), 3);
+      // A new best on the top set or per set starts the run again.
+      assert.equal(run([[6, 6, 6], [6, 6, 6], [6, 7, 7]]), 1);
+    },
+  },
+  {
+    name: 'setReps holds only the sets at the top weight',
+    run() {
+      const ramp = (id) =>
+        log(id, 'Bench Press', 80, [10, 8, 6], {
+          sets: [
+            { weight: 60, reps: 10, kind: 'working', status: 'completed' },
+            { weight: 70, reps: 8, kind: 'working', status: 'completed' },
+            { weight: 80, reps: 6, kind: 'working', status: 'completed' },
+          ],
+        });
+      const lifts = buildLiftHistories([session('s1', 'Push', at(0), 1)], [ramp('s1')]);
+
+      assert.equal(lifts[0].latest.topSetWeightKg, 80);
+      // Not 10/8/6 — those were not reps at 80 kg.
+      assert.deepEqual(lifts[0].latest.setReps, [6]);
+    },
+  },
+  {
     name: 'a lift that moved recently is not counted as stalled',
     run() {
       const lifts = buildLiftHistories(
