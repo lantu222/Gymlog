@@ -1955,6 +1955,7 @@ function VinhaApp() {
     activeProgramTemplateIds,
     customWorkoutRuntimeMap,
     programsRecommendations,
+    showToast,
   });
   const { programsCustomItems } = useProgramsCustomItems({
     customWorkouts,
