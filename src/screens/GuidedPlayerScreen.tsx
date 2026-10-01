@@ -1724,6 +1724,16 @@ function GuidedPlayer({
    */
   const [addExerciseOpen, setAddExerciseOpen] = useState(false);
   /**
+   * Where the sheet was opened from. The cooldown intro adds after the last
+   * lift and goes to it; the exercise intro ("Seuraavaksi") adds right after
+   * the lift on screen and stays — one more lift, without swapping this one
+   * (#bugs 2026-10-01, "saa + liikkeen ilman että vaihdan tätä liikettä").
+   * The slot id is the lift the new one follows.
+   */
+  const [addExerciseAfterSlot, setAddExerciseAfterSlot] = useState<string | null>(null);
+  /** Said under the intro's buttons once the lift is in: the sheet closes on it. */
+  const [walkAdded, setWalkAdded] = useState<{ afterSlotId: string; name: string } | null>(null);
+  /**
    * One insert per open of the sheet.
    *
    * `AddExerciseSheet`'s single-select guard checks `selectedIds`, which this
@@ -2514,12 +2524,20 @@ function GuidedPlayer({
     }
     addExerciseInFlightRef.current = true;
     setAddExerciseOpen(false);
-    const anchor = exercises[exercises.length - 1] ?? null;
+    const afterCurrent = addExerciseAfterSlot
+      ? exercises.find((exercise) => exercise.slotId === addExerciseAfterSlot) ?? null
+      : null;
+    const anchor = afterCurrent ?? exercises[exercises.length - 1] ?? null;
     const defaults = getExerciseTemplateDefaults(
       item,
       anchor ? anchor.restSecondsMin : NO_ANCHOR_DEFAULT_REST_SECONDS,
     );
-    pendingInsertKnownSlotsRef.current = new Set(exercises.map((exercise) => exercise.slotId));
+    if (afterCurrent) {
+      // Stays on this lift: no jump, and the intro says where it went.
+      setWalkAdded({ afterSlotId: afterCurrent.slotId, name: exerciseNameLabel(language, item.name) });
+    } else {
+      pendingInsertKnownSlotsRef.current = new Set(exercises.map((exercise) => exercise.slotId));
+    }
     workout.insertExerciseAfter(anchor ? anchor.slotId : null, {
       exerciseName: item.name,
       trackingMode: getCatalogTrackingMode(item.name),
@@ -3379,7 +3397,10 @@ function GuidedPlayer({
                       <Pressable
                         accessibilityRole="button"
                         style={styles.gateAddExerciseLink}
-                        onPress={() => setAddExerciseOpen(true)}
+                        onPress={() => {
+                          setAddExerciseAfterSlot(null);
+                          setAddExerciseOpen(true);
+                        }}
                       >
                         <Text style={styles.gateAddExerciseLinkText}>
                           {t(language, 'guided.own.addExercise')}
@@ -3561,7 +3582,26 @@ function GuidedPlayer({
                     the start button it read as a caption and was hard to hit
                     (#bugs 2026-09-30, "vaihda liike nappi näkyviin että voi
                     klikata"). */}
-                <GhostBtn icon="swap" label={t(language, 'guided.walk.swap')} onPress={() => setSwapOpen(true)} />
+                <View style={styles.walkActions}>
+                  <View style={styles.walkAction}>
+                    <GhostBtn icon="swap" label={t(language, 'guided.walk.swap')} onPress={() => setSwapOpen(true)} />
+                  </View>
+                  <View style={styles.walkAction}>
+                    <GhostBtn
+                      icon="plus"
+                      label={t(language, 'guided.walk.add')}
+                      onPress={() => {
+                        setAddExerciseAfterSlot(step.slotId);
+                        setAddExerciseOpen(true);
+                      }}
+                    />
+                  </View>
+                </View>
+                {walkAdded && walkAdded.afterSlotId === step.slotId ? (
+                  <Text style={styles.walkAddedNote}>
+                    {t(language, 'guided.walk.added', { name: walkAdded.name })}
+                  </Text>
+                ) : null}
                 <BigBtn
                   shimmer
                   label={t(language, 'guided.walk.startFirst')}
@@ -6242,6 +6282,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 8,
   },
   ghostBtnText: { fontSize: 14.5, fontWeight: '800', color: theme.ink },
+  walkActions: { flexDirection: 'row', gap: 10 },
+  walkAction: { flex: 1 },
+  walkAddedNote: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.muted,
+    textAlign: 'center',
+  },
 
   /* rest (light theme like every other in-workout screen) */
   // The ring itself carries the purple; label and figure stay ink so the

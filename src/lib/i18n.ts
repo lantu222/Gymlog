@@ -1432,6 +1432,8 @@ const EN = {
   'guided.walk.planSuperset': '{sets} × {reps} · straight into {name}',
   'guided.walk.startFirst': 'Start set 1',
   'guided.walk.swap': 'Swap exercise',
+  'guided.walk.add': 'Add exercise',
+  'guided.walk.added': 'Added after this one: {name}',
   'guided.sheet.tab.learn': 'Learn',
   'guided.sheet.tab.howTo': 'How to',
   'exerciseSheet.expand': 'Expand',
@@ -4594,6 +4596,8 @@ const FI: Record<I18nKey, string> = {
   'guided.walk.planSuperset': '{sets} × {reps} · suoraan: {name}',
   'guided.walk.startFirst': 'Aloita sarja 1',
   'guided.walk.swap': 'Vaihda liike',
+  'guided.walk.add': 'Lisää liike',
+  'guided.walk.added': 'Lisätty tämän jälkeen: {name}',
   // "Opettele", not "Opi": this tab is deliberate practice on one lift —
   // three cues and a self-audit — while "Opi" is the name of the section that
   // holds the courses (user 2026-09-04).
