@@ -12,6 +12,105 @@ const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 const { between, functionBody } = require('../helpers/sourceSlices.cjs');
 
 /**
+ * src/app/onboardingFinishes.tsx, run rather than read.
+ *
+ * The test build compiles only src/**\/*.ts, so the .tsx factory that owns the
+ * photo import is transpiled here, the way tests/helpers/apiModule.cjs loads
+ * api/. Its relative imports are served from .test-dist — the code every
+ * other suite runs — except the ones named in `stubs`, which reach the native
+ * side (the picker, haptics, Alert) or the network (the coach client).
+ */
+function loadOnboardingFinishes(stubs) {
+  const fs = require('node:fs');
+  const Module = require('node:module');
+  const path = require('node:path');
+  const ts = require('typescript');
+  const root = path.join(__dirname, '..', '..');
+  const file = path.join(root, 'src', 'app', 'onboardingFinishes.tsx');
+  const { outputText } = ts.transpileModule(fs.readFileSync(file, 'utf8'), {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2020,
+      jsx: ts.JsxEmit.ReactJSX,
+      esModuleInterop: true,
+    },
+  });
+  const loaded = new Module(file, module);
+  loaded.filename = file;
+  loaded.paths = Module._nodeModulePaths(path.dirname(file));
+  loaded.require = (id) => {
+    if (Object.prototype.hasOwnProperty.call(stubs, id)) {
+      return stubs[id];
+    }
+    assert.ok(id.startsWith('.'), `onboardingFinishes imports ${id}, which the test does not stub`);
+    const source = path.join(path.dirname(file), id);
+    return require(path.join(root, '.test-dist', path.relative(path.join(root, 'src'), source)));
+  };
+  loaded._compile(outputText, file);
+  return loaded.exports;
+}
+
+/**
+ * The photo import of a Pro reader on a live build who has read neither
+ * notice, with every outside call recorded. `answer` plays the reader's part
+ * when the notice opens: it gets the Alert's buttons and options.
+ */
+function photoImportWorld(answer) {
+  const calls = [];
+  const record = (name, value) => (...args) => {
+    calls.push([name, ...args]);
+    return value;
+  };
+  const { createOnboardingFinishes } = loadOnboardingFinishes({
+    'react-native': {
+      Alert: {
+        alert: (title, body, buttons, options) => {
+          calls.push(['Alert.alert', title]);
+          answer(buttons, options);
+        },
+      },
+    },
+    '../lib/aiCoachClient': {
+      isAiCoachLiveConfigured: () => true,
+      requestProgramTableFromImage: record('requestProgramTableFromImage', Promise.resolve([])),
+    },
+    '../lib/proEntitlement': { resolveProEntitlement: () => ({ unlocked: true }) },
+    '../utils/programImagePicker': {
+      pickProgramImage: record('pickProgramImage', Promise.resolve({ status: 'picked', image: {} })),
+    },
+    '../utils/haptics': { haptics: new Proxy({}, { get: (_, name) => record(`haptics.${String(name)}`) }) },
+    '../features/analytics/analyticsClient': { trackEvent: record('trackEvent') },
+  });
+  const noop = () => undefined;
+  const finishes = createOnboardingFinishes({
+    database: { workoutPlans: [], workoutTemplates: [], workoutSessions: [] },
+    preferences: {
+      appLanguage: 'en',
+      aiPhotoNoticeAcknowledged: false,
+      aiOnlineNoticeAcknowledged: false,
+      aiLogPhotoConsent: false,
+      aiLogId: null,
+      activePlanIds: [],
+      activePlanId: null,
+    },
+    updatePreferences: record('updatePreferences', Promise.resolve()),
+    completeOnboarding: noop,
+    upsertWorkoutPlan: noop,
+    saveOnboardingResult: noop,
+    aboutYouValues: null,
+    busySavingReadyPick: false,
+    setBusySavingReadyPick: noop,
+    setThemeChoiceVisible: noop,
+    setProgramLimitVisible: noop,
+    navigate: noop,
+    navigateBack: noop,
+    resetToRoute: noop,
+    showToast: record('showToast'),
+  });
+  return { calls, finishes };
+}
+
+/**
  * Reading a programme out of a photo.
  *
  * The point of the design is that a photo becomes the same CSV a paste would
@@ -244,6 +343,43 @@ module.exports = [
       const width = (name) => Number(sheet.match(new RegExp(`${name}: \\{\\s*width: (\\d+)`))[1]);
       assert.ok(width('previewSets') >= 50, 'SARJAT fits on one line');
       assert.ok(width('previewReps') >= 62, 'TOISTOT fits on one line');
+    },
+  },
+  {
+    /**
+     * The notice is the reader's chance to say no before a photo leaves the
+     * phone. Saying no — the cancel button, or dismissing the dialog — ends
+     * the import as 'cancelled': nothing picked, nothing sent, the notice not
+     * marked as read, and no "could not read your photo" from the sheet, which
+     * speaks only for 'failed' (#bugs 2026-10-01: nothing checked this).
+     */
+    name: 'image import: a reader who declines the network notice gets cancelled, and nothing leaves',
+    async run() {
+      for (const [how, answer] of [
+        ['the cancel button', (buttons) => buttons.find((button) => button.style === 'cancel').onPress()],
+        ['dismissing the dialog', (_buttons, options) => options.onDismiss()],
+      ]) {
+        const { calls, finishes } = photoImportWorld(answer);
+        assert.equal(typeof finishes.handlePickProgramImage, 'function', 'a live build offers the photo import');
+        const result = await finishes.handlePickProgramImage();
+        assert.deepEqual(result, { status: 'cancelled' }, how);
+        const names = calls.map(([name]) => name);
+        assert.deepEqual(names, ['Alert.alert'], `${how}: the notice is all that happens (${names.join(', ')})`);
+      }
+
+      // The control: accepting the same notice does open the picker and send
+      // the photo, so the empty call list above is the decline at work, not a
+      // world in which nothing could have happened.
+      const { calls, finishes } = photoImportWorld((buttons) =>
+        buttons.find((button) => button.style !== 'cancel').onPress(),
+      );
+      const result = await finishes.handlePickProgramImage();
+      assert.deepEqual(result, { status: 'failed' }, 'an empty table from the coach is a failed read');
+      assert.deepEqual(
+        calls.map(([name]) => name),
+        ['Alert.alert', 'updatePreferences', 'pickProgramImage', 'requestProgramTableFromImage'],
+      );
+      assert.deepEqual(calls[1][1], { aiPhotoNoticeAcknowledged: true });
     },
   },
 ];

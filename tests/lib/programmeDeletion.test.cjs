@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 
 const { liveSessionBlocksProgrammeDelete } = require('../../.test-dist/lib/programmeDeletion.js');
 const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+const { functionBody } = require('../helpers/sourceSlices.cjs');
 
 /**
  * Deleting your own programme while one of its days is running locked the
@@ -49,7 +50,10 @@ module.exports = [
       }
       // Recheck of #222: the third call — editing a held ready programme
       // copies it and forgets the original — asks the same rule first.
-      const edit = app.slice(app.indexOf('async function runProgramExerciseEdit('));
+      // Bounded to the function's own body: a slice to the end of the
+      // concatenated shell let any later src/app module satisfy both
+      // searches (#bugs 2026-10-01).
+      const edit = functionBody(app, 'async function runProgramExerciseEdit(');
       const guardAt = edit.indexOf('if (wasHeld && liveSessionBlocksProgrammeDelete(workout.activeSession, programId)) {');
       // No semicolon: since #bugs 2026-10-01 the call carries a .catch, as cleanup.
       const forgetAt = edit.indexOf('await forgetHeldProgramme(template.id)');

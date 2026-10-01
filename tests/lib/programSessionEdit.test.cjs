@@ -9,6 +9,7 @@ const {
   PROGRAM_SETS_RANGE,
 } = require('../../.test-dist/lib/programSessionEdit');
 const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+const { functionBody } = require('../helpers/sourceSlices.cjs');
 
 function lift(id, name, overrides = {}) {
   return {
@@ -244,21 +245,36 @@ module.exports = [
     name: 'programme edits go through the provider, not through render state',
     run() {
       const source = readAppWiring();
-      for (const handler of [
-        'handleEditProgramExercise',
-        'handleSaveEmphasis',
-        'handleRenameProgramSession',
+      // Each handler's own body, not a fixed 2,600-character window: the
+      // window let handleEditProgramExercise pass on its neighbour's write and
+      // ran handleSaveEmphasis into the next module (#bugs 2026-10-01).
+      //
+      // handleEditProgramExercise does not write: it queues the edit, and the
+      // write is runProgramExerciseEdit's. So the queue is pinned to that
+      // function and the write is checked where it actually happens.
+      const queue = functionBody(source, 'function handleEditProgramExercise(');
+      assert.match(
+        queue,
+        /programEditQueue\.current\.then\(\(\) =>\s*runProgramExerciseEdit\(programType, programId, sessionId, exerciseId, edit\),?\s*\)/,
+        'handleEditProgramExercise must hand every edit to runProgramExerciseEdit',
+      );
+      assert.ok(
+        !queue.includes('getWorkoutTemplateSessions('),
+        'handleEditProgramExercise must not rebuild a programme from rendered state — that is the lost-exercise bug',
+      );
+      for (const signature of [
+        'async function runProgramExerciseEdit(',
+        'async function handleSaveEmphasis(',
+        'async function handleRenameProgramSession(',
       ]) {
-        const start = source.indexOf(`function ${handler}(`);
-        assert.ok(start > -1, `${handler} should still exist`);
-        const body = source.slice(start, start + 2600);
+        const body = functionBody(source, signature);
         assert.ok(
           body.includes('editWorkoutTemplateSessions('),
-          `${handler} must edit a stored programme through editWorkoutTemplateSessions`,
+          `${signature} must edit a stored programme through editWorkoutTemplateSessions`,
         );
         assert.ok(
           !body.includes('getWorkoutTemplateSessions('),
-          `${handler} must not rebuild a programme from rendered state — that is the lost-exercise bug`,
+          `${signature} must not rebuild a programme from rendered state — that is the lost-exercise bug`,
         );
       }
     },
@@ -274,10 +290,13 @@ module.exports = [
     name: 'a drop with nowhere to go never copies the catalog programme',
     run() {
       const source = readAppWiring();
-      const start = source.indexOf('function handleEditProgramExercise(');
-      const copyAt = source.indexOf('buildDuplicatedCustomProgramDraft(', start);
-      const guardAt = source.indexOf("if (edit.kind === 'reorder') {", start);
+      // Inside the function that does the copying (handleEditProgramExercise
+      // only queues it), so a later module cannot supply either anchor.
+      const edit = functionBody(source, 'async function runProgramExerciseEdit(');
+      const copyAt = edit.indexOf('buildDuplicatedCustomProgramDraft(');
+      const guardAt = edit.indexOf("if (edit.kind === 'reorder') {");
       assert.ok(guardAt > -1, 'the ready branch should answer a no-op drop');
+      assert.ok(copyAt > -1, 'the ready branch should still copy the catalog programme');
       assert.ok(
         guardAt < copyAt,
         'the reorder guard must run before the programme is duplicated, not after',

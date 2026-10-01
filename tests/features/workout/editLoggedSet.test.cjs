@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 
 const { workoutReducer } = require('../../../.test-dist/features/workout/workoutState');
+const { withNumberLanguage } = require('../../../.test-dist/lib/format.js');
 
 /**
  * Correcting a set that is already logged.
@@ -54,7 +55,11 @@ module.exports = [
   {
     name: 'a logged set takes new numbers, and its drafts follow them',
     run() {
-      const next = edit(sessionWith(logged), { reps: 6, loadKg: 72.5 });
+      // The draft is written in the reader's number language, so this test
+      // sets the one it expects: it used to inherit whatever the suite before
+      // it left behind, and failed alone with '72,5' (#bugs 2026-10-01).
+      // withNumberLanguage puts the previous language back afterwards.
+      const next = withNumberLanguage('en', () => edit(sessionWith(logged), { reps: 6, loadKg: 72.5 }));
       const set = next.activeSession.exercises[0].sets[0];
       assert.equal(set.actualReps, 6);
       assert.equal(set.actualLoadKg, 72.5);
@@ -62,6 +67,9 @@ module.exports = [
       // said when it was logged.
       assert.equal(set.draftRepsText, '6');
       assert.equal(set.draftLoadText, '72.5');
+      // And a Finnish reader's draft carries a Finnish decimal comma.
+      const finnish = withNumberLanguage('fi', () => edit(sessionWith(logged), { reps: 6, loadKg: 72.5 }));
+      assert.equal(finnish.activeSession.exercises[0].sets[0].draftLoadText, '72,5');
       assert.equal(set.edited, true);
       // Still logged, and the session has not moved.
       assert.equal(set.status, 'completed');
