@@ -1,6 +1,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 const appSource = fs.readFileSync(path.join(__dirname, '..', '..', 'App.tsx'), 'utf8');
 const appShellSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'components', 'AppShell.tsx'), 'utf8');
@@ -41,7 +42,9 @@ module.exports = [
       );
       assert.match(appSource, /fullBleedReview\s*\?\s*fullBleedReview/);
       assert.match(appSource, /onFullBleedReviewChange=\{setFullBleedReview\}/);
-      assert.doesNotMatch(appSource, /#1D1C35/);
+      // The dark backdrop colour must not come back anywhere in the shell:
+      // App.tsx or a src/app module (phase-B split, 2026-09-30).
+      assert.doesNotMatch(readAppWiring(), /#1D1C35/);
 
       // The shared footer is hidden on the programme picker, which is
       // full-bleed and pins its own CTA. Two other things used to make this

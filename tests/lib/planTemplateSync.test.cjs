@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { syncPlanEntriesToTemplate } = require('../../.test-dist/lib/planTemplateSync.js');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 const ROOT = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8').replace(/\r\n/g, '\n');
@@ -144,7 +145,10 @@ module.exports = [
         'the programme page opens either way: the programme really is saved',
       );
 
-      const app = strip(read('App.tsx'));
+      // syncPlanToTemplate leaves VinhaApp for src/app in the phase-B split
+      // (2026-09-30): read the whole shell, App.tsx first. Its signature is
+      // asserted first, so the absence below is checked over code that holds it.
+      const app = strip(readAppWiring().replace(/\r\n/g, '\n'));
       assert.match(app, /async function syncPlanToTemplate\(workoutTemplateId: string\) \{/);
       // Read back from the repository, like the reorder beside it.
       assert.match(app, /const saved = await getWorkoutTemplateSessionsFresh\(workoutTemplateId\);\s*const entries = syncPlanEntriesToTemplate\(\{/);

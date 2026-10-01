@@ -2,7 +2,14 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+const sourceSlices = require('../helpers/sourceSlices.cjs');
+
 const app = fs.readFileSync(path.join(__dirname, '..', '..', 'App.tsx'), 'utf8').replace(/\r\n/g, '\n');
+// The fork (runProgramExerciseEdit) leaves VinhaApp for src/app in the
+// phase-B split (2026-09-30), so its pins read the whole shell: App.tsx first,
+// then every src/app module.
+const wiring = readAppWiring().replace(/\r\n/g, '\n');
 
 /**
  * A programme the reader holds but has switched off is one programme, with
@@ -28,12 +35,14 @@ module.exports = [
   {
     name: 'programmes: the fork forgets the record it replaced, adoption resumes a held one, the rhythm of a held one stays its own',
     run() {
-      const fork = between('const replacedPlan = wasHeld', "if (edit.kind === 'replace')");
+      // Both anchors asserted: a fork with no replace branch after it fails
+      // here rather than reading on to the end of the shell.
+      const fork = sourceSlices.between(wiring, 'const replacedPlan = wasHeld', "if (edit.kind === 'replace')");
       // On the record, not on the running set: a programme switched off
       // still has its plan, and editing a lift in one left that record
       // behind while the copy started from week 1 (CI review of #161).
       assert.match(fork, /if \(wasHeld\) \{[\s\S]{0,600}await forgetHeldProgramme\(template\.id\);/, 'the replaced plan record must go with the copy');
-      assert.match(app, /const wasHeld = database\.workoutPlans\.some\(\(item\) => item\.id === readyPlanId\);/, 'held is read off the plan records');
+      assert.match(wiring, /const wasHeld = database\.workoutPlans\.some\(\(item\) => item\.id === readyPlanId\);/, 'held is read off the plan records');
 
       // Resuming is one rule in one place now: the reader's own copy of a
       // catalog programme comes back through the same helper, so the block

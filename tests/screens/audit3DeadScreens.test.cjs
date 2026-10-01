@@ -1,10 +1,17 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 const ROOT = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8').replace(/\r\n/g, '\n');
 const exists = (...parts) => fs.existsSync(path.join(ROOT, ...parts));
+/**
+ * The whole shell — App.tsx plus the src/app modules the phase-A and phase-B
+ * splits (2026-08-26, 2026-09-30) moved its wiring into. A dead name must not
+ * come back in a hook any more than in App.tsx itself.
+ */
+const shell = () => readAppWiring().replace(/\r\n/g, '\n');
 
 /*
  * The tab of the SAME object literal, not the nearest one on the page.
@@ -104,11 +111,11 @@ module.exports = [
       // the profile tab to clear it.
       assert.doesNotMatch(read('src', 'app', 'workoutCompletionState.ts'), /WorkoutCelebrationState/);
       assert.doesNotMatch(read('src', 'app', 'renderProfileTab.tsx'), /setWorkoutCelebration/);
-      assert.doesNotMatch(read('App.tsx'), /workoutCelebration/);
+      assert.doesNotMatch(shell(), /workoutCelebration/);
       // And the memo the Seasons parking left behind: computed every render,
       // passed to nothing, one of the "App memos behind them" that were meant
       // to go with the section on 2026-08-31.
-      assert.doesNotMatch(read('App.tsx'), /programsSeasonTileCounts/);
+      assert.doesNotMatch(shell(), /programsSeasonTileCounts/);
     },
   },
   {
@@ -289,7 +296,7 @@ module.exports = [
        */
       const app = read('App.tsx');
       assert.match(app, /finishLoggedWorkoutSave = async \(draft: WorkoutTemplateDraft, summary: FreestyleFinishSummary\)/);
-      assert.doesNotMatch(app, /WorkoutEditorFinishSummary/);
+      assert.doesNotMatch(shell(), /WorkoutEditorFinishSummary/);
 
       const lib = read('src', 'lib', 'emptyWorkoutSession.ts');
       assert.doesNotMatch(lib, /Structurally identical to WorkoutEditorFinishSummary/);

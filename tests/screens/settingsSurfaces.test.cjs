@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 // The sources are CRLF; the anchors below are written with \n.
 const read = (...parts) =>
@@ -253,6 +254,10 @@ module.exports = [
         assert.doesNotMatch(onboarding, new RegExp(`\\b${name}\\b`), `${name} is back in OnboardingScreen`);
       }
       const app = stripComments(read('App.tsx'));
+      // The dead handlers are checked over the whole shell — App.tsx and the
+      // src/app modules the phase-B split (2026-09-30) moved VinhaApp's hooks
+      // into — so none of them can come back in a hook either.
+      const shell = stripComments(readAppWiring().replace(/\r\n/g, '\n'));
       for (const name of [
         'handleOnboardingCompleteToProgramDetail',
         'handleOnboardingCompleteToCustom',
@@ -263,7 +268,7 @@ module.exports = [
         'handleOnboardingSkip',
         'openRecommendedProgramDetail',
       ]) {
-        assert.doesNotMatch(app, new RegExp(`\\b${name}\\b`), `${name} is back in App.tsx`);
+        assert.doesNotMatch(shell, new RegExp(`\\b${name}\\b`), `${name} is back in App.tsx or src/app`);
       }
       // The back button on the first question still has somewhere to go.
       assert.match(onboarding, /void runAction\(\(\) => onBackToEntry\?\.\(\)\);/);

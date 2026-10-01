@@ -122,14 +122,18 @@ module.exports = [
       const fs = require('node:fs');
       const path = require('node:path');
       const root = path.join(__dirname, '..', '..');
+      const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+      const read = (...parts) => [parts.join('/'), fs.readFileSync(path.join(root, ...parts), 'utf8')];
       const files = [
-        ['App.tsx'],
-        ['src', 'screens', 'GuidedPlayerScreen.tsx'],
-        ['src', 'screens', 'HomeScreen.tsx'],
-        ['src', 'screens', 'ProgramDayScreen.tsx'],
+        // The whole shell, App.tsx and the src/app modules the phase-B split
+        // (2026-09-30) moved VinhaApp's hooks into: a block built in a hook
+        // without the picks is the same bug.
+        ['App.tsx or src/app', readAppWiring()],
+        read('src', 'screens', 'GuidedPlayerScreen.tsx'),
+        read('src', 'screens', 'HomeScreen.tsx'),
+        read('src', 'screens', 'ProgramDayScreen.tsx'),
       ];
-      for (const parts of files) {
-        const source = fs.readFileSync(path.join(root, ...parts), 'utf8');
+      for (const [file, source] of files) {
         const calls = source.match(/getDefault(?:Warmup|Cooldown)\(([\s\S]*?)\)/g) || [];
         for (const call of calls) {
           // The import line names them without calling them.
@@ -138,7 +142,7 @@ module.exports = [
           }
           assert.ok(
             /routineDrillOverrides/.test(call),
-            `${parts.join('/')} builds a block without the overrides: ${call}`,
+            `${file} builds a block without the overrides: ${call}`,
           );
         }
       }

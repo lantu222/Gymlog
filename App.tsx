@@ -4,27 +4,12 @@ import React, { startTransition, useCallback, useEffect, useMemo, useRef, useSta
 import { Alert, AppState, BackHandler, Linking, Platform, View } from 'react-native';
 import Constants from 'expo-constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Notifications from 'expo-notifications';
-import { emitRestAction } from './src/hooks/useRestEndAlert';
-import { IDLE_NUDGE_MINUTES, idleNudgeAtMs } from './src/lib/restSchedule';
-import {
-  ACTION_EXTEND_30,
-  ACTION_EXTEND_60,
-  ACTION_FINISH,
-  ACTION_SKIP_REST,
-  ACTION_STILL_GOING,
-  SESSION_NOTIFICATION_MARKER,
-  cancelIdleNudge,
-  clearAllSessionNotifications,
-  scheduleIdleNudge,
-  setupSessionNotifications,
-} from './src/utils/sessionNotifications';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 
 import { AppShell } from './src/components/AppShell';
 import { BottomTabBar } from './src/components/BottomTabBar';
-import { getHomeSummary, getMonthTrainingTotals } from './src/lib/dashboard';
+import { getMonthTrainingTotals } from './src/lib/dashboard';
 import { formatDurationMinutes, formatRepRange, formatSetScheme, formatShortDate, formatTime, formatVolume, formatWeight, pluralize, removeTrailingZeros } from './src/lib/format';
 import { createId } from './src/lib/ids';
 import { HistoryScrollMemory } from './src/lib/historyScrollMemory';
@@ -35,11 +20,9 @@ import {
   isSetupDaysPerWeek,
   resolveFirstRunRecommendationWithTailoring,
 } from './src/lib/firstRunSetup';
-import { getExerciseTemplateDefaults, getRecentExerciseLibraryItems } from './src/lib/exerciseSuggestions';
 import { formatWorkoutDisplayLabel } from './src/lib/displayLabel';
 import { buildCardioStatsLine, getCardioActivity } from './src/lib/cardio';
-import { setSoundCuesEnabled } from './src/utils/sound';
-import { haptics, setHapticsEnabled } from './src/utils/haptics';
+import { haptics } from './src/utils/haptics';
 import { useScheduledNotifications } from './src/hooks/useScheduledNotifications';
 import { usePendingAiLogDeletions } from './src/hooks/usePendingAiLogDeletions';
 import { ThemeProvider, themeForName, useTheme } from './src/theming';
@@ -52,7 +35,6 @@ import {
 } from './modules/home-widget';
 import { buildHomeWidgetPayload, HomeWidgetTarget, resolveHomeWidgetSessionTap } from './src/lib/widgetPayload';
 import { parseWidgetDeepLink } from './src/lib/widgetDeepLink';
-import { routeForNotification } from './src/lib/notificationRoute';
 import { planSetupHandoff } from './src/lib/setupHandoff';
 import { SetupHandoffChoices, SetupHandoffScreen } from './src/screens/SetupHandoffScreen';
 import { LegalDocumentScreen } from './src/screens/LegalDocumentScreen';
@@ -70,10 +52,9 @@ import {
   TourTargetId,
   TourSurface,
 } from './src/lib/firstRunTour';
-import { SignInOutcome, useAccountBackup } from './src/features/account/useAccountBackup';
+import { useAccountBackup } from './src/features/account/useAccountBackup';
 import { hasWorkoutInProgress } from './src/lib/accountBackup';
-import { confirmUploadCopy, restoreQuestionCopy } from './src/lib/accountBackupCopy';
-import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
+import { useAccountOutcome } from './src/app/useAccountOutcome';
 import { getReadyTemplatePresentation } from './src/lib/templatePresentation';
 import {
   activateOnboardingPlan,
@@ -97,8 +78,6 @@ import {
   buildCustomProgramPlanId,
   buildProgramWorkoutPlan,
 } from './src/lib/programAdoption';
-import { buildAiTrainingContext } from './src/lib/aiTrainingContext';
-import { buildAiCoachProgramme } from './src/lib/aiCoachProgramme';
 import { describeProgramCap, programCapLineKey } from './src/lib/programCapNotice';
 import { computePostSessionInsight } from './src/lib/postSessionInsight';
 import { composeProgramWeekForSelection } from './src/lib/programDayComposer';
@@ -106,34 +85,14 @@ import { resolveAvailableEquipment } from './src/lib/equipmentExerciseFilter';
 import { getProgrammeBlockWeeks, getReadyProgramBlockWeeks } from './src/lib/readyProgramDuration';
 import { getReadyProgramContent } from './src/lib/readyProgramContent';
 import {
-  calendarDaysBetween,
   getCalendarDayStartTimestamp,
   getCanonicalCompletedSessions,
   getRecentActivityStrip,
-  localDateKey,
 } from './src/lib/completedSessions';
-import { getLifetimeTrainingSummary } from './src/lib/lifetimeSummary';
-import { buildMilestoneLedger, getMilestoneFacts } from './src/lib/milestoneFacts';
-import { getTrainingRhythm } from './src/lib/trainingRhythm';
-import { buildFatigueModel } from './src/lib/fatigueModel';
-import { buildLiftHistories } from './src/lib/trainingHistory';
-import {
-  buildCompletionConclusion,
-  buildNextSessionMoment,
-  buildPlateauConclusion,
-  buildPlateauDetection,
-  buildPlateauMoment,
-  buildWeeklyRead,
-  detectPlateau,
-  findPlateauDetection,
-  pickCompletionLift,
-  plateauEpisodeKey,
-} from './src/lib/proInsights';
+import { useRecordsAndMilestones } from './src/app/useRecordsAndMilestones';
 import { markCoachDemoMomentUsed, resolveDueCoachDemoMoment } from './src/lib/coachDemoMoments';
 import { blockWeekOfSession, blockWeekTally, buildHomePlanProgress } from './src/lib/homePlanProgress';
 import { resolveHomePrompt } from './src/lib/homePrompts';
-import { buildHomeStatCardCatalog, buildHomeStatCards, resolveHomeStatCardKeys } from './src/lib/homeStatCards';
-import { silencedSuggestionKinds } from './src/lib/coachSuggestions';
 import {
   buildSessionEquipmentLabel,
   classifySessionFocus,
@@ -142,7 +101,7 @@ import {
   getSessionBodyFocusLabel,
   SessionFocusKind,
 } from './src/lib/homeSessionHero';
-import { estimateRoutineBlockSeconds, findGuidedLibraryIndex } from './src/lib/guidedPlayer';
+import { estimateRoutineBlockSeconds } from './src/lib/guidedPlayer';
 import { estimateSessionMinutes } from './src/lib/sessionDuration';
 import { buildMuscleFocus, getVolumeDeltaVsPrevious } from './src/lib/workoutCompleteView';
 import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
@@ -150,33 +109,23 @@ import { I18nKey, t } from './src/lib/i18n';
 import { buildCoachModules } from './src/lib/aiCoachModules';
 import { isProUnlocked, resolveProEntitlement, resolveProgressionOptions } from './src/lib/proEntitlement';
 import { ThemeChoiceDialog } from './src/components/ThemeChoiceDialog';
-import { toProgressionFatigueSignal } from './src/lib/progressionGate';
 import { resolveThemeName } from './src/lib/themePreference';
 import { localizeSessionFocus, localizeSessionName } from './src/lib/sessionNameLabel';
-import { setUsageStatisticsEnabled, trackEvent } from './src/features/analytics/analyticsClient';
-import { countsAsAppOpen, countsAsPaywallView, joinedRunningSet } from './src/lib/analyticsMoments';
+import { trackEvent } from './src/features/analytics/analyticsClient';
+import { countsAsAppOpen, joinedRunningSet } from './src/lib/analyticsMoments';
 
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
-import { buildExercisePrLookup } from './src/lib/workoutCompletionSummary';
-import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplication';
-import { isSupersetLinked, setSupersetLink, supersetGroupIndexes, supersetSetTargets } from './src/lib/supersetGrouping';
-import { resolveObservedRate } from './src/lib/strengthGoalPlan';
-import type { GoalFlowLift, GoalFlowProposal } from './src/screens/StrengthGoalFlowScreen';
 import { CoachChatMemory } from './src/lib/coachChatMemory';
-import { CoachAdviceMemoryEntry, mergeCoachAdviceMemory, rememberCoachAdvice } from './src/lib/coachAdviceMemory';
-import { clearCoachAdviceMemory, loadCoachAdviceMemory, saveCoachAdviceMemory } from './src/storage/coachAdviceMemoryStore';
+import { CoachAdviceMemoryEntry } from './src/lib/coachAdviceMemory';
+import { clearCoachAdviceMemory } from './src/storage/coachAdviceMemoryStore';
 import type { ChatMessage } from './src/screens/AICoachChatScreen';
 import {
-  applyProgramSessionEdit,
-  ProgramPrescription,
   toDraftExercise,
 } from './src/lib/programSessionEdit';
-import { reorderPlanWeek } from './src/lib/planSessionOrder';
-import { syncPlanEntriesToTemplate } from './src/lib/planTemplateSync';
-import { reorderProgramSessions } from './src/lib/programSessionOrder';
-import { hasOnlyEmptyDays, newProgramSessionName, nextStartableSessionIndex, removeProgramSession } from './src/lib/programSessionList';
+import { hasOnlyEmptyDays, nextStartableSessionIndex } from './src/lib/programSessionList';
 import { ProgramLimitReachedError } from './src/lib/programSlots';
 import { createUnlessAtLimit } from './src/app/programLimitGuard';
+import { useProgramExerciseEdit } from './src/app/useProgramExerciseEdit';
 import {
   ProgramSeason,
   getSeasonProgramId,
@@ -194,21 +143,16 @@ import {
   seasonWeek,
   seasonWeeksLeft,
 } from './src/lib/season';
-import { suggestHomeStatCardKeys } from './src/lib/homeCardSuggestions';
 import { isMeasurementCardKey } from './src/lib/homeStatCards';
 import { planTrainedOnDay, resolveNextPlanEntryIndex } from './src/lib/planRotation';
 import { alignHistoryToCopiedDays, programmeHistoryIds } from './src/lib/programLineage';
-import { cycleSchedule, trainsOn, weekdaySchedule, withRestDays } from './src/lib/trainingSchedule';
+import { cycleSchedule, weekdaySchedule, withRestDays } from './src/lib/trainingSchedule';
 import {
-  buildRecoverySheet,
-  dayStartPlus,
   isLightenPending,
   lightenedFatigueSignal,
   lightenRuntimeTemplate,
-  withoutRestDay,
-  withRestDay,
-  type RecoveryActionKind,
 } from './src/lib/recoverySheet';
+import { useRecoverySheet } from './src/app/useRecoverySheet';
 import {
   planWeekdayIndexes,
   resolveProgramTrainingDays,
@@ -224,29 +168,12 @@ import { programCoverStyle } from './src/lib/programVisualIdentity';
 import { countSessionsSince, resolveCompletionCard } from './src/lib/programCompletion';
 import { backfillRecommendations } from './src/lib/recommendationBackfill';
 import { expandRunningIdsWithSources, findReadyProgrammeCopyId } from './src/lib/programmeCopyLink';
-import { STRENGTH_GOAL_PRESETS } from './src/lib/strengthGoalPresets';
-import {
-  describeGoalCoverage,
-  GoalProgrammeSuggestionView,
-  isSameLift,
-  isSameLiftAsLibraryRow,
-  rankProgrammesForLift,
-} from './src/lib/goalProgramme';
+import { useGoalFlow } from './src/app/useGoalFlow';
 import {
   addSeasonEnrolment,
   isEnrolled,
 } from './src/lib/seasonEnrolment';
-import { exerciseNameLabel } from './src/lib/exerciseNameLabel';
 import { buildProgramFingerprint } from './src/lib/programFingerprint';
-import { firstRecordDates, RecordSource, resolveRecords } from './src/lib/personalRecords';
-import { getComparableLogSets } from './src/lib/exerciseLog';
-import {
-  ExerciseProgressSummary,
-  getLiftHistoryByName,
-  getLiftProgress,
-  SameLiftMatcher,
-} from './src/lib/progression';
-import { resolveGoalProgress, upsertStrengthGoal } from './src/lib/strengthGoals';
 import {
   countByCategory,
   filterByCategory,
@@ -274,11 +201,9 @@ import {
   spendHeldAdaptation,
   updateHeldAdaptation,
   withoutSessionDrop,
-  withoutSessionSwapsTo,
   withSessionDrop,
   withSessionSwap,
 } from './src/lib/sessionAdaptation';
-import { buildProgramInsightMap } from './src/lib/programInsights';
 import { buildTailoringPreferences } from './src/lib/tailoringFit';
 import { forgetRoutesForTemplate, popRoute, pushRoute, withoutTrailingRoute } from './src/navigation/routeHistory';
 import { liveSessionBlocksProgrammeDelete } from './src/lib/programmeDeletion';
@@ -290,6 +215,10 @@ import { renderHomeScreens } from './src/app/renderHomeScreens';
 import { renderWorkoutTab } from './src/app/renderWorkoutTab';
 import { renderProgressTab } from './src/app/renderProgressTab';
 import { formatGoalLabel, formatHomeSessionTitle } from './src/app/homeSessionTitle';
+import { useSessionNotifications } from './src/app/useSessionNotifications';
+import { useNotificationRoute } from './src/app/useNotificationRoute';
+import { useCoachContext } from './src/app/useCoachContext';
+import { createProgrammeDayEdits } from './src/app/programmeDayEdits';
 import {
   buildSavedOnboardingPlan,
   buildSavedOnboardingWorkoutPlan,
@@ -306,6 +235,16 @@ import {
   getEndOfWeek,
   getStartOfWeek,
 } from './src/app/workoutCompletionState';
+import { useDeviceSwitches } from './src/app/useDeviceSwitches';
+import { useFunnelAnalytics } from './src/app/useFunnelAnalytics';
+import { useInstallStamps } from './src/app/useInstallStamps';
+import { useSetupWeightSeed } from './src/app/useSetupWeightSeed';
+import { useTodayKey } from './src/app/useTodayKey';
+import { useDaySummaries } from './src/app/useDaySummaries';
+import { useProInsights } from './src/app/useProInsights';
+import { useHomeStatCards } from './src/app/useHomeStatCards';
+import { useCoachAdviceMemory } from './src/app/useCoachAdviceMemory';
+import { useCustomProgramViews } from './src/app/useCustomProgramViews';
 import { buildSessionAnalysis } from './src/lib/sessionAnalysis';
 import { AboutYouScreen, AboutYouValues } from './src/screens/AboutYouScreen';
 import { LaunchScreen } from './src/screens/LaunchScreen';
@@ -328,10 +267,8 @@ import { ProgramsExploreItem } from './src/screens/ProgramsHomeScreen';
 import { WorkoutCompletionScreen } from './src/screens/WorkoutCompletionScreen';
 import { FreestyleFinishSummary } from './src/lib/emptyWorkoutSession';
 import { WorkoutProvider, useWorkoutContext } from './src/features/workout/WorkoutProvider';
-import { adaptLegacyWorkoutTemplateToRuntimeTemplate } from './src/features/workout/customWorkoutAdapter';
 import { AdaptedCompletedWorkoutExercise, adaptCompletedWorkoutSessionForAppDatabase } from './src/features/workout/workoutAppAdapter';
 import { getWorkoutTemplateById, WORKOUT_TEMPLATES_V1 } from './src/features/workout/workoutCatalog';
-import { previewNextSession } from './src/features/workout/workoutState';
 import { isTimedTrackingMode } from './src/features/workout/workoutTypes';
 import { AppProvider, useAppContext } from './src/state/AppProvider';
 import { AppUpdateDialog } from './src/features/appUpdate/AppUpdateDialog';
@@ -560,134 +497,17 @@ function VinhaApp() {
   const [tourFocus, setTourFocus] = useState<TourTargetId | null>(null);
   const [fontsLoaded, setFontsLoaded] = useState(false);
 
-  // Keep the cue utilities in sync with the user's preferences, so every call
-  // site across the app is gated by one switch.
-  useEffect(() => {
-    setSoundCuesEnabled(preferences.soundCuesEnabled);
-  }, [preferences.soundCuesEnabled]);
-  useEffect(() => {
-    setHapticsEnabled(preferences.hapticsEnabled);
-  }, [preferences.hapticsEnabled]);
-  // Usage statistics are the one thing the app sends on its own, so the
-  // switch has to reach the client before anything can leave: the client
-  // refuses to send until told, and it is only told once the stored
-  // preferences are in — the pre-hydration default is "on", and a reader who
-  // switched it off must never lose a batch to that default.
-  useEffect(() => {
-    if (!hydrated) {
-      return;
-    }
-    setUsageStatisticsEnabled(preferences.usageStatisticsEnabled);
-  }, [hydrated, preferences.usageStatisticsEnabled]);
+  useDeviceSwitches({ hydrated, preferences });
 
   // Mirrors the notification preferences onto the OS clock: reminders, the
   // comeback nudge, the Sunday summary and the morning-after record note.
   useScheduledNotifications(database);
 
-  /* ---------------- Background timer: the app-level half ---------------- */
-  // The rest ladder and the ongoing card are owned by the screen that holds the
-  // rest (useRestEndAlert). What belongs here is everything that outlives a
-  // screen: lock-screen action responses, the idle nudge, cleanup when the
-  // session ends, and the truth about a session restored after a cold start.
-
-  const activeSessionId = workout.activeSession?.sessionId ?? null;
-  const activeSessionStatus = workout.activeSession?.status ?? null;
-  const navigateToActiveWorkoutRef = useRef<() => boolean>(() => false);
-  const finishFromNotificationRef = useRef<() => void>(() => {});
-
-  // Lock-screen actions. Every action opens the app; the running rest is then
-  // told over the bus, because it lives in screen state.
-  useEffect(() => {
-    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data ?? {};
-      if (data[SESSION_NOTIFICATION_MARKER] !== true) {
-        return;
-      }
-      const action = response.actionIdentifier;
-      // Bring the session to the front first; the screen that owns the rest
-      // mounts its bus listener on render.
-      navigateToActiveWorkoutRef.current();
-      setTimeout(() => {
-        if (action === ACTION_EXTEND_30) {
-          emitRestAction({ kind: 'extend', seconds: 30 });
-        } else if (action === ACTION_EXTEND_60) {
-          emitRestAction({ kind: 'extend', seconds: 60 });
-        } else if (action === ACTION_SKIP_REST) {
-          emitRestAction({ kind: 'skip' });
-        } else if (action === ACTION_FINISH) {
-          finishFromNotificationRef.current();
-        } else if (action === ACTION_STILL_GOING) {
-          // Handled by the idle effect below: opening the app counts as activity.
-        }
-      }, 350);
-    });
-    return () => subscription.remove();
-  }, []);
-
-  // Session ended or was discarded: nothing of ours stays in the shade.
-  useEffect(() => {
-    if (!activeSessionId || activeSessionStatus !== 'active') {
-      void clearAllSessionNotifications();
-    }
-  }, [activeSessionId, activeSessionStatus]);
-
-  // The session's buttons in the reader's language, from here as well as from
-  // the workout screens: the idle nudge is armed here, and its buttons were
-  // whatever language the player last registered — or the one the app had
-  // started in, before the registration learned to follow a switch.
-  useEffect(() => {
-    if (activeSessionId && activeSessionStatus === 'active') {
-      void setupSessionNotifications(preferences.appLanguage);
-    }
-  }, [activeSessionId, activeSessionStatus, preferences.appLanguage]);
-
-  // The idle nudge: 25 minutes after the last logged set, one question. Keyed
-  // on the count of completed sets so every logged set pushes it forward, and
-  // on the app coming to the foreground, which also counts as being there.
-  //
-  // Its own switch and the OS permission decide it, and nothing else: the
-  // phone's Notifications switch governs the scheduled reminders (user
-  // 2026-09-17), and a training break silences only those — a reader who is
-  // in a session is training, and wants its alerts.
-  const completedSetCount = useMemo(
-    () =>
-      (workout.activeSession?.exercises ?? []).reduce(
-        (sum, exercise) => sum + exercise.sets.filter((set) => set.status === 'completed').length,
-        0,
-      ),
-    [workout.activeSession?.exercises],
-  );
-  useEffect(() => {
-    if (!activeSessionId || activeSessionStatus !== 'active' || !preferences.notificationPrefs.idleNudge) {
-      void cancelIdleNudge();
-      return;
-    }
-    const language = preferences.appLanguage;
-    const sessionName = localizeSessionName(
-      formatWorkoutDisplayLabel(workout.activeSession?.templateName ?? ''),
-      language,
-    );
-    void scheduleIdleNudge({
-      atMs: idleNudgeAtMs(Date.now()),
-      title: t(language, 'rest.notify.idleTitle', { minutes: IDLE_NUDGE_MINUTES }),
-      body: t(language, 'rest.notify.idleBody', { session: sessionName, done: completedSetCount }),
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSessionId, activeSessionStatus, completedSetCount, preferences.notificationPrefs.idleNudge, preferences.appLanguage]);
-
-  // After a cold start the session comes back from stored timestamps: elapsed
-  // is real and a rest that expired meanwhile is already resolved. Say so once.
-  const restoredToastShownRef = useRef(false);
-  useEffect(() => {
-    if (!workout.hydrated || restoredToastShownRef.current) {
-      return;
-    }
-    restoredToastShownRef.current = true;
-    if (workout.activeSession?.status === 'active') {
-      showToast(t(preferences.appLanguage, 'rest.notify.restoredToast'));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workout.hydrated]);
+  const { navigateToActiveWorkoutRef, finishFromNotificationRef } = useSessionNotifications({
+    workout,
+    preferences,
+    showToast,
+  });
 
   // Every seeded row is browsable now that the legacy `lib_*` tier is gone
   // (2026-09-01), so this no longer filters. The name stays: ten call sites
@@ -713,97 +533,9 @@ function VinhaApp() {
     clear: clearPendingAiLogDeletions,
   });
 
-  /**
-   * Today, as a value a memo can depend on.
-   *
-   * "Today" was read from `new Date()` inside memos whose dependencies hold
-   * no time at all, so an app left open overnight kept yesterday: the session
-   * the reader picked for the day, the dot on the week strip, the row Home
-   * calls today. A phone that is never really closed is the normal case, not
-   * the odd one (2026-09-16).
-   *
-   * Two triggers, because either alone leaves a hole. Coming back to the app
-   * catches the phone that slept through midnight; a timer set for the next
-   * local midnight catches the one left awake on the kitchen counter. The
-   * timer is set to a calendar date rather than 24 hours on, so the clock
-   * change does not push it an hour into the wrong day.
-   */
-  const [todayKey, setTodayKey] = useState(() => localDateKey(new Date()));
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const sync = () =>
-      setTodayKey((current) => {
-        const next = localDateKey(new Date());
-        return next === current ? current : next;
-      });
-    /**
-     * The timer re-arms itself rather than being re-armed by the state it
-     * sets.
-     *
-     * Keying the effect on `todayKey` looked equivalent and was not: a fire
-     * that finds the same date — a clock corrected backwards, a timezone
-     * change, a wake a second early — leaves the state untouched, so the
-     * effect never re-runs and no replacement timer is ever set. From then on
-     * the day only moved when the app was reopened, which is the exact gap
-     * the timer exists to close (PR #125 review).
-     */
-    const arm = () => {
-      const now = new Date();
-      const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 5).getTime();
-      timer = setTimeout(() => {
-        sync();
-        arm();
-      }, Math.max(1000, nextMidnight - now.getTime()));
-    };
-    sync();
-    arm();
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
-        sync();
-        // Back from a sleep that swallowed the timer: aim at the next
-        // midnight from here rather than trusting one armed days ago.
-        clearTimeout(timer);
-        arm();
-      }
-    });
-    return () => {
-      subscription.remove();
-      clearTimeout(timer);
-    };
-  }, []);
+  const { todayKey, todayStartMs } = useTodayKey();
 
-  /** Local midnight of the day the reader is in, from the key above. */
-  const todayStartMs = useMemo(() => {
-    const [year, month, day] = todayKey.split('-').map((part) => Number.parseInt(part, 10));
-    return Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)
-      ? new Date(year, month - 1, day).getTime()
-      : new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).getTime();
-  }, [todayKey]);
-
-  useEffect(() => {
-    if (!appHydrated || preferences.hasOpenedAppBefore) {
-      return;
-    }
-
-    void updatePreferences({
-      hasOpenedAppBefore: true,
-    });
-  }, [appHydrated, preferences.hasOpenedAppBefore, updatePreferences]);
-
-  /**
-   * The install date the coach demo moments count their 7 / 30 / 90 days from.
-   *
-   * Stamped separately from hasOpenedAppBefore rather than beside it, because
-   * an install that predates this field has already opened the app: it would
-   * never take that branch, and its moments would never fire. Keyed on the
-   * date being missing instead, so an upgrade starts the clock at the upgrade.
-   */
-  useEffect(() => {
-    if (!appHydrated || preferences.firstLaunchAt) {
-      return;
-    }
-    void updatePreferences({ firstLaunchAt: new Date().toISOString() });
-  }, [appHydrated, preferences.firstLaunchAt, updatePreferences]);
+  useInstallStamps({ appHydrated, preferences, updatePreferences });
 
   useEffect(() => {
     const timeout = setTimeout(() => setMinimumSplashElapsed(true), 1200);
@@ -1146,53 +878,7 @@ function VinhaApp() {
   const [onboardingStep, setOnboardingStep] = useState<
     'path' | 'about' | 'questionnaire' | 'ready_catalog'
   >('path');
-  // The funnel's spine: which onboarding stage was reached. If half of every
-  // install stops at one stage, that stage is the finding — the question this
-  // whole event pipe exists to answer (user, 2026-08-25).
-  //
-  // Gated on hydration: before the stored preferences are in,
-  // onboardingCompleted is the provider's default false, so every cold start
-  // of a long-finished install used to count as reaching step "path" —
-  // the funnel's first stage was inflated by every returning user
-  // (review finding, 2026-09-04).
-  //
-  // Welcome is its own step. The flow state starts at 'path' underneath the
-  // Welcome screen, so "path" was sent while Welcome was showing — and when
-  // the path picker itself came up nothing changed that this effect watches,
-  // so the picker was never measured at all: the funnel's first row was
-  // Welcome under the picker's name. A stage name in `path` is what the
-  // questionnaire already sends; the vocabulary is unchanged (analytics
-  // audit, 2026-09-21).
-  useEffect(() => {
-    if (hydrated && onboardingActive) {
-      trackEvent('onboarding_step', { path: entryFlowActive ? 'welcome' : onboardingStep });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, onboardingActive, entryFlowActive, onboardingStep]);
-  // Conversion's top of funnel: the paywall was on screen. Purchases will
-  // come from Play's own reporting once billing exists.
-  //
-  // Once per visit, and only to a reader it is a paywall for. This ran on
-  // every change of the route object: a Pro member looking at their own
-  // membership counted as a view, and so did every return from the terms
-  // page opened on top of it (analytics audit, 2026-09-21). The page counts
-  // as still open while it waits in the back stack.
-  const paywallOpenRef = useRef(false);
-  useEffect(() => {
-    const isPaywall = (candidate: AppRoute) => candidate.tab === 'profile' && candidate.screen === 'premium';
-    const onPaywall = isPaywall(route);
-    if (
-      countsAsPaywallView({
-        paywallWasOpen: paywallOpenRef.current,
-        onPaywall,
-        proUnlocked: resolveProEntitlement(preferences).unlocked,
-      })
-    ) {
-      trackEvent('paywall_viewed');
-    }
-    paywallOpenRef.current = onPaywall || navigationState.history.some(isPaywall);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [route, navigationState.history]);
+  useFunnelAnalytics({ hydrated, onboardingActive, entryFlowActive, onboardingStep, route, navigationState, preferences });
   const [busySavingReadyPick, setBusySavingReadyPick] = useState(false);
 
   // The onboarding flow state lives in memory; when the gate closes (finished)
@@ -1291,49 +977,7 @@ function VinhaApp() {
       ? fullBleedReviewRaw
       : null;
 
-  useEffect(() => {
-    if (!hydrated || !preferences.onboardingCompleted) {
-      return;
-    }
-
-    if (
-      typeof preferences.setupCurrentWeightKg !== 'number' ||
-      !Number.isFinite(preferences.setupCurrentWeightKg) ||
-      preferences.setupCurrentWeightKg <= 0
-    ) {
-      return;
-    }
-
-    /**
-     * Once, ever — not "whenever the log is empty".
-     *
-     * An empty log is also what the reader sees the moment they delete their
-     * only weigh-in, and this effect put setup's number straight back: the
-     * row reappeared, and deleting it looked broken (2026-09-16). The flag
-     * records that the seed has been written, so a deleted weigh-in stays
-     * deleted.
-     */
-    if (preferences.setupWeightSeeded || database.bodyweightEntries.length > 0) {
-      if (!preferences.setupWeightSeeded && database.bodyweightEntries.length > 0) {
-        void updatePreferences({ setupWeightSeeded: true });
-      }
-      return;
-    }
-
-    void addBodyweightEntry(preferences.setupCurrentWeightKg)
-      // Flagged only once the weigh-in is actually stored: a write that failed
-      // has seeded nothing, and the empty log below asks again next render.
-      .then(() => updatePreferences({ setupWeightSeeded: true }))
-      .catch(() => undefined);
-  }, [
-    addBodyweightEntry,
-    database.bodyweightEntries.length,
-    hydrated,
-    preferences.onboardingCompleted,
-    preferences.setupCurrentWeightKg,
-    preferences.setupWeightSeeded,
-    updatePreferences,
-  ]);
+  useSetupWeightSeed({ hydrated, preferences, database, addBodyweightEntry, updatePreferences });
 
   /**
    * The route-level back. BackHandler calls the newest listener first, and a
@@ -1449,110 +1093,20 @@ function VinhaApp() {
     return () => subscription.remove();
   }, [handoffLegalDocument]);
 
-  /*
-   * Keyed on the day as well as the data. All three read "this week" or "this
-   * month" off the clock, and keyed on the data alone they kept the day they
-   * were last computed: an app left open from Sunday night into Monday had the
-   * coach open with last week's "3 sessions this week", and on the 1st
-   * Progress drew last month's calendar and totals beside a widget already on
-   * the new one — until the next workout was logged (audit, 2026-09-20).
-   *
-   * The clock is read here, where the day key makes the memo re-run, rather
-   * than defaulted inside each function where no dependency list can see it.
-   * The moment, not the key's midnight: the thirty-day count ends at `now`,
-   * and midnight would leave out everything logged today.
-   */
-  const homeSummary = useMemo(
-    () => getHomeSummary(database, unitPreference, new Date()),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [database, unitPreference, todayKey],
-  );
-  const lifetimeSummary = useMemo(
-    () => getLifetimeTrainingSummary(database, new Date()),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [database, todayKey],
-  );
-  const progressTrainingRhythm = useMemo(
-    () => getTrainingRhythm(database, { now: new Date() }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [database, todayKey],
-  );
-  // The paywall-moments data layer: real lift histories → detections (free)
-  // and deterministic conclusions (Pro / blurred). Pure, from logged sets.
-  const proLiftHistories = useMemo(
-    () => buildLiftHistories(database.workoutSessions, database.exerciseLogs),
-    [database.exerciseLogs, database.workoutSessions],
-  );
-  const proFatigue = useMemo(
-    () =>
-      buildFatigueModel({
-        workoutSessions: database.workoutSessions,
-        exerciseLogs: database.exerciseLogs,
-      }),
-    [database.exerciseLogs, database.workoutSessions],
-  );
-  /**
-   * Recovery, in the shape the progression gate acts on.
-   *
-   * The gate has carried fatigue holds since it was written, and nothing ever
-   * passed a signal in — so the paywall's "Pro reads your load and eases off
-   * before fatigue costs you a week" described something that never happened
-   * on a single set. This is the wire.
-   *
-   * It rides on the progression options, which resolveProgressionOptions
-   * already gates behind Pro, so the hold is a paid behaviour by construction
-   * rather than by a second check that could drift from the first.
-   */
-  const progressionFatigueSignal = useMemo(
-    () => toProgressionFatigueSignal(proFatigue),
-    [proFatigue],
-  );
-  // Episodes the reader already said "selvä" to — one tap on Home, kept
-  // through database.ts normalisation like every other dismiss list. Read
-  // only here: the in-workout reminder (findPlateauDetection below) ignores
-  // it on purpose, per the owner's "muistutus kun seuraavalla kerralla on
-  // sumo" (#bugs 2026-09-29).
-  const dismissedPlateauEpisodes = useMemo(
-    () => new Set(preferences.dismissedPlateauEpisodes),
-    [preferences.dismissedPlateauEpisodes],
-  );
-  const proPlateauLift = useMemo(
-    () => detectPlateau(proLiftHistories, dismissedPlateauEpisodes),
-    [proLiftHistories, dismissedPlateauEpisodes],
-  );
-  const proPlateau = useMemo(
-    () =>
-      proPlateauLift
-        ? {
-            detection: buildPlateauDetection(proPlateauLift, preferences.appLanguage),
-            conclusion: buildPlateauConclusion(proPlateauLift, preferences.appLanguage, preferences.setupLevel),
-            moment: buildPlateauMoment(proPlateauLift, preferences.appLanguage, preferences.setupLevel),
-            episodeKey: plateauEpisodeKey(proPlateauLift),
-          }
-        : null,
-    [preferences.appLanguage, preferences.setupLevel, proPlateauLift],
-  );
-  const proWeeklyRead = useMemo(
-    () => buildWeeklyRead(proLiftHistories, proFatigue, preferences.appLanguage, preferences.setupLevel),
-    [preferences.appLanguage, preferences.setupLevel, proFatigue, proLiftHistories],
-  );
-  const proCompletionLift = useMemo(() => pickCompletionLift(proLiftHistories), [proLiftHistories]);
-  const proCompletionMoment = useMemo(
-    () =>
-      proCompletionLift
-        ? {
-            conclusion: buildCompletionConclusion(proCompletionLift, preferences.appLanguage, preferences.setupLevel),
-            moment: buildNextSessionMoment(proCompletionLift, preferences.appLanguage, preferences.setupLevel),
-          }
-        : null,
-    [preferences.appLanguage, preferences.setupLevel, proCompletionLift],
-  );
-  // The Pro page's coach specimen: the deterministic read of the user's own
-  // stalled lift — the same text Pro unlocks at the plateau moments.
-  const proCoachSpecimen = useMemo(
-    () => (proPlateau ? proPlateau.conclusion.body : null),
-    [proPlateau],
-  );
+  const { homeSummary, lifetimeSummary, progressTrainingRhythm } = useDaySummaries({
+    database,
+    unitPreference,
+    todayKey,
+  });
+  const {
+    proLiftHistories,
+    proFatigue,
+    progressionFatigueSignal,
+    proPlateau,
+    proWeeklyRead,
+    proCompletionMoment,
+    proCoachSpecimen,
+  } = useProInsights({ database, preferences });
   const homeActiveWorkoutSummary = useMemo(() => {
     if (!workout.activeSession) {
       return null;
@@ -2753,257 +2307,24 @@ function VinhaApp() {
     });
   }
 
-  /**
-   * Renaming one day of a custom programme — from Home's plan sheet and from
-   * the day's own page.
-   *
-   * Only a program of the reader's own can be renamed: the catalog's templates
-   * are immutable at runtime, and a rename that silently did nothing would be
-   * worse than no button. Both surfaces ask whether they were handed this
-   * before they draw the pencil.
-   */
-  async function handleRenameProgramSession(templateId: string, sessionId: string, name: string) {
-    const trimmed = name.trim();
-    if (!trimmed) {
-      return;
-    }
-    // Caught here, not by each caller: Home's sheet voided this and a failed
-    // write left the old name standing with nothing said.
-    try {
-      const result = await editWorkoutTemplateSessions(templateId, (sessions) => ({
-        kind: 'save',
-        sessions: sessions.map((session) => ({
-          id: session.id,
-          // Every other field is copied because upsert replaces the record; only
-          // the one session the reader named changes.
-          name: session.id === sessionId ? trimmed : session.name,
-          exercises: session.exercises.map(toDraftExercise),
-        })),
-      }));
-      if (!result.saved) {
-        return;
-      }
-    } catch (error) {
-      console.error('Failed to rename a day of the programme', error);
-      void haptics.error();
-      showToast(t(preferences.appLanguage, 'toast.planSaveFailed'));
-      return;
-    }
-    // Remembered once the name is stored, so the display rule shows it as
-    // typed rather than reading "Päivä 2" as a placeholder of its own. Its own
-    // write: the name is saved by now, and a failure here must not be told as
-    // a failed rename — the day would only read by the usual rule.
-    try {
-      await updatePreferences((current) => ({
-        readerSessionNames: { ...current.readerSessionNames, [sessionId]: trimmed },
-      }));
-    } catch (error) {
-      console.error('Failed to remember a typed day name', error);
-    }
-  }
-
-  /**
-   * A custom programme's own name, from the page that shows it.
-   *
-   * The provider has done the work all along — trim, refuse a blank, commit —
-   * and nothing called it. What made it worth wiring up: a copy's name is
-   * written once at creation and never re-derived, so "(kopio 2)" outlives
-   * every later change to the naming rules. The only cure is a reader who can
-   * type over it (user 2026-09-08).
-   */
-  async function handleRenameCustomProgram(workoutTemplateId: string, name: string) {
-    await renameWorkoutTemplate(workoutTemplateId, name);
-  }
-
-  /**
-   * Move a whole day inside the programme (user 2026-08-31).
-   *
-   * The rotation reads the session list positionally, so this is the edit that
-   * decides which session lands on which weekday - the same list the day rows
-   * print in. Custom programmes only: reordering a catalog programme would
-   * mean copying it, and the reader has not asked for a copy by dragging.
-   */
-  async function handleReorderProgramSession(
-    workoutTemplateId: string,
-    sessionId: string,
-    toIndex: number,
-  ) {
-    await editWorkoutTemplateSessions(workoutTemplateId, (sessions) => {
-      const result = reorderProgramSessions(sessions, sessionId, toIndex);
-      if (result.kind === 'skip') {
-        return { kind: 'skip', reason: result.reason };
-      }
-      return {
-        kind: 'save',
-        // Position in this array is the stored order; every other field is
-        // copied because upsert replaces the record.
-        sessions: result.sessions.map((session) => ({
-          id: session.id,
-          name: session.name,
-          exercises: session.exercises.map(toDraftExercise),
-        })),
-      };
-    });
-
-    // The template is only half the record. Each plan entry pins a weekday to
-    // a session BY ID, and Home, the calendar and the rotation read the
-    // assignment from there — so a reorder that stopped at the template moved
-    // the list on one screen and changed nothing about what gets trained.
-    // Read the order back rather than trusting the draft: the repository is
-    // what decided it.
-    const plan = database.workoutPlans.find(
-      (item) => item.entries[0]?.workoutTemplateId === workoutTemplateId,
-    );
-    if (!plan) {
-      return;
-    }
-    const saved = await getWorkoutTemplateSessionsFresh(workoutTemplateId);
-    // And the week turns with it, like every other writer of the labels: the
-    // session that comes next takes the first training day not yet gone.
-    const repointed = reorderPlanWeek(
-      plan.entries,
-      saved.map((session) => session.id),
-      completedSessionsForTemplate(workoutTemplateId),
-      new Date(),
-    );
-    if (repointed.kind === 'skip') {
-      return;
-    }
-    await upsertWorkoutPlan({ ...plan, entries: repointed.entries, updatedAt: plan.updatedAt });
-  }
-
-  /**
-   * A new day at the end of a custom programme, under the name the reader gave
-   * it, empty (#bugs 2026-09-24; named-first since 2026-09-26: "tähän tulee
-   * ensiksi nimeä päivä … se menee tyhjänä"). The reader fills it on its own
-   * page, which opens next. An empty day is never offered as the next session
-   * and cannot be started — see nextStartableSessionIndex and the start
-   * handler. The id is minted here so the caller can open the new day without
-   * guessing which one it was. A blank name takes the editor's placeholder.
-   *
-   * Resolves the new day's id once the programme is saved, with whether its
-   * week followed; null when nothing was written. A week that failed to
-   * follow does not make the day unsaved — reporting it as a failed save
-   * would tell the reader to try again and add the day twice (CI review of
-   * #183, the same split the editor makes since #146).
-   */
-  async function handleAddProgramSession(
-    workoutTemplateId: string,
-    name: string,
-  ): Promise<{ sessionId: string; weekSynced: boolean } | null> {
-    const newSessionId = createId('workout_template_session');
-    const result = await editWorkoutTemplateSessions(workoutTemplateId, (sessions) => ({
-      kind: 'save',
-      sessions: [
-        ...[...sessions]
-          .sort((left, right) => left.orderIndex - right.orderIndex)
-          .map((session) => ({
-            id: session.id,
-            name: session.name,
-            exercises: session.exercises.map(toDraftExercise),
-          })),
-        {
-          id: newSessionId,
-          name: name.trim() || newProgramSessionName(sessions.length, preferences.appLanguage),
-          exercises: [],
-        },
-      ],
-    }));
-    if (!result.saved) {
-      return null;
-    }
-    // The week gets the new day on one of the reader's training days.
-    return { sessionId: newSessionId, weekSynced: await syncPlanAfterDayEdit(workoutTemplateId) };
-  }
-
-  /** The plan's week after a day was added or removed; false if it could not follow. */
-  async function syncPlanAfterDayEdit(workoutTemplateId: string): Promise<boolean> {
-    try {
-      await syncPlanToTemplate(workoutTemplateId);
-      return true;
-    } catch (error) {
-      console.error('Failed to bring the plan into step with the template', error);
-      return false;
-    }
-  }
-
-  /**
-   * One day out of a custom programme, the rest kept as they are (#bugs
-   * 2026-09-24: "tai poistaa päivä").
-   *
-   * The plan follows, like it does after the editor changes the count: an
-   * entry left pointing at a deleted day would keep a weekday for a session
-   * that no longer exists. The last day is refused — that is deleting the
-   * programme, which has its own button and its own question.
-   *
-   * Resolves once the programme is saved, with whether its week followed;
-   * null when nothing was written.
-   */
-  async function handleRemoveProgramSession(
-    workoutTemplateId: string,
-    sessionId: string,
-  ): Promise<{ weekSynced: boolean } | null> {
-    const result = await editWorkoutTemplateSessions(workoutTemplateId, (sessions) => {
-      const outcome = removeProgramSession(sessions, sessionId);
-      if (outcome.kind === 'skip') {
-        return { kind: 'skip', reason: outcome.reason };
-      }
-      return {
-        kind: 'save',
-        sessions: outcome.sessions.map((session) => ({
-          id: session.id,
-          name: session.name,
-          exercises: session.exercises.map(toDraftExercise),
-        })),
-      };
-    });
-    if (!result.saved) {
-      return null;
-    }
-    return { weekSynced: await syncPlanAfterDayEdit(workoutTemplateId) };
-  }
-
-  /**
-   * The running plan's week, after the template editor changed its days.
-   *
-   * `reorderPlanWeek` above deliberately refuses a changed COUNT — a drag must
-   * not invent or drop a training day. The editor's day chips are the case
-   * where the count is the thing that changed, and nothing followed it: a day
-   * added was never offered, a day removed left an entry pointing at a session
-   * that no longer existed, and Home went on counting the old number (audit 3,
-   * 2026-09-19).
-   *
-   * Read back from the repository rather than from the draft, like the reorder
-   * beside it: the ids are the repository's to assign.
-   */
-  async function syncPlanToTemplate(workoutTemplateId: string) {
-    const plan = database.workoutPlans.find(
-      (item) => item.entries[0]?.workoutTemplateId === workoutTemplateId,
-    );
-    if (!plan) {
-      return;
-    }
-    const saved = await getWorkoutTemplateSessionsFresh(workoutTemplateId);
-    const entries = syncPlanEntriesToTemplate({
-      entries: plan.entries,
-      sessionIds: saved.map((session) => session.id),
-      planId: plan.id,
-      workoutTemplateId,
-      // A new day lands on the reader's own training days, laid out for the
-      // new count the way every other adoption lays them out.
-      dayLabels: planLabelsForProgramme(saved.length, preferences.setupAvailableDays, new Date()),
-    });
-    if (!entries) {
-      return;
-    }
-    // `updatedAt` is NOT touched, exactly as the reorder above and the rename
-    // refuse to touch it: on a plan it is the block boundary, not a
-    // modification stamp. Home counts the week from it, so stamping it here
-    // would have reset a reader mid-block to "week 1, 0 of 24" for adding a
-    // day — with every completed session still in the database (CI review
-    // of #146).
-    await upsertWorkoutPlan({ ...plan, entries, updatedAt: plan.updatedAt });
-  }
+  const {
+    handleRenameProgramSession,
+    handleRenameCustomProgram,
+    handleReorderProgramSession,
+    handleAddProgramSession,
+    handleRemoveProgramSession,
+    syncPlanToTemplate,
+  } = createProgrammeDayEdits({
+    database,
+    preferences,
+    updatePreferences,
+    editWorkoutTemplateSessions,
+    renameWorkoutTemplate,
+    getWorkoutTemplateSessionsFresh,
+    upsertWorkoutPlan,
+    completedSessionsForTemplate,
+    showToast,
+  });
 
   /**
    * Take one lift out of the programme for good, from wherever the reader is
@@ -3045,513 +2366,25 @@ function VinhaApp() {
       : null;
   }, [preferences]);
 
-  /**
-   * What one edit to a programme's exercise does. Both reach the template the
-   * same way — copying a ready programme first when there is no template to
-   * write to — so they share a path rather than two near-identical ones.
-   */
-  type ProgramExerciseEdit =
-    | { kind: 'remove' }
-    | { kind: 'replace'; exerciseName: string }
-    | { kind: 'add'; exerciseNames: string[] }
-    | { kind: 'prescribe'; prescription: ProgramPrescription }
-    | { kind: 'reorder'; toIndex: number }
-    | { kind: 'supersetLink'; linked: boolean };
-
-  /**
-   * The prescription a lift added from the library starts on.
-   *
-   * The day screen adds a name, not a dose — the library has no opinion about
-   * how many sets of it you do. These are the same defaults the template
-   * editor writes, so a lift added from either place looks the same afterwards.
-   */
-  function buildAddedProgramExercises(exerciseNames: string[], sessionId: string) {
-    return exerciseNames.map((name) => {
-      const libraryItemId = resolveLibraryItemIdForName(name);
-      const defaults = getExerciseTemplateDefaults(
-        exerciseLibrary.find((item) => item.id === libraryItemId),
-        preferences.defaultRestSeconds,
-      );
-      return {
-        id: createId(`${sessionId}_add`),
-        name,
-        libraryItemId,
-        ...defaults,
-        // A lift added from the library starts unpaired. Stated rather than
-        // left off, so every row in a day carries the same fields and the
-        // adjacency rule has something to read on all of them.
-        supersetGroup: null as string | null,
-      };
-    });
-  }
-
-  /**
-   * The library entry a name belongs to, so a swapped-in lift keeps its photo,
-   * its instructions and its history. Writing the name alone leaves the row
-   * pointing at the exercise it used to be.
-   */
-  function resolveLibraryItemIdForName(name: string): string | null {
-    const index = findGuidedLibraryIndex(
-      name,
-      exerciseLibrary.map((item) => item.name),
-    );
-    return index === null || index < 0 ? null : exerciseLibrary[index]?.id ?? null;
-  }
-
-  /**
-   * Programme edits run one at a time, in the order they were pressed.
-   *
-   * Not for the writes themselves — the provider already serialises those. It
-   * is for the decision in front of them: editing a ready programme first asks
-   * whether a copy of it exists and then makes one if it does not, and two
-   * edits overlapping across that gap both answer "no". A stepper turns that
-   * from a theoretical race into the normal case, because the second tap
-   * arrives while the first copy is still being written.
-   */
-  const programEditQueue = useRef<Promise<void>>(Promise.resolve());
-  /**
-   * Ready programmes a queued edit has copied, while the queue is still busy.
-   *
-   * The first edit on a catalogue day copies the programme and carries the
-   * reader to the copy's day. An edit pressed on the catalogue day before that
-   * landed — a second tap on the bin, a stepper's next "+" — then finds the
-   * copy and took the "you already have your own version" branch: a toast,
-   * and a push to the copy's programme page on top of the day they had just
-   * been carried to (double-tap audit, 2026-09-21). Those edits were aimed at
-   * rows that are gone from the screen, so they are dropped quietly. Cleared
-   * when the queue drains, so a reader who comes back to the catalogue day
-   * later is still told and taken to their version.
-   */
-  const pendingProgramEdits = useRef(0);
-  const copiedInThisEditBurst = useRef(new Set<string>());
-
-  function handleEditProgramExercise(
-    programType: 'ready' | 'custom',
-    programId: string,
-    sessionId: string,
-    exerciseId: string,
-    edit: ProgramExerciseEdit,
-  ): Promise<boolean> {
-    pendingProgramEdits.current += 1;
-    const next = programEditQueue.current.then(() =>
-      runProgramExerciseEdit(programType, programId, sessionId, exerciseId, edit),
-    );
-    // A failed edit must not wedge every edit queued behind it.
-    programEditQueue.current = next.then(() => undefined).catch(() => undefined);
-    const settle = () => {
-      pendingProgramEdits.current -= 1;
-      if (pendingProgramEdits.current === 0) {
-        copiedInThisEditBurst.current.clear();
-      }
-    };
-    void next.then(settle, settle);
-    return next;
-  }
-
-  /** Resolves true when the programme actually changed. */
-  async function runProgramExerciseEdit(
-    programType: 'ready' | 'custom',
-    programId: string,
-    sessionId: string,
-    exerciseId: string,
-    edit: ProgramExerciseEdit,
-  ): Promise<boolean> {
-    if (programType === 'custom') {
-      // The day is read inside the write, not before it: an add that lands
-      // while the previous add is still being saved must build on it rather
-      // than on the screen's copy of how the programme looked a render ago.
-      const added =
-        edit.kind === 'add' ? buildAddedProgramExercises(edit.exerciseNames, sessionId) : [];
-      const result = await editWorkoutTemplateSessions(programId, (sessions) =>
-        applyProgramSessionEdit(
-          sessions,
-          sessionId,
-          edit.kind === 'remove'
-            ? { kind: 'remove', exerciseId }
-            : edit.kind === 'replace'
-              ? {
-                  kind: 'replace',
-                  exerciseId,
-                  exerciseName: edit.exerciseName,
-                  libraryItemId: resolveLibraryItemIdForName(edit.exerciseName),
-                }
-              : edit.kind === 'prescribe'
-                ? { kind: 'prescribe', exerciseId, prescription: edit.prescription }
-                : edit.kind === 'reorder'
-                  ? { kind: 'reorder', exerciseId, toIndex: edit.toIndex }
-                  : edit.kind === 'supersetLink'
-                    ? { kind: 'supersetLink', exerciseId, linked: edit.linked }
-                    : { kind: 'add', exercises: added },
-        ),
-      );
-      if (result.reason === 'lastExerciseInDay') {
-        showToast(t(preferences.appLanguage, 'toast.lastExerciseInDay'));
-        return false;
-      }
-      if (!result.saved) {
-        return false;
-      }
-      void haptics.success();
-      if (edit.kind === 'replace') {
-        // Today's swap has been spent by the programme itself. Leaving it in
-        // place would keep an override on a slot that now already says this.
-        adaptSession({ programId, sessionId }, (current) => withoutSessionSwapsTo(current, edit.exerciseName));
-        // No "it is in your programme now" popup: the row behind the sheet
-        // already says the new lift, and it stops being marked as today's
-        // override. A toast that repeats the screen is the thing the reader
-        // keeps asking to be rid of (user 2026-08-26).
-      }
-      return true;
-    }
-
-    const template = WORKOUT_TEMPLATES_V1.find((item) => item.id === programId);
-    if (!template) {
-      return false;
-    }
-
-    /**
-     * A drop that changes nothing, checked before anything is written.
-     *
-     * Everything below this line copies the catalog programme into a custom
-     * one — that is what editing a ready programme means. Pressing "up" on the
-     * top row is not an edit, and letting it through would hand the reader a
-     * copy of the whole programme, and one fewer free slot, in exchange for a
-     * list that looks exactly as it did.
-     */
-    if (edit.kind === 'reorder') {
-      const day = template.sessions.find((session) => session.id === sessionId);
-      const from = day?.exercises.findIndex((exercise) => exercise.id === exerciseId) ?? -1;
-      const to = day
-        ? Math.max(0, Math.min(day.exercises.length - 1, Math.round(edit.toIndex)))
-        : -1;
-      if (!day || from === -1 || to === from) {
-        return false;
-      }
-    }
-
-    // Same argument for the chain: the bottom row has nothing to run into, and
-    // a link already in the state being asked for is not an edit. Either would
-    // otherwise buy the reader a whole copy of the programme.
-    if (edit.kind === 'supersetLink') {
-      const day = template.sessions.find((session) => session.id === sessionId);
-      const from = day?.exercises.findIndex((exercise) => exercise.id === exerciseId) ?? -1;
-      if (!day || from === -1 || from >= day.exercises.length - 1) {
-        return false;
-      }
-      if (isSupersetLinked(day.exercises, from) === edit.linked) {
-        return false;
-      }
-    }
-
-    /**
-     * Already have a version of this one? Edit it.
-     *
-     * This branch used to build a fresh copy from the catalog every time, so
-     * editing the same ready programme three times left the reader with THREE
-     * programmes — the third arriving as "(kopio 2)", and the free cap filling
-     * up with the same programme (#bugs 2026-08-26). The catalog original is
-     * immutable and keeps its id forever; the copy now records which one it
-     * came from, and a second edit finds it and goes down the custom path.
-     *
-     * Asked of the database rather than of `workoutTemplates`, which is the
-     * screen's copy and one render behind: three stepper taps inside a single
-     * render all read "no copy yet" and all three made one. Serialising the
-     * handler (see programEditQueue) is the other half — the lookup has to run
-     * after the previous edit's write, not merely against fresh data.
-     */
-    const existingCopyId = await findWorkoutTemplateIdBySource(programId);
-    if (existingCopyId && copiedInThisEditBurst.current.has(programId)) {
-      // Made by an edit queued ahead of this one; see copiedInThisEditBurst.
-      return false;
-    }
-    if (existingCopyId) {
-      /**
-       * The reader already has their own version of this programme, and this
-       * page is not it.
-       *
-       * The catalog original stays untouched behind the copy — that is the
-       * whole point of it — so the rows in front of the reader are not the
-       * rows any edit would change. The edit used to be applied to the copy
-       * with the ids in hand, which the copy has never heard of: it landed on
-       * nothing, was written back unchanged, and the screen buzzed as if it
-       * had worked.
-       *
-       * Translating the ids is not the fix either. A copy can have days
-       * reordered and lifts dropped, so the same position means a different
-       * day and the same name a different row — and reorder and superset
-       * links ARE positions. An edit that lands on the row next to the one
-       * the reader dragged, and says it worked, is worse than no edit.
-       *
-       * So no edit is made here. The reader is taken to their own version,
-       * where the rows on screen are the rows that change.
-       */
-      showToast(t(preferences.appLanguage, 'toast.ownProgrammeVersion'));
-      navigate({
-        tab: 'workout',
-        screen: 'program',
-        programType: 'custom',
-        workoutTemplateId: existingCopyId,
-      });
-      return false;
-    }
-
-    // The copy is a programme of the reader's own, whether or not it replaces
-    // the ready one they run, so it takes a slot like any other: at the limit
-    // the edit opens the limit sheet here, before anything is built. Running
-    // ones used to be waved through, and one round of edit → adopt the next →
-    // edit per ready programme put a free reader past the cap (audit
-    // 2026-09-16). The provider checks the same thing again at the write.
-    const readyPlanId = buildReadyProgramPlanId(programId);
-    const wasRunning = preferences.activePlanIds.includes(readyPlanId);
-    // Held is not running, and both of them are "this reader trains this
-    // programme". Stopping a programme rewrites the active set and leaves
-    // its plan record standing, block and all; only the running set says
-    // whether the copy takes a slot, and everything else about it — the
-    // block it inherits, the record it replaces — follows the record
-    // (CI review of #161).
-    const wasHeld = database.workoutPlans.some((item) => item.id === readyPlanId);
-    // The copy replaces a held programme's record below (forgetHeldProgramme),
-    // and that is a delete like the other two: not while a workout of it is
-    // running. It freed the running slot mid-workout and the player's week
-    // line went with it (recheck of #222, 2026-09-28).
-    if (wasHeld && liveSessionBlocksProgrammeDelete(workout.activeSession, programId)) {
-      void haptics.error();
-      showToast(t(preferences.appLanguage, 'toast.programEditWorkoutRunning'));
-      return false;
-    }
-    if (!programSlots.canCreate) {
-      setProgramLimitVisible(true);
-      return false;
-    }
-    const draft = buildDuplicatedCustomProgramDraft(
-      template.name,
-      template.sessions.map((session, sessionIndex) => {
-        const exercises = [
-          ...session.exercises
-          .filter(
-            (exercise) =>
-              edit.kind !== 'remove' || !(session.id === sessionId && exercise.id === exerciseId),
-          )
-          .map((exercise, exerciseIndex) => {
-            const target = session.id === sessionId && exercise.id === exerciseId;
-            const name =
-              target && edit.kind === 'replace' ? edit.exerciseName : exercise.exerciseName;
-            // The catalog's dose unless this row is the one being re-dosed.
-            // Rest rides along on the same rule the custom path uses
-            // (applyProgramSessionEdit): a number overrides, null leaves the
-            // catalog's own value alone.
-            const dose =
-              target && edit.kind === 'prescribe'
-                ? edit.prescription
-                : {
-                    targetSets: exercise.sets,
-                    repMin: exercise.repsMin,
-                    repMax: exercise.repsMax,
-                    restSeconds: null,
-                  };
-            return {
-              id: exercise.id,
-              workoutTemplateId: template.id,
-              workoutTemplateSessionId: session.id,
-              name,
-              targetSets: dose.targetSets,
-              repMin: dose.repMin,
-              repMax: dose.repMax,
-              // Reading only the catalog value here dropped a rest-time edit
-              // in silence — and it had already cost the reader one of three
-              // custom-programme slots to make the copy (PR #33 review).
-              restSeconds:
-                typeof dose.restSeconds === 'number' ? dose.restSeconds : exercise.restSecondsMin,
-              trackedDefault: false,
-              orderIndex: exerciseIndex,
-              libraryItemId: target && edit.kind === 'replace' ? resolveLibraryItemIdForName(name) : null,
-              // The catalog's own pairing, which since 2026-09-11 is 83 real
-              // supersets rather than none. It has to survive the copy: this
-              // is the fork a reader's first edit to a ready programme takes.
-              supersetGroup: exercise.supersetGroup ?? null,
-            };
-          }),
-          // A ready programme is copied to be edited, so adding to one of its
-          // days works exactly as removing from one already does.
-          ...(edit.kind === 'add' && session.id === sessionId
-            ? buildAddedProgramExercises(edit.exerciseNames, session.id).map((exercise, index) => ({
-                ...exercise,
-                workoutTemplateId: template.id,
-                workoutTemplateSessionId: session.id,
-                orderIndex: session.exercises.length + index,
-              }))
-            : []),
-        ];
-
-        if (edit.kind === 'reorder' && session.id === sessionId) {
-          const from = exercises.findIndex((exercise) => exercise.id === exerciseId);
-          const to = Math.max(0, Math.min(exercises.length - 1, Math.round(edit.toIndex)));
-          const [moved] = exercises.splice(from, 1);
-          exercises.splice(to, 0, moved);
-        }
-
-        // A block's set count is one number here too. This fork runs on the
-        // FIRST edit of a ready programme, before a custom copy exists — so
-        // without this, re-dosing one half of a catalog superset wrote the
-        // copy with the two halves disagreeing, and nothing downstream repairs
-        // that (PR #93 review). The custom path does the same a few files
-        // over, in applyProgramSessionEdit.
-        if (edit.kind === 'prescribe' && session.id === sessionId) {
-          const index = exercises.findIndex((item) => item.id === exerciseId);
-          if (index !== -1) {
-            supersetGroupIndexes(exercises, index).forEach((position) => {
-              exercises[position] = {
-                ...exercises[position],
-                targetSets: edit.prescription.targetSets,
-                ...(typeof edit.prescription.restSeconds === 'number'
-                  ? { restSeconds: edit.prescription.restSeconds }
-                  : {}),
-              };
-            });
-          }
-        }
-
-        if (edit.kind === 'supersetLink' && session.id === sessionId) {
-          const index = exercises.findIndex((exercise) => exercise.id === exerciseId);
-          if (index !== -1) {
-            exercises.splice(0, exercises.length, ...setSupersetLink(exercises, index, edit.linked));
-            // Same rule the custom path applies: a block counted in rounds
-            // cannot hold two lifts that disagree about how many sets they do.
-            if (edit.linked) {
-              supersetSetTargets(exercises, (position) => exercises[position].targetSets).forEach(
-                (targetSets, position) => {
-                  exercises[position] = { ...exercises[position], targetSets };
-                },
-              );
-            }
-          }
-        }
-
-        return {
-          id: session.id,
-          workoutTemplateId: template.id,
-          name: session.name,
-          orderIndex: sessionIndex,
-          exerciseIds: session.exercises.map((exercise) => exercise.id),
-          // Re-numbered from where the rows now sit: the position in this
-          // array is what the reader sees, and orderIndex is what is stored.
-          exercises: exercises.map((exercise, orderIndex) => ({ ...exercise, orderIndex })),
-        };
-      }),
-      workoutTemplates.map((item) => item.name),
-      preferences.appLanguage,
-    );
-    // The link the next edit will look for.
-    draft.sourceTemplateId = programId;
-
-    try {
-      const workoutTemplateId = await upsertWorkoutTemplate(draft);
-      const planId = buildCustomProgramPlanId(workoutTemplateId);
-      // Read the ids back rather than trusting the draft's: the repository
-      // assigns them, and a plan pointing at ids that were never stored is a
-      // programme whose days resolve to nothing.
-      // Fresh, not rendered: this line runs inside the closure that created
-      // the copy, and that closure's `database` predates it.
-      const copiedSessions = await getWorkoutTemplateSessionsFresh(workoutTemplateId);
-      const sessionIds = copiedSessions
-        .filter((session) => session.exercises.length > 0)
-        .map((session) => session.id);
-      /**
-       * The copy keeps the block the reader was already in.
-       *
-       * `now` is the plan record's own boundary: every session count on Home
-       * is measured from it. Stamping it with today turned "week 3, 7 of 24"
-       * into "week 1, 0 of 24" because the reader changed one lift — the
-       * programme is the same programme, and the block it is in is the same
-       * block. Only when it replaces a plan the reader HELD: a copy of a
-       * programme they were merely browsing has no block to inherit, and a
-       * programme switched off has one — its weeks did not stop being
-       * trained because it is not the one Home leads with today.
-       */
-      const replacedPlan = wasHeld
-        ? database.workoutPlans.find((item) => item.id === readyPlanId) ?? null
-        : null;
-      const plan = buildProgramWorkoutPlan({
-        planId,
-        workoutTemplateId,
-        programName: formatWorkoutDisplayLabel(draft.name),
-        sessionIds,
-        dayLabels: planLabelsForProgramme(sessionIds.length, preferences.setupAvailableDays, new Date()),
-        now: replacedPlan?.updatedAt ?? new Date().toISOString(),
-      });
-      await upsertWorkoutPlan(plan);
-      // The copy takes the ready programme's place rather than joining it —
-      // the reader had one programme before this and must have one after. Only
-      // when the ready one was actually running: editing a day of a programme
-      // they are merely browsing must not adopt anything.
-      await updatePreferences(
-        wasRunning
-          ? {
-              activePlanIds: addActiveProgram(
-                removeActiveProgram(preferences.activePlanIds, readyPlanId),
-                plan.id,
-              ),
-              // The copy takes the ready programme's PLACE, which is not the
-              // same as the lead. Editing a lift in a programme the reader
-              // holds but does not lead with used to promote it over the one
-              // Home was running — a change of programme nobody asked for.
-              activePlanId:
-                preferences.activePlanId === readyPlanId ? plan.id : preferences.activePlanId ?? plan.id,
-            }
-          : {},
-      );
-      if (wasHeld) {
-        // The record the copy replaced goes with it, whether or not it was
-        // the one running. Left behind, it listed
-        // the programme twice — the copy running, the catalog version
-        // "switched off" — and that row's Active switch re-adopted the
-        // untouched original beside the copy, two slots for one programme
-        // (audit round 4, 2026-09-20). The block boundary was read off it
-        // above, before this.
-        await forgetHeldProgramme(template.id);
-      }
-      copiedInThisEditBurst.current.add(programId);
-      void haptics.success();
-      if (edit.kind === 'replace') {
-        adaptSession({ programId, sessionId }, (current) => withoutSessionSwapsTo(current, edit.exerciseName));
-      }
-      /**
-       * Onto the copy's version of the day the reader is standing on.
-       *
-       * This used to land on the programme page, which was survivable when
-       * every edit here was a one-shot press in a sheet that closed anyway.
-       * With a stepper it is not: the first "+" copied the programme and then
-       * moved the reader to a different screen, with the sheet they were still
-       * using floating over it. The days are copied in order, so the day at
-       * the same position is the same day.
-       */
-      const dayIndex = template.sessions.findIndex((session) => session.id === sessionId);
-      // Read off the unfiltered list: the plan drops a day with nothing in it,
-      // but the days are still stored in their original order, and indexing
-      // the filtered list would walk one day forward past a dropped one.
-      const copiedSessionId = dayIndex > -1 ? copiedSessions[dayIndex]?.id : undefined;
-      navigate(
-        copiedSessionId
-          ? {
-              tab: 'workout',
-              screen: 'programDay',
-              programType: 'custom',
-              workoutTemplateId,
-              sessionId: copiedSessionId,
-            }
-          : { tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId },
-      );
-      return true;
-    } catch (error) {
-      if (error instanceof ProgramLimitReachedError) {
-        setProgramLimitVisible(true);
-        return false;
-      }
-      console.error('Failed to remove exercise from ready program', error);
-      showToast(t(preferences.appLanguage, 'toast.programCopyFailed'));
-      return false;
-    }
-  }
+  const { handleEditProgramExercise } = useProgramExerciseEdit({
+    exerciseLibrary,
+    preferences,
+    database,
+    workout,
+    workoutTemplates,
+    programSlots,
+    editWorkoutTemplateSessions,
+    findWorkoutTemplateIdBySource,
+    upsertWorkoutTemplate,
+    getWorkoutTemplateSessionsFresh,
+    upsertWorkoutPlan,
+    updatePreferences,
+    forgetHeldProgramme,
+    navigate,
+    showToast,
+    adaptSession,
+    setProgramLimitVisible,
+  });
 
   /** Resolves true once the programme is running, false when it was not taken on. */
   /**
@@ -4101,99 +2934,23 @@ function VinhaApp() {
     resetToRoute(ROOT_ROUTES.home);
   }
 
-  const customWorkoutRuntimeMap = useMemo(
-    () =>
-      Object.fromEntries(
-        workoutTemplates.map((template) => {
-          const sessions = getWorkoutTemplateSessions(template.id);
-          return [
-            template.id,
-            adaptLegacyWorkoutTemplateToRuntimeTemplate(
-              template,
-              sessions,
-              exerciseLibrary,
-              preferences.defaultRestSeconds,
-            ),
-          ] as const;
-        }),
-      ),
-    [exerciseLibrary, getWorkoutTemplateSessions, preferences.defaultRestSeconds, workoutTemplates],
-  );
-
-  const customWorkouts = useMemo(
-    () =>
-      [...workoutTemplates]
-        .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime())
-        .map((template) => ({
-          id: template.id,
-          name: template.name,
-          sessionCount: getWorkoutTemplateSessions(template.id).length,
-          exerciseCount: getWorkoutExercises(template.id).length,
-          updatedAt: template.updatedAt,
-          origin: template.origin,
-        })),
-    [getWorkoutExercises, getWorkoutTemplateSessions, workoutTemplates],
-  );
-  const programInsightsByTemplateId = useMemo(
-    () =>
-      buildProgramInsightMap({
-        database,
-        programs: [
-          ...workout.templates.map((template) => ({
-            id: template.id,
-            name: template.name,
-            sessions: template.sessions,
-            weeklyTarget: template.daysPerWeek,
-          })),
-          ...Object.values(customWorkoutRuntimeMap).map((template) => ({
-            id: template.id,
-            name: template.name,
-            sessions: template.sessions,
-            weeklyTarget: template.sessions.length,
-          })),
-        ],
-        unitPreference,
-        activeSession: workout.activeSession,
-      }),
-    [database, customWorkoutRuntimeMap, unitPreference, workout.activeSession, workout.templates],
-  );
-  const recentCompletedCustomTemplateId = useMemo(
-    () =>
-      workout.history.sessions.find((session) => customWorkouts.some((workoutItem) => workoutItem.id === session.templateId))
-        ?.templateId ?? null,
-    [customWorkouts, workout.history.sessions],
-  );
-  const selectedCustomProgram = useMemo(
-    () =>
-      selectHomeCustomProgram({
-        customWorkouts,
-        activeSessionTemplateId: workout.activeSession?.templateId ?? null,
-        hasActiveSession: Boolean(workout.activeSession),
-        lastSelectedTemplateId: workout.history.lastSelectedTemplateId,
-        recentCompletedCustomTemplateId,
-      }),
-    [customWorkouts, recentCompletedCustomTemplateId, workout.activeSession, workout.history.lastSelectedTemplateId],
-  );
-  const recentExerciseLibraryItems = useMemo(
-    () =>
-      getRecentExerciseLibraryItems({
-        exerciseLibrary,
-        exerciseLogs: database.exerciseLogs,
-        workoutSessions: database.workoutSessions,
-        exerciseTemplates: database.exerciseTemplates,
-      }),
-    [database.exerciseLogs, database.exerciseTemplates, database.workoutSessions, exerciseLibrary],
-  );
-  const recentExerciseBrowserItems = recentExerciseLibraryItems;
-  const exercisePrLookup = useMemo(
-    () =>
-      buildExercisePrLookup({
-        exerciseLogs: database.exerciseLogs,
-        workoutSessions: database.workoutSessions,
-        exerciseTemplates: database.exerciseTemplates,
-      }),
-    [database.exerciseLogs, database.exerciseTemplates, database.workoutSessions],
-  );
+  const {
+    customWorkoutRuntimeMap,
+    customWorkouts,
+    programInsightsByTemplateId,
+    selectedCustomProgram,
+    recentExerciseBrowserItems,
+    exercisePrLookup,
+  } = useCustomProgramViews({
+    workoutTemplates,
+    getWorkoutTemplateSessions,
+    getWorkoutExercises,
+    exerciseLibrary,
+    preferences,
+    database,
+    unitPreference,
+    workout,
+  });
   const proEntitlement = resolveProEntitlement(preferences);
   const coachProUnlocked = proEntitlement.unlocked;
 
@@ -4228,91 +2985,12 @@ function VinhaApp() {
     ? t(preferences.appLanguage, coachDemoMoment.questionKey, coachDemoMoment.vars)
     : null;
 
-  /**
-   * The coach's long memory, read once at startup.
-   *
-   * Failures are already swallowed by the store, so this cannot reject: the
-   * worst case is an empty list, which is exactly what a reader who has never
-   * asked a question has.
-   */
-  useEffect(() => {
-    let cancelled = false;
-    loadCoachAdviceMemory().then((stored) => {
-      if (cancelled) {
-        return;
-      }
-      const at = new Date().toISOString();
-      setCoachAdviceMemory((current) => {
-        // Merged, not assigned. An answer recorded before this read resolves
-        // would otherwise be overwritten by the older stored list — and the
-        // list it overwrote would already have been written back over the
-        // stored one, losing both halves.
-        const merged = mergeCoachAdviceMemory(stored, current, at);
-        // Always written back, never gated on a length comparison.
-        //
-        // Two things need this write. Expiry runs on write, so a phone that has
-        // not asked the coach anything in a month still carries the whole file,
-        // and pruning it here is what makes "deleted as it ages past three
-        // weeks" true for a reader who stopped asking rather than kept asking.
-        // And the race above already overwrote the file with the single entry
-        // it recorded, so the merged list has to go back or the rest is lost.
-        //
-        // Comparing the merged list's length against the stored one looked
-        // like a cheap way to skip a no-op write and was wrong: merging
-        // changes content without changing length whenever the list is at the
-        // ten-entry cap, or one entry expires as another is added, or two
-        // takeaways dedupe. Each of those skipped the write that recovers the
-        // race, and the loss only appeared on the next cold start
-        // (PR #62 review).
-        void saveCoachAdviceMemory(merged);
-        return merged;
-      });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  /**
-   * Remember one answer.
-   *
-   * State and disk are written from the same computed value rather than the
-   * write being derived from state again, so two answers in quick succession
-   * cannot store a list that skips the first. Pruning of expired lines happens
-   * inside rememberCoachAdvice, on every write.
-   */
-  /**
-   * Erase everything, the coach's memory included.
-   *
-   * resetDatabase clears the memory's key on disk, but this component is not
-   * remounted by a reset: without this the state would still hold every
-   * takeaway, hand them to the next question, and write them straight back.
-   *
-   * The open conversation too, for the same reason. It was never on disk, so
-   * the reset never touched it: chat, reset, onboard again and open the coach
-   * inside eight hours, and the old thread was back on screen — and in live
-   * mode sent to the model as the history of a reader who had just asked for
-   * all of it to go (audit, 2026-09-20).
-   */
-  const handleResetAllData = useCallback(async () => {
-    await resetAllData();
-    setCoachAdviceMemory([]);
-    setCoachChatMemory(null);
-    // Same reason: today's swaps outlive the reset in this component's state,
-    // and would reappear on the first programme adopted after it.
-    setHeldSessionAdaptations(NO_HELD_SESSION_ADAPTATIONS);
-  }, [resetAllData]);
-
-  const handleCoachAdviceGiven = useCallback((takeaway: string) => {
-    // Stamped once, outside the updater: React may invoke an updater more than
-    // once, and a clock read inside it would make two invocations disagree.
-    const at = new Date().toISOString();
-    setCoachAdviceMemory((current) => {
-      const next = rememberCoachAdvice(current, takeaway, at);
-      void saveCoachAdviceMemory(next);
-      return next;
-    });
-  }, []);
+  const { handleResetAllData, handleCoachAdviceGiven } = useCoachAdviceMemory({
+    resetAllData,
+    setCoachAdviceMemory,
+    setCoachChatMemory,
+    setHeldSessionAdaptations,
+  });
 
   // Seven days out. There is no billing, so this is the demo story the paywall
   // already tells rather than a date anything will act on.
@@ -4790,38 +3468,10 @@ function VinhaApp() {
   // The AI tab's opening state. Deterministic, so the most valuable-looking
   // part of the coach costs nothing to render and works offline.
   const progressWeeklyTarget = Number.parseInt(homeActivePlanCard?.sessionsPerWeek ?? '', 10) || null;
-  // "Your cards" on Home: full catalog computed once, pins resolved from prefs.
-  const homeStatCardSources = useMemo(
-    () => ({
-      bodyweightEntries: database.bodyweightEntries,
-      measurementEntries: database.measurementEntries,
-      trackedProgress,
-    }),
-    [database.bodyweightEntries, database.measurementEntries, trackedProgress],
-  );
-  const homeStatCatalogCards = useMemo(
-    () =>
-      buildHomeStatCards(
-        buildHomeStatCardCatalog(homeStatCardSources).map((item) => item.key),
-        homeStatCardSources,
-        preferences.appLanguage,
-      ),
-    [homeStatCardSources, preferences.appLanguage],
-  );
-  const homePinnedStatCardKeys = useMemo(
-    () => resolveHomeStatCardKeys(preferences.homeStatCardKeys),
-    [preferences.homeStatCardKeys],
-  );
-  /**
-   * The ONE prompt card Home may show (design frame 15). The suggester and
-   * the sign-in offer used to render independently and stacked; the queue
-   * decides, and the props below go quiet for whichever card is not up.
-   */
-  const homeSuggestedStatCardKeys = suggestHomeStatCardKeys({
-    focusAreas: preferences.setupFocusAreas,
-    goals: [preferences.setupGoal, ...preferences.setupGoals],
-    pinnedKeys: homePinnedStatCardKeys,
-    dismissedKeys: preferences.dismissedCardSuggestionKeys,
+  const { homeStatCatalogCards, homePinnedStatCardKeys, homeSuggestedStatCardKeys } = useHomeStatCards({
+    database,
+    trackedProgress,
+    preferences,
   });
   // Same equipment truth the composer filters exercises with, for the default
   // warmup/cooldown drills: null = setup never said, [] = no equipment at all.
@@ -4925,298 +3575,39 @@ function VinhaApp() {
     [baseTrainingSchedule, preferences.restDayStarts],
   );
 
-  /**
-   * What the recovery row opens (design: GAINER Palautuminen Sheet). Null
-   * when the fatigue model is not confident — the row is not there either.
-   * Keyed on the day: "tomorrow" and the seven-day strip read the clock.
-   */
-  const recoverySheet = useMemo(() => {
-    const now = new Date();
-    const tomorrow = new Date(dayStartPlus(now, 1));
-    return buildRecoverySheet({
-      fatigue: proFatigue,
-      sessionDates: database.workoutSessions.map((session) => session.performedAt),
-      now,
-      nextSessionTitle: homeActivePlanCard?.nextSession
-        ? localizeSessionName(homeActivePlanCard.nextSession.title, preferences.appLanguage)
-        : null,
-      automatedProgression: preferences.automatedProgressionEnabled,
-      proUnlocked: coachProUnlocked,
-      // Asked of the rhythm before any rest day, so a day already taken off
-      // still reads as one the reader would have trained.
-      tomorrowTrains: trainsOn(baseTrainingSchedule, tomorrow),
-      restTomorrowMarked: preferences.restDayStarts.includes(tomorrow.getTime()),
-      lightenQueued: isLightenPending(preferences.lightNextSession, now),
-      language: preferences.appLanguage,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
+  const { recoverySheet, handleRecoveryAction, handleRecoveryUndo } = useRecoverySheet({
     proFatigue,
-    database.workoutSessions,
-    homeActivePlanCard?.nextSession,
-    preferences.appLanguage,
-    preferences.automatedProgressionEnabled,
-    preferences.restDayStarts,
-    preferences.lightNextSession,
+    database,
+    homeActivePlanCard,
+    preferences,
     coachProUnlocked,
     baseTrainingSchedule,
     todayStartMs,
-  ]);
-
-  /**
-   * The recovery sheet's two actions, and taking them back. Each says it is
-   * done only after the write has landed; a refused write says so instead.
-   */
-  async function handleRecoveryAction(kind: RecoveryActionKind) {
-    if (kind === 'close') {
-      return;
-    }
-    const now = new Date();
-    try {
-      if (kind === 'lighten') {
-        await updatePreferences({ lightNextSession: { requestedAt: now.toISOString() } });
-        void haptics.success();
-        showToast(t(preferences.appLanguage, 'recovery.toast.lighten'));
-        return;
-      }
-      await updatePreferences({
-        restDayStarts: withRestDay(preferences.restDayStarts, dayStartPlus(now, 1), now),
-      });
-      void haptics.success();
-      showToast(t(preferences.appLanguage, 'recovery.toast.rest'));
-    } catch (error) {
-      console.error('Failed to save the recovery action', error);
-      void haptics.error();
-      showToast(t(preferences.appLanguage, 'recovery.toast.failed'));
-    }
-  }
-
-  async function handleRecoveryUndo(kind: 'lighten' | 'restTomorrow') {
-    const now = new Date();
-    try {
-      await updatePreferences(
-        kind === 'lighten'
-          ? { lightNextSession: null }
-          : { restDayStarts: withoutRestDay(preferences.restDayStarts, dayStartPlus(now, 1), now) },
-      );
-    } catch (error) {
-      console.error('Failed to undo the recovery action', error);
-      void haptics.error();
-      showToast(t(preferences.appLanguage, 'recovery.toast.failed'));
-    }
-  }
-  /**
-   * What the set screen will open on the next time the last session's day is
-   * started — the same materialisation and target resolver a real start uses,
-   * so the coach's example quotes the app's own numbers (user, 2026-09-27).
-   * Empty when the last session is not a programme day the app can start.
-   */
-  const coachNextSessionTargets = useMemo(() => {
-    const nowMs = Date.now();
-    const last = workoutSessions
-      .filter((session) => {
-        const at = new Date(session.performedAt).getTime();
-        return Number.isFinite(at) && at <= nowMs;
-      })
-      .reduce<(typeof workoutSessions)[number] | null>(
-        (newest, session) =>
-          !newest || new Date(session.performedAt).getTime() > new Date(newest.performedAt).getTime() ? session : newest,
-        null,
-      );
-    const sessionId = last?.workoutTemplateSessionId;
-    if (!last || !sessionId) {
-      return [];
-    }
-    try {
-      const custom = customWorkoutRuntimeMap[last.workoutTemplateId];
-      const ready = custom ? null : getWorkoutTemplateById(last.workoutTemplateId);
-      const runtimeTemplate = custom
-        ? buildCustomSessionRuntimeTemplate(custom, sessionId)
-        : ready
-          ? buildReadySessionRuntimeTemplate(ready, sessionId)
-          : null;
-      if (!runtimeTemplate) {
-        return [];
-      }
-      const start = programmeStart(runtimeTemplate, new Date(nowMs));
-      return previewNextSession(start.template, {
-        unitPreference,
-        history: workout.history,
-        sessionOrderIndex: 0,
-        ...start.options,
-      });
-    } catch (error) {
-      // A preview that cannot be built leaves the example out; it must never
-      // take the coach down with it.
-      console.error('Failed to preview the next session for the coach', error);
-      return [];
-    }
-    // programmeStart reads preferences and the recovery signal; todayStartMs
-    // because "the last session" and a pending lighter session are both dated.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customWorkoutRuntimeMap, preferences, progressionFatigueSignal, todayStartMs, unitPreference, workout.history, workoutSessions]);
-  const aiCoachTrainingContext = useMemo(
-    () =>
-      buildAiTrainingContext({
-        unitPreference,
-        activeWorkoutSummary: homeActiveWorkoutSummary,
-        homeSummary,
-        workoutSessions,
-        // homeSummary's counts include runs; without them here the context
-        // said "3 sessions" and "no sessions logged" about the same reader.
-        cardioSessions,
-        exerciseLogs: database.exerciseLogs,
-        trackedProgress,
-        readyProgramCount: workout.templates.length,
-        recommendedProgramId: preferences.recommendedProgramId,
-        recommendedProgramTitle: preferences.recommendedProgramId
-          ? formatWorkoutDisplayLabel(getWorkoutTemplateById(preferences.recommendedProgramId)?.name)
-          : null,
-        customProgramTitle: selectedCustomProgram.workoutId
-          ? formatWorkoutDisplayLabel(selectedCustomProgram.title)
-          : null,
-        // The week itself, from Home's own composed card. A title alone made
-        // the coach answer "I cannot see your programme's exercises in this
-        // data" to a reader one tap away from the list (#bugs 2026-08-25).
-        programme: buildAiCoachProgramme(homeActivePlanCard),
-        // The plan's real rhythm — cycle or weekdays — so planned-versus-actual
-        // and "next training day" cannot disagree with Home. Availability alone
-        // told a 2-on-1-off reader their schedule was mon-wed-thu (2026-08-23).
-        trainingDays: preferences.setupAvailableDays,
-        schedule: homeTrainingSchedule,
-        // The body record and goals: without these a chest-growth or nutrition
-        // question got a training summary (transcript review, 23.8.).
-        bodyweightEntries: database.bodyweightEntries,
-        measurementEntries: database.measurementEntries,
-        coachGoals: preferences.coachGoals,
-        primaryGoalId: preferences.primaryGoalId,
-        bodyweightGoalKg: preferences.bodyweightGoalKg,
-        // What the coach already said, so it stops repeating itself across
-        // conversations (lib/coachAdviceMemory).
-        coachMemory: coachAdviceMemory,
-        profile: {
-          heightCm: preferences.setupHeightCm,
-          // Both, because they are not the same claim: `setupAge` is a year an
-          // older install actually recorded, `setupAgeRange` is the band this
-          // one asks for. Whichever exists is true; neither is derived from the
-          // other, so the coach is never told an age nobody gave.
-          age: preferences.setupAge,
-          ageRange: preferences.setupAgeRange,
-          gender: preferences.setupGender,
-        },
-        // What Home already carries, and what the coach must not bring up:
-        // an offer for something already on is the sign explaining a sign.
-        nextSessionTargets: coachNextSessionTargets,
-        homeState: {
-          pinnedStatCardKeys: homePinnedStatCardKeys,
-          weighInReminderEnabled: preferences.notificationPrefs.weighInReminder,
-          silencedSuggestions: silencedSuggestionKinds(preferences.coachSuggestionState),
-        },
-        // The body areas flagged in setup. The privacy policy says the coach
-        // hears the reader's limitations; plannerSetup below never reaches it
-        // (nothing sets aiSetupCompleted), so this is where they travel.
-        cautionFlags: preferences.setupCautionFlags,
-        plannerSetup: preferences.aiSetupCompleted
-          ? {
-              goal: preferences.aiPlannerGoal,
-              daysPerWeek: preferences.aiPlannerDaysPerWeek,
-              experience: preferences.aiPlannerExperience,
-              sessionMinutes: preferences.aiPlannerSessionMinutes,
-              equipment: preferences.aiPlannerEquipment,
-              recovery: preferences.aiPlannerRecovery,
-              mustInclude: preferences.aiPlannerMustInclude
-                .split(',')
-                .map((item) => item.trim())
-                .filter(Boolean),
-              avoid: preferences.aiPlannerAvoid
-                .split(',')
-                .map((item) => item.trim())
-                .filter(Boolean),
-              limitations: preferences.aiPlannerLimitations
-                .split(',')
-                .map((item) => item.trim())
-                .filter(Boolean),
-            }
-          : null,
-      }),
-    [
-      homeActiveWorkoutSummary,
-      homeActivePlanCard,
-      homeSummary,
-      cardioSessions,
-      selectedCustomProgram.title,
-      selectedCustomProgram.workoutId,
-      trackedProgress,
-      unitPreference,
-      database.bodyweightEntries,
-      database.measurementEntries,
-      preferences.coachGoals,
-      preferences.primaryGoalId,
-      coachAdviceMemory,
-      coachNextSessionTargets,
-      homePinnedStatCardKeys,
-      preferences.coachSuggestionState,
-      preferences.notificationPrefs.weighInReminder,
-      preferences.bodyweightGoalKg,
-      preferences.setupHeightCm,
-      preferences.setupAge,
-      preferences.setupGender,
-      preferences.aiSetupCompleted,
-      preferences.setupCautionFlags,
-      preferences.aiPlannerGoal,
-      preferences.aiPlannerDaysPerWeek,
-      preferences.aiPlannerExperience,
-      preferences.aiPlannerSessionMinutes,
-      preferences.aiPlannerEquipment,
-      preferences.aiPlannerRecovery,
-      preferences.aiPlannerMustInclude,
-      preferences.aiPlannerAvoid,
-      preferences.aiPlannerLimitations,
-      preferences.recommendedProgramId,
-      preferences.setupAvailableDays,
-      homeTrainingSchedule,
-      workout.templates.length,
-      workoutSessions,
-      database.exerciseLogs,
-    ],
-  );
-  // Only a session the schedule actually puts on TODAY is "on the plan
-  // today". The next session in the rotation used to be named regardless, so
-  // the coach opened a rest day with "Upper is on the plan today — walk
-  // through it?" (#bugs, 2026-08-23). On a rest day the coach says so and
-  // names what comes next.
-  const coachChatIntro = useMemo(
-    () => ({
-      // Focus, not the ordinal: the coach's line has the day in it already
-      // ("today", "next on the plan"), so "Päivä 1:" pushed the real name past
-      // the edge and it arrived as "Koko keho + H..." (user, 2026-08-25).
-      // Today from the day key, like the count below it — the clock read
-      // here was only as fresh as whatever last changed this memo's inputs.
-      todaySessionTitle:
-        // Or the reader picked today's session on a rest day — Home's hero
-        // then treats today as training, and so does the coach.
-        homeActivePlanCard?.nextSession &&
-        (Boolean(homeActivePlanCard.todayPickSessionId) || trainsOn(homeTrainingSchedule, new Date(todayStartMs)))
-          ? localizeSessionFocus(
-              formatWorkoutDisplayLabel(homeActivePlanCard.nextSession.title),
-              preferences.appLanguage,
-            )
-          : null,
-      nextSessionTitle: homeActivePlanCard?.nextSession
-        ? localizeSessionFocus(
-            formatWorkoutDisplayLabel(homeActivePlanCard.nextSession.title),
-            preferences.appLanguage,
-          )
-        : null,
-      sessionsThisWeek: homeSummary.streak.sessionsThisWeek,
-      weeklyRead: proWeeklyRead,
-      fatigue: proFatigue,
-      // The one opening that had nothing to offer. The chat can build a week
-      // from a sentence now, and this is the reader that needs to know.
-      hasProgramme: Boolean(homeActivePlanCard),
-    }),
-    [homeActivePlanCard, homeSummary.streak.sessionsThisWeek, homeTrainingSchedule, preferences.appLanguage, proFatigue, proWeeklyRead, todayStartMs],
-  );
+    updatePreferences,
+    showToast,
+  });
+  const { aiCoachTrainingContext, coachChatIntro } = useCoachContext({
+    workoutSessions,
+    cardioSessions,
+    database,
+    preferences,
+    workout,
+    unitPreference,
+    trackedProgress,
+    todayStartMs,
+    coachAdviceMemory,
+    homeSummary,
+    proFatigue,
+    progressionFatigueSignal,
+    proWeeklyRead,
+    homeActiveWorkoutSummary,
+    programmeStart,
+    customWorkoutRuntimeMap,
+    selectedCustomProgram,
+    homeActivePlanCard,
+    homePinnedStatCardKeys,
+    homeTrainingSchedule,
+  });
   /**
    * Home must never say "find a programme" while one is running.
    *
@@ -5549,146 +3940,7 @@ function VinhaApp() {
     updatePreferences,
   ]);
 
-  /**
-   * The whole sign-in conversation: outcome toasts, and the one dialog that
-   * appears when both the phone and the cloud hold data. Shared by the
-   * hand-off card and the Settings row so both tell the same story.
-   */
-  const presentAccountOutcome = useCallback((outcome: SignInOutcome, failedKey: I18nKey) => {
-    const language = preferences.appLanguage;
-    if (outcome.kind === 'backed_up') {
-      // No toast. The backup row states the result better than a bar can: it
-      // carries the account and, in green, when the cloud copy was written.
-      // A pill saying "Varmuuskopioitu" over a row that already says
-      // "juuri nyt" is the class of message the reader has asked to be rid of
-      // four times (#bugs 2026-08-26, prio 1).
-      return outcome.kind;
-    }
-    if (outcome.kind === 'restored') {
-      showToast(t(language, 'account.restore.restored'));
-      return outcome.kind;
-    }
-    if (outcome.kind === 'restore_failed') {
-      showToast(t(language, 'account.restore.failed'));
-      return outcome.kind;
-    }
-    if (outcome.kind === 'failed') {
-      showToast(t(language, failedKey));
-      return outcome.kind;
-    }
-    if (outcome.kind === 'not_backed_up') {
-      // Signed in all the same: "Sign-in failed" here told a signed-in reader
-      // they were not. What failed is the backup.
-      showToast(t(language, 'account.backupFailed'));
-      return outcome.kind;
-    }
-    if (outcome.kind === 'unavailable') {
-      showToast(t(language, 'account.signInUnavailable'));
-      return outcome.kind;
-    }
-    if (outcome.kind === 'confirm_upload') {
-      // Another account's data on this phone: asked before it becomes this
-      // account's backup (break round, 2026-09-28). Not dismissable — the
-      // pending question would dangle with the automatic backup held.
-      const copy = confirmUploadCopy(outcome, language);
-      Alert.alert(
-        copy.title,
-        copy.body,
-        [
-          { text: copy.skip, style: 'cancel', onPress: () => void accountBackup.resolveUploadChoice('skip') },
-          {
-            text: copy.upload,
-            onPress: () => {
-              void accountBackup.resolveUploadChoice('upload').then((result) => {
-                // Only the failure speaks. Success is the row's green timestamp.
-                if (result === 'failed') {
-                  showToast(t(language, 'account.backupFailed'));
-                }
-              });
-            },
-          },
-        ],
-        { cancelable: false },
-      );
-      return outcome.kind;
-    }
-    if (outcome.kind !== 'choice') {
-      // Cancelled: the reader changed their mind, or signed out meanwhile,
-      // and neither is an error.
-      return outcome.kind;
-    }
-    const copy = restoreQuestionCopy(outcome.summary, language);
-    const keepLocal = () => {
-      void accountBackup.resolveRestoreChoice('keep_local').then((result) => {
-        // Only the failure speaks. Success is the row's green timestamp.
-        if (result === 'failed') {
-          showToast(t(language, 'account.backupFailed'));
-        }
-      });
-    };
-    const ask = () =>
-      Alert.alert(
-        copy.title,
-        copy.body,
-        [
-          {
-            text: copy.keepLocal,
-            onPress: () => {
-              const replace = copy.replace;
-              if (!replace) {
-                keepLocal();
-                return;
-              }
-              // This phone holds far less than the cloud copy it would
-              // replace — a phone that was just set up, or one whose
-              // database was set aside. One tap was enough to lose the
-              // history, so it is asked again, naming what goes.
-              Alert.alert(
-                replace.title,
-                replace.body,
-                [
-                  // Back to the first question: dismissing would leave the
-                  // pending choice dangling with no way back.
-                  { text: replace.back, style: 'cancel', onPress: ask },
-                  { text: replace.confirm, style: 'destructive', onPress: keepLocal },
-                ],
-                { cancelable: false },
-              );
-            },
-          },
-          {
-            text: copy.useBackup,
-            style: 'destructive',
-            onPress: () => {
-              void accountBackup.resolveRestoreChoice('restore').then((result) => {
-                // Both results speak: this button replaces the phone's data, and
-                // silence after it is no answer to whether it did.
-                if (result !== 'cancelled') {
-                  showToast(t(language, result === 'done' ? 'account.restore.restored' : 'account.restore.failed'));
-                }
-              });
-            },
-          },
-        ],
-        // Dismissing would leave the pending choice dangling with no way back.
-        { cancelable: false },
-      );
-    ask();
-    return outcome.kind;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accountBackup, preferences.appLanguage]);
-
-  const handleAccountSignIn = useCallback(
-    async () => presentAccountOutcome(await accountBackup.signIn(), 'account.signInFailed'),
-    [accountBackup, presentAccountOutcome],
-  );
-
-  // "Back up now" tells the same story as sign-in: on a phone that has never
-  // synced it may have to ask restore-or-keep before it can write anything.
-  const handleAccountBackupNow = useCallback(
-    async () => presentAccountOutcome(await accountBackup.backUpOrAsk(), 'account.backupFailed'),
-    [accountBackup, presentAccountOutcome],
-  );
+  const { handleAccountSignIn, handleAccountBackupNow } = useAccountOutcome({ accountBackup, preferences, showToast });
 
   const handleSetupHandoffDone = async (choices: SetupHandoffChoices) => {
     const patch: Partial<AppPreferences> = { setupHandoffCompleted: true };
@@ -5957,90 +4209,7 @@ function VinhaApp() {
     widgetCompletedWorkoutDayStarts,
   ]);
 
-  /**
-   * A scheduled notification's tap lands where the notification was about.
-   *
-   * A SECOND response listener, deliberately: the one near the top of this
-   * file answers the lock-screen rest actions and returns early for anything
-   * without the session marker, so the planner's notifications — records,
-   * reminders, the weekly summary — were tapped and then dropped. The reader
-   * tapped a personal record and arrived at the activity calendar, which was
-   * not a wrong destination but no destination: the app resumed the screen it
-   * had been left on (#bugs 2026-09-05). The two stay separate because they
-   * share nothing but the API — that one drives a running workout over the
-   * bus, this one sets a route — and each ignores the other's notifications by
-   * marker.
-   *
-   * Held until the database is loaded, exactly like the widget's target above:
-   * resetting the route into a half-built app lands somewhere that is about to
-   * re-render underneath it. The stored last response covers the cold start,
-   * where the tap is what launched the process and the listener is attached
-   * far too late to hear it.
-   */
-  const [pendingNotificationRoute, setPendingNotificationRoute] = useState<AppRoute | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const handle = (response: Notifications.NotificationResponse | null) => {
-      if (cancelled || !response) {
-        return;
-      }
-      const next = routeForNotification(response.notification.request.content.data);
-      if (next) {
-        setPendingNotificationRoute(next);
-      }
-    };
-
-    /*
-     * The cold start, and then FORGETTING it.
-     *
-     * The stored last response outlives the launch it belongs to. Read without
-     * clearing, it answers every later cold start with the same tap: open the
-     * record notification once and the app lands on Records on every launch
-     * afterwards, including launches from the icon with nothing in the shade.
-     * expo-notifications names this case in `clearLastNotificationResponse`'s
-     * own documentation — "undesirable to continue selecting the route after
-     * the response has already been handled" (found in review, 2026-09-05).
-     *
-     * Cleared whether or not the route resolved: a response this build has no
-     * destination for is still a response that has been seen, and leaving it
-     * stored only means re-reading it on the next launch to ignore it again.
-     */
-    const cold = Notifications.getLastNotificationResponse();
-    if (cold) {
-      handle(cold);
-      Notifications.clearLastNotificationResponse();
-    }
-
-    /*
-     * A tap while the app is running is stored as the last response too, and
-     * for as long as the native module lives — which outlasts this component
-     * when Android recreates the activity around a live JS runtime. Left
-     * there, the next mount read it as a cold start and opened the same
-     * page again. Forgotten once it has been routed, like the cold one.
-     */
-    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      handle(response);
-      try {
-        Notifications.clearLastNotificationResponse();
-      } catch {
-        // Unavailable on this platform: nothing is stored to forget.
-      }
-    });
-    return () => {
-      cancelled = true;
-      subscription.remove();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!appHydrated || !pendingNotificationRoute) {
-      return;
-    }
-    setPendingNotificationRoute(null);
-    resetToRoute(pendingNotificationRoute);
-  }, [appHydrated, pendingNotificationRoute]);
+  useNotificationRoute({ appHydrated, resetToRoute });
 
   // Settings → "Export plan (CSV)". The user's own plans, plus the ready
   // program they are actually running. The rest of the catalog is app content
@@ -6590,93 +4759,23 @@ function VinhaApp() {
    * Every count is read off the same catalog the tiles filter, so a slide
    * cannot advertise a season that has nothing in it.
    */
-  /**
-   * Your bests, from the tracked lifts' own logs.
-   *
-   * Built through getComparableLogSets so the records agree with every other
-   * number the app derives from a set — a second reader would drift the first
-   * time the legacy shape came up.
-   */
-  const toSetLogSource = useMemo(() => {
-    const bodyPartByName = new Map(
-      exerciseBrowserItems.map((item) => [item.name.trim().toLowerCase(), item.bodyPart]),
-    );
-    return (summary: ExerciseProgressSummary): RecordSource => ({
-      key: summary.key,
-      name: summary.name,
-      bodyPart: bodyPartByName.get(summary.name.trim().toLowerCase()) ?? null,
-      entries: summary.logs.map((log) => ({
-        performedAt: log.performedAt,
-        sets: getComparableLogSets(log).map((set) => ({ weight: set.weight, reps: set.reps })),
-      })),
-    });
-  }, [exerciseBrowserItems]);
-  const recordSources = useMemo(
-    () => trackedProgress.map(toSetLogSource),
-    [toSetLogSource, trackedProgress],
-  );
-  /**
-   * The lift's history by name, for the player's sheet. Every log, not the
-   * tracked summaries the records read: tracking is a per-programme mark,
-   * and a lift untracked here has still been lifted (CI review of #154).
-   * Keyed on the three tables it reads, like exercisePrLookup.
-   */
-  const liftHistory = useMemo(() => {
-    const byName = getLiftHistoryByName(database);
-    return (exerciseName: string) => byName.get(exerciseName.trim().toLowerCase()) ?? null;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [database.exerciseLogs, database.exerciseTemplates, database.workoutSessions]);
-  /**
-   * The plateau reminder for whichever lift the guided player is walking to
-   * next — the same detection Home shows, found by name rather than picked
-   * as the single best, and never filtered by Home's dismiss list: putting
-   * that card away must not silence the in-workout nudge too (user
-   * 2026-09-29, "muistutus kun seuraavalla kerralla on sumo").
-   */
-  const plateauNotice = useMemo(
-    () => (exerciseName: string) => findPlateauDetection(proLiftHistories, exerciseName, preferences.appLanguage),
-    [proLiftHistories, preferences.appLanguage],
-  );
-  const personalRecords = useMemo(
-    () => ({
-      weight: resolveRecords(recordSources, 'weight'),
-      reps: resolveRecords(recordSources, 'reps'),
-      volume: resolveRecords(recordSources, 'volume'),
-    }),
-    [recordSources],
-  );
-
-  /** Lifts holding a record, counted once no matter how many kinds. */
-  const distinctRecordCount = useMemo(
-    () =>
-      new Set([
-        ...personalRecords.weight.map((record) => record.key),
-        ...personalRecords.reps.map((record) => record.key),
-        ...personalRecords.volume.map((record) => record.key),
-      ]).size,
-    [personalRecords],
-  );
-
-  /** The day each lift first held a record — the same lifts distinctRecordCount counts. */
-  const recordDates = useMemo(() => firstRecordDates(personalRecords), [personalRecords]);
-  // Keyed on the four tables the facts read, not the whole database: a theme
-  // or language toggle replaces the database object without touching a log,
-  // and this is a full pass over every set. `lifetimeSummary` is itself keyed
-  // on the whole database, so depending on the object would have undone the
-  // narrowing — only the one field this reads is a dependency.
-  const milestoneFacts = useMemo(
-    () => getMilestoneFacts(database, lifetimeSummary, recordDates),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      database.workoutSessions,
-      database.exerciseLogs,
-      database.cardioSessions,
-      database.bodyweightEntries,
-      lifetimeSummary.currentWeekStreak,
-      recordDates,
-    ],
-  );
-  const milestoneLedger = useMemo(() => buildMilestoneLedger(milestoneFacts, unitPreference), [milestoneFacts, unitPreference]);
+  const {
+    toSetLogSource,
+    recordSources,
+    liftHistory,
+    plateauNotice,
+    personalRecords,
+    distinctRecordCount,
+    milestoneLedger,
+  } = useRecordsAndMilestones({
+    exerciseBrowserItems,
+    trackedProgress,
+    database,
+    proLiftHistories,
+    preferences,
+    lifetimeSummary,
+    unitPreference,
+  });
 
   /**
    * The strip under "Aloita treeni".
@@ -6705,340 +4804,29 @@ function VinhaApp() {
     [preferences.seasonEnrolments, updatePreferences],
   );
 
-  const libraryNames = useMemo(() => exerciseLibrary.map((item) => item.name), [exerciseLibrary]);
-  /**
-   * "Is this log that lift?" — bound to the library once, for every lookup
-   * that asks it about a target: the target bars and the Progress target rows.
-   * The rows used to compare names instead, so the flow quoted a 110 kg squat
-   * best while the squat's own row said nothing was logged.
-   */
-  const sameLift = useCallback<SameLiftMatcher>(
-    (loggedName, liftName) => isSameLift(loggedName, liftName, libraryNames),
-    [libraryNames],
-  );
-  /**
-   * The same question about one library row, for the exercise page's history.
-   * Narrower than a target on purpose — see isSameLiftAsLibraryRow: the sumo
-   * deadlift's page is not the deadlift target.
-   */
-  const sameLibraryRow = useCallback<SameLiftMatcher>(
-    (loggedName, rowName) => isSameLiftAsLibraryRow(loggedName, rowName, libraryNames),
-    [libraryNames],
-  );
-
-  /**
-   * The lifts the target flow can aim at, and what the log says about each.
-   *
-   * The named eight, not the library. Nobody says "I want to cable-crossover
-   * 30 kg" — see STRENGTH_GOAL_PRESETS for the list and why sumo is not on it.
-   * Offering all 876 also broke the promise behind every target: step 3 shows
-   * the programme that trains the lift, and for most of the library there is
-   * none.
-   *
-   * The log is read through `isSameLift`, not by name, so a "Barbell Bench
-   * Press" in the log finds the row for "Barbell Bench Press - Medium Grip".
-   * Matching on the name is how the target row once read 70 kg of 200 while
-   * the picker behind it said "not logged yet" for the same lift.
-   */
-  const goalFlowLifts = useMemo<GoalFlowLift[]>(() => {
-    // Today from the day key: "logged 2 days ago" is a count of calendar
-    // days, and read off the clock it stayed a day behind in an app left open.
-    const now = todayStartMs;
-    return STRENGTH_GOAL_PRESETS.map((preset) => {
-      // The target already set for this lift, so the flow can say so instead
-      // of replacing it in silence.
-      const targetKg =
-        preferences.strengthGoals.find((goal) =>
-          isSameLift(goal.exerciseName, preset.exerciseName, libraryNames),
-        )?.targetKg ?? null;
-      // Every spelling of the lift, not the first one found. Trap bar at 150
-      // over six sessions and sumo at 170 over two made the flow's best 150,
-      // while the Programs goal row took the max — so a "+20" target of 170
-      // read as reached the moment it was saved.
-      const histories = proLiftHistories.filter((entry) =>
-        isSameLift(entry.name, preset.exerciseName, libraryNames),
-      );
-      const bestKg = histories.reduce((best, entry) => Math.max(best, entry.bestWeightKg), 0);
-      if (histories.length === 0 || !(bestKg > 0)) {
-        return {
-          exerciseName: preset.exerciseName,
-          targetKg,
-          bestKg: null,
-          rate: null,
-          lastLoggedAt: null,
-          daysSinceLogged: null,
-        };
-      }
-      const lastLoggedAt = histories.reduce((latest, entry) => Math.max(latest, entry.latest.time), 0);
-      return {
-        exerciseName: preset.exerciseName,
-        targetKg,
-        bestKg,
-        rate: resolveObservedRate(histories.flatMap((entry) => entry.points)),
-        lastLoggedAt,
-        daysSinceLogged: Math.max(0, calendarDaysBetween(lastLoggedAt, now)),
-      };
-    });
-  }, [libraryNames, preferences.strengthGoals, proLiftHistories, todayStartMs]);
-
-  /**
-   * The Progress tab's target rows: each target lift under every name it was
-   * logged as.
-   *
-   * The rows used to join the tracked summaries on the lift's own name. A
-   * target on "Barbell Squat" seeds an empty summary under that name, and the
-   * squats an onboarding programme logs are "Back Squat" — so the row read
-   * "Alkuvaihe –" and opened "No logged sets" beside a flow that had just
-   * quoted the 110 kg best.
-   *
-   * The sheet a row opens is built from the same merged summary, and kept
-   * apart from the Records sources: a record is one spelling's best, and
-   * tapping it must not open a sheet whose best disagrees with it.
-   */
-  const targetLiftProgress = useMemo(
-    () =>
-      goalFlowLifts
-        .map((lift) => getLiftProgress(lift.exerciseName, trackedProgress, sameLift))
-        .filter((summary): summary is ExerciseProgressSummary => summary !== null),
-    [goalFlowLifts, sameLift, trackedProgress],
-  );
-  const targetLiftSources = useMemo(
-    () => targetLiftProgress.map(toSetLogSource),
-    [targetLiftProgress, toSetLogSource],
-  );
-
-  /**
-   * The programme the flow would put the reader on, for one lift.
-   *
-   * A real catalog programme, ranked by how central the lift is in it and how
-   * well it fits the reader's week — not a generated one. The composer that
-   * writes weeks from scratch has invented exercise names in this app before,
-   * and a target's programme is the last place that should happen.
-   *
-   * PRIMARY only. A programme that touches the lift as an accessory is not a
-   * programme that goes where the target goes, and offering one would be the
-   * "any answer beats no answer" failure the goal coverage layer already
-   * refuses.
-   */
-  const getGoalProposal = useCallback(
-    (exerciseName: string): GoalFlowProposal | null => {
-      const ranked = rankProgrammesForLift(WORKOUT_TEMPLATES_V1, exerciseName, {
-        libraryNames,
-        reader: { level: preferences.setupLevel, daysPerWeek: preferences.setupDaysPerWeek },
-      });
-      /*
-       * A strength target wants a strength programme.
-       *
-       * rankProgrammesForLift orders by how central the lift is and then by
-       * how well the week fits the reader — which it should, it serves the
-       * browse surfaces too. It knows nothing about goalType, so "squat 140
-       * kg" came back as SHRED Elite: a five-day conditioning block that
-       * happens to squat on day one and happens to match a five-day reader.
-       * Six programmes were tied at one squat day and the fat-loss one won on
-       * calendar fit alone.
-       *
-       * Among the primary matches, the ones built for strength go first. Order
-       * within each group is the ranker's, so the reader's week still decides
-       * between two strength programmes.
-       */
-      const primary = ranked.filter((match) => match.primary);
-      const best =
-        primary.find((match) => getWorkoutTemplateById(match.id)?.goalType === 'strength') ??
-        primary[0];
-      const template = best ? getWorkoutTemplateById(best.id) : null;
-      if (!best || !template) {
-        return null;
-      }
-
-      const days = template.sessions.map((session) => ({
-        sessionId: session.id,
-        name: formatWorkoutDisplayLabel(session.name),
-        // The first three lifts, which is what the reader is deciding on. The
-        // screen joins nothing: a card that composes its own sentence is a
-        // card that can compose one the programme does not contain.
-        lead: session.exercises
-          .slice(0, 3)
-          .map(
-            (exercise) =>
-              `${exerciseNameLabel(preferences.appLanguage, exercise.exerciseName)} ${exercise.sets}×${exercise.repsMin}`,
-          )
-          .join(' · '),
-        trainsTarget: session.exercises.some((exercise) =>
-          isSameLift(exercise.exerciseName, exerciseName, libraryNames),
-        ),
-      }));
-
-      return {
-        templateId: template.id,
-        programmeName: getReadyTemplatePresentation(template, preferences.appLanguage).title,
-        daysPerWeek: template.daysPerWeek,
-        minutes: template.estimatedSessionDuration,
-        blockWeeks: getReadyProgramBlockWeeks(template),
-        days,
-        targetDays: days.filter((day) => day.trainsTarget).length,
-      };
-    },
-    [libraryNames, preferences.appLanguage, preferences.setupDaysPerWeek, preferences.setupLevel],
-  );
-
-  /**
-   * Accepting the proposal: the target is stored and the programme is taken on.
-   *
-   * Both, in that order, and the adoption is what the reader watches for — a
-   * target with no programme behind it was the thing feedback round 2 asked to
-   * end. Adoption owns the cap: full on the free tier routes to the paywall,
-   * full on Pro says so, and neither is this screen's business.
-   */
-  async function handleAcceptTargetProposal(input: {
-    exerciseName: string;
-    targetKg: number;
-    /**
-     * The programme to take up alongside the target, or null for the target
-     * alone.
-     *
-     * A target and a programme are two decisions, and this flow used to make
-     * them one: the only way to aim at a number was to accept a new week
-     * ("en aina halua etta se vaikuttaa koko ohjelmaan", 2026-09-07). Null
-     * writes the target and leaves the reader's programme untouched.
-     */
-    templateId: string | null;
-  }) {
-    // The programme FIRST, and the target only if it landed.
-    //
-    // Stored first, a refused adoption left the reader with exactly the thing
-    // this flow exists to end: a target and nothing going towards it. The cap
-    // refuses for real — three programmes on the free tier sends them to the
-    // paywall — and that is not a moment to have quietly written a goal.
-    if (input.templateId !== null) {
-      const adopted = await handleAdoptReadyProgram(input.templateId, { lead: true });
-      if (!adopted) {
-        return;
-      }
-    }
-    // From the stored goals: the programme was written above, awaited, and
-    // this render's snapshot predates it.
-    await updatePreferences((current) => ({
-      strengthGoals: upsertStrengthGoal(current.strengthGoals, {
-        exerciseName: input.exerciseName,
-        targetKg: input.targetKg,
-        createdAt: new Date().toISOString(),
-      }),
-    }));
-
-    // And say so — by ARRIVING. Both writes have resolved by here, the
-    // programme then the target, which is the order CLAUDE.md asks for: a
-    // success state follows the write, never precedes it.
-    //
-    // The success state used to be a toast as well. It was raised over the
-    // page that already showed both halves of what it announced — the
-    // programme at the top of Omat ohjelmasi, the target under Tavoitteesi —
-    // so it named nothing the reader could not see ("valkoinen ilmoitus
-    // poista", #bugs 2026-09-05). The navigation is the feedback; the toast
-    // was the same news a second time, in a white box over it.
-    navigate({ tab: 'workout', screen: 'programs_home' });
-  }
-
-  /**
-   * Goals with a bar that can move.
-   *
-   * Measured against the user's own best set for that lift — never an
-   * estimate. A goal on a lift they have not logged shows as not started
-   * rather than 0%: those are different states, and a bar alone cannot tell
-   * them apart.
-   */
-  const programsGoals = useMemo(
-    () =>
-      resolveGoalProgress(
-        preferences.strengthGoals,
-        new Map(trackedProgress.map((summary) => [summary.name, summary.bestWeight])),
-        // Same rule the coverage row uses, so "your program trains this" and
-        // "you have lifted this" can never disagree about what the lift is.
-        sameLift,
-      ),
-    [preferences.strengthGoals, sameLift, trackedProgress],
-  );
-  /**
-   * The programme behind each goal lift (feedback round 2, #1: a target always
-   * has a programme that goes towards it).
-   *
-   * Computed for every preset lift, not only the goals set, so the picker can
-   * answer the moment a target is tapped. "Covered" means one of the ACTIVE
-   * programmes — ready or the reader's own — trains the lift; otherwise the
-   * best ready programme that does is suggested, ordered by how central the
-   * lift is there and then by the setup recommendation. No fit is invented:
-   * a lift no ready programme trains says so and points at the editor.
-   */
-  // One array per library, so the goal-programme resolver's cache can key on it
-  // instead of being defeated by a fresh `.map` every render.
-  const goalProgrammeSuggestions = useMemo(() => {
-    const activeCandidates = activeProgramTemplateIds
-      .map((id) => getWorkoutTemplateById(id) ?? customWorkoutRuntimeMap[id] ?? null)
-      .filter((template): template is NonNullable<typeof template> => Boolean(template));
-    const activeIds = new Set(activeProgramTemplateIds);
-    const preferredOrder = programsRecommendations.map((item) => item.id);
-    const titleOf = (id: string) => {
-      const ready = getWorkoutTemplateById(id);
-      if (ready) {
-        return getReadyTemplatePresentation(ready, preferences.appLanguage).title;
-      }
-      const custom = customWorkoutRuntimeMap[id];
-      return custom ? formatWorkoutDisplayLabel(custom.name) : id;
-    };
-    const result: Record<string, GoalProgrammeSuggestionView> = {};
-    for (const preset of STRENGTH_GOAL_PRESETS) {
-      const lift = preset.exerciseName;
-      const coverage = describeGoalCoverage(
-        { exerciseName: lift, targetKg: 1, createdAt: '' },
-        activeCandidates,
-        libraryNames,
-      );
-      if (coverage.status === 'covered' && coverage.coveredBy) {
-        const active = activeCandidates.find((template) => template.id === coverage.coveredBy);
-        const match = rankProgrammesForLift(active ? [active] : [], lift, { libraryNames })[0];
-        result[lift] = {
-          status: 'covered',
-          programme: {
-            id: coverage.coveredBy,
-            title: titleOf(coverage.coveredBy),
-            sessionCount: match?.sessionCount ?? 0,
-            totalSessions: active?.sessions.length ?? 0,
-          },
-        };
-        continue;
-      }
-      const ranked = rankProgrammesForLift(WORKOUT_TEMPLATES_V1, lift, {
-        preferredOrder,
-        libraryNames,
-        // The suggestion has to be a programme this reader can actually run.
-        reader: { level: preferences.setupLevel, daysPerWeek: preferences.setupDaysPerWeek },
-      }).filter(
-        (match) => !activeIds.has(match.id),
-      );
-      const best = ranked[0];
-      const template = best ? getWorkoutTemplateById(best.id) : null;
-      result[lift] =
-        best && template
-          ? {
-              status: 'suggest',
-              programme: {
-                id: best.id,
-                title: getReadyTemplatePresentation(template, preferences.appLanguage).title,
-                sessionCount: best.sessionCount,
-                totalSessions: template.sessions.length,
-              },
-            }
-          : { status: 'none', programme: null };
-    }
-    return result;
-  }, [
+  const {
+    sameLibraryRow,
+    goalFlowLifts,
+    targetLiftProgress,
+    targetLiftSources,
+    getGoalProposal,
+    handleAcceptTargetProposal,
+    programsGoals,
+    goalProgrammeSuggestions,
+  } = useGoalFlow({
+    exerciseLibrary,
+    todayStartMs,
+    preferences,
+    proLiftHistories,
+    trackedProgress,
+    toSetLogSource,
+    handleAdoptReadyProgram,
+    updatePreferences,
+    navigate,
     activeProgramTemplateIds,
     customWorkoutRuntimeMap,
-    libraryNames,
-    preferences.appLanguage,
-    preferences.setupDaysPerWeek,
-    preferences.setupLevel,
     programsRecommendations,
-  ]);
+  });
   // Programmes the reader built, not every template in the database: a
   // freestyle log writes a template of its own to hang the session on, and
   // "Omat ohjelmasi" was listing each of those as a programme. Those sessions

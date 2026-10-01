@@ -397,10 +397,23 @@ module.exports = [
       walkSource(path.join(root, 'src'));
       const files = sources.map((full) => ({ file: path.relative(root, full), text: fs.readFileSync(full, 'utf8') }));
 
-      const coachCallers = files.filter(({ file, text }) => file.endsWith('aiCoachClient.ts') || /aiCoachClient'/.test(text));
+      // What a request carries is read too: the files that build the training
+      // context, which since the phase-B split (2026-09-30) need not be the
+      // ones that call the client. The shell's own build is looked for, so the
+      // guard cannot quietly stop reading the context it hands the coach.
+      const coachCallers = files.filter(
+        ({ file, text }) => file.endsWith('aiCoachClient.ts') || /aiCoachClient'|aiTrainingContext'/.test(text),
+      );
       assert.ok(
         coachCallers.length >= 3,
         `expected the coach client and at least two callers, found: ${coachCallers.map(({ file }) => file).join(', ')}`,
+      );
+      assert.ok(
+        coachCallers.some(
+          ({ file, text }) =>
+            (file === 'App.tsx' || path.dirname(file) === path.join('src', 'app')) && text.includes('buildAiTrainingContext({'),
+        ),
+        'the shell file that builds the coach context is not among the files read',
       );
       for (const { file, text } of coachCallers) {
         assert.ok(

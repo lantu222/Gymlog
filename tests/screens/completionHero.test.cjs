@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 const screenSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'screens', 'WorkoutCompletionScreen.tsx'),
@@ -49,7 +50,9 @@ module.exports = [
     run() {
       // A pale gold bar needs dark icons, and the shell already derives that
       // from the theme — so the summary comes off the forced-light list.
-      assert.doesNotMatch(appSource, /workoutSummaryActive[\s\S]{0,40}\? 'light'/);
+      // Over the whole shell, App.tsx and its src/app modules (phase-B split,
+      // 2026-09-30): the bar's style must not force it from a hook either.
+      assert.doesNotMatch(readAppWiring(), /workoutSummaryActive[\s\S]{0,40}\? 'light'/);
       // The saved-session hero still is, and the Pro page joined it: both are
       // dark surfaces the bar sits directly on. Matched on the list rather
       // than on one exact expression, so adding a screen to it is not a

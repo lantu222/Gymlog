@@ -6,6 +6,8 @@ const { canCompleteSet } = require('../../.test-dist/features/workout/workoutSta
 const { formatPlanSessionTitle, isReaderNamedSession } = require('../../.test-dist/lib/sessionNameLabel.js');
 const { createExercise, createSet } = require('../helpers/workoutFixtures.cjs');
 const { createFakeAsyncStorage, loadAgainstFake } = require('../storage/fakeAsyncStorage.cjs');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+const { between } = require('../helpers/sourceSlices.cjs');
 
 const root = path.join(__dirname, '..', '..');
 const read = (...segments) => fs.readFileSync(path.join(root, ...segments), 'utf8').replace(/\r\n/g, '\n');
@@ -101,9 +103,11 @@ module.exports = [
       assert.doesNotMatch(day, /setNameDraft\(dayTitle\)/);
       assert.match(day, /trimmed && trimmed !== session\.name\.trim\(\)/);
 
-      const app = strip(read('App.tsx'));
-      const rename = app.slice(app.indexOf('async function handleRenameProgramSession('));
-      const body = rename.slice(0, rename.indexOf('\n  }\n'));
+      // The day edits leave VinhaApp for src/app in the phase-B split
+      // (2026-09-30): the handler is read wherever the shell keeps it, and
+      // the slice asserts it is there before cutting.
+      const app = strip(readAppWiring().replace(/\r\n/g, '\n'));
+      const body = between(app, 'async function handleRenameProgramSession(', '\n  }\n');
       // Remembered only after the stored name changed.
       assert.match(body, /if \(!result\.saved\) \{\s*return;\s*\}/);
       // A failed save is said and stops there; the name is remembered in a

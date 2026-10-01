@@ -2,8 +2,12 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+
 const root = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(root, ...parts), 'utf8').replace(/\r\n/g, '\n');
+/** App.tsx and the src/app modules its blocks moved into, line endings normalised like read(). */
+const readShell = () => readAppWiring().replace(/\r\n/g, '\n');
 /** Comments out, so a guard is matched against code and not against its own explanation. */
 const code = (text) => text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
 
@@ -141,9 +145,9 @@ module.exports = [
       assert.match(signIn, /return await settleWithRemote\(result\.account\.idToken, base, remote, generation\);/);
 
       // And the Settings row is wired to the asking path, through the same presenter as sign-in.
-      const app = code(read('App.tsx'));
-      assert.match(app, /presentAccountOutcome\(await accountBackup\.backUpOrAsk\(\), 'account\.backupFailed'\)/);
-      assert.match(app, /presentAccountOutcome\(await accountBackup\.signIn\(\), 'account\.signInFailed'\)/);
+      const shell = code(readShell());
+      assert.match(shell, /presentAccountOutcome\(await accountBackup\.backUpOrAsk\(\), 'account\.backupFailed'\)/);
+      assert.match(shell, /presentAccountOutcome\(await accountBackup\.signIn\(\), 'account\.signInFailed'\)/);
       assert.match(code(read('src', 'app', 'renderProfileTab.tsx')), /onBackupNow: \(\) => void handleAccountBackupNow\(\)/);
 
       // The automatic path goes through the same planner: it runs backupNow,
@@ -161,7 +165,7 @@ module.exports = [
       assert.match(restoreBranch, /catch \(error\) \{[\s\S]*?return 'failed';/);
       const settle = hook.slice(hook.indexOf('const settleWithRemote = useCallback('), hook.indexOf('const signIn = useCallback('));
       assert.match(settle, /try \{\s*fingerprint = await applyRestore\(remote\.payload, generation\);\s*\} catch \(error\) \{[\s\S]*?return \{ kind: 'restore_failed' \};/);
-      const presenter = code(read('App.tsx'));
+      const presenter = code(readShell());
       assert.match(presenter, /showToast\(t\(language, result === 'done' \? 'account\.restore\.restored' : 'account\.restore\.failed'\)\);/);
       assert.match(presenter, /if \(outcome\.kind === 'restore_failed'\) \{\s*showToast\(t\(language, 'account\.restore\.failed'\)\);/);
     },

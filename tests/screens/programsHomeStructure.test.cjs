@@ -8,6 +8,8 @@ const programsHomeSource = fs.readFileSync(
 );
 // The workout tab's wiring moved to src/app in the phase-A split (2026-08-26).
 const appSource = require('../helpers/appWiringSource.cjs').readAppWiring();
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+const { functionBody } = require('../helpers/sourceSlices.cjs');
 const routesSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'navigation', 'routes.ts'), 'utf8');
 const bottomTabBarSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'components', 'BottomTabBar.tsx'),
@@ -537,16 +539,15 @@ module.exports = [
      */
     name: 'target flow: the success state follows the resolved write',
     run() {
-      const app = read('App.tsx');
-      const start = app.indexOf('async function handleAcceptTargetProposal');
-      assert.ok(start > 0, 'handleAcceptTargetProposal was renamed — recheck by hand');
-      // The handler's OWN body: from its declaration to the next one at the
-      // same indentation. Sliced, because App.tsx is 5000 lines and every one
-      // of these four strings appears elsewhere in it — an unbounded search
-      // would pass on some other function's toast.
-      const after = app.slice(start);
-      const nextDeclaration = after.slice(1).search(/\n {2}(?:async )?function /);
-      const body = nextDeclaration > 0 ? after.slice(0, nextDeclaration) : after;
+      // The shell: App.tsx and the src/app modules its blocks moved into.
+      const app = readAppWiring();
+      // The handler's OWN body, brace-matched from its declaration to the `}`
+      // that closes it at its own indentation (functionBody asserts both, and
+      // that the declaration is unique). Sliced, because the shell is
+      // thousands of lines and every one of these four strings appears
+      // elsewhere in it — an unbounded search would pass on some other
+      // function's toast.
+      const body = functionBody(app, 'async function handleAcceptTargetProposal(');
 
       const adopt = body.indexOf('await handleAdoptReadyProgram');
       const write = body.indexOf('await updatePreferences');
@@ -559,11 +560,12 @@ module.exports = [
       assert.ok(adopt < write, 'the target is written before the programme lands');
       assert.ok(write < leave, 'the reader arrives before the write that put it there resolves');
 
-      // The toast that used to sit between them is gone, key and all. Not
-      // `doesNotMatch(body, /showToast\(/)`: the slice above runs past this
-      // handler — the next declaration is a const, not a function — so it
-      // reaches other handlers that legitimately raise one.
+      // The toast that used to sit between them is gone, key and all. The
+      // three finds above prove the slice is this handler, so the absence
+      // below scans exactly it; the same key is also absent from the whole
+      // shell, and from i18n.ts, which is the guard for every other screen.
       assert.equal(body.indexOf('goalFlow.created'), -1, 'the toast is back in this handler');
+      assert.equal(app.indexOf('goalFlow.created'), -1, 'the toast key is back in the shell');
       assert.doesNotMatch(read('src', 'lib', 'i18n.ts'), /'goalFlow\.created'/);
     },
   },
@@ -598,10 +600,12 @@ module.exports = [
       // reader's and stays on this list (device, 2026-09-16).
       assert.match(app, /const runningRows = listHeldProgrammes\(\{/);
       assert.match(app, /authoredTemplateIds: authoredIds,/);
+      // The dedup loop must not come back anywhere in the shell: App.tsx or a
+      // src/app module (phase-B split, 2026-09-30).
       assert.doesNotMatch(
-        app,
+        readAppWiring(),
         /const seenTemplateIds = new Set/,
-        'the dedup loop moved back into App.tsx',
+        'the dedup loop moved back into App.tsx or src/app',
       );
 
       // "The programme you are training right now" is a claim about ONE row,

@@ -20,6 +20,9 @@ const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8').re
  */
 
 const app = read('App.tsx');
+// App.tsx plus the src/app modules, App.tsx first: blocks of VinhaApp leave
+// for src/app in the phase-B split (2026-09-30), and their pins follow them.
+const wiring = require('../helpers/appWiringSource.cjs').readAppWiring().replace(/\r\n/g, '\n');
 const between = (source, from, to) => {
   const start = source.indexOf(from);
   const end = source.indexOf(to, start + from.length);
@@ -182,22 +185,22 @@ module.exports = [
       // week's "3 sessions this week", and on the 1st Progress drew last
       // month beside a widget already on the new one.
       assert.match(
-        app,
+        wiring,
         /const homeSummary = useMemo\(\s*\(\) => getHomeSummary\(database, unitPreference, new Date\(\)\),[\s\S]{0,120}\[database, unitPreference, todayKey\],/,
       );
       assert.match(
-        app,
+        wiring,
         /const lifetimeSummary = useMemo\(\s*\(\) => getLifetimeTrainingSummary\(database, new Date\(\)\),[\s\S]{0,120}\[database, todayKey\],/,
       );
       assert.match(
-        app,
+        wiring,
         /const progressTrainingRhythm = useMemo\(\s*\(\) => getTrainingRhythm\(database, \{ now: new Date\(\) \}\),[\s\S]{0,120}\[database, todayKey\],/,
       );
       // The player's entry eyebrow names today's weekday from the key.
       assert.match(app, /`guided\.weekday\.\$\{new Date\(todayStartMs\)\.getDay\(\)\}`/);
       assert.match(app, /\}, \[homeActivePlanCard\?\.currentWeek, preferences\.appLanguage, todayStartMs\]\);/);
       // And the coach's "on the plan today" reads the same day.
-      assert.match(app, /trainsOn\(homeTrainingSchedule, new Date\(todayStartMs\)\)/);
+      assert.match(wiring, /trainsOn\(homeTrainingSchedule, new Date\(todayStartMs\)\)/);
     },
   },
   {

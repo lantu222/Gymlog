@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 /**
  * The workout's notifications against an in-memory expo-notifications.
@@ -446,8 +447,9 @@ module.exports = [
       assert.match(hook, /useEffect\(\(\) => \{\s*void clearStaleSessionAlerts\(\);\s*\}, \[\]\);/);
       // The session-wide sweep is the session's end, not a screen's opening.
       assert.doesNotMatch(hook, /clearAllSessionNotifications|cancelIdleNudge/);
-      // App registers them too, for the idle nudge it arms itself.
-      const app = strip(fs.readFileSync(path.join(ROOT, 'App.tsx'), 'utf8'));
+      // App registers them too, for the idle nudge it arms itself — read
+      // across the shell's wiring (App.tsx and src/app).
+      const app = strip(readAppWiring());
       assert.match(
         app,
         /if \(activeSessionId && activeSessionStatus === 'active'\) \{\s*void setupSessionNotifications\(preferences\.appLanguage\);/,

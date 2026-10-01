@@ -3,6 +3,7 @@ const fs = require('node:fs');
 
 const { LEVEL_STREAKS } = require('../../.test-dist/lib/levelStreaks.js');
 const path = require('node:path');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 const onboardingSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'screens', 'OnboardingScreen.tsx'),
@@ -16,6 +17,10 @@ const appSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'App.tsx'),
   'utf8',
 );
+// The whole shell — App.tsx plus the src/app modules the phase-B split
+// (2026-09-30) moved VinhaApp's hooks into — for the absence guards: a shape
+// that must not come back must not come back in a hook either.
+const shellSource = readAppWiring();
 // The questionnaire-to-preferences builders moved out of App.tsx in the
 // phase-A split (2026-08-26) — the persistence pins read their new home.
 const handoffSource = fs.readFileSync(
@@ -211,7 +216,7 @@ module.exports = [
       // three seconds of nothing, and it read on the phone as a five-second
       // freeze on the last button of onboarding. The saving state now lasts as
       // long as the save does.
-      assert.doesNotMatch(appSource, /setTimeout\(resolve, 3000\)/);
+      assert.doesNotMatch(shellSource, /setTimeout\(resolve, 3000\)/);
       // Save path shares the composed week with the onboarding previews
       // (days-per-week truth): what was shown is exactly what is saved.
       assert.match(handoffSource, /function buildSavedOnboardingPlan\([\s\S]*composeProgramWeekForSelection\(selection, recommendedProgramId\)/);
@@ -224,7 +229,7 @@ module.exports = [
         /handleOnboardingCompleteToTraining[\s\S]*saveOnboardingOrExplain\(\{[\s\S]*onboardingCompleted: true[\s\S]*templateDraft: withReplaceableOnboardingId\(savedPlan\.draft\)[\s\S]*buildPlan:[\s\S]*buildSavedOnboardingWorkoutPlan[\s\S]*activate: \(planId, current\) => \{\s*const next = activateOnboardingPlan\(current, planId, resolveActiveProgramCap\(resolveProEntitlement\(current\)\.unlocked\)\);[\s\S]{0,300}?return next;[\s\S]*resetToRoute\(ROOT_ROUTES\.home\)/,
       );
       // And the four-call chain must not come back.
-      assert.doesNotMatch(appSource, /await upsertWorkoutTemplate\(savedPlan\.draft\)/);
+      assert.doesNotMatch(shellSource, /await upsertWorkoutTemplate\(savedPlan\.draft\)/);
 
       // The removed dark plan-ready must stay gone.
       assert.doesNotMatch(onboardingSource, /PLAN_READY_GYM_BACKDROP_SOURCE/);
@@ -568,7 +573,7 @@ module.exports = [
     run() {
       assert.match(appSource, /const \[minimumSplashElapsed, setMinimumSplashElapsed\] = useState\(false\)/);
       assert.match(appSource, /if \(!minimumSplashElapsed\) \{\s*return;\s*\}/);
-      assert.doesNotMatch(appSource, /firstAppOpen/);
+      assert.doesNotMatch(shellSource, /firstAppOpen/);
 
       // Light welcome: the copy lives in the i18n dictionary and the screen
       // renders every string through t(language, …).

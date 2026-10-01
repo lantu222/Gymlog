@@ -8,6 +8,8 @@ const {
   findReplaceableOnboardingTemplateId,
 } = require('../../.test-dist/lib/activeProgramSet.js');
 const { t } = require('../../.test-dist/lib/i18n.js');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+const { functionBody } = require('../helpers/sourceSlices.cjs');
 
 /**
  * The free programme limits, said before and at the wall (user 2026-09-14).
@@ -69,8 +71,10 @@ module.exports = [
     name: 'programme limit: a full set of running programmes shows the sheet, then Pro only if asked',
     run() {
       const app = read('App.tsx');
+      // The straight-to-paywall branch must not come back anywhere in the
+      // shell: App.tsx or a src/app module (phase-B split, 2026-09-30).
       assert.doesNotMatch(
-        app,
+        strip(readAppWiring()),
         /if \(decision\.canUpgrade\) \{\s*navigate\(\{ tab: 'profile', screen: 'premium', reason: 'program_cap' \}\)/,
         'a free reader at the running limit is still sent straight to the paywall',
       );
@@ -106,7 +110,18 @@ module.exports = [
     // A CSV import at the limit awaited the provider's refusal and sat there.
     name: 'programme limit: every import path shows the sheet instead of failing silently',
     run() {
-      const sources = [read('App.tsx'), read('src', 'app', 'renderWorkoutTab.tsx'), read('src', 'app', 'renderProfileTab.tsx')];
+      // App.tsx and every src/app module, not the two tabs by name: the
+      // phase-B split (2026-09-30) moved VinhaApp's hooks into src/app, and an
+      // import path in any of them is held to the same rule. Each file is read
+      // on its own, so no match can run from one into the next.
+      const sources = [
+        read('App.tsx'),
+        ...fs
+          .readdirSync(path.join(root, 'src', 'app'))
+          .filter((name) => /\.tsx?$/.test(name))
+          .sort()
+          .map((name) => read('src', 'app', name)),
+      ];
       let imports = 0;
       for (const source of sources) {
         for (const match of source.matchAll(/onImportProgram=\{async \(draft\) => \{([\s\S]*?)\n\s{8}\}\}/g)) {
@@ -197,8 +212,9 @@ module.exports = [
     name: 'programme limit: both finishes pass the replaceable id, and a replaced programme stays replaceable',
     run() {
       const app = read('App.tsx');
+      // Each finish to its own closing brace, not on to the next declaration.
       for (const signature of ['async function handleOnboardingCompleteToTraining', 'async function handleSetupCompleteToTraining']) {
-        assert.match(body(app, signature), /templateDraft: withReplaceableOnboardingId\(savedPlan\.draft\)/);
+        assert.match(functionBody(app, signature), /templateDraft: withReplaceableOnboardingId\(savedPlan\.draft\)/);
       }
       assert.match(
         body(app, 'function withReplaceableOnboardingId'),

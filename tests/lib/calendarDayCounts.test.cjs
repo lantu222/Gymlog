@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { withHelsinkiClocks } = require('../helpers/clockChange.cjs');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 const { resolveSeasonWindow, seasonWeek } = require('../../.test-dist/lib/season.js');
 const { computeSeasonProgress, countSeasonRecords } = require('../../.test-dist/lib/seasonScoring.js');
 const { localDateKey, subtractCalendarMonths } = require('../../.test-dist/lib/completedSessions.js');
@@ -124,7 +125,8 @@ module.exports = [
       assert.match(lastDone, /calendarDaysBetween\(iso, Date\.now\(\)\)/);
       assert.doesNotMatch(lastDone, /86400000|86_400_000/);
 
-      const app = strip(read('App.tsx'));
+      // The shell: App.tsx and the src/app modules its blocks moved into.
+      const app = strip(readAppWiring());
       assert.match(app, /daysSinceLogged: Math\.max\(0, calendarDaysBetween\(lastLoggedAt, now\)\)/);
 
       const progress = strip(read('src', 'screens', 'ProgressScreen.tsx'));

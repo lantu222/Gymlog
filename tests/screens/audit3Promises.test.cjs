@@ -1,6 +1,8 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+const { windowBefore } = require('../helpers/sourceSlices.cjs');
 
 const ROOT = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8').replace(/\r\n/g, '\n');
@@ -58,7 +60,23 @@ module.exports = [
         /if \(preferences\.aiPhotoNoticeAcknowledged \|\| preferences\.aiOnlineNoticeAcknowledged\) \{/,
       );
       assert.match(app, /void updatePreferences\(\{ aiPhotoNoticeAcknowledged: true \}\);/);
-      assert.doesNotMatch(app, /updatePreferences\(\{ aiOnlineNoticeAcknowledged: true \}\)/, 'the photo notice answers the chat’s disclosure');
+      /*
+       * Over the whole shell — App.tsx and the src/app modules the phase-B
+       * split (2026-09-30) moved VinhaApp's hooks into — so the photo gate
+       * cannot answer the chat's disclosure from a hook either. The chat's own
+       * acknowledgement is the one legitimate writer of that flag: it must
+       * appear exactly once, as a prop of the chat screen, and it is the only
+       * text taken out before the absence is checked.
+       */
+      const chatAcknowledge =
+        'onAcknowledgeOnlineNotice={() => void updatePreferences({ aiOnlineNoticeAcknowledged: true })}';
+      const shell = strip(readAppWiring().replace(/\r\n/g, '\n'));
+      assert.match(windowBefore(shell, chatAcknowledge, 400), /<AICoachChatScreen\b/, 'the chat no longer acknowledges its own notice');
+      assert.doesNotMatch(
+        shell.split(chatAcknowledge).join(''),
+        /updatePreferences\(\{ aiOnlineNoticeAcknowledged: true \}\)/,
+        'the photo notice answers the chat’s disclosure',
+      );
       // Stored like every other consent-shaped field: only an exact `true`
       // counts, so a malformed file reads as "not yet shown".
       assert.match(

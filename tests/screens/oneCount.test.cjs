@@ -9,6 +9,7 @@ const { getMonthTrainingTotals } = require(`${DIST}/lib/dashboard.js`);
 const { getLifetimeTrainingSummary } = require(`${DIST}/lib/lifetimeSummary.js`);
 const { buildFreestyleFinish } = require(`${DIST}/lib/emptyWorkoutSession.js`);
 const { persistCompletedWorkoutSessionToDatabase } = require(`${DIST}/state/completedWorkoutPersistence.js`);
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 const ROOT = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8').replace(/\r\n/g, '\n');
@@ -140,8 +141,10 @@ module.exports = [
       // The summary the guided finish sets once its save has resolved.
       const shown = through(app, app.indexOf('setCompletionSummary({', saveAt));
       assert.match(shown, /exercisesLogged: summary\.exercisesCompleted,/);
+      // Over the whole shell, App.tsx and its src/app modules (phase-B split,
+      // 2026-09-30): the card count must not come back from a hook either.
       assert.doesNotMatch(
-        app,
+        strip(readAppWiring().replace(/\r\n/g, '\n')),
         /exercisesLogged: completionCards\.exerciseCards\.filter/,
         'counted off the cards, the tile said 1 where History said 2',
       );
@@ -150,11 +153,13 @@ module.exports = [
   {
     name: 'reset: the open coach conversation goes with everything else',
     run() {
-      const app = strip(read('App.tsx'));
+      // App.tsx and the src/app modules, App.tsx first: the reset handler
+      // leaves VinhaApp in the phase-B split (2026-09-30).
+      const wiring = strip(readAppWiring().replace(/\r\n/g, '\n'));
       // The thread lives in exactly one place, so clearing that place is the
       // whole of the job.
-      assert.equal(app.split('useState<CoachChatMemory').length, 2);
-      const handler = through(app, app.indexOf('const handleResetAllData = useCallback('));
+      assert.equal(wiring.split('useState<CoachChatMemory').length, 2);
+      const handler = through(wiring, wiring.indexOf('const handleResetAllData = useCallback('));
       const afterWipe = handler.slice(handler.indexOf('await resetAllData();'));
       assert.ok(handler.includes('await resetAllData();'));
       assert.match(afterWipe, /setCoachAdviceMemory\(\[\]\);/);
