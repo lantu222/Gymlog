@@ -387,6 +387,8 @@ function VinhaApp() {
     workout,
     preferences,
     showToast,
+    // appHydrated is declared further down; the same two flags.
+    appHydrated: hydrated && workout.hydrated,
   });
 
   // Every seeded row is browsable now that the legacy `lib_*` tier is gone
@@ -1500,8 +1502,6 @@ function VinhaApp() {
     getWorkoutTemplateSessions,
     todayStartMs,
     setupSelection,
-    recommendedReadyTemplate,
-    recommendedReadyContent,
     customWorkoutRuntimeMap,
     routineBlockSeconds,
     completedSessionsForTemplate,
@@ -1953,6 +1953,7 @@ function VinhaApp() {
     activeProgramTemplateIds,
     customWorkoutRuntimeMap,
     programsRecommendations,
+    showToast,
   });
   const { programsCustomItems } = useProgramsCustomItems({
     customWorkouts,

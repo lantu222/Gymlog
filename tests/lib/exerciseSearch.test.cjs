@@ -10,6 +10,23 @@ function search(query, language = 'fi') {
 
 module.exports = [
   {
+    name: 'the gym\'s words for the lateral raise find it ("vipunostot tai viparit ei löydy", #bugs 2026-10-01)',
+    run() {
+      for (const phrasing of ['vipunosto', 'vipunostot', 'viparit', 'vipari', 'sivunostot']) {
+        for (const language of ['fi', 'en']) {
+          const hits = search(phrasing, language);
+          assert.ok(
+            hits.some((item) => item.name === 'Side Lateral Raise'),
+            `"${phrasing}" (${language}) found ${hits.length} but not the lateral raise`,
+          );
+        }
+      }
+      // "vipunosto" still finds the flyes the library itself calls that,
+      // and the plural now does too.
+      assert.ok(search('vipunostot').some((item) => /fly/i.test(item.name)));
+    },
+  },
+  {
     name: 'a Finnish search finds the lifts the Finnish screen shows',
     run() {
       // Seen on a phone: the library listed "Takakyykky", the search box got

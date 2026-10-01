@@ -446,6 +446,8 @@ const EN = {
   'toast.programCopyFailed': 'Could not copy the program',
   'toast.programStarted': 'Programme started',
   'toast.planSaveFailed': 'Could not save your programme',
+  'toast.goalSaveFailed': 'Could not save your target. Try again.',
+  'toast.goalSaveFailedProgramOn': 'Programme taken up, but the target did not save. Try again.',
   'toast.startEmptyFailed': 'Could not start. Try again.',
   'toast.limitationsSaveFailed': 'Could not save your limitations',
   'premium.purchaseUnavailable': 'Buying is not available in this build yet',
@@ -1427,6 +1429,8 @@ const EN = {
   'guided.walk.planSuperset': '{sets} × {reps} · straight into {name}',
   'guided.walk.startFirst': 'Start set 1',
   'guided.walk.swap': 'Swap exercise',
+  'guided.walk.add': 'Add exercise',
+  'guided.walk.added': 'Added after this one: {name}',
   'guided.sheet.tab.learn': 'Learn',
   'guided.sheet.tab.howTo': 'How to',
   'exerciseSheet.expand': 'Expand',
@@ -3677,6 +3681,8 @@ const FI: Record<I18nKey, string> = {
   'toast.programCopyFailed': 'Ohjelmaa ei voitu kopioida',
   'toast.programStarted': 'Ohjelma otettu käyttöön',
   'toast.planSaveFailed': 'Ohjelmaasi ei voitu tallentaa',
+  'toast.goalSaveFailed': 'Tavoitetta ei voitu tallentaa. Yritä uudelleen.',
+  'toast.goalSaveFailedProgramOn': 'Ohjelma otettiin käyttöön, mutta tavoite ei tallentunut. Yritä uudelleen.',
   'toast.startEmptyFailed': 'Aloitus ei onnistunut. Yritä uudelleen.',
   'toast.limitationsSaveFailed': 'Rajoituksia ei voitu tallentaa',
   'premium.purchaseUnavailable': 'Ostaminen ei ole vielä käytössä tässä versiossa',
@@ -4584,6 +4590,8 @@ const FI: Record<I18nKey, string> = {
   'guided.walk.planSuperset': '{sets} × {reps} · suoraan: {name}',
   'guided.walk.startFirst': 'Aloita sarja 1',
   'guided.walk.swap': 'Vaihda liike',
+  'guided.walk.add': 'Lisää liike',
+  'guided.walk.added': 'Lisätty tämän jälkeen: {name}',
   // "Opettele", not "Opi": this tab is deliberate practice on one lift —
   // three cues and a self-audit — while "Opi" is the name of the section that
   // holds the courses (user 2026-09-04).

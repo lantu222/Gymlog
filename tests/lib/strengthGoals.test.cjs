@@ -178,6 +178,15 @@ module.exports = [
         /if \(!adopted\) \{\s+return;/,
         'a refused adoption still writes the goal',
       );
+      // A failed write is said, and the success navigation stays behind it
+      // (#bugs 2026-10-01): the navigate sits after the catch, which returns.
+      const catchAt = accept.indexOf('} catch (error) {');
+      assert.ok(catchAt > storeAt, 'the target write is outside the error handling');
+      assert.match(accept.slice(catchAt), /showToast\(\s*t\(preferences\.appLanguage, adopted \? 'toast\.goalSaveFailedProgramOn' : 'toast\.goalSaveFailed'\)/);
+      assert.ok(
+        accept.indexOf('return;', catchAt) < accept.indexOf("navigate({ tab: 'workout', screen: 'programs_home' })"),
+        'a failed save still arrives at the success page',
+      );
       // And the adoption reports what happened rather than swallowing it.
       assert.match(app, /\): Promise<boolean> \{\s+const template = getWorkoutTemplateById/);
 

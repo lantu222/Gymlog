@@ -155,4 +155,33 @@ module.exports = [
       assert.match(schedulerSource, /\[PLAN_NOTIFICATION_MARKER\]: true,/);
     },
   },
+  {
+    name: 'a lock-screen action that launched the app runs once the session is back, and "still going" re-arms the nudge (#bugs 2026-10-01)',
+    run() {
+      const sessionHook = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'app', 'useSessionNotifications.ts'),
+        'utf8',
+      );
+      // Read at mount, only when it is ours — the planner taps stay with the
+      // route hook — and held rather than run into an unrestored session.
+      assert.match(
+        sessionHook,
+        /const cold = Notifications\.getLastNotificationResponse\(\);\s*if \(cold && \(cold\.notification\.request\.content\.data \?\? \{\}\)\[SESSION_NOTIFICATION_MARKER\] === true\) \{\s*coldSessionResponseRef\.current = cold;/,
+      );
+      assert.match(sessionHook, /if \(!appHydrated \|\| !coldSessionResponseRef\.current\) \{/);
+      assert.match(sessionHook, /if \(activeSessionId && activeSessionStatus === 'active'\) \{\s*runSessionActionRef\.current\(response\);/);
+      // The live listener and the cold start take the same path.
+      assert.match(sessionHook, /runSessionActionRef\.current\(response\);\s*\}\);/);
+      // The read happens before the route hook's, which clears the store:
+      // App.tsx calls this hook first.
+      assert.ok(
+        appWiring.indexOf('useSessionNotifications({') < appWiring.indexOf('useNotificationRoute({'),
+        'the route hook must not clear the cold response before this one reads it',
+      );
+      // "Still going" and a return to the foreground both feed the idle effect.
+      assert.match(sessionHook, /action === ACTION_STILL_GOING\) \{\s*setActivityTick\(/);
+      assert.match(sessionHook, /if \(state === 'active'\) \{\s*setActivityTick\(/);
+      assert.match(sessionHook, /completedSetCount,\s*activityTick,/);
+    },
+  },
 ];

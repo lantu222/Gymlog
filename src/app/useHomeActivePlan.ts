@@ -18,7 +18,6 @@ import { countSessionsSince, resolveCompletionCard } from '../lib/programComplet
 import { composeProgramWeekForSelection } from '../lib/programDayComposer';
 import { programmeHistoryIds } from '../lib/programLineage';
 import { hasOnlyEmptyDays, nextStartableSessionIndex } from '../lib/programSessionList';
-import type { getReadyProgramContent } from '../lib/readyProgramContent';
 import { getProgrammeBlockWeeks } from '../lib/readyProgramDuration';
 import type { AdaptedSessionRef, SessionAdaptation } from '../lib/sessionAdaptation';
 import { estimateSessionMinutes } from '../lib/sessionDuration';
@@ -42,11 +41,11 @@ import type { useCustomProgramViews } from './useCustomProgramViews';
  * A hook, not a helper: the card and the empty-programme reading are memos,
  * and VinhaApp calls this exactly where the lines stood — after
  * recommendedReadyContent, before useHomeStatCards — so every hook keeps its
- * slot. The card's deps array is knowingly stale and moved as it stood: it
- * still lists recommendedReadyContent and recommendedReadyTemplate, which the
- * card stopped reading when its fallback went, and leaves out
- * preferences.appLanguage, customWorkoutRuntimeMap, routineBlockSeconds and
- * the two VinhaApp helpers the card calls.
+ * slot. The card's deps array was moved stale and is fixed now (#bugs
+ * 2026-10-01): it reads the language, the runtime map and the routine costs,
+ * so a language switch or an edited slot or drill re-reads it. The two
+ * VinhaApp helpers it calls are plain functions rebuilt every render, so they
+ * stay out — what they read, database.workoutPlans and the sessions, is in.
  *
  * The card has no declared type: what it is is what the memo returns, and a
  * module that reads it takes ReturnType<typeof useHomeActivePlan>. The session
@@ -67,10 +66,6 @@ export interface HomeActivePlanDeps {
   todayStartMs: number;
   /** The setup answers: an onboarding plan's promised block length is composed from them. */
   setupSelection: ReturnType<typeof buildSetupSelectionFromPreferences>;
-  /** A dependency only: the card no longer falls back to the recommended programme. */
-  recommendedReadyTemplate: ReturnType<typeof getWorkoutTemplateById>;
-  /** A dependency only, as above. */
-  recommendedReadyContent: ReturnType<typeof getReadyProgramContent> | null;
   /** Each custom programme as the player runs it: slot ids, roles and rests. */
   customWorkoutRuntimeMap: ReturnType<typeof useCustomProgramViews>['customWorkoutRuntimeMap'];
   /** The warm-up and cool-down cost for a session's focus. */
@@ -97,8 +92,6 @@ export function useHomeActivePlan(deps: HomeActivePlanDeps) {
     getWorkoutTemplateSessions,
     todayStartMs,
     setupSelection,
-    recommendedReadyTemplate,
-    recommendedReadyContent,
     customWorkoutRuntimeMap,
     routineBlockSeconds,
     completedSessionsForTemplate,
@@ -430,7 +423,7 @@ export function useHomeActivePlan(deps: HomeActivePlanDeps) {
     // happens on the Programs tab, which is the one place that can say what
     // adopting it means.
     return null;
-  }, [database.workoutPlans, database.workoutSessions, database.exerciseLogs, exerciseLibrary, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.dismissedCompletionPlanIds, preferences.recommendedProgramId, preferences.setupGoal, preferences.todaySession, recommendedReadyContent, recommendedReadyTemplate, setupSelection, todayStartMs, workoutTemplates]);
+  }, [database.workoutPlans, database.workoutSessions, database.exerciseLogs, exerciseLibrary, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.dismissedCompletionPlanIds, preferences.recommendedProgramId, preferences.setupGoal, preferences.todaySession, preferences.appLanguage, customWorkoutRuntimeMap, routineBlockSeconds, setupSelection, todayStartMs, workoutTemplates]);
   /**
    * The active programme when it has days but none with anything in them.
    *

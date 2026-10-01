@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import * as Notifications from 'expo-notifications';
 
 import { emitRestAction } from '../hooks/useRestEndAlert';
@@ -46,10 +47,16 @@ export interface SessionNotificationsDeps {
   preferences: AppPreferences;
   /** VinhaApp's showToast: a hoisted function declaration, so it exists at the call. */
   showToast: (message: string) => void;
+  /**
+   * Both stores loaded. A lock-screen action that launched the app waits for
+   * it, like the planner taps in useNotificationRoute: driving a session
+   * before it has been restored drives nothing.
+   */
+  appHydrated: boolean;
 }
 
 export function useSessionNotifications(deps: SessionNotificationsDeps) {
-  const { workout, preferences, showToast } = deps;
+  const { workout, preferences, showToast, appHydrated } = deps;
 
   /* ---------------- Background timer: the app-level half ---------------- */
   // The rest ladder and the ongoing card are owned by the screen that holds the
@@ -61,35 +68,90 @@ export function useSessionNotifications(deps: SessionNotificationsDeps) {
   const activeSessionStatus = workout.activeSession?.status ?? null;
   const navigateToActiveWorkoutRef = useRef<() => boolean>(() => false);
   const finishFromNotificationRef = useRef<() => void>(() => {});
+  /**
+   * Bumped by "Still going" and by the app coming back to the foreground, and
+   * read by the idle effect below, so either one arms a fresh nudge. The
+   * comment there always promised this; nothing fed it, so after one nudge a
+   * session left open never asked again (#bugs 2026-10-01, from the phase-B
+   * split).
+   */
+  const [activityTick, setActivityTick] = useState(0);
+  /** A session action that launched the app, held until both stores load. */
+  const coldSessionResponseRef = useRef<Notifications.NotificationResponse | null>(null);
 
   // Lock-screen actions. Every action opens the app; the running rest is then
-  // told over the bus, because it lives in screen state.
+  // told over the bus, because it lives in screen state. Only refs and a
+  // state setter inside, so the mount-time closure stays current.
+  const runSessionActionRef = useRef((response: Notifications.NotificationResponse) => {
+    const action = response.actionIdentifier;
+    // Bring the session to the front first; the screen that owns the rest
+    // mounts its bus listener on render.
+    navigateToActiveWorkoutRef.current();
+    setTimeout(() => {
+      if (action === ACTION_EXTEND_30) {
+        emitRestAction({ kind: 'extend', seconds: 30 });
+      } else if (action === ACTION_EXTEND_60) {
+        emitRestAction({ kind: 'extend', seconds: 60 });
+      } else if (action === ACTION_SKIP_REST) {
+        emitRestAction({ kind: 'skip' });
+      } else if (action === ACTION_FINISH) {
+        finishFromNotificationRef.current();
+      } else if (action === ACTION_STILL_GOING) {
+        setActivityTick((tick) => tick + 1);
+      }
+    }, 350);
+  });
+
   useEffect(() => {
+    /*
+     * The cold start: the action that launched the process was answered
+     * before this listener existed, so it was never heard — and
+     * useNotificationRoute, reading the same stored response just after this,
+     * found no route in it and cleared it. "Finish" or "+30 s" from a killed
+     * app did nothing (#bugs 2026-10-01). Read here first, held, and run once
+     * the session is back (below); the route hook still clears the store.
+     */
+    try {
+      const cold = Notifications.getLastNotificationResponse();
+      if (cold && (cold.notification.request.content.data ?? {})[SESSION_NOTIFICATION_MARKER] === true) {
+        coldSessionResponseRef.current = cold;
+      }
+    } catch {
+      // Unavailable on this platform: nothing launched the app from the shade.
+    }
+
     const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data ?? {};
       if (data[SESSION_NOTIFICATION_MARKER] !== true) {
         return;
       }
-      const action = response.actionIdentifier;
-      // Bring the session to the front first; the screen that owns the rest
-      // mounts its bus listener on render.
-      navigateToActiveWorkoutRef.current();
-      setTimeout(() => {
-        if (action === ACTION_EXTEND_30) {
-          emitRestAction({ kind: 'extend', seconds: 30 });
-        } else if (action === ACTION_EXTEND_60) {
-          emitRestAction({ kind: 'extend', seconds: 60 });
-        } else if (action === ACTION_SKIP_REST) {
-          emitRestAction({ kind: 'skip' });
-        } else if (action === ACTION_FINISH) {
-          finishFromNotificationRef.current();
-        } else if (action === ACTION_STILL_GOING) {
-          // Handled by the idle effect below: opening the app counts as activity.
-        }
-      }, 350);
+      runSessionActionRef.current(response);
     });
-    return () => subscription.remove();
+    // Back in the foreground counts as being there: a fresh nudge from now.
+    const appState = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        setActivityTick((tick) => tick + 1);
+      }
+    });
+    return () => {
+      subscription.remove();
+      appState.remove();
+    };
   }, []);
+
+  // The held cold-start action, once the session it belongs to is restored.
+  // Dropped when there is none: a "Finish" for a session already gone is
+  // nothing to finish.
+  useEffect(() => {
+    if (!appHydrated || !coldSessionResponseRef.current) {
+      return;
+    }
+    const response = coldSessionResponseRef.current;
+    coldSessionResponseRef.current = null;
+    if (activeSessionId && activeSessionStatus === 'active') {
+      runSessionActionRef.current(response);
+    }
+  }, [appHydrated, activeSessionId, activeSessionStatus]);
 
   // Session ended or was discarded: nothing of ours stays in the shade.
   useEffect(() => {
@@ -140,7 +202,14 @@ export function useSessionNotifications(deps: SessionNotificationsDeps) {
       body: t(language, 'rest.notify.idleBody', { session: sessionName, done: completedSetCount }),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSessionId, activeSessionStatus, completedSetCount, preferences.notificationPrefs.idleNudge, preferences.appLanguage]);
+  }, [
+    activeSessionId,
+    activeSessionStatus,
+    completedSetCount,
+    activityTick,
+    preferences.notificationPrefs.idleNudge,
+    preferences.appLanguage,
+  ]);
 
   // After a cold start the session comes back from stored timestamps: elapsed
   // is real and a rest that expired meanwhile is already resolved. Say so once.

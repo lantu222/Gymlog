@@ -54,7 +54,8 @@ module.exports = [
     run() {
       // Cooldown only — the warm-up splash has nothing to add to.
       assert.match(playerSource, /step\.phase === 'cooldown' \? \(\s*\n\s*<Pressable/);
-      assert.match(playerSource, /onPress=\{\(\) => setAddExerciseOpen\(true\)\}/);
+      // Opened as the cooldown's: no slot to follow, so it appends and goes.
+      assert.match(playerSource, /setAddExerciseAfterSlot\(null\);\s*setAddExerciseOpen\(true\);/);
       assert.match(playerSource, /\{t\(language, 'guided\.own\.addExercise'\)\}/);
       // The sheet is the existing one the day editor uses, not a new picker.
       assert.match(playerSource, /<AddExerciseSheet\s/);
@@ -161,14 +162,33 @@ module.exports = [
         playerSource,
         /const anchor = exercises\[exercises\.length - 1\];\s*\n\s*if \(!anchor\) \{\s*\n\s*return;\s*\n\s*\}/,
       );
-      assert.match(playerSource, /const anchor = exercises\[exercises\.length - 1\] \?\? null;/);
+      assert.match(playerSource, /const anchor = afterCurrent \?\? exercises\[exercises\.length - 1\] \?\? null;/);
       // The link itself is not additionally hidden for an empty session —
       // the append path is what makes tapping it on a stretch-only cooldown
       // do something, rather than the link disappearing.
       assert.match(
         playerSource,
-        /step\.phase === 'cooldown' \? \(\s*\n\s*<Pressable[\s\S]{0,200}setAddExerciseOpen\(true\)\}/,
+        /step\.phase === 'cooldown' \? \(\s*\n\s*<Pressable[\s\S]{0,300}setAddExerciseOpen\(true\);/,
       );
+    },
+  },
+  {
+    name: 'the exercise intro adds a lift right after this one, and stays on it (#bugs 2026-10-01)',
+    run() {
+      // "Saa + liikkeen ilman että vaihdan tätä liikettä": a button beside
+      // the swap, anchored on the lift on screen.
+      assert.match(
+        playerSource,
+        /label=\{t\(language, 'guided\.walk\.add'\)\}\s*onPress=\{\(\) => \{[\s\S]{0,200}setAddExerciseAfterSlot\(\{\s*anchor:\s*guidedBlockLastSlotId\(/,
+      );
+      // After that lift, not at the end; and no jump — the pending-insert
+      // ref, which drives the jump, is set only on the cooldown path.
+      assert.match(
+        playerSource,
+        /if \(afterCurrent && addExerciseAfterSlot\) \{\s*\/\/[^\n]*\n\s*setWalkAdded\(\{ introSlotId: addExerciseAfterSlot\.intro, name: exerciseNameLabel\(language, item\.name\) \}\);\s*\} else \{\s*pendingInsertKnownSlotsRef\.current = new Set/,
+      );
+      // And it says where the lift went, under the buttons of that lift only.
+      assert.match(playerSource, /walkAdded && walkAdded\.introSlotId === step\.slotId \?/);
     },
   },
   {

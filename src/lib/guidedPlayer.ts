@@ -1540,3 +1540,31 @@ export function resolveGuidedOpening(input: {
     primaryAction: hasResume ? 'resume' : 'start',
   };
 }
+
+/**
+ * The last lift of the work block a step belongs to, in session order.
+ *
+ * A superset's intro is named for its first lift, so "add after this one"
+ * anchored on the intro's slot put the new lift between the pair and broke
+ * it in two (review of #bugs 2026-10-01). The block is everything the steps
+ * file under the same group; a lift on its own is a block of one.
+ */
+export function guidedBlockLastSlotId(
+  steps: readonly GuidedStep[],
+  groupIndex: number,
+  slotOrder: readonly string[],
+): string | null {
+  let last: string | null = null;
+  let lastAt = -1;
+  for (const step of steps) {
+    if ((step.type !== 'position' && step.type !== 'set') || step.groupIndex !== groupIndex) {
+      continue;
+    }
+    const at = slotOrder.indexOf(step.slotId);
+    if (last === null || at > lastAt) {
+      last = step.slotId;
+      lastAt = at;
+    }
+  }
+  return last;
+}

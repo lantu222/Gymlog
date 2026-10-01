@@ -4,6 +4,7 @@ import { WorkoutRuntimeTemplate } from '../features/workout/workoutTypes';
 import { calendarDaysBetween } from '../lib/completedSessions';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { t } from '../lib/i18n';
 import {
   describeGoalCoverage,
   GoalProgrammeSuggestionView,
@@ -69,6 +70,8 @@ export interface GoalFlowDeps {
   customWorkoutRuntimeMap: Record<string, WorkoutRuntimeTemplate>;
   /** Only the ids are read: the order a suggested programme is preferred in. */
   programsRecommendations: ProgramsExploreItem[];
+  /** VinhaApp's showToast: a failed write is said, not swallowed. */
+  showToast: (message: string) => void;
 }
 
 export function useGoalFlow(deps: GoalFlowDeps) {
@@ -85,6 +88,7 @@ export function useGoalFlow(deps: GoalFlowDeps) {
     activeProgramTemplateIds,
     customWorkoutRuntimeMap,
     programsRecommendations,
+    showToast,
   } = deps;
 
   const libraryNames = useMemo(() => exerciseLibrary.map((item) => item.name), [exerciseLibrary]);
@@ -291,21 +295,34 @@ export function useGoalFlow(deps: GoalFlowDeps) {
     // this flow exists to end: a target and nothing going towards it. The cap
     // refuses for real — three programmes on the free tier sends them to the
     // paywall — and that is not a moment to have quietly written a goal.
-    if (input.templateId !== null) {
-      const adopted = await handleAdoptReadyProgram(input.templateId, { lead: true });
-      if (!adopted) {
-        return;
+    let adopted = false;
+    try {
+      if (input.templateId !== null) {
+        adopted = await handleAdoptReadyProgram(input.templateId, { lead: true });
+        if (!adopted) {
+          return;
+        }
       }
+      // From the stored goals: the programme was written above, awaited, and
+      // this render's snapshot predates it.
+      await updatePreferences((current) => ({
+        strengthGoals: upsertStrengthGoal(current.strengthGoals, {
+          exerciseName: input.exerciseName,
+          targetKg: input.targetKg,
+          createdAt: new Date().toISOString(),
+        }),
+      }));
+    } catch (error) {
+      // A failed write stayed silent: no message, no navigation, and — when
+      // the programme had landed — a programme on with no target behind it
+      // (#bugs 2026-10-01, from the phase-B split). Said, and the reader stays
+      // on the sheet to try again; the toast names which half is in.
+      console.error('Failed to save the target', error);
+      showToast(
+        t(preferences.appLanguage, adopted ? 'toast.goalSaveFailedProgramOn' : 'toast.goalSaveFailed'),
+      );
+      return;
     }
-    // From the stored goals: the programme was written above, awaited, and
-    // this render's snapshot predates it.
-    await updatePreferences((current) => ({
-      strengthGoals: upsertStrengthGoal(current.strengthGoals, {
-        exerciseName: input.exerciseName,
-        targetKg: input.targetKg,
-        createdAt: new Date().toISOString(),
-      }),
-    }));
 
     // And say so — by ARRIVING. Both writes have resolved by here, the
     // programme then the target, which is the order CLAUDE.md asks for: a

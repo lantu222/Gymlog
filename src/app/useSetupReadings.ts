@@ -81,7 +81,9 @@ export function useSetupReadings(deps: SetupReadingsDeps) {
   );
   const recommendedReadyContent = useMemo(
     () => (recommendedReadyTemplate ? getReadyProgramContent(recommendedReadyTemplate.id, preferences.appLanguage) : null),
-    [recommendedReadyTemplate],
+    // The language too: without it a switch left the content in the old one
+    // until the recommendation itself changed (#bugs 2026-10-01).
+    [recommendedReadyTemplate, preferences.appLanguage],
   );
 
   return {
