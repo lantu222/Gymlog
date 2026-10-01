@@ -2,7 +2,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const { readAppWiring } = require('../helpers/appWiringSource.cjs');
-const { between } = require('../helpers/sourceSlices.cjs');
+const { between, functionBody } = require('../helpers/sourceSlices.cjs');
 
 const homeScreenSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'screens', 'HomeScreen.tsx'),
@@ -642,7 +642,9 @@ module.exports = [
       assert.match(emptyWorkoutScreenSource, /await onSave\(draft, summary\);/);
       assert.match(emptyWorkoutScreenSource, /setIsSaving\(false\);/);
       // App-side: template + session persist before the summary route swap.
-      assert.match(appSource, /const workoutTemplateId = await upsertWorkoutTemplate\(draft\);[\s\S]*await saveCompletedWorkoutSession\(\{[\s\S]*summaryExitRouteRef\.current = ROOT_ROUTES\.home;[\s\S]*replaceRoute\(\{ tab: 'workout', screen: 'summary' \}\);/);
+      // Bounded to the save itself, wherever the shell keeps it (it leaves
+      // VinhaApp in the phase-C split, 2026-10-01).
+      assert.match(functionBody(shellSource.replace(/\r\n/g, '\n'), 'const finishLoggedWorkoutSave = async'), /const workoutTemplateId = await upsertWorkoutTemplate\(draft\);[\s\S]*await saveCompletedWorkoutSession\(\{[\s\S]*summaryExitRouteRef\.current = ROOT_ROUTES\.home;[\s\S]*replaceRoute\(\{ tab: 'workout', screen: 'summary' \}\);/);
 
       assert.match(routesSource, /section\?: 'overview' \| 'records' \| 'tracked' \| 'measures'/);
       assert.match(progressScreenSource, /initialSection\?: ProgressSection/);

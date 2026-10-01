@@ -10,6 +10,7 @@ const { getLifetimeTrainingSummary } = require(`${DIST}/lib/lifetimeSummary.js`)
 const { buildFreestyleFinish } = require(`${DIST}/lib/emptyWorkoutSession.js`);
 const { persistCompletedWorkoutSessionToDatabase } = require(`${DIST}/state/completedWorkoutPersistence.js`);
 const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+const { functionBody } = require('../helpers/sourceSlices.cjs');
 
 const ROOT = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8').replace(/\r\n/g, '\n');
@@ -135,7 +136,9 @@ module.exports = [
   {
     name: 'completion: the guided tile says what the save recorded, by the rule History reads it with',
     run() {
-      const app = strip(read('App.tsx'));
+      // The guided finish on its own, wherever the shell keeps it (it leaves
+      // VinhaApp in the phase-C split, 2026-10-01).
+      const app = functionBody(strip(readAppWiring().replace(/\r\n/g, '\n')), 'async function handleConfirmFinishWorkout()');
       const saveAt = app.indexOf('const summary = await saveCompletedWorkoutSession({');
       assert.ok(saveAt > -1);
       // The summary the guided finish sets once its save has resolved.
