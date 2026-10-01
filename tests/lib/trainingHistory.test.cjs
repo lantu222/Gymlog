@@ -239,6 +239,23 @@ module.exports = [
     },
   },
   {
+    name: 'a rep gained at the same weight ends the stalled run (#bugs 2026-10-01)',
+    run() {
+      const sessions = [0, 1, 2, 3].map((index) =>
+        session(`s${index}`, 'Push', at((3 - index) * 7), 1),
+      );
+      const reps = [[6, 6, 6], [6, 6, 6], [6, 6, 7], [6, 6, 7]];
+      const lifts = buildLiftHistories(
+        sessions,
+        sessions.map((entry, index) => log(entry.id, 'Bench Press', 60, reps[index])),
+      );
+
+      // s2 gained a rep over s1, so only s2 and s3 are the flat run.
+      assert.equal(lifts[0].stalledSessions, 2);
+      assert.deepEqual(lifts[0].latest.setReps, [6, 6, 7]);
+    },
+  },
+  {
     name: 'a lift that moved recently is not counted as stalled',
     run() {
       const lifts = buildLiftHistories(

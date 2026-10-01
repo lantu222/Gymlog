@@ -32,7 +32,7 @@ export interface PlateauDetection {
   liftLabel: string;
   /** e.g. "Your squat hasn't moved in 4 sessions." */
   headline: string;
-  /** e.g. "82.5 kg × 5, 4 sessions running · 14 Jun – 26 Jul" */
+  /** e.g. "82.5 kg × 5/5/5, 4 sessions running · 14 Jun – 26 Jul" */
   meta: string;
   stalledSessions: number;
   topSetKg: number;
@@ -181,6 +181,26 @@ export function findPlateauDetection(
   return lift ? buildPlateauDetection(lift, language) : null;
 }
 
+/**
+ * The latest session's reps set by set, "6/6/7" — not the best set alone.
+ * "60 kg × 7" read as three sets of seven when the log said 6, 6, 7 (#bugs
+ * 2026-10-01).
+ */
+function latestSetsLabel(lift: LiftHistory): string {
+  const reps = lift.latest.setReps;
+  return reps.length > 0 ? reps.join('/') : String(lift.latest.topSetReps);
+}
+
+/**
+ * One rep more than the weakest set, on every set: from 6/6/7 the next step
+ * is 7/7/7, not 8/8/8. Top set + 1 asked for two reps more on two of three
+ * sets (#bugs 2026-10-01).
+ */
+function nextRepsTarget(lift: LiftHistory): number {
+  const reps = lift.latest.setReps;
+  return (reps.length > 0 ? Math.min(...reps) : lift.latest.topSetReps) + 1;
+}
+
 export function buildPlateauDetection(lift: LiftHistory, language: AppLanguage): PlateauDetection {
   const liftLabel = exerciseNameLabel(language, lift.name);
   const stalledPoints = lift.points.slice(-lift.stalledSessions);
@@ -191,7 +211,7 @@ export function buildPlateauDetection(lift: LiftHistory, language: AppLanguage):
     headline: t(language, 'pro.plateau.headline', { lift: liftLabel, count: lift.stalledSessions }),
     meta: t(language, 'pro.plateau.meta', {
       weight: formatWeight(lift.latest.topSetWeightKg, 'kg'),
-      reps: lift.latest.topSetReps,
+      reps: latestSetsLabel(lift),
       count: lift.stalledSessions,
       from: formatShortDate(from, language),
       to: formatShortDate(lift.latest.performedAt, language),
@@ -208,7 +228,8 @@ export function buildPlateauConclusion(
 ): LockedConclusion {
   const weight = formatWeight(lift.latest.topSetWeightKg, 'kg');
   // The reps path says what to do next time, in the reader's own numbers:
-  // this weight for one rep more on every set, then the next step up — the
+  // this weight for one rep more than the weakest set, on every set, then
+  // the next step up — the
   // same number the progression gate itself would take. It opened on "Your
   // reps are holding at this weight", which the card above had already said
   // ("Toistosi pitävät tällä painolla on aika huono", #bugs 2026-09-30), and
@@ -219,7 +240,7 @@ export function buildPlateauConclusion(
       ? t(language, 'pro.fix.recovery', { weight })
       : t(language, 'pro.fix.reps', {
           weight,
-          reps: lift.latest.topSetReps + 1,
+          reps: nextRepsTarget(lift),
           next: formatWeight(nextStepKg(lift, level), 'kg'),
         });
   return {

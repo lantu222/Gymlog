@@ -73,7 +73,41 @@ module.exports = [
       const detection = buildPlateauDetection(lift, 'en');
       // The finding is stated from the log: the weight, the reps, the count.
       assert.match(detection.headline, /hasn't moved in 4 sessions/);
-      assert.match(detection.meta, /82\.5 kg × 8, 4 sessions running/);
+      assert.match(detection.meta, /82\.5 kg × 8\/8\/8, 4 sessions running/);
+    },
+  },
+  {
+    name: 'proInsights: a rep gained at the same weight is progress, not a plateau (#bugs 2026-10-01)',
+    run() {
+      // 60 × 6/6/6 twice, then 6/6/7: double progression working. The card
+      // said "hasn't moved in 3 sessions · 60 kg × 7" and asked for 8 on
+      // every set.
+      const climbing = history({
+        name: 'Bench Press',
+        weights: [60, 60, 60],
+        reps: [[6, 6, 6], [6, 6, 6], [6, 6, 7]],
+      });
+      assert.equal(climbing[0].stalledSessions, 1);
+      assert.equal(detectPlateau(climbing), null);
+
+      // Flat again after that gain: the run counts from the gain, not from
+      // the first session at the weight.
+      const flatAfterGain = history({
+        name: 'Bench Press',
+        weights: [60, 60, 60, 60, 60],
+        reps: [[6, 6, 6], [6, 6, 7], [6, 6, 7], [6, 6, 7], [6, 6, 7]],
+      });
+      const lift = detectPlateau(flatAfterGain);
+      assert.ok(lift);
+      assert.equal(lift.stalledSessions, 4);
+      // The meta says what was logged, set by set — not "× 7", which read
+      // as three sets of seven.
+      assert.match(buildPlateauDetection(lift, 'en').meta, /^60 kg × 6\/6\/7, 4 sessions running/);
+      // One rep more than the weakest set: 7 on every set, not 8.
+      assert.equal(
+        buildPlateauConclusion(lift, 'en', 'beginner').body,
+        'Next time 60 kg × 7 on every set. Once that holds, move up to 62.5 kg.',
+      );
     },
   },
   {

@@ -46,6 +46,8 @@ export interface LiftPoint {
   time: number;
   topSetWeightKg: number;
   topSetReps: number;
+  /** Completed reps per set, in set order. */
+  setReps: number[];
   setCount: number;
   totalReps: number;
   volumeKg: number;
@@ -62,7 +64,12 @@ export interface LiftHistory {
   /** Latest top-set weight minus the first one. */
   weightChangeKg: number;
   spanDays: number;
-  /** How many of the most recent sessions share the latest top-set weight. */
+  /**
+   * How many of the most recent sessions share the latest top-set weight with
+   * no rep gained along the way. A session that adds a rep at the same weight
+   * is progress, not a stall: 60 × 6,6,6 then 60 × 6,6,7 is double progression
+   * working, and calling it a plateau was a lie (#bugs 2026-10-01).
+   */
   stalledSessions: number;
 }
 
@@ -251,6 +258,11 @@ function summarizeSession(
   };
 }
 
+/** Did `next` add a rep over `previous` — on the best set or in total? */
+function gainedReps(previous: LiftPoint, next: LiftPoint): boolean {
+  return next.topSetReps > previous.topSetReps || next.totalReps > previous.totalReps;
+}
+
 /**
  * Per-lift trajectories across the given sessions, oldest point first.
  *
@@ -285,6 +297,7 @@ export function buildLiftHistories(
       time,
       topSetWeightKg: top.weight,
       topSetReps: top.reps,
+      setReps: reps,
       setCount: reps.length,
       totalReps: reps.reduce((sum, count) => sum + count, 0),
       volumeKg: getTotalVolume(log),
@@ -302,6 +315,9 @@ export function buildLiftHistories(
     let stalledSessions = 1;
     for (let index = points.length - 2; index >= 0; index -= 1) {
       if (Math.abs(points[index].topSetWeightKg - latest.topSetWeightKg) >= 0.001) {
+        break;
+      }
+      if (gainedReps(points[index], points[index + 1])) {
         break;
       }
       stalledSessions += 1;
