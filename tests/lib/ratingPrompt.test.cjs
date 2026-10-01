@@ -152,7 +152,11 @@ module.exports = [
 
       // Counted when SHOWN, not when answered: a reader who closes it has
       // still been asked, and counting only answers would ask forever.
-      assert.match(appSource, /setRatingSheetVisible\(true\);\s*\n\s*void updatePreferences\(\(current\) => \(\{ ratingPrompt: recordRatingAsked\(current\.ratingPrompt/);
+      // Android shows the sheet; iPhone asks Apple's own prompt (App Review 5.6.1). Either way the ask is recorded.
+      assert.match(
+        appSource,
+        /if \(usesSystemReviewPrompt\(storePlatformOf\(Platform\.OS\)\)\) \{\s*void requestSystemReview\(\);\s*\} else \{\s*setRatingSheetVisible\(true\);\s*\}\s*void updatePreferences\(\(current\) => \(\{ ratingPrompt: recordRatingAsked\(current\.ratingPrompt/,
+      );
 
       // Every star opens the listing. No branch on the number: that is review
       // gating, and it is against Play policy.
@@ -177,7 +181,7 @@ module.exports = [
       assert.doesNotMatch(read('src/screens/SettingsScreen.tsx'), /onOpenRating|settings\.rate/);
       // Tapping it is not an interruption, so it skips the timing rules the
       // automatic ask has to obey.
-      assert.match(appSource, /onOpenRating=\{\(\) => setRatingSheetVisible\(true\)\}/);
+      assert.match(appSource, /if \(!usesSystemReviewPrompt\(store\)\) \{\s*return \(\) => setRatingSheetVisible\(true\);/);
     },
   },
 ];

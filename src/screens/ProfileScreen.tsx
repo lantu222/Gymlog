@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
 import { AnimatedGreeting } from '../components/AnimatedGreeting';
@@ -14,6 +14,7 @@ import { LifetimeTrainingSummary } from '../lib/lifetimeSummary';
 import { MilestoneLedger } from '../lib/milestoneFacts';
 import { milestoneCardFooter, milestoneCardRows } from '../lib/profileMilestoneRows';
 import { bodyPartLabel, t } from '../lib/i18n';
+import { inviteMessage, storeListingUrl, storePlatformOf } from '../lib/storeLinks';
 import {
   formatRecordWhenLabel,
 } from '../lib/profileOverview';
@@ -244,10 +245,14 @@ export function ProfileScreen({
 
   const handleInvite = async () => {
     // OS share sheet only — the user picks the target and can edit the text.
-    // The link is the app's store page (live once Vinha is published).
+    // The link is the store page for the phone's own store (lib/storeLinks);
+    // an iPhone build without EXPO_PUBLIC_APP_STORE_URL shares the text alone.
     try {
       await Share.share({
-        message: t(language, 'profile.inviteMessage'),
+        message: inviteMessage(
+          t(language, 'profile.inviteMessage'),
+          storeListingUrl(storePlatformOf(Platform.OS), process.env.EXPO_PUBLIC_APP_STORE_URL),
+        ),
       });
     } catch {
       // Sharing is optional; a dismissed or failed sheet is not an error worth

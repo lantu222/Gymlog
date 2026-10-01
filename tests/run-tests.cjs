@@ -150,6 +150,7 @@ const suites = [
   ...require('./screens/audit7Wiring.test.cjs'),
   ...require('./lib/homeCardSuggestions.test.cjs'),
   ...require('./lib/ratingPrompt.test.cjs'),
+  ...require('./lib/storeLinks.test.cjs'),
   ...require('./lib/blurredPreviewText.test.cjs'),
   ...require('./lib/bodyweightCard.test.cjs'),
   ...require('./lib/bodyweightSeedOnce.test.cjs'),

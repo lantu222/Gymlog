@@ -33,10 +33,24 @@ lists what iOS needs beyond it.
 5. Store listing: 6.7" and 6.5" iPhone screenshots (iPad too, since
    `supportsTablet` is on), privacy nutrition labels (mirror
    `docs/play-data-safety.md`), support URL, privacy policy URL.
-6. After approval set `APP_STORE_URL_IOS` (docs/app-updates.md).
+6. Once App Store Connect gives the listing its id, set both
+   `EXPO_PUBLIC_APP_STORE_URL` (app build: invite link, "Rate Vinha" row —
+   hidden on iPhone until set) and `APP_STORE_URL_IOS` (server,
+   docs/app-updates.md) to `https://apps.apple.com/app/id<ID>`.
 7. Use "Manual release" in App Store Connect and press release the same
    moment the Play release goes to production.
 
+## Store parity (2026-10-01)
+
+`src/lib/storeLinks.ts` decides per platform: subscription management and
+payment-method links, the Play/Apple wording on the subscription screen, the
+invite link, and reviews. On iPhone the rating moment calls Apple's own prompt
+(`expo-store-review`) with no sheet in front of it — App Review 5.6.1 forbids
+custom review prompts — and "Rate Vinha" opens the write-review page.
+
 ## Not in iOS 1.0
+
+- **Real billing, on both platforms.** Pro is still the simulated purchase of
+  the demo build (`extra.demoBuild`); neither store charges yet.
 
 - Home-screen widget (needs a WidgetKit extension in Swift).

@@ -181,7 +181,7 @@ module.exports = [
       assert.doesNotMatch(about, /settings\.rate|onOpenRating/);
       // The star is not gone from the app — the Profile still offers it.
       assert.match(profile, /t\(language, 'settings\.rate'\)/);
-      assert.match(tab, /onOpenRating=\{\(\) => setRatingSheetVisible\(true\)\}/);
+      assert.match(tab, /onOpenRating=\{\(\(\) => \{[\s\S]*?return \(\) => setRatingSheetVisible\(true\);/);
       // And Settings no longer asks for a prop it does not use.
       assert.doesNotMatch(settings, /onOpenRating/);
       // The rating row's subtitle went with it rather than lingering unused.
