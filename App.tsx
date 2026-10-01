@@ -1,7 +1,7 @@
 import './src/globalFont';
 
 import React, { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, BackHandler, Linking, Platform, View } from 'react-native';
+import { AppState, BackHandler, Linking, Platform, View } from 'react-native';
 import Constants from 'expo-constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Font from 'expo-font';
@@ -15,9 +15,7 @@ import { createId } from './src/lib/ids';
 import { HistoryScrollMemory } from './src/lib/historyScrollMemory';
 import {
   buildFirstRunRecommendationReasons,
-  FirstRunSetupSelection,
   getFocusAreaTitle,
-  isSetupDaysPerWeek,
   resolveFirstRunRecommendationWithTailoring,
 } from './src/lib/firstRunSetup';
 import { formatWorkoutDisplayLabel } from './src/lib/displayLabel';
@@ -57,28 +55,20 @@ import { hasWorkoutInProgress } from './src/lib/accountBackup';
 import { useAccountOutcome } from './src/app/useAccountOutcome';
 import { getReadyTemplatePresentation } from './src/lib/templatePresentation';
 import {
-  activateOnboardingPlan,
   addActiveProgram,
-  findReplaceableOnboardingTemplateId,
   evaluateProgramAdoption,
   ONBOARDING_PLAN_PREFIX,
-  removeActiveProgram,
-  resolveActiveProgramCap,
 } from './src/lib/activeProgramSet';
 import {
   leadTemplateId,
   listHeldProgrammes,
   resolveLeadPlanId,
-  resumeProgramme,
-  stopProgramme,
-  switchActiveProgramme,
 } from './src/lib/runningProgrammes';
 import {
   buildReadyProgramPlanId,
   buildCustomProgramPlanId,
   buildProgramWorkoutPlan,
 } from './src/lib/programAdoption';
-import { describeProgramCap, programCapLineKey } from './src/lib/programCapNotice';
 import { computePostSessionInsight } from './src/lib/postSessionInsight';
 import { composeProgramWeekForSelection } from './src/lib/programDayComposer';
 import { resolveAvailableEquipment } from './src/lib/equipmentExerciseFilter';
@@ -107,23 +97,19 @@ import { buildMuscleFocus, getVolumeDeltaVsPrevious } from './src/lib/workoutCom
 import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
 import { I18nKey, t } from './src/lib/i18n';
 import { buildCoachModules } from './src/lib/aiCoachModules';
-import { isProUnlocked, resolveProEntitlement, resolveProgressionOptions } from './src/lib/proEntitlement';
+import { isProUnlocked, resolveProEntitlement } from './src/lib/proEntitlement';
 import { ThemeChoiceDialog } from './src/components/ThemeChoiceDialog';
 import { resolveThemeName } from './src/lib/themePreference';
 import { localizeSessionFocus, localizeSessionName } from './src/lib/sessionNameLabel';
 import { trackEvent } from './src/features/analytics/analyticsClient';
-import { countsAsAppOpen, joinedRunningSet } from './src/lib/analyticsMoments';
+import { countsAsAppOpen } from './src/lib/analyticsMoments';
 
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
 import { CoachChatMemory } from './src/lib/coachChatMemory';
 import { CoachAdviceMemoryEntry } from './src/lib/coachAdviceMemory';
 import { clearCoachAdviceMemory } from './src/storage/coachAdviceMemoryStore';
 import type { ChatMessage } from './src/screens/AICoachChatScreen';
-import {
-  toDraftExercise,
-} from './src/lib/programSessionEdit';
 import { hasOnlyEmptyDays, nextStartableSessionIndex } from './src/lib/programSessionList';
-import { ProgramLimitReachedError } from './src/lib/programSlots';
 import { createUnlessAtLimit } from './src/app/programLimitGuard';
 import { useProgramExerciseEdit } from './src/app/useProgramExerciseEdit';
 import {
@@ -145,24 +131,15 @@ import {
 } from './src/lib/season';
 import { isMeasurementCardKey } from './src/lib/homeStatCards';
 import { planTrainedOnDay, resolveNextPlanEntryIndex } from './src/lib/planRotation';
-import { alignHistoryToCopiedDays, programmeHistoryIds } from './src/lib/programLineage';
+import { programmeHistoryIds } from './src/lib/programLineage';
 import { cycleSchedule, weekdaySchedule, withRestDays } from './src/lib/trainingSchedule';
-import {
-  isLightenPending,
-  lightenedFatigueSignal,
-  lightenRuntimeTemplate,
-} from './src/lib/recoverySheet';
 import { useRecoverySheet } from './src/app/useRecoverySheet';
 import {
   planWeekdayIndexes,
   resolveProgramTrainingDays,
-  WEEKDAY_KEYS,
 } from './src/lib/programTrainingDays';
 import {
   planLabelsForProgramme,
-  planLabelsFromWeekdays,
-  rotateLabelsForNextSession,
-  weekdaysFromPlanLabels,
 } from './src/lib/trainingWeekSync';
 import { programCoverStyle } from './src/lib/programVisualIdentity';
 import { countSessionsSince, resolveCompletionCard } from './src/lib/programCompletion';
@@ -190,7 +167,7 @@ import { decideRatingPrompt, recordRatingAsked, recordRatingCompleted } from './
  * sheet is exactly that.
  */
 const PLAY_LISTING_URL = 'https://play.google.com/store/apps/details?id=app.vinha';
-import { buildCustomSessionRuntimeTemplate, buildReadySessionRuntimeTemplate } from './src/lib/programDetails';
+import { buildCustomSessionRuntimeTemplate } from './src/lib/programDetails';
 import {
   AdaptedSessionRef,
   applySessionAdaptation,
@@ -219,11 +196,13 @@ import { useSessionNotifications } from './src/app/useSessionNotifications';
 import { useNotificationRoute } from './src/app/useNotificationRoute';
 import { useCoachContext } from './src/app/useCoachContext';
 import { createProgrammeDayEdits } from './src/app/programmeDayEdits';
+import { createProgrammeStarts } from './src/app/programmeStarts';
+import { createProgrammePlanEdits } from './src/app/programmePlanEdits';
+import { createProgrammeSwitches } from './src/app/programmeSwitches';
+import { useProgramCapLine } from './src/app/useProgramCapLine';
+import { createOnboardingFinishes } from './src/app/onboardingFinishes';
 import {
-  buildSavedOnboardingPlan,
-  buildSavedOnboardingWorkoutPlan,
   buildSetupBasicsFromPreferences,
-  buildSetupPreferencePatch,
   buildSetupSeedKey,
   buildSetupSelectionFromPreferences,
 } from './src/app/onboardingHandoff';
@@ -254,13 +233,10 @@ import { OnboardingReadyCatalogScreen } from './src/screens/OnboardingReadyCatal
 import { StartPathScreen } from './src/screens/StartPathScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { setNumberLanguage } from './src/lib/format';
-import { programTableToCsv } from './src/lib/programImageImport';
-import { pickProgramImage, type ProgramImageImportResult } from './src/utils/programImagePicker';
 import { VinhaSplashScreen } from './src/screens/VinhaSplashScreen';
 import { ExportablePlan } from './src/screens/ExportPlanScreen';
 import { NewProgramSheet } from './src/components/NewProgramSheet';
 import { buildCoachContextChips } from './src/lib/coachChat';
-import { isAiCoachLiveConfigured, requestProgramTableFromImage } from './src/lib/aiCoachClient';
 import { accountNameStep } from './src/lib/accountNameAdoption';
 import type { CatalogScreenItem } from './src/screens/CatalogScreen';
 import { ProgramsExploreItem } from './src/screens/ProgramsHomeScreen';
@@ -280,11 +256,7 @@ import {
   AppLanguage,
   AppPreferences,
   ExerciseTemplateDraft,
-  SetupCautionFlag,
-  SetupDaysPerWeek,
-  SetupWeekday,
   SetupGender,
-  UnitPreference,
   WorkoutTemplateDraft,
 } from './src/types/models';
 
@@ -1332,244 +1304,38 @@ function VinhaApp() {
     }
   }
 
-  /**
-   * Deleting a saved workout takes it out of the next session's prefill and
-   * "Last time" as well as the database — after the database delete has
-   * landed, so a refused delete leaves both as they were.
-   */
-  async function handleDeleteCompletedSession(sessionId: string) {
-    await deleteCompletedWorkoutSession(sessionId);
-    workout.forgetHistorySession(sessionId);
-  }
-
-  async function handleDismissTip(tipId: string) {
-    const dismissedTipIds = preferences.dismissedTipIds ?? [];
-    if (dismissedTipIds.includes(tipId)) {
-      return;
-    }
-
-    await updatePreferences({
-      dismissedTipIds: [...dismissedTipIds, tipId],
-    });
-  }
-
-  /**
-   * The type is a fact about the id, not something the caller can know.
-   *
-   * This was `handleOpenProgramDetail`, which wrote `programType:
-   * 'ready'` whatever it was handed. Home's "other programmes" list holds
-   * whatever the reader adopted, their own programmes included, so tapping
-   * your own programme sent the route guard looking for a catalog template
-   * that was never there and left the reader on the programme list. Every
-   * caller that has an id and no type comes here, and the type is resolved
-   * the way Home resolves its own hero — the stored template first, so the
-   * two cannot disagree about what an id is.
-   */
-  function resolveProgramTypeForTemplate(workoutTemplateId: string): 'ready' | 'custom' {
-    return workoutTemplates.some((template) => template.id === workoutTemplateId) ? 'custom' : 'ready';
-  }
-
-  function handleOpenProgramDetail(workoutTemplateId: string) {
-    navigate({
-      tab: 'workout',
-      screen: 'program',
-      programType: resolveProgramTypeForTemplate(workoutTemplateId),
-      workoutTemplateId,
-    });
-  }
-
-  function handleOpenCustomProgramDetail(
-    workoutTemplateId: string,
-    programType: 'ready' | 'custom' = 'custom',
-  ) {
-    navigate({ tab: 'workout', screen: 'program', programType, workoutTemplateId });
-  }
-
-  // Cardio v1 conflict rule: never two live sessions, never a silent discard.
-  // Mirrors the sheet the cardio list shows when a strength session is live.
-  function guardStrengthStartOverCardio(proceed: () => void) {
-    if (!workout.activeCardio) {
-      proceed();
-      return;
-    }
-
-    Alert.alert(
-      t(preferences.appLanguage, 'confirm.cardioRunning.title'),
-      t(preferences.appLanguage, 'confirm.cardioRunning.body'),
-      [
-        {
-          text: t(preferences.appLanguage, 'confirm.cardioRunning.resume'),
-          onPress: () => navigate({ tab: 'home', screen: 'cardio' }),
-        },
-        {
-          text: t(preferences.appLanguage, 'confirm.cardioRunning.discard'),
-          style: 'destructive',
-          onPress: () => {
-            workout.clearCardio();
-            proceed();
-          },
-        },
-        { text: t(preferences.appLanguage, 'common.cancel'), style: 'cancel' },
-      ],
-    );
-  }
-
-  function startReadyProgramSessionWithUnit(
-    workoutTemplateId: string,
-    sessionId: string,
-    nextUnitPreference: UnitPreference,
-  ) {
-    const template = getWorkoutTemplateById(workoutTemplateId);
-    if (!template) {
-      return;
-    }
-
-    // Home's hero says "Jatka treeniä" and comes through here, so this IS the
-    // resume path — but only when the running session is this one.
-    if (navigateToActiveWorkout({ resume: isActiveSessionFor(workoutTemplateId, sessionId) })) {
-      return;
-    }
-
-    guardStrengthStartOverCardio(() => {
-      // Training a session does not change which programme is active. It
-      // used to — the lead followed whatever was trained — and a one-off
-      // session from another programme quietly moved Home and the ACTIVE tag
-      // off the one the reader had chosen. The Active switch is the one door
-      // now, and it asks first (user 2026-09-21).
-      void updatePreferences({ trainingFirstRunDismissed: true });
-      // Only what was chosen for THIS session: a swap made on another day's
-      // card shares slot ids with this one and is not an answer about it.
-      const sessionRef = { programId: workoutTemplateId, sessionId };
-      const runtimeTemplate = applySessionAdaptation(
-        buildReadySessionRuntimeTemplate(template, sessionId),
-        sessionAdaptationFor(sessionRef),
-      );
-      startProgrammeWorkout(runtimeTemplate, nextUnitPreference);
-      // Today's changes are spent the moment they are applied — an adaptation
-      // is an answer about right now, and a stale one is worse than none.
-      setHeldSessionAdaptations((held) => spendHeldAdaptation(held, sessionRef));
-      navigateToGuidedWorkout(workoutTemplateId);
-    });
-  }
-
-  /**
-   * A programme session, started. The one door both programme starts use, so
-   * "Kevennä seuraava treeni" from the recovery sheet reaches whichever comes
-   * next: one set fewer on every lift that has one to spare, and loads held.
-   * Spent here — the request is for the next session, not every session.
-   */
-  /**
-   * The template and options a programme session starts with: the entitlement
-   * resolved once, and a pending lighter session applied. Shared by the start
-   * itself and by the coach's preview of the next session, so the example the
-   * coach quotes is what the start will open on.
-   */
-  function programmeStart(runtimeTemplate: Parameters<typeof workout.startCustomWorkout>[0], now: Date = new Date()) {
-    const lighten = isLightenPending(preferences.lightNextSession, now);
-    return {
-      template: lighten ? lightenRuntimeTemplate(runtimeTemplate) : runtimeTemplate,
-      options: {
-        ...resolveProgressionOptions(preferences),
-        fatigueSignal: lighten ? lightenedFatigueSignal(progressionFatigueSignal) : progressionFatigueSignal,
-      },
-    };
-  }
-
-  function startProgrammeWorkout(
-    runtimeTemplate: Parameters<typeof workout.startCustomWorkout>[0],
-    unit: UnitPreference,
-  ) {
-    const start = programmeStart(runtimeTemplate);
-    workout.startCustomWorkout(start.template, unit, start.options);
-    if (preferences.lightNextSession) {
-      // A refused write rolls the request back into place, and it would
-      // lighten the session after this one too. Said, rather than left to
-      // happen quietly (CI review of #188); the sheet can take it back.
-      updatePreferences({ lightNextSession: null }).catch((error) => {
-        console.error('Failed to spend the lighter-session request', error);
-        showToast(t(preferences.appLanguage, 'recovery.toast.spendFailed'));
-      });
-    }
-  }
-
-  function handleStartReadyProgramSession(workoutTemplateId: string, sessionId: string) {
-    startReadyProgramSessionWithUnit(workoutTemplateId, sessionId, unitPreference);
-  }
-
-  /**
-   * The session a programme's own plan offers next.
-   *
-   * Home resolves this for the plan it leads with; a programme running
-   * alongside has the same rotation and no one asking it. Same pure rule
-   * either way, so the two cannot drift.
-   */
-  /**
-   * Completed sessions, with a copied programme's history wearing the ids its
-   * copy knows them by.
-   *
-   * Editing a lift in a ready programme hands the reader their own copy of it,
-   * and the copy's days carry new ids. The rotation matches a plan entry
-   * against a logged session by both ids, so the day after the copy was made
-   * it found no match at all and offered day 1 to a reader who trained day 3
-   * yesterday. A day is found by its name, which follows it when the reader
-   * reorders the copy, and by position only where the name says nothing — a
-   * day that cannot be told is not translated rather than guessed at (see
-   * programLineage).
-   */
-  /**
-   * The programmes some OTHER plan is running, so their work is that plan's.
-   *
-   * Read off the plan records rather than the active set: a plan the reader
-   * holds but does not lead with is still the plan those sessions belong to.
-   */
-  function templatesRunByOtherPlans(workoutTemplateId: string | null | undefined): string[] {
-    return database.workoutPlans
-      .map((plan) => plan.entries[0]?.workoutTemplateId)
-      .filter((id): id is string => Boolean(id) && id !== workoutTemplateId);
-  }
-
-  function completedSessionsForTemplate(
-    workoutTemplateId: string | null | undefined,
-    // The canonical list walks every logged session, so a caller that has
-    // already built it hands it over rather than paying for it twice.
-    completed?: readonly ReturnType<typeof getCanonicalCompletedSessions>[number][],
-  ) {
-    const sessions = completed ?? getCanonicalCompletedSessions(database);
-    const copy = workoutTemplateId
-      ? database.workoutTemplates.find((template) => template.id === workoutTemplateId) ?? null
-      : null;
-    const source = copy?.sourceTemplateId ? getWorkoutTemplateById(copy.sourceTemplateId) : null;
-    if (!copy || !source) {
-      return sessions;
-    }
-    const copiedDays = getWorkoutTemplateSessions(copy.id);
-    return alignHistoryToCopiedDays(sessions, {
-      fromTemplateIds: programmeHistoryIds(copy.id, database.workoutTemplates, templatesRunByOtherPlans(copy.id)),
-      fromSessionIds: source.sessions.map((session) => session.id),
-      // The copy stores its day names translated, in whichever language the
-      // app was in when it was made.
-      fromSessionNames: source.sessions.map((session) => [
-        session.name,
-        localizeSessionName(session.name, 'fi'),
-        localizeSessionName(session.name, 'en'),
-      ]),
-      toTemplateId: copy.id,
-      toSessionIds: copiedDays.map((session) => session.id),
-      toSessionNames: copiedDays.map((session) => session.name),
-    });
-  }
-
-  function resolveNextSessionIdForTemplate(workoutTemplateId: string): string | null {
-    const plan = database.workoutPlans.find(
-      (item) => item.entries[0]?.workoutTemplateId === workoutTemplateId,
-    );
-    if (!plan || plan.entries.length === 0) {
-      return null;
-    }
-    const ordered = [...plan.entries].sort((left, right) => left.orderIndex - right.orderIndex);
-    const index = resolveNextPlanEntryIndex(ordered, completedSessionsForTemplate(workoutTemplateId));
-    return ordered[index]?.workoutTemplateSessionId ?? ordered[0]?.workoutTemplateSessionId ?? null;
-  }
+  const {
+    handleDeleteCompletedSession,
+    handleDismissTip,
+    handleOpenProgramDetail,
+    handleOpenCustomProgramDetail,
+    guardStrengthStartOverCardio,
+    programmeStart,
+    startProgrammeWorkout,
+    handleStartReadyProgramSession,
+    templatesRunByOtherPlans,
+    completedSessionsForTemplate,
+    resolveNextSessionIdForTemplate,
+    resumeHeldProgramme,
+  } = createProgrammeStarts({
+    database,
+    preferences,
+    unitPreference,
+    workoutTemplates,
+    getWorkoutTemplateSessions,
+    updatePreferences,
+    deleteCompletedWorkoutSession,
+    workout,
+    progressionFatigueSignal,
+    sessionAdaptationFor,
+    setHeldSessionAdaptations,
+    setRunningCapSheet,
+    navigate,
+    navigateToGuidedWorkout,
+    navigateToActiveWorkout,
+    isActiveSessionFor,
+    showToast,
+  });
 
   /**
    * Take on a ready programme — what "Start season" promises.
@@ -1590,62 +1356,6 @@ function VinhaApp() {
    * other caller ignores the value, which is why this can be added without
    * touching them.
    */
-  /**
-   * Put a programme the reader already holds back into the running set.
-   *
-   * Held is not gone: the plan record is still there with its block, its
-   * week and its rotation, and switching a programme on has always resumed
-   * it rather than rebuilding it. Adoption arrives at the same programmes by
-   * other doors — the goal flow, a completion card, a catalog page whose
-   * programme the reader has a copy of — and each of them used to build a
-   * plan over the top instead, which is week 5 of 24 coming back as week 1.
-   *
-   * Answers true when the programme is running again, false when the cap
-   * refused it, and null when there is no plan to resume — the caller then
-   * builds one.
-   */
-  async function resumeHeldProgramme(
-    templateId: string,
-    options?: { lead?: boolean },
-  ): Promise<boolean | null> {
-    const resumed = resumeProgramme({
-      activePlanId: preferences.activePlanId,
-      activePlanIds: preferences.activePlanIds,
-      plans: database.workoutPlans,
-      templateId,
-    });
-    if (!resumed) {
-      return null;
-    }
-    const decision = evaluateProgramAdoption({
-      activePlanIds: preferences.activePlanIds,
-      targetPlanId: resumed.planId,
-      proUnlocked: resolveProEntitlement(preferences).unlocked,
-    });
-    if (decision.kind === 'blocked') {
-      if (decision.canUpgrade) {
-        setRunningCapSheet({ visible: true, used: decision.used, cap: decision.cap });
-        return false;
-      }
-      showToast(t(preferences.appLanguage, 'programs.cap.full', { cap: decision.cap }));
-      return false;
-    }
-    await updatePreferences({
-      activePlanIds: resumed.activePlanIds,
-      // resumeProgramme names the resumed plan as activePlanId whichever way,
-      // so the lead is kept here: joining a season must not quietly demote the
-      // programme at the top of Home.
-      activePlanId: options?.lead ? resumed.planId : preferences.activePlanId ?? resumed.planId,
-    });
-    // Counted here, after the write, for every door that resumes through
-    // this — and only when the plan was not already running (analytics
-    // audit, 2026-09-21).
-    if (joinedRunningSet(preferences.activePlanIds, resumed.activePlanIds)) {
-      trackEvent('plan_adopted');
-    }
-    return true;
-  }
-
   async function handleAdoptReadyProgram(
     workoutTemplateId: string,
     options?: { lead?: boolean },
@@ -1785,196 +1495,22 @@ function VinhaApp() {
     return true;
   }
 
-  /**
-   * The completion card's three answers. Each one dismisses the card for this
-   * plan id — the card is a question, and every branch is an answer to it.
-   */
-  async function dismissCompletionCard(planId: string) {
-    if (preferences.dismissedCompletionPlanIds.includes(planId)) {
-      return;
-    }
-    await updatePreferences({
-      dismissedCompletionPlanIds: [...preferences.dismissedCompletionPlanIds, planId],
-    });
-  }
-
-  async function handleCompletionStartNext(planId: string, nextTemplateId: string) {
-    // Adopted first, dismissed second. The card was put away before the
-    // adoption was attempted, so a reader at the free programme cap saw the
-    // paywall, said no — and the step-up offer was gone for good, with no way
-    // back to it (2026-09-16).
-    const adopted = await handleAdoptReadyProgram(nextTemplateId, { lead: true });
-    if (adopted) {
-      await dismissCompletionCard(planId);
-    }
-  }
-
-
-  /**
-   * Emphasis save (design screen 3): new set counts, written to the reader's
-   * own template.
-   *
-   * Only custom programmes reach here — a catalog template is immutable at
-   * runtime, so the detail screen shows no stepper for a ready programme
-   * rather than one that silently does nothing. Everything except the set
-   * counts is carried through unchanged, so this cannot become a rewrite of
-   * the whole template disguised as an emphasis nudge.
-   */
-  /**
-   * Writes a finished rhythm onto the plan's own entries.
-   *
-   * Entry labels already carry weekday keys, so this needs no new stored
-   * state — and the screen only calls it once the day count is whole again,
-   * so a plan can never be written mid-move.
-   */
-  async function handleSaveRhythm(workoutTemplateId: string, dayIndexes: number[]) {
-    const plan = database.workoutPlans.find(
-      (item) => item.entries[0]?.workoutTemplateId === workoutTemplateId,
-    );
-    if (!plan || plan.entries.length !== dayIndexes.length) {
-      return;
-    }
-    const ordered = [...plan.entries].sort((left, right) => left.orderIndex - right.orderIndex);
-    // The strip is a set of days, not a per-session assignment — it hands them
-    // back Monday-first however they were tapped. Which session lands on which
-    // of them is this app's answer, and it is the same one adoption gives:
-    // whatever comes next in the rotation takes the first day not yet gone.
-    const labels = rotateLabelsForNextSession(
-      dayIndexes.map((index) => WEEKDAY_KEYS[index]),
-      resolveNextPlanEntryIndex(ordered, completedSessionsForTemplate(ordered[0]?.workoutTemplateId)),
-      new Date(),
-    );
-    const entries = ordered.map((entry, index) => ({ ...entry, label: labels[index] }));
-    await upsertWorkoutPlan({
-      ...plan,
-      entries,
-      updatedAt: plan.updatedAt,
-    });
-
-    // The other half of the same week. The plan's labels drive Home's strip and
-    // the calendar; availability drives the reminders, the widget and Profile's
-    // chips. Writing only the first left a reader who moved leg day here still
-    // being reminded on the day they moved it off.
-    const days = weekdaysFromPlanLabels(entries);
-    // Only the plan Home leads with, which is the same invariant the Profile
-    // picker states two functions below. Availability is one list for the
-    // whole app — Profile's chips, the reminders, the widget — and a rhythm
-    // is per programme. Moving a day on a programme the reader holds but has
-    // switched off rewrote that list while Home and the calendar kept reading
-    // the lead plan's own labels (audit round 4, 2026-09-20); so does moving a
-    // day on the SECOND running programme, which the running-set test let
-    // through — two may run at once (CI review of #161).
-    if (days.length > 0 && plan.id === preferences.activePlanId) {
-      await updatePreferences({
-        setupAvailableDays: days,
-        // Naming the days by hand IS self-managed; leaving the mode alone would
-        // let app_managed clear the list we just wrote.
-        setupScheduleMode: 'self_managed',
-        // Only when the count is an answer the questionnaire can hold. A
-        // one-session programme is a real rhythm but not a 2–6 answer, and
-        // clamping it up would tell the recommender something untrue.
-        ...(days.length >= 2 && days.length <= 6
-          ? { setupDaysPerWeek: days.length as SetupDaysPerWeek }
-          : {}),
-      });
-    }
-  }
-
-  /**
-   * The weekday picker in Profile, from the other side of the same week.
-   *
-   * Only the lead plan is rewritten. Availability is one list for the whole
-   * app, but a rhythm is per programme, and rewriting every active plan from
-   * one picker would move days on programmes this screen never showed.
-   */
-  async function handleChangeTrainingDays(days: SetupWeekday[]) {
-    // Same invariants as the onboarding day question: picking specific days
-    // makes the schedule self-managed and the count follows, 2–6.
-    const clamped = Math.min(6, Math.max(2, days.length)) as SetupDaysPerWeek;
-    await updatePreferences({
-      setupAvailableDays: days,
-      setupDaysPerWeek: clamped,
-      setupScheduleMode: 'self_managed',
-    });
-
-    const plan = database.workoutPlans.find((item) => item.id === preferences.activePlanId);
-    if (!plan) {
-      return;
-    }
-    const ordered = [...plan.entries].sort((left, right) => left.orderIndex - right.orderIndex);
-    const labels = planLabelsFromWeekdays(ordered.length, days);
-    if (!labels) {
-      // Fewer days chosen than the programme has sessions. The availability is
-      // stored — reminders follow it — and the rhythm the reader already has is
-      // left alone rather than replaced by a week they did not choose.
-      return;
-    }
-    // Same rule as adoption and as the rhythm strip: the session that comes
-    // next takes the first training day that has not gone. Writing the spread
-    // straight through put session one on the earliest weekday, so a reader
-    // who moved a day mid-week was offered one session and shown another one's
-    // day beside it.
-    const placed = rotateLabelsForNextSession(
-      labels,
-      resolveNextPlanEntryIndex(ordered, completedSessionsForTemplate(ordered[0]?.workoutTemplateId)),
-      new Date(),
-    );
-    await upsertWorkoutPlan({
-      ...plan,
-      entries: ordered.map((entry, index) => ({ ...entry, label: placed[index] })),
-      // Untouched on purpose: the plan record's own boundary is what the week
-      // counter counts from, so moving days must not restart the block.
-      updatedAt: plan.updatedAt,
-    });
-  }
-
-  async function handleSaveEmphasis(
-    workoutTemplateId: string,
-    updates: Array<{ sessionId: string; exerciseId: string; sets: number }>,
-  ) {
-    if (updates.length === 0) {
-      return;
-    }
-    const setsByExerciseId = new Map(updates.map((update) => [update.exerciseId, update.sets]));
-    await editWorkoutTemplateSessions(workoutTemplateId, (sessions) => ({
-      kind: 'save',
-      sessions: sessions.map((session) => ({
-        id: session.id,
-        name: session.name,
-        exercises: session.exercises.map((exercise) => ({
-          ...toDraftExercise(exercise),
-          targetSets: setsByExerciseId.get(exercise.id) ?? exercise.targetSets,
-        })),
-      })),
-    }));
-    // The emphasis is visible on the rows it changed; a toast on top said the
-    // same thing more slowly (user 2026-08-26).
-    void haptics.success();
-  }
-
-  async function handleCompletionRestart(planId: string) {
-    const plan = database.workoutPlans.find((entry) => entry.id === planId);
-    if (!plan) {
-      return;
-    }
-    // A fresh `updatedAt` IS the restart: the hero counts sessions from the
-    // plan record's own boundary, so the new round begins at 0 of N without
-    // touching a single logged session.
-    await upsertWorkoutPlan({ ...plan, updatedAt: new Date().toISOString() });
-    // The card goes because the block is no longer finished — 0 of N — not
-    // because it was dismissed. Dismissing put the plan id on a list that is
-    // never cleared, so the reader who restarted a programme was never
-    // congratulated for finishing it again: the card was answered once, for
-    // ever (2026-09-16). A new round is a new card, so the old dismissal is
-    // dropped here rather than added to.
-    if (preferences.dismissedCompletionPlanIds.includes(planId)) {
-      await updatePreferences({
-        dismissedCompletionPlanIds: preferences.dismissedCompletionPlanIds.filter((id) => id !== planId),
-      });
-    }
-    // The hero counts 0 of N and the completion card is gone: the restart is
-    // the thing on screen, not a sentence about it.
-  }
+  const {
+    dismissCompletionCard,
+    handleCompletionStartNext,
+    handleSaveRhythm,
+    handleChangeTrainingDays,
+    handleSaveEmphasis,
+    handleCompletionRestart,
+  } = createProgrammePlanEdits({
+    database,
+    preferences,
+    updatePreferences,
+    upsertWorkoutPlan,
+    editWorkoutTemplateSessions,
+    handleAdoptReadyProgram,
+    completedSessionsForTemplate,
+  });
 
   /**
    * Which programmes the active plans actually point at.
@@ -2066,172 +1602,27 @@ function VinhaApp() {
     workoutTemplates,
   ]);
 
-  /** The reader dropping a programme — the only path that removes one. */
-  /**
-   * Make a programme you already hold the one Home leads with.
-   *
-   * Matched on the template rather than the plan id, because the same programme
-   * can be held under a plan id minted by onboarding, by adoption, or by a
-   * season — and all three are equally "this programme".
-   */
-  async function promoteHeldProgramToLead(workoutTemplateId: string) {
-    const plan = database.workoutPlans.find(
-      (entry) =>
-        preferences.activePlanIds.includes(entry.id) &&
-        entry.entries[0]?.workoutTemplateId === workoutTemplateId,
-    );
-    if (!plan || preferences.activePlanId === plan.id) {
-      return;
-    }
-    await updatePreferences({ activePlanId: plan.id });
-  }
-
-  /**
-   * Stop a programme from its own page, by programme rather than by plan.
-   *
-   * The detail screen knows a template id; `handleRemoveActiveProgram` wants a
-   * plan id, and one programme can be held under more than one — onboarding
-   * writes `onboarding_plan_<id>` and adoption writes `ready_plan_<id>`. Every
-   * plan pointing at this programme goes, or the switch would read off while
-   * the programme was still running under the other id.
-   */
-  async function handleStopProgram(workoutTemplateId: string) {
-    const stopped = stopProgramme({
-      activePlanId: preferences.activePlanId,
-      activePlanIds: preferences.activePlanIds,
-      plans: database.workoutPlans,
-      templateId: workoutTemplateId,
-    });
-    if (!stopped) {
-      return;
-    }
-    await updatePreferences(stopped);
-  }
-
-  /**
-   * The Active switch, turned on: this programme becomes THE active one.
-   *
-   * One programme is active and the others the reader holds stay theirs
-   * (user 2026-09-21), so this makes it the lead and leaves the rest where
-   * they are. One the reader switched off comes back under the plan it
-   * already has, so its block and its place in the rotation come back with
-   * it — and through the same cap the adoption path answers to, because
-   * running is what the cap counts (device, 2026-09-16: the switch used to be
-   * a one-way door). The page has already asked whether to move off the
-   * programme that was active.
-   */
-  async function handleResumeProgram(workoutTemplateId: string) {
-    const resumed = resumeProgramme({
-      activePlanId: preferences.activePlanId,
-      activePlanIds: preferences.activePlanIds,
-      plans: database.workoutPlans,
-      templateId: workoutTemplateId,
-    });
-    if (!resumed) {
-      return;
-    }
-    const decision = evaluateProgramAdoption({
-      activePlanIds: preferences.activePlanIds,
-      targetPlanId: resumed.planId,
-      proUnlocked: resolveProEntitlement(preferences).unlocked,
-    });
-    if (decision.kind === 'blocked') {
-      if (decision.canUpgrade) {
-        setRunningCapSheet({ visible: true, used: decision.used, cap: decision.cap });
-        return;
-      }
-      showToast(t(preferences.appLanguage, 'programs.cap.full', { cap: decision.cap }));
-      return;
-    }
-    await updatePreferences({ activePlanIds: resumed.activePlanIds, activePlanId: resumed.activePlanId });
-    // A programme switched back on is a programme taken into use; one that
-    // was running already and only became the lead is not (analytics audit,
-    // 2026-09-21).
-    if (joinedRunningSet(preferences.activePlanIds, resumed.activePlanIds)) {
-      trackEvent('plan_adopted');
-    }
-  }
-
-  /**
-   * The active programme switched off, and the reader said yes to making
-   * another one active instead (user 2026-09-22).
-   *
-   * One write: every plan of the old programme stops and the chosen one leads,
-   * joining the running set if the reader had switched it off. Stopping and
-   * then resuming in two writes would read the running set from the render
-   * before the first. The count cannot grow, so the cap has nothing to refuse.
-   */
-  async function handleSwitchActiveProgram(fromTemplateId: string, to: { templateId: string; planId: string | null }) {
-    // One of the reader's own programmes never started has no plan yet: it
-    // gets the week adoption would give it, stored first, and the switch
-    // below counts it among the plans (CI review of #179).
-    let plans = database.workoutPlans;
-    let toPlanId = to.planId;
-    if (!toPlanId) {
-      const plan = buildCustomProgrammePlan(to.templateId);
-      if (!plan) {
-        return;
-      }
-      await upsertWorkoutPlan(plan);
-      plans = [...plans.filter((entry) => entry.id !== plan.id), plan];
-      toPlanId = plan.id;
-    }
-    const next = switchActiveProgramme({
-      activePlanId: preferences.activePlanId,
-      activePlanIds: preferences.activePlanIds,
-      plans,
-      fromTemplateId,
-      toPlanId,
-    });
-    await updatePreferences(next);
-    // A programme switched back on is a programme taken into use.
-    if (joinedRunningSet(preferences.activePlanIds, next.activePlanIds)) {
-      trackEvent('plan_adopted');
-    }
-  }
-
-  /**
-   * "Remove from my programmes", for a programme with no template of its own.
-   *
-   * Deleting a custom programme deletes its template; a ready programme's
-   * template is catalog data, so what goes is every plan that holds it. The
-   * page the reader deleted it from goes with it, the same way a deleted
-   * custom programme's pages do.
-   */
-  async function handleForgetHeldProgram(workoutTemplateId: string) {
-    // The same rule as deleting your own programme: not mid-workout on it.
-    // A ready programme's session still saves, but the running slot went
-    // mid-workout and the player's week line with it (break round,
-    // 2026-09-28).
-    if (liveSessionBlocksProgrammeDelete(workout.activeSession, workoutTemplateId)) {
-      void haptics.error();
-      showToast(t(preferences.appLanguage, 'toast.programDeleteWorkoutRunning'));
-      return;
-    }
-    await forgetHeldProgramme(workoutTemplateId);
-    void haptics.success();
-    leaveDeletedProgramme(workoutTemplateId);
-  }
-
-  async function handleRemoveActiveProgram(planId: string) {
-    await updatePreferences({
-      activePlanIds: removeActiveProgram(preferences.activePlanIds, planId),
-      activePlanId:
-        preferences.activePlanId === planId
-          ? removeActiveProgram(preferences.activePlanIds, planId)[0] ?? null
-          : preferences.activePlanId,
-    });
-  }
-
-  function handleStartReadyProgram(workoutTemplateId: string) {
-    const template = getWorkoutTemplateById(workoutTemplateId);
-    const firstSessionId = template?.sessions[0]?.id;
-    if (!firstSessionId) {
-      return;
-    }
-
-    handleStartReadyProgramSession(workoutTemplateId, firstSessionId);
-  }
+  const {
+    promoteHeldProgramToLead,
+    handleStopProgram,
+    handleResumeProgram,
+    handleSwitchActiveProgram,
+    handleForgetHeldProgram,
+    handleRemoveActiveProgram,
+    handleStartReadyProgram,
+  } = createProgrammeSwitches({
+    database,
+    preferences,
+    updatePreferences,
+    upsertWorkoutPlan,
+    forgetHeldProgramme,
+    workout,
+    setRunningCapSheet,
+    buildCustomProgrammePlan,
+    leaveDeletedProgramme,
+    handleStartReadyProgramSession,
+    showToast,
+  });
 
   function handleStartCustomProgramSession(workoutTemplateId: string, sessionId: string) {
     const customTemplate = customWorkoutRuntimeMap[workoutTemplateId];
@@ -2342,29 +1733,11 @@ function VinhaApp() {
    * programme slot: that is said before anything is written, because finding
    * out at a paywall mid-edit is the surprise the silence was meant to avoid.
    */
-  /**
-   * How full the programme set is, for the line the Programs tab shows.
-   *
-   * This was a toast on every adoption for about an hour. It was the wrong
-   * shape twice over: a popup that says what the screen behind it already
-   * shows is the thing the reader keeps asking to be rid of ("otit ohjelman
-   * käyttöön", #bugs 2026-08-26), and a count nobody is near is a sign about
-   * nothing. So it sits on the list it describes, and only once there is one
-   * place left — the point of it was never to report, it was to stop the cap
-   * arriving as news.
-   *
-   * Counted from the set as it stands, which is what that list is showing.
-   */
-  const programCapLine = useMemo(() => {
-    const state = describeProgramCap({
-      activePlanIds: preferences.activePlanIds,
-      proUnlocked: resolveProEntitlement(preferences).unlocked,
-    });
-    const key = programCapLineKey(state);
-    return key
-      ? t(preferences.appLanguage, `programs.cap.${key}` as I18nKey, { used: state.used, cap: state.cap })
-      : null;
-  }, [preferences]);
+  const {
+    programCapLine,
+  } = useProgramCapLine({
+    preferences,
+  });
 
   const { handleEditProgramExercise } = useProgramExerciseEdit({
     exerciseLibrary,
@@ -2520,419 +1893,32 @@ function VinhaApp() {
     );
   }
 
-  async function handleOnboardingPickReadyProgram(programId: string) {
-    if (busySavingReadyPick) {
-      return;
-    }
-    setBusySavingReadyPick(true);
-    try {
-      // Actually ADOPT the programme, don't just remember that it was suggested.
-      //
-      // This wrote `recommendedProgramId: programId, activePlanId: null`, and a
-      // recommendation is not a plan: Home reads the active plan, so a reader
-      // who picked a programme here landed on a Home that showed no programme
-      // at all and a Profile that said "no programme selected". The pick was
-      // stored, and invisible. Every other way into a ready programme —
-      // joining a season, stepping up after a completion — goes through
-      // handleAdoptReadyProgram and builds this plan record; onboarding was the
-      // one door that skipped it.
-      const template = getWorkoutTemplateById(programId);
-      // A template's day count is a plain number; the preference is a union of
-      // the five the questionnaire offers. Narrow rather than cast, so a
-      // catalog entry outside that range stores null instead of a value the
-      // rest of the app has no branch for.
-      const templateDaysPerWeek =
-        template && isSetupDaysPerWeek(template.daysPerWeek) ? template.daysPerWeek : null;
-      let adoptedPlanId: string | null = null;
-      if (template) {
-        // No questionnaire ran on this path, so there are no chosen weekdays to
-        // hang the sessions on. The programme's own session count is a fact
-        // about the thing the reader just picked, so the rhythm for THAT count
-        // beats a global fallback — placed the way every other adoption places
-        // it, with day 1 on the first training day still ahead. The unrotated
-        // rhythm put day 1 on Monday whatever day the pick was made, while
-        // Home offered it today (2026-09-17; the guided path was fixed in #125).
-        const dayLabels = planLabelsForProgramme(template.sessions.length, [], new Date());
-        const plan = buildProgramWorkoutPlan({
-          planId: buildReadyProgramPlanId(programId),
-          workoutTemplateId: programId,
-          programName: formatWorkoutDisplayLabel(template.name),
-          sessionIds: template.sessions.map((session) => session.id),
-          dayLabels,
-          now: new Date().toISOString(),
-        });
-        // upsertWorkoutPlan and completeOnboarding both run through the
-        // provider's serial queue, so awaiting in order is enough — the plan
-        // exists before any preference points at it.
-        await upsertWorkoutPlan(plan);
-        adoptedPlanId = plan.id;
-      }
-      // The same rule as the guided finishes: onboarding's earlier plan is
-      // replaced, and a season or a programme adopted by hand keeps running.
-      // No template, no plan — and nothing that was running is stopped. Held
-      // in a name because the adoption below is read off it.
-      const activation = adoptedPlanId
-        ? activateOnboardingPlan(
-            preferences,
-            adoptedPlanId,
-            resolveActiveProgramCap(resolveProEntitlement(preferences).unlocked),
-          )
-        : null;
-
-      // Finished, by the catalogue rather than by the questionnaire (fixed
-      // 2026-09-10). Four paths complete onboarding and only one of them used
-      // to say so, so the funnel's last row read 0 % while people plainly got
-      // through it — plans adopted and workouts logged under a step nobody had
-      // reached. `path` is what tells the four apart. Sent below, once the
-      // write has landed.
-      // The ready path skips the About form, so every basic here is normally
-      // null — that is fine and deliberate. Guided onboarding is the path that
-      // fills them. No questionnaire ran either, so setup stays incomplete.
-      await completeOnboarding({
-        onboardingCompleted: true,
-        setupCompleted: false,
-        trainingFirstRunDismissed: false,
-        setupGender: aboutYouValues?.gender ?? null,
-        setupAgeRange: aboutYouValues?.ageRange ?? null,
-        setupCurrentWeightKg: aboutYouValues?.weightKg ?? null,
-        // Kept as well as the plan: the recommendation is what the catalog
-        // highlights on a later visit, the plan is what Home trains from.
-        recommendedProgramId: programId,
-        setupDaysPerWeek: templateDaysPerWeek,
-        ...(activation ?? {}),
-      });
-      trackEvent('onboarding_completed', { path: 'ready_catalog' });
-      // The pick is a programme taken into use, and this door sent only the
-      // completion: the funnel's "programme in use" row missed every reader
-      // who started from the catalogue (analytics audit, 2026-09-21).
-      if (activation && joinedRunningSet(preferences.activePlanIds, activation.activePlanIds)) {
-        trackEvent('plan_adopted');
-      }
-      // No weigh-in written here: the setup weight is logged once, by the
-      // flagged seeding effect, which this and the effect both writing used to
-      // turn into two identical entries.
-      resetToRoute(ROOT_ROUTES.home);
-    } catch (error) {
-      // The reader tapped a programme and nothing happened: the button came
-      // back and no reason was given (2026-09-17). Said out loud now, the
-      // same way the guided finish says it.
-      console.error('Failed to save the onboarding catalogue pick', error);
-      showToast(t(preferences.appLanguage, 'toast.planSaveFailed'));
-    } finally {
-      setBusySavingReadyPick(false);
-    }
-  }
-
-  /**
-   * A photo of a programme, as the CSV text the paste box would have held.
-   *
-   * Every failure returns null on purpose: no network, no permission, an
-   * unreadable photo and a photo of something else all leave the reader with
-   * nothing to import, and the sheet says so in one sentence rather than
-   * teaching them the difference.
-   */
-  /**
-   * Import a programme from a photo — the live coach's path, and only its.
-   *
-   * `requestProgramTableFromImage` returns null before it makes a request
-   * when there is no endpoint, so in a preview build the button opened the
-   * gallery, took a photo the reader had to choose, and produced nothing at
-   * all. The button is offered only when there is something behind it
-   * (2026-09-16).
-   */
-  /**
-   * The notice, before the photo leaves — the one the policy promises.
-   *
-   * The policy: the AI coach's online mode is sent "when you read a notice
-   * and then send a question, ask for a programme, or import one from a
-   * photo" — docs/legal/privacy, both languages. The notice existed in
-   * exactly one place, the chat screen, and
-   * `aiOnlineNoticeAcknowledged` was read only there. The photo import is
-   * reached from the Programs tab, the training plan and Settings, none of
-   * which touches the chat, so a reader who had never opened the coach could
-   * send a photo of their programme with nothing said at all (audit 3,
-   * 2026-09-19).
-   *
-   * Here rather than in the sheet, because the sheet is rendered from three
-   * screens and a fourth entry point would miss a gate placed in it. This is
-   * the one function every path goes through.
-   */
-  function askPhotoOnlineNotice(): Promise<boolean> {
-    // Its own flag, and the chat's as well — one way only. The chat's notice
-    // covers everything this one does and a great deal more (the workouts, the
-    // programme, the goals, the weight and measurements, height, age, gender,
-    // the conversation so far), so a reader who has read THAT has been told
-    // about a photo too. Answering this one cannot stand in for that: sharing
-    // the flag would have let a reader who only ever saw "one photo, and
-    // nothing else about you" send all of it later with no notice at all
-    // (CI review of #146).
-    if (preferences.aiPhotoNoticeAcknowledged || preferences.aiOnlineNoticeAcknowledged) {
-      return Promise.resolve(true);
-    }
-    return new Promise((resolve) => {
-      Alert.alert(
-        t(preferences.appLanguage, 'csv.photo.notice.title'),
-        t(preferences.appLanguage, 'csv.photo.notice.body'),
-        [
-          { text: t(preferences.appLanguage, 'csv.photo.notice.cancel'), style: 'cancel', onPress: () => resolve(false) },
-          {
-            text: t(preferences.appLanguage, 'csv.photo.notice.continue'),
-            onPress: () => {
-              // This notice only. The chat asks its own, because it discloses
-              // its own.
-              void updatePreferences({ aiPhotoNoticeAcknowledged: true });
-              resolve(true);
-            },
-          },
-        ],
-        { cancelable: true, onDismiss: () => resolve(false) },
-      );
-    });
-  }
-
-  async function pickProgramImageForImport(): Promise<ProgramImageImportResult> {
-    // Pro only (user 2026-09-29): each photo is a paid model call. The sheet
-    // locks its link, but a sheet whose caller forgot proUnlocked defaults to
-    // unlocked, so the paid call itself checks too.
-    if (!resolveProEntitlement(preferences).unlocked) {
-      return { status: 'cancelled' };
-    }
-    if (!(await askPhotoOnlineNotice())) {
-      return { status: 'cancelled' };
-    }
-    const picked = await pickProgramImage();
-    if (picked.status === 'cancelled') {
-      // Backing out of the picker is an answer, not a failure. It used to come
-      // back as the same null every other ending did, so the sheet told a
-      // reader who had chosen nothing that their photo could not be read.
-      return { status: 'cancelled' };
-    }
-    if (picked.status !== 'picked') {
-      return { status: 'failed' };
-    }
-    const rows = await requestProgramTableFromImage({
-      ...picked.image,
-      // The photo line of the consent sheet, read at the moment the photo is
-      // sent rather than remembered from when the screen opened.
-      keepConsent: preferences.aiLogPhotoConsent,
-      logId: preferences.aiLogId,
-    });
-    return rows && rows.length > 0 ? { status: 'read', csv: programTableToCsv(rows) } : { status: 'failed' };
-  }
-
-  const handlePickProgramImage = isAiCoachLiveConfigured() ? pickProgramImageForImport : undefined;
-
-  async function handleContinueEntry() {
-    await updatePreferences({
-      selectedSignInMethod: 'local',
-      entryFlowCompleted: true,
-      selectedAccessTier: 'free',
-    });
-    // "Let's begin" opens the theme question (user 2026-08-23). It sits here
-    // rather than anywhere later because the answer decides what the rest of
-    // onboarding looks like — asking afterwards would repaint a flow the
-    // reader has already been through.
-    setThemeChoiceVisible(true);
-  }
-
-  async function handleBackToEntry() {
-    await updatePreferences({
-      entryFlowCompleted: false,
-    });
-  }
-
-  /**
-   * Onboarding's save, with both ways it can fail said out loud.
-   *
-   * Setup can be answered again from Profile at any time, and every run writes
-   * a new programme of the reader's own. A free reader who already keeps three
-   * had the provider refuse the fourth — and nothing caught the refusal: the
-   * button came back, nothing happened, and no reason was given. The limit
-   * sheet is the reason, the same one shown everywhere else a programme is
-   * made. Anything else is a failed save, and says so.
-   */
-  /** The draft, carrying the id of the untouched onboarding programme it replaces, if any. */
-  function withReplaceableOnboardingId(draft: WorkoutTemplateDraft): WorkoutTemplateDraft {
-    const replaceableId = findReplaceableOnboardingTemplateId({
-      activePlanId: preferences.activePlanId,
-      activePlanIds: preferences.activePlanIds,
-      templates: database.workoutTemplates,
-      sessions: database.workoutSessions,
-    });
-    return replaceableId ? { ...draft, id: replaceableId } : draft;
-  }
-
-  async function saveOnboardingOrExplain(input: Parameters<typeof saveOnboardingResult>[0]): Promise<boolean> {
-    try {
-      await saveOnboardingResult(input);
-      return true;
-    } catch (error) {
-      if (error instanceof ProgramLimitReachedError) {
-        setProgramLimitVisible(true);
-        return false;
-      }
-      console.error('Failed to save the onboarding result', error);
-      showToast(t(preferences.appLanguage, 'toast.planSaveFailed'));
-      return false;
-    }
-  }
-
-  async function handleOnboardingCompleteToTraining(
-    selection: FirstRunSetupSelection,
-    recommendedProgramId: string,
-  ) {
-    // Was three seconds of setTimeout before any of this ran, so finishing
-    // onboarding took the real work plus a flat 3s of nothing — reported from
-    // the phone as a five-second freeze on "Kysy myöhemmin" and "Hanki Pro".
-    // The saving state is shown for as long as saving actually takes, which is
-    // the same rule the workout save already follows.
-    const savedPlan = buildSavedOnboardingPlan(
-      selection,
-      recommendedProgramId,
-      preferences.appLanguage,
-    );
-    // One save, not four. Preferences, the template, its exercises and the plan
-    // used to be four awaited mutations in a row, each one serializing the whole
-    // database through the same queue — at the end of onboarding, where the wait
-    // is least affordable. The plan is built inside that single lock because it
-    // needs the id the template upsert generates.
-    let joined = false;
-    const saved = await saveOnboardingOrExplain({
-      preferences: {
-        onboardingCompleted: true,
-        ...buildSetupPreferencePatch(selection, recommendedProgramId, preferences.trainingCycle),
-      },
-      // A new run of the questionnaire writes over the programme the last run
-      // made, unless the reader has changed it since.
-      templateDraft: withReplaceableOnboardingId(savedPlan.draft),
-      // Session ids come from the template that was actually written, not from
-      // the in-memory draft it was built from.
-      buildPlan: (workoutTemplateId, sessionIds) =>
-        buildSavedOnboardingWorkoutPlan(
-          selection,
-          workoutTemplateId,
-          sessionIds,
-          preferences.appLanguage,
-        ),
-      activate: (planId, current) => {
-        const next = activateOnboardingPlan(current, planId, resolveActiveProgramCap(resolveProEntitlement(current).unlocked));
-        // Read inside the lock, against the set as it stands there.
-        joined = joinedRunningSet(current.activePlanIds, next.activePlanIds);
-        return next;
-      },
-    });
-    if (!saved) {
-      return;
-    }
-    // The questionnaire's finish, counted. The only call for this path sat in
-    // a finish handler nothing on screen reached, so the funnel's last row
-    // missed the path most readers take (2026-09-17).
-    trackEvent('onboarding_completed', { path: 'build' });
-    // And the programme it built, which is running now. This path sent only
-    // the completion, so "programme in use" missed most first runs
-    // (analytics audit, 2026-09-21).
-    if (joined) {
-      trackEvent('plan_adopted');
-    }
-    // The About form's weight reaches the log through the flagged seeding
-    // effect, once. Writing it here as well gave a first run two identical
-    // weigh-ins: the effect fires as soon as onboarding is marked done, and
-    // this check read a `database` from before the save, always empty.
-    // Onboarding ends here, on the app itself.
-    //
-    // Two paywalls have been removed from this seam. First the hop to the
-    // standalone pro_offer screen, when the sale moved inside onboarding as
-    // its last step; then that last step too (user 2026-08-24) — the reader
-    // has just been handed a programme, and asking for money in the same
-    // breath is the wrong moment. Both orphaned screens were deleted on
-    // 2026-08-25; the Pro page in Profile is where the sale lives.
-    // The success buzz, now that there is a success: the review screen's
-    // button used to buzz on press, before the save had even started.
-    void haptics.success();
-    resetToRoute(ROOT_ROUTES.home);
-  }
-
-  /**
-   * My Data's "Edit limitations", saved as what it is: a preference.
-   *
-   * The step used to walk on into a whole new programme, so a limitation
-   * counted only if the reader rebuilt their training behind it, and backing
-   * out dropped it (2026-09-17). Back to My Data once the write has landed;
-   * a refused write keeps the step open and says so.
-   */
-  async function handleSaveSetupLimitations(cautionFlags: SetupCautionFlag[]) {
-    try {
-      await updatePreferences({ setupCautionFlags: cautionFlags });
-    } catch (error) {
-      console.error('Failed to save the limitations', error);
-      showToast(t(preferences.appLanguage, 'toast.limitationsSaveFailed'));
-      return;
-    }
-    void haptics.success();
-    navigateBack(ROOT_ROUTES.profile);
-  }
-
-  function handleOpenPremium() {
-    navigate({ tab: 'profile', screen: 'premium' });
-  }
-
-  async function handleSetupCompleteToTraining(selection: FirstRunSetupSelection, recommendedProgramId: string) {
-    // Was three seconds of setTimeout before any of this ran, so finishing
-    // onboarding took the real work plus a flat 3s of nothing — reported from
-    // the phone as a five-second freeze on "Kysy myöhemmin" and "Hanki Pro".
-    // The saving state is shown for as long as saving actually takes, which is
-    // the same rule the workout save already follows.
-    const savedPlan = buildSavedOnboardingPlan(
-      selection,
-      recommendedProgramId,
-      preferences.appLanguage,
-    );
-    // One save, not four. Preferences, the template, its exercises and the plan
-    // used to be four awaited mutations in a row, each one serializing the whole
-    // database through the same queue — at the end of onboarding, where the wait
-    // is least affordable. The plan is built inside that single lock because it
-    // needs the id the template upsert generates.
-    let joined = false;
-    const saved = await saveOnboardingOrExplain({
-      preferences: {
-        onboardingCompleted: true,
-        ...buildSetupPreferencePatch(selection, recommendedProgramId, preferences.trainingCycle),
-      },
-      // A new run of the questionnaire writes over the programme the last run
-      // made, unless the reader has changed it since.
-      templateDraft: withReplaceableOnboardingId(savedPlan.draft),
-      // Session ids come from the template that was actually written, not from
-      // the in-memory draft it was built from.
-      buildPlan: (workoutTemplateId, sessionIds) =>
-        buildSavedOnboardingWorkoutPlan(
-          selection,
-          workoutTemplateId,
-          sessionIds,
-          preferences.appLanguage,
-        ),
-      activate: (planId, current) => {
-        const next = activateOnboardingPlan(current, planId, resolveActiveProgramCap(resolveProEntitlement(current).unlocked));
-        joined = joinedRunningSet(current.activePlanIds, next.activePlanIds);
-        return next;
-      },
-    });
-    if (!saved) {
-      return;
-    }
-    // A re-run that wrote over its own untouched programme adds nothing; one
-    // that built a new programme beside it took that one into use
-    // (analytics audit, 2026-09-21).
-    if (joined) {
-      trackEvent('plan_adopted');
-    }
-    // No weigh-in on a re-run. The questions carry the stored setup weight
-    // through without asking for a new one, so there is nothing new to log —
-    // and an empty log here is usually one the reader emptied: this put their
-    // deleted weigh-in straight back (2026-09-17). The first one is the
-    // seeding effect's, once.
-    void haptics.success();
-    resetToRoute(ROOT_ROUTES.home);
-  }
+  const {
+    handleOnboardingPickReadyProgram,
+    handlePickProgramImage,
+    handleContinueEntry,
+    handleBackToEntry,
+    handleOnboardingCompleteToTraining,
+    handleSaveSetupLimitations,
+    handleOpenPremium,
+    handleSetupCompleteToTraining,
+  } = createOnboardingFinishes({
+    database,
+    preferences,
+    updatePreferences,
+    completeOnboarding,
+    upsertWorkoutPlan,
+    saveOnboardingResult,
+    aboutYouValues,
+    busySavingReadyPick,
+    setBusySavingReadyPick,
+    setThemeChoiceVisible,
+    setProgramLimitVisible,
+    navigate,
+    navigateBack,
+    resetToRoute,
+    showToast,
+  });
 
   const {
     customWorkoutRuntimeMap,
