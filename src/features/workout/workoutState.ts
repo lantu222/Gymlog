@@ -18,7 +18,12 @@ import { buildSupersetPlayOrder, supersetGroupIndexes } from '../../lib/superset
 import { elapsedSecondsOf, restSecondsLeft, restTimerHasEnded, settleSessionClock, workoutSecondsUntil } from '../../lib/sessionClock';
 import { GuidedResumeAnchor, WorkoutTrackingMode, WorkoutTemplateExercise, WorkoutExerciseInsertInput, WorkoutExerciseInstance, WorkoutHistoryStore, WorkoutLiftIdentity, WorkoutPersistenceBundle, WorkoutProgressionOptions, WorkoutRestTimerState, WorkoutRuntimeTemplate, WorkoutSessionMaterializeOptions, WorkoutSessionRuntime, WorkoutSessionSummary, WorkoutSetDraftInput, WorkoutSetEffort, WorkoutSetInstance, WorkoutSlotHistoryEntry, WorkoutSlotHistorySet, WorkoutStatus, WorkoutUiState, WorkoutExerciseStatus } from './workoutTypes';
 import { getWorkoutTemplateById } from './workoutCatalog';
-import { resolveMissedRepsTarget, resolveProgressedLoadKg, resolveProgressedReps } from '../../lib/progressionGate';
+import {
+  resolveMissedRepsTarget,
+  resolveProgressedLoadKg,
+  resolveProgressedReps,
+  resolveRampSetTarget,
+} from '../../lib/progressionGate';
 import { prescriptionAfterSwap, trackingModeAfterSwap } from '../../lib/catalogExercisePools';
 import {
   liftBeforeSwap,
@@ -299,6 +304,8 @@ interface ResolvedSetDraft {
   prefilledFromPerformedAt: string | undefined;
   plannedTargetReps: number | undefined;
   autoProgressedFromReps: number | undefined;
+  /** A climbing session's own target for this set (lib/progressionGate resolveRampSetTarget). */
+  rampTargetReps: number | undefined;
 }
 
 /**
@@ -381,6 +388,7 @@ function resolveNamedHistoryDraft(
     // Nothing borrowed, nothing to lower a target from.
     plannedTargetReps: undefined,
     autoProgressedFromReps: undefined,
+    rampTargetReps: undefined,
   };
 
   const entry = findLatestEntryForExerciseName(history.slotHistory, exercise.exerciseName, {
@@ -398,10 +406,20 @@ function resolveNamedHistoryDraft(
     return blank;
   }
 
+  // A borrowed session that climbed in weight: each set its own reps, the
+  // heaviest one more (user 2026-10-01). Otherwise the missed-reps rule below.
+  const rampTarget = resolveRampSetTarget({
+    entry,
+    setIndex,
+    repsMax: exercise.repsMax,
+    trackingMode: exercise.trackingMode,
+    automatedProgressionEnabled: options.automatedProgressionEnabled ?? false,
+    nowMs: options.nowMs ?? Date.now(),
+  });
   // Reps short of this prescription in the borrowed session: the same weight,
   // a target those sets can meet — the one rule that may read a borrow, since
   // it never moves the load (see above). Pro, like the slot's own path.
-  const missedReps = resolveMissedRepsTarget({
+  const missedReps = rampTarget !== null ? null : resolveMissedRepsTarget({
     history: [entry],
     repsMin: exercise.repsMin,
     targetSets: exercise.sets,
@@ -423,6 +441,7 @@ function resolveNamedHistoryDraft(
     prefilledFromPerformedAt: entry.performedAt,
     plannedTargetReps: missedReps?.targetReps,
     autoProgressedFromReps: undefined,
+    rampTargetReps: rampTarget ?? undefined,
   };
 }
 
@@ -457,6 +476,7 @@ function resolveHistoricalSetDraft(
         prefilledFromPerformedAt: undefined,
         plannedTargetReps: undefined,
         autoProgressedFromReps: undefined,
+        rampTargetReps: undefined,
       };
     }
     return resolveNamedHistoryDraft(history, setIndex, unitPreference, exercise, options);
@@ -504,7 +524,19 @@ function resolveHistoricalSetDraft(
   // Reps short of the programme last time: the same weight, a target the
   // reader can meet (2026-09-09). Scoped history only — `entries` — never the
   // name-borrowed draft below, which does not feed the gate either.
-  const missedReps = repsResolution.progressed
+  // A session that climbed in weight reads set by set instead (2026-10-01):
+  // averaged, 40×10, 50×8, 60×5 set every target off the warm-ups.
+  const rampTarget = repsResolution.progressed
+    ? null
+    : resolveRampSetTarget({
+        entry: latest,
+        setIndex,
+        repsMax: exercise.repsMax,
+        trackingMode: exercise.trackingMode,
+        automatedProgressionEnabled: options.automatedProgressionEnabled ?? false,
+        nowMs: options.nowMs ?? Date.now(),
+      });
+  const missedReps = repsResolution.progressed || rampTarget !== null
     ? null
     : resolveMissedRepsTarget({
         history: entries,
@@ -533,6 +565,7 @@ function resolveHistoricalSetDraft(
         ? missedReps.targetReps
         : undefined,
     autoProgressedFromReps: repsResolution.fromReps ?? undefined,
+    rampTargetReps: rampTarget ?? undefined,
   };
 }
 
@@ -573,6 +606,7 @@ function materializeExercise(
       prefilledFromPerformedAt: resolved.prefilledFromPerformedAt,
       plannedTargetReps: resolved.plannedTargetReps,
       autoProgressedFromReps: resolved.autoProgressedFromReps,
+      rampTargetReps: resolved.rampTargetReps,
       status: 'pending',
       edited: false,
     };
@@ -1861,6 +1895,7 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
         // The rep target the gate picked belongs to the swapped-away lift too.
         set.plannedTargetReps = undefined;
         set.autoProgressedFromReps = undefined;
+        set.rampTargetReps = undefined;
         set.prefilledFromPerformedAt = historical ? swappedInEntry?.performedAt : undefined;
       });
       session.ui.swapSheetSlotId = null;

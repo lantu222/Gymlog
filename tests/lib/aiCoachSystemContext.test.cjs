@@ -186,7 +186,7 @@ module.exports = [
 
       assert.ok(out.includes('+2.5 kg over 49 days'));
       assert.ok(
-        out.includes('but flat at 82.5 kg for 5 sessions'),
+        out.includes('but no rep gain at 82.5 kg for 5 sessions'),
         'the window gain must not hide the current stall',
       );
     },
@@ -366,7 +366,7 @@ module.exports = [
         }),
       );
 
-      assert.ok(out.includes('Bench Press: flat at 80 kg for 3 sessions'));
+      assert.ok(out.includes('Bench Press: no rep gain at 80 kg for 3 sessions'));
       assert.ok(out.includes('best 82.5 kg'), 'a lift below its own best should say so');
     },
   },

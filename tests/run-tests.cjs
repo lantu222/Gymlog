@@ -316,6 +316,7 @@ const suites = [
   ...require('./lib/programmeDeletion.test.cjs'),
   ...require('./screens/programmeCopyRollback.test.cjs'),
   ...require('./features/workout/liveWorkoutKept.test.cjs'),
+  ...require('./features/workout/rampTargets.test.cjs'),
   ...require('./screens/liveWorkoutWiring.test.cjs'),
   ...require('./lib/historyDelete.test.cjs'),
   ...require('./screens/guidedPlayerSwap.test.cjs'),

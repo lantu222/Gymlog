@@ -347,7 +347,13 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
 
   const trajectoryLines = history.lifts.map((lift) => {
     const series = lift.weightSeriesKg.map(trim).join(' → ');
-    const flat = `flat at ${trim(lift.latestWeightKg)} kg for ${lift.stalledSessions} session${lift.stalledSessions === 1 ? '' : 's'}`;
+    // stalledSessions counts from the last rep best at this weight (#bugs
+    // 2026-10-01), not from when the weight last changed, so "flat at 60 kg
+    // for 1 session" would have described reps that just went up.
+    const flat =
+      lift.stalledSessions >= 2
+        ? `no rep gain at ${trim(lift.latestWeightKg)} kg for ${lift.stalledSessions} sessions`
+        : `held at ${trim(lift.latestWeightKg)} kg, reps still climbing`;
     const moved = `${lift.changeKg > 0 ? '+' : ''}${trim(lift.changeKg)} kg over ${lift.spanDays} day${lift.spanDays === 1 ? '' : 's'}`;
     // A lift can be up over the window and stuck right now. Reporting only the
     // window change hides the stall, which is the part worth acting on.

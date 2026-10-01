@@ -2905,6 +2905,13 @@ function GuidedPlayer({
             reps: target.reps,
             name: exerciseNameLabel(language, supersetNextBySlot.get(step.slotId) ?? ''),
           })
+        : instance.sets.some((set) => set.rampTargetReps !== undefined)
+          ? // A ramp's plan is set by set — "10/8/6", the heaviest one more
+            // than last time — not one number for every set (2026-10-01).
+            t(language, 'guided.walk.planRamp', {
+              reps: instance.sets.map((set) => set.rampTargetReps ?? set.plannedRepsMax).join('/'),
+              rest: instance.restSecondsMin,
+            })
         : loweredTarget
           ? t(language, 'guided.walk.planLowered', {
               sets: instance.sets.length,

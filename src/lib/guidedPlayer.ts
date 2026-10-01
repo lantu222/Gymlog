@@ -701,6 +701,7 @@ export function resolveGuidedSetTarget(
     prefilledFromPerformedAt?: string;
     plannedTargetReps?: number;
     autoProgressedFromReps?: number;
+    rampTargetReps?: number;
     actualLoadKg?: number;
     actualReps?: number;
   }>,
@@ -757,7 +758,11 @@ export function resolveGuidedSetTarget(
   // A lowered target (the reps fell short of the programme last time) opens
   // the dial where the reader can meet it; the programme's reps otherwise.
   // The previous set still wins mid-session, as for bodyweight.
-  const reps = previous?.actualReps ?? set.plannedTargetReps ?? set.plannedRepsMax;
+  //
+  // A ramp's own per-set target comes first: in 40×10, 50×8, 60×5 the set
+  // before was lifted lighter, and carrying its 10 onto the 60 kg set asked
+  // for twice what that set did (user 2026-10-01).
+  const reps = set.rampTargetReps ?? previous?.actualReps ?? set.plannedTargetReps ?? set.plannedRepsMax;
   const draftLoad = parseNumberInput(set.draftLoadText);
   // Lift what was planned and the plan stands for the next set — a ramp
   // prefilled set by set (60/70/80) stays a ramp. Change the weight and the

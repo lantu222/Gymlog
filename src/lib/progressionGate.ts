@@ -645,3 +645,64 @@ export function resolveMissedRepsTarget(input: MissedRepsInput): MissedRepsResol
   const target = averageTarget;
   return target >= repsMin ? null : { targetReps: target, fromAverage: Math.round(average * 100) / 100 };
 }
+
+export interface RampSetTargetInput {
+  /** The session the set reads from: the slot's own latest, or a borrowed one. */
+  entry: WorkoutSlotHistoryEntry | null | undefined;
+  setIndex: number;
+  /** The programme's rep ceiling: the top set's +1 stops there. */
+  repsMax: number;
+  trackingMode?: string;
+  automatedProgressionEnabled: boolean;
+  /** As for the missed-reps target: a session older than 90 days says nothing about today. */
+  nowMs?: number;
+}
+
+/**
+ * A rep target set by set, for a session that climbed in weight.
+ *
+ * The missed-reps rule averages a session's sets, which reads a straight
+ * 60×6/6/6 well and a ramp badly: 40×10, 50×8, 60×5 averaged to about 7.7
+ * and set every set's target off warm-ups. A ramp is common enough to have its
+ * own rule (user 2026-10-01, option A): each set repeats its own reps from
+ * last time, and the heaviest — the one that is the work — asks for one more,
+ * up to the programme's ceiling. 40×10, 50×8, 60×5 opens as 10, 8, 6. The
+ * weights are not touched; each set keeps the load it already prefills.
+ *
+ * Null when the session did not climb (one weight throughout: the
+ * missed-reps rule answers that), or when there is nothing to read.
+ */
+export function resolveRampSetTarget(input: RampSetTargetInput): number | null {
+  const { entry, setIndex, repsMax, trackingMode } = input;
+  if (!input.automatedProgressionEnabled || !entry || entry.skipped) {
+    return null;
+  }
+  if (trackingMode === 'bodyweight' || trackingMode === 'hold') {
+    return null;
+  }
+  if (typeof input.nowMs === 'number' && Number.isFinite(input.nowMs)) {
+    const performedMs = Date.parse(entry.performedAt);
+    if (!Number.isFinite(performedMs) || input.nowMs - performedMs > MISSED_REPS_STALE_DAYS * 86_400_000) {
+      return null;
+    }
+  }
+  const done = entry.sets.filter((set) => set.reps > 0 && Number.isFinite(set.loadKg) && set.loadKg > 0);
+  if (done.length < 2) {
+    return null;
+  }
+  const top = Math.max(...done.map((set) => set.loadKg));
+  const bottom = Math.min(...done.map((set) => set.loadKg));
+  if (top - bottom < 0.001) {
+    return null;
+  }
+  // The set that sat in this position last time — the same lookup the weight
+  // prefill uses, so the reps and the load describe one set.
+  const own = entry.sets.find((set) => set.setIndex === setIndex) ?? entry.sets[setIndex] ?? null;
+  if (!own || !(own.reps > 0)) {
+    return null;
+  }
+  if (Math.abs(own.loadKg - top) < 0.001 && own.reps < repsMax) {
+    return own.reps + REP_INCREMENT;
+  }
+  return own.reps;
+}

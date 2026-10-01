@@ -180,6 +180,12 @@ export interface WorkoutSetInstance {
    * plannedTargetReps.
    */
   autoProgressedFromReps?: number;
+  /**
+   * This set's own rep target when last time climbed in weight (40×10,
+   * 50×8, 60×5 → 10, 8, 6): the set's reps, the heaviest one more. It wins
+   * over the set before it, which in a ramp was lifted lighter.
+   */
+  rampTargetReps?: number;
   actualLoadKg?: number;
   actualReps?: number;
   status: WorkoutSetStatus;

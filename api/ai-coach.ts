@@ -303,7 +303,7 @@ const COACH_SYSTEM_RULES = [
   '- Fill `plan` only when the user asked for a plan or schedule; otherwise return it empty.',
   '- All weights are kilograms.',
   '- Answer in the language the user wrote in, and write numbers and dates the way that language does: Finnish uses a decimal comma (82,5 kg) and day.month dates (3.8.); English uses 82.5 kg and 3 Aug. Never write ISO dates such as 2026-08-03 in prose — the context uses them only as data.',
-  '- The context\'s labels are English data — "flat at", "top set", "time before", "first time at", "latest", "best set", "no added load". Say what they mean in the reader\'s language; never copy them into a Finnish answer ("flat 80 kg" in Finnish is "paikallaan 80 kilossa").',
+  '- The context\'s labels are English data — "no rep gain at", "held at … reps still climbing", "top set", "time before", "first time at", "latest", "best set", "no added load". Say what they mean in the reader\'s language; never copy them into a Finnish answer ("no rep gain at 80 kg" in Finnish is "toistot eivät ole nousseet 80 kilossa").',
   '- Do not describe yourself, your context, or how you reasoned.',
   '',
   '# Answering about the last workout (topic `last_session`)',

@@ -24,6 +24,7 @@ export interface PlannedSetSource {
   plannedRepsMin: number;
   plannedRepsMax: number;
   plannedTargetReps?: number;
+  rampTargetReps?: number;
   autoProgressedFromKg?: number;
   autoProgressedFromReps?: number;
   heldForFatigue?: boolean;
@@ -76,7 +77,7 @@ function basisOf(set: PlannedSetSource): ExerciseLogSetPlanBasis {
   if (set.heldForCautionArea) return 'held_caution';
   if (set.heldForFatigue) return 'held_recovery';
   if (set.prefilledFromPerformedAt) return 'borrowed';
-  if (set.plannedLoadKg !== undefined || set.plannedTargetReps !== undefined) return 'repeat';
+  if (set.plannedLoadKg !== undefined || set.plannedTargetReps !== undefined || set.rampTargetReps !== undefined) return 'repeat';
   return 'none';
 }
 
@@ -86,7 +87,8 @@ export function buildLoggedSetPlan(set: PlannedSetSource): ExerciseLogSetPlan {
     loadKg: finite(set.plannedLoadKg, MAX_PLAN_LOAD_KG),
     repsMin: finite(set.plannedRepsMin, MAX_PLAN_REPS) ?? 0,
     repsMax: finite(set.plannedRepsMax, MAX_PLAN_REPS) ?? 0,
-    targetReps: finite(set.plannedTargetReps, MAX_PLAN_REPS),
+    // The set's own ramp target when it had one: that is what the dial asked.
+    targetReps: finite(set.rampTargetReps ?? set.plannedTargetReps, MAX_PLAN_REPS),
     basis,
     fromKg: basis === 'progressed' ? finite(set.autoProgressedFromKg, MAX_PLAN_LOAD_KG) : null,
     fromReps: basis === 'progressed' ? finite(set.autoProgressedFromReps, MAX_PLAN_REPS) : null,
