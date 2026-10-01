@@ -111,7 +111,11 @@ module.exports = [
   {
     name: 'cardio wiring: back on a running session opens its end sheet instead of walking Home',
     run() {
-      const app = code(read('App.tsx'));
+      // The listener is found in the whole shell — it left App.tsx for a
+      // src/app hook in the phase-C split (2026-10-01) — and every slice is
+      // searched from it, so it stays in that one file. cardioRunActive is
+      // still worked out in App.tsx.
+      const app = code(readAppWiring().replace(/\r\n/g, '\n'));
       const nextRouteAt = app.indexOf('const nextRoute = getBackRoute(route, workoutHomeRoute);');
       assert.notEqual(nextRouteAt, -1);
       const listenerAt = app.lastIndexOf("BackHandler.addEventListener('hardwareBackPress', () => {", nextRouteAt);
@@ -123,7 +127,7 @@ module.exports = [
       );
       const deps = app.slice(app.indexOf('}, [', listenerAt), app.indexOf(']);', listenerAt) + 3);
       assert.match(deps, /\bcardioRunActive\b/);
-      assert.match(app, /const cardioRunActive = workout\.activeCardio !== null;/);
+      assert.match(code(read('App.tsx')), /const cardioRunActive = workout\.activeCardio !== null;/);
       // And the screen it defers to answers back in the player.
       const screen = code(read('src', 'screens', 'CardioScreen.tsx'));
       assert.match(screen, /if \(mode === 'player'\) \{\s*setEndSheetOpen\(true\);\s*return true;\s*\}/);

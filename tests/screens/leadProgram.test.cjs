@@ -43,8 +43,11 @@ module.exports = [
       // And a lead naming a plan that is gone is repaired too, not only an
       // empty one (2026-09-16). The rule is resolveLeadPlanId, tested in
       // tests/lib/runningProgrammes.
-      assert.match(appSource, /const lead = resolveLeadPlanId\(\{/);
-      assert.match(appSource, /if \(lead !== preferences\.activePlanId\) \{\s*void updatePreferences\(\{ activePlanId: lead \}\);/);
+      // The whole shell, App.tsx and src/app: the repair effect left VinhaApp
+      // for a hook in the phase-C split (2026-10-01).
+      const shell = require('../helpers/appWiringSource.cjs').readAppWiring();
+      assert.match(shell, /const lead = resolveLeadPlanId\(\{/);
+      assert.match(shell, /if \(lead !== preferences\.activePlanId\) \{\s*void updatePreferences\(\{ activePlanId: lead \}\);/);
     },
   },
   {
