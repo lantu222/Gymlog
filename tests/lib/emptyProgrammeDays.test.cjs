@@ -6,6 +6,7 @@ const { getHomeDayView, sessionForSlot } = require('../../.test-dist/lib/homeCal
 const { hasOnlyEmptyDays, nextStartableSessionIndex } = require('../../.test-dist/lib/programSessionList.js');
 const { weekdaySchedule } = require('../../.test-dist/lib/trainingSchedule.js');
 const { findHomeWidgetNextSession, resolveHomeWidgetSessionTap } = require('../../.test-dist/lib/widgetPayload.js');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 const root = path.join(__dirname, '..', '..');
 const read = (...segments) => fs.readFileSync(path.join(root, ...segments), 'utf8').replace(/\r\n/g, '\n');
@@ -128,11 +129,14 @@ module.exports = [
       assert.equal(hasOnlyEmptyDays([]), false);
 
       const app = strip(read('App.tsx'));
+      // The reading itself, wherever in the shell it lives: App.tsx or the
+      // src/app module its block moved into (phase-C split, 2026-10-01).
+      const shell = strip(readAppWiring().replace(/\r\n/g, '\n'));
       assert.match(
-        app,
+        shell,
         /const homeEmptyProgramme = useMemo\(\(\) => \{\s*if \(homeActivePlanCard\) \{\s*return null;\s*\}/,
       );
-      assert.match(app, /return hasOnlyEmptyDays\(counts\) \? \{ workoutTemplateId: template\.id, title: template\.name \} : null;/);
+      assert.match(shell, /return hasOnlyEmptyDays\(counts\) \? \{ workoutTemplateId: template\.id, title: template\.name \} : null;/);
       assert.match(app, /emptyProgramme=\{homeEmptyProgramme\}/);
       const home = strip(read('src', 'screens', 'HomeScreen.tsx'));
       // In place of "find a programme", not beside it: the two would say

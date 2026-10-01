@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..', '..');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8').replace(/\r\n/g, '\n');
 
 /**
@@ -112,15 +113,18 @@ module.exports = [
         'the event must not fire before the cap has answered and the plan is written',
       );
 
+      // The "for you" row, wherever in the shell it is built: App.tsx or the
+      // src/app module its memo moved into (phase-C split, 2026-10-01).
+      const shell = readAppWiring().replace(/\r\n/g, '\n');
       assert.match(
-        app,
+        shell,
         /adoptedIds: expandRunningIdsWithSources\(\s*activeProgramTemplateIds,\s*database\.workoutTemplates,/,
         'a programme run under a copy of it counts as run',
       );
       // The row reads the stored templates, so it has to depend on them: a
       // fork made while browsing changes no other dependency (review).
       assert.match(
-        app,
+        shell,
         /\[\s*activeProgramTemplateIds,[\s\S]{0,400}database\.workoutTemplates,[\s\S]{0,300}workout\.templates,\s*\],/,
         'the recommendation memo must depend on the templates it reads',
       );

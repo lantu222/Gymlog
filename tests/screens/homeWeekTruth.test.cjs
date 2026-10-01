@@ -3,6 +3,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..', '..');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+const { between } = require('../helpers/sourceSlices.cjs');
 const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8').replace(/\r\n/g, '\n');
 
 /**
@@ -22,8 +24,11 @@ module.exports = [
   {
     name: 'home: the done chips read the lead programme\'s aligned history, within its lineage',
     run() {
-      const app = read('App.tsx');
-      const memo = app.slice(app.indexOf('const homeDoneThisWeekSessionIds = useMemo'), app.indexOf('const homeTrainingSchedule = useMemo'));
+      // The shell — App.tsx and the src/app modules — since the memo left
+      // App.tsx for useHomeTrainingSchedule (phase-C split, 2026-10-01); both
+      // anchors asserted, so neither can leave and stretch the slice.
+      const shell = readAppWiring().replace(/\r\n/g, '\n');
+      const memo = between(shell, 'const homeDoneThisWeekSessionIds = useMemo', 'const homeTrainingSchedule = useMemo');
       assert.ok(memo.length > 0, 'the chip memo is gone');
       assert.match(memo, /completedSessionsForTemplate\(programId\)/, 'the chips must read the aligned history, as the hero does');
       assert.match(memo, /programmeHistoryIds\(programId, workoutTemplates, templatesRunByOtherPlans\(programId\)\)/, 'the lineage is the same set the hero counter reads');
@@ -38,10 +43,14 @@ module.exports = [
       assert.match(screen, /getHomeMonthCalendar\(new Date\(\), language, monthOffset\),[\s\S]{0,120}\[language, monthOffset, todayDayStart\]/, 'the month grid memo must be keyed on the day');
       assert.match(screen, /const plannedExercises = \(nextPlanSession\?\.exercises \?\? \[\]\)\.filter\(/, 'the header must leave out dropped lifts');
       assert.match(screen, /setRenameDraft\(session\.name \?\? localizeSessionName\(session\.title, language\)\)/, 'the rename field must open with the stored name');
-      // And App carries the name and the numeric sets Home now reads.
-      const app = read('App.tsx');
-      assert.match(app, /id: session\.id,\n\s+name: session\.name,\n\s+title: formatHomeSessionTitle/);
-      assert.match(app, /targetSets: exercise\.targetSets,/);
+      // And the hero card's session rows carry the name and the numeric sets
+      // Home now reads. Bounded to those rows: the card is built in
+      // useHomeActivePlan (phase-C split, 2026-10-01), and the same lines are
+      // written elsewhere in the shell.
+      const shell = readAppWiring().replace(/\r\n/g, '\n');
+      const heroRows = between(shell, 'const homeSessions = orderedPlanSessions.map(', 'const completedForTemplate = ');
+      assert.match(heroRows, /id: session\.id,\n\s+name: session\.name,\n\s+title: formatHomeSessionTitle/);
+      assert.match(heroRows, /targetSets: exercise\.targetSets,/);
     },
   },
 ];

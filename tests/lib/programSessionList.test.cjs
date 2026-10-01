@@ -110,17 +110,20 @@ module.exports = [
       assert.equal(nextStartableSessionIndex([], 0), null);
       assert.equal(nextStartableSessionIndex([3, 3], 7), 1, 'an index past the end wraps like the rotation');
 
-      // Home offers through it, and passes over a pick of an empty day.
+      // Home offers through it, and passes over a pick of an empty day —
+      // read across the shell, App.tsx and the src/app modules its blocks
+      // moved into (phase-C split, 2026-10-01).
       const app = read('App.tsx');
+      const shell = readAppWiring().split('\r\n').join('\n');
       assert.match(
-        app,
+        shell,
         /const startableIndex = nextStartableSessionIndex\(\s*homeSessions\.map\(\(session\) => session\.exercises\.length\),\s*nextSessionIndex,\s*\);/,
       );
-      assert.match(app, /\(pickedToday && pickedToday\.exercises\.length > 0 \? pickedToday : null\) \?\?/);
+      assert.match(shell, /\(pickedToday && pickedToday\.exercises\.length > 0 \? pickedToday : null\) \?\?/);
       // The old fallback chain must not come back anywhere in the shell,
       // App.tsx or a src/app module (phase-B split, 2026-09-30).
       assert.doesNotMatch(
-        readAppWiring().split('\r\n').join('\n'),
+        shell,
         /pickedToday \?\? homeSessions\[nextSessionIndex\] \?\? homeSessions\[0\]/,
       );
 

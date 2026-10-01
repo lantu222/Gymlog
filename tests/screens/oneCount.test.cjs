@@ -120,8 +120,11 @@ module.exports = [
 
       // App hands the tab the canonical list, and only that list.
       const app = strip(read('App.tsx'));
-      assert.equal(app.split('const completedWorkoutSessions = useMemo(').length, 2, 'one list by that name');
-      const memo = through(app, app.indexOf('const completedWorkoutSessions = useMemo('));
+      // The list itself, found in the shell: it left App.tsx for
+      // useRecentSessions in the phase-C split (2026-10-01).
+      const shell = strip(readAppWiring().replace(/\r\n/g, '\n'));
+      assert.equal(shell.split('const completedWorkoutSessions = useMemo(').length, 2, 'one list by that name');
+      const memo = through(shell, shell.indexOf('const completedWorkoutSessions = useMemo('));
       assert.match(memo, /getCanonicalCompletedSessions\(\{\s*workoutSessions: database\.workoutSessions,\s*exerciseLogs: database\.exerciseLogs,?\s*\}\)/);
       const call = through(app, app.indexOf('content = renderProgressTab('));
       assert.match(call, /^\s*completedWorkoutSessions,$/m);
