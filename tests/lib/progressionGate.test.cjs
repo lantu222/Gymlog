@@ -501,4 +501,40 @@ module.exports = [
       assert.equal(confirmed.targetReps, 13);
     },
   },
+  {
+    // User 2026-10-01, option A: a ramp keeps each set's reps and asks one
+    // more of the heaviest; a straight session is the missed-reps rule's.
+    name: 'resolveRampSetTarget: a climbing session reads set by set, the heaviest one more',
+    run() {
+      const { resolveRampSetTarget } = require('../../.test-dist/lib/progressionGate.js');
+      const NOW = Date.parse('2026-10-01T12:00:00.000Z');
+      const entry = (sets, performedAt = '2026-09-27T09:00:00.000Z') => ({
+        performedAt,
+        exerciseName: 'Bench Press',
+        skipped: false,
+        sets: sets.map(([loadKg, reps], setIndex) => ({ setIndex, loadKg, reps })),
+      });
+      const ramp = entry([[40, 10], [50, 8], [60, 5]]);
+      const at = (e, setIndex, extra = {}) =>
+        resolveRampSetTarget({ entry: e, setIndex, repsMax: 12, automatedProgressionEnabled: true, nowMs: NOW, ...extra });
+
+      assert.deepEqual([0, 1, 2].map((index) => at(ramp, index)), [10, 8, 6]);
+      // Two sets at the top weight both ask one more.
+      assert.deepEqual([0, 1, 2].map((index) => at(entry([[50, 8], [60, 5], [60, 4]]), index)), [8, 6, 5]);
+      // The top set at the ceiling holds there: the next step is weight, the reader's.
+      assert.equal(at(entry([[40, 10], [60, 12]]), 1), 12);
+      // One weight throughout is not a ramp — the missed-reps rule answers it.
+      assert.equal(at(entry([[60, 6], [60, 6], [60, 7]]), 2), null);
+      // Not reached last time, off, bodyweight, stale: nothing to say.
+      assert.equal(at(ramp, 3), null);
+      assert.equal(at(ramp, 2, { automatedProgressionEnabled: false }), null);
+      assert.equal(at(ramp, 2, { trackingMode: 'bodyweight' }), null);
+      assert.equal(at(entry([[40, 10], [60, 5]], '2026-05-01T09:00:00.000Z'), 1), null);
+      assert.equal(at({ ...ramp, skipped: true }, 2), null);
+      // A flagged area or a recovery hold repeats the top set, never adds.
+      assert.equal(at(ramp, 2, { cautionArea: 'lower_back' }), 5);
+      assert.equal(at(ramp, 2, { fatigueSignal: 'elevated' }), 5);
+      assert.equal(at(ramp, 2, { fatigueSignal: 'normal' }), 6);
+    },
+  },
 ];
