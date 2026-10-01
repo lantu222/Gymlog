@@ -410,7 +410,9 @@ const makeStyles = (theme: Theme) => {
     letterSpacing: 0.8,
   },
   recommendedPillTextSelected: {
-    color: C.purpleDark,
+    // Fixed, like the white pill it sits on: C.purpleDark is a light violet in
+    // dark, 2.7:1 on white (#bugs 2026-10-01 audit).
+    color: '#5B21B6',
   },
   checkRing: {
     width: 26,

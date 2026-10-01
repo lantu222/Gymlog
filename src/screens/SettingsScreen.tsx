@@ -9,7 +9,7 @@ import { buildFeedbackMailto } from '../lib/feedbackLink';
 import { formatDateNumeric } from '../lib/format';
 import { t } from '../lib/i18n';
 import { resolveProEntitlement } from '../lib/proEntitlement';
-import { Theme, useTheme, useThemedStyles } from '../theming';
+import { Theme, darkTheme, useTheme, useThemedStyles } from '../theming';
 import { appInfo, layout } from '../theme';
 import { COACH_COPIES_KEPT } from '../lib/aiCoachLogId';
 import { AppLanguage, AppPreferences } from '../types/models';
@@ -832,7 +832,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexDirection: 'row',
     // Was #EEE8FA — so close to the card that the control read as a ghost
     // (user, 2026-08-22). A firmer track makes the white active pill pop.
-    backgroundColor: '#D9CCF2',
+    // Dark takes theme fills: the fixed lavender and white put theme.muted
+    // labels at 1.65:1 there (#bugs 2026-10-01 audit).
+    backgroundColor: theme === darkTheme ? theme.surfaceSoft : '#D9CCF2',
     borderRadius: 12,
     padding: 3,
     gap: 2,
@@ -845,7 +847,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'center',
   },
   segItemActive: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme === darkTheme ? theme.purpleLight : '#FFFFFF',
     boxShadow: '0 1px 4px rgba(80, 40, 160, 0.14)',
   },
   segText: {
@@ -854,7 +856,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
   },
   segTextActive: {
-    color: theme.purpleDark,
+    color: theme === darkTheme ? theme.ink : theme.purpleDark,
   },
   connectPill: {
     paddingVertical: 7,

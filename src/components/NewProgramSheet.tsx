@@ -17,7 +17,6 @@ import { Theme, useTheme, useThemedStyles } from '../theming';
 // specifies oklch values; RN has no oklch support, so these are the closest hex.
 // Matches the Programs tab, which no longer carries its own green accent.
 const ACCENT = '#7C3AED';
-const ACCENT_SOFT = '#EAF7EF';
 const ACCENT_LINE = '#8AD4AC';
 
 const SAMPLE_CSV = [
@@ -934,13 +933,15 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderWidth: 1,
     padding: 12,
   },
+  // Theme washes, not fixed light ones: the banner text is theme.ink, which
+  // read white on these pale fills in dark (#bugs 2026-10-01 audit).
   resultBannerOk: {
-    backgroundColor: ACCENT_SOFT,
+    backgroundColor: theme.greenSoft,
     borderColor: ACCENT_LINE,
   },
   resultBannerWarn: {
-    backgroundColor: '#FEF6E7',
-    borderColor: '#F2D8A0',
+    backgroundColor: theme.amberSoft,
+    borderColor: theme.amberBorder,
   },
   resultBannerText: {
     color: theme.ink,
@@ -985,7 +986,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderTopColor: theme.border,
   },
   previewRowUnmatched: {
-    backgroundColor: '#FEF6E7',
+    backgroundColor: theme.amberSoft,
   },
   previewDay: {
     width: 54,

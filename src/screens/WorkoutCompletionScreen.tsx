@@ -30,7 +30,6 @@ import { queryReduceMotion } from '../utils/reduceMotion';
 // Workout Complete palette extensions (design_handoff_workout_complete).
 const GOLD = '#B7791F';
 const GOLD_SOFT = '#FBF1DA';
-const GREEN_SOFT = '#E8F7EE';
 const HAIRLINE = '#EEEAF7';
 const HERO_STOPS = ['#8B5CF6', '#7C3AED', '#6D28D9'] as const;
 
@@ -1282,7 +1281,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: GREEN_SOFT,
+    // theme.greenSoft is the old fixed #E8F7EE in light; that left a pale tile
+    // under a light-green tick in dark, 1.8:1 (#bugs 2026-10-01 audit).
+    backgroundColor: theme.greenSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },

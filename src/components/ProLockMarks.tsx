@@ -2,8 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 
-import { PW } from '../lightTheme';
-import { Theme, useThemedStyles } from '../theming';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 
 /**
  * The padlock and the PRO pill every locked surface wears.
@@ -12,7 +11,9 @@ import { Theme, useThemedStyles } from '../theming';
  * needs the other's blur: ProLockedCard imports BlurredPreview, BlurredPreview
  * imports these, and with the marks living in ProLockedCard that was a cycle.
  */
-export function ProLockIcon({ color = PW.proInk, size = 13 }: { color?: string; size?: number }) {
+export function ProLockIcon({ color: colorProp, size = 13 }: { color?: string; size?: number }) {
+  const theme = useTheme();
+  const color = colorProp ?? theme.proInk;
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x={5} y={11} width={14} height={9} rx={2.5} stroke={color} strokeWidth={2.3} />

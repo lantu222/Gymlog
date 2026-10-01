@@ -633,7 +633,9 @@ const makePickStyles = (C: PickPalette) => StyleSheet.create({
   ctaBusy: { opacity: 0.6 },
   ctaText: { fontSize: 16.5, fontWeight: '800' },
   ctaTextOnPurple: { color: '#FFFFFF' },
-  ctaTextOnWhite: { color: C.purpleDark },
+  // Fixed with the white CTA it sits on: C.purpleDark turns light violet in
+  // dark, 2.7:1 on white (#bugs 2026-10-01 audit).
+  ctaTextOnWhite: { color: HG.purpleDark },
   pressed: { opacity: 0.9 },
 });
 

@@ -96,6 +96,12 @@ export interface Theme {
   dangerBorder: string;
   proSheetTop: string;
   proSheetBottom: string;
+  /**
+   * The violet a locked-Pro teaser and padlock are written in, on
+   * `purpleLight`. Light keeps PW.proInk; dark needs a light violet, since
+   * PW.proInk on dark `purpleLight` was 1.6:1 (#bugs 2026-10-01 audit).
+   */
+  proInk: string;
 }
 
 /** The light theme is the palette itself — not a copy of it. */

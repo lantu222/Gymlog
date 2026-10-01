@@ -209,7 +209,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: PW.amberSoft,
+    backgroundColor: theme.amberSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -244,7 +244,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   hintText: {
     fontSize: 12.5,
     fontWeight: '800',
-    color: PW.proInk,
+    color: theme.proInk,
   },
   hintTail: {
     width: 0,
@@ -269,7 +269,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 24,
   },
   starButtonNudged: {
-    backgroundColor: PW.amberSoft,
+    backgroundColor: theme.amberSoft,
   },
   pressed: {
     opacity: 0.75,
