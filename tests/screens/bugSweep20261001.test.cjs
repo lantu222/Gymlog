@@ -76,4 +76,16 @@ module.exports = [
       assert.match(source, /style: \[element\.props\.style, \{ fontFamily: family, fontWeight: 'normal' as const \}\]/);
     },
   },
+  {
+    // A rename must re-word the nudge without moving it; a resume or the
+    // switch turned back on must arm a fresh one (review of the sweep).
+    name: 'idle nudge: timed from the last activity, and a resume or switch-on is activity',
+    run() {
+      const source = read('src', 'app', 'useSessionNotifications.ts');
+      assert.match(source, /lastActivityAtRef\.current = Date\.now\(\);\s*\}, \[activeSessionId, activeSessionStatus, completedSetCount, activityTick, preferences\.notificationPrefs\.idleNudge\]\);/);
+      assert.match(source, /const atMs = idleNudgeAtMs\(lastActivityAtRef\.current\);/);
+      // The activity effect is declared before the nudge's, so it has run.
+      assert.ok(source.indexOf('lastActivityAtRef.current = Date.now();') < source.indexOf('const atMs = idleNudgeAtMs('));
+    },
+  },
 ];

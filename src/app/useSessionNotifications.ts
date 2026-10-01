@@ -192,7 +192,8 @@ export function useSessionNotifications(deps: SessionNotificationsDeps) {
   );
   /**
    * When the reader was last there: a logged set, "Still going", the app
-   * back in front, a new session. The nudge is timed from this, not from
+   * back in front, a new session, a resume from a pause, the nudge switched
+   * on. The nudge is timed from this, not from
    * whatever re-ran its effect — a rename or a language switch re-words the
    * nudge but must not push it back (review of #bugs 2026-10-01). Declared
    * before the nudge's effect, so it has run when that one reads it.
@@ -200,7 +201,7 @@ export function useSessionNotifications(deps: SessionNotificationsDeps) {
   const lastActivityAtRef = useRef(Date.now());
   useEffect(() => {
     lastActivityAtRef.current = Date.now();
-  }, [activeSessionId, completedSetCount, activityTick]);
+  }, [activeSessionId, activeSessionStatus, completedSetCount, activityTick, preferences.notificationPrefs.idleNudge]);
   useEffect(() => {
     if (!activeSessionId || activeSessionStatus !== 'active' || !preferences.notificationPrefs.idleNudge) {
       void cancelIdleNudge();
