@@ -24,11 +24,14 @@ module.exports = [
       assert.ok(prefsAt > 0 && committedAt > prefsAt, 'the copy counts as committed before the preferences land');
       // The held record's cleanup after that cannot fail the edit.
       assert.match(body, /await forgetHeldProgramme\(template\.id\)\.catch\(/);
-      // And a failure before it deletes the copy before saying it failed.
-      assert.match(
-        body,
-        /if \(uncommittedCopyId\) \{\s*\/\/[^\n]*\n\s*await deleteWorkoutTemplate\(uncommittedCopyId\)\.catch\(\(\) => undefined\);/,
-      );
+      // A failure after the commit is not a failed copy.
+      assert.ok(body.indexOf('committed = true;') > committedAt, 'the commit is not marked');
+      assert.match(body, /if \(committed\) \{[\s\S]{0,400}return true;\s*\}/);
+      // And a failure before it takes back the plan, then the copy, before
+      // saying it failed — the plan first, while the copy still names it.
+      const planGone = body.indexOf('await forgetHeldProgramme(copyId).catch(() => undefined);');
+      const copyGone = body.indexOf('await deleteWorkoutTemplate(copyId).catch(() => undefined);');
+      assert.ok(planGone > 0 && copyGone > planGone, 'the rollback leaves the plan behind, or deletes the copy first');
       // Wired: App.tsx hands the hook the delete.
       assert.match(appWiring, /forgetHeldProgramme,\s*deleteWorkoutTemplate,\s*navigate,/);
     },

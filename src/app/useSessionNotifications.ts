@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 
 import { emitRestAction } from '../hooks/useRestEndAlert';
@@ -116,8 +116,12 @@ export function useSessionNotifications(deps: SessionNotificationsDeps) {
       if (cold && (cold.notification.request.content.data ?? {})[SESSION_NOTIFICATION_MARKER] === true) {
         coldSessionResponseRef.current = cold;
       }
-    } catch {
-      // Unavailable on this platform: nothing launched the app from the shade.
+    } catch (error) {
+      // Unavailable on web: nothing launched the app from a shade. Anywhere
+      // else it is a broken module, said aloud.
+      if (Platform.OS !== 'web') {
+        console.error('Could not read the notification that opened the app', error);
+      }
     }
 
     const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
@@ -186,6 +190,17 @@ export function useSessionNotifications(deps: SessionNotificationsDeps) {
       ),
     [workout.activeSession?.exercises],
   );
+  /**
+   * When the reader was last there: a logged set, "Still going", the app
+   * back in front, a new session. The nudge is timed from this, not from
+   * whatever re-ran its effect — a rename or a language switch re-words the
+   * nudge but must not push it back (review of #bugs 2026-10-01). Declared
+   * before the nudge's effect, so it has run when that one reads it.
+   */
+  const lastActivityAtRef = useRef(Date.now());
+  useEffect(() => {
+    lastActivityAtRef.current = Date.now();
+  }, [activeSessionId, completedSetCount, activityTick]);
   useEffect(() => {
     if (!activeSessionId || activeSessionStatus !== 'active' || !preferences.notificationPrefs.idleNudge) {
       void cancelIdleNudge();
@@ -196,8 +211,14 @@ export function useSessionNotifications(deps: SessionNotificationsDeps) {
       formatWorkoutDisplayLabel(workout.activeSession?.templateName ?? ''),
       language,
     );
+    const atMs = idleNudgeAtMs(lastActivityAtRef.current);
+    if (atMs <= Date.now()) {
+      // Its time has passed: it went already, or the app was away. Re-wording
+      // it now would only send it a second time.
+      return;
+    }
     void scheduleIdleNudge({
-      atMs: idleNudgeAtMs(Date.now()),
+      atMs,
       title: t(language, 'rest.notify.idleTitle', { minutes: IDLE_NUDGE_MINUTES }),
       body: t(language, 'rest.notify.idleBody', { session: sessionName, done: completedSetCount }),
     });

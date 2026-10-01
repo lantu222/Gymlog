@@ -1,4 +1,4 @@
-import { StyleSheet, Text, TextInput } from 'react-native';
+import { Platform, StyleSheet, Text, TextInput } from 'react-native';
 
 /**
  * Applies the app typeface (Manrope) as the default font on every Text and
@@ -75,7 +75,6 @@ function applyBaseFont(component: RenderableComponent) {
 
     const family = familyForWeight(flat.fontWeight);
 
-    const resolved = { fontFamily: family, fontWeight: 'normal' as const };
     return {
       ...element,
       props: {
@@ -83,15 +82,7 @@ function applyBaseFont(component: RenderableComponent) {
         // Append so the resolved static family wins. The static file already
         // carries the weight, so force fontWeight normal to avoid Android
         // synthesizing a second bold on top of it.
-        //
-        // One object, not an array, when the render returned a host element:
-        // on web that is a DOM <span>, whose `style` is a CSSStyleDeclaration
-        // and cannot take an array ("Failed to set an indexed property [0]",
-        // #bugs 2026-10-01 browser smoke test). Native keeps the array.
-        style:
-          typeof (element as { type?: unknown }).type === 'string'
-            ? { ...flat, ...resolved }
-            : [element.props.style, resolved],
+        style: [element.props.style, { fontFamily: family, fontWeight: 'normal' as const }],
       },
     };
   };
@@ -100,5 +91,12 @@ function applyBaseFont(component: RenderableComponent) {
   component.render = patched;
 }
 
-applyBaseFont(Text as unknown as RenderableComponent);
-applyBaseFont(TextInput as unknown as RenderableComponent);
+// Native only. On web the render returns a DOM <span> whose `style` cannot
+// take an array ("Failed to set an indexed property [0]"), and its weights
+// already sit in react-native-web's class names, out of reach of a flatten —
+// patching there either crashed or set every weight to Regular. The browser
+// drives the weight itself (#bugs 2026-10-01 browser smoke test).
+if (Platform.OS !== 'web') {
+  applyBaseFont(Text as unknown as RenderableComponent);
+  applyBaseFont(TextInput as unknown as RenderableComponent);
+}

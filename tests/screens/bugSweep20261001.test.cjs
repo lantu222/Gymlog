@@ -60,16 +60,20 @@ module.exports = [
     run() {
       const source = read('src', 'screens', 'GuidedPlayerScreen.tsx');
       assert.match(source, /onPress=\{splashCarriesChoice\(step\) \? undefined : advance\}/);
-      assert.doesNotMatch(source, /disabled=\{splashCarriesChoice\(step\)\}/);
+      // Disabled on native only: web marks a disabled wrapper's buttons aria-disabled.
+      assert.match(source, /disabled=\{Platform\.OS === 'web' \? undefined : splashCarriesChoice\(step\)\}/);
       assert.match(source, /focusable=\{!splashCarriesChoice\(step\)\}/);
     },
   },
   {
-    // Web: the font patch put an array style on a DOM <span> and crashed.
-    name: 'font patch: a host element gets one style object, never an array',
+    // Web: the font patch put an array style on a DOM <span> and crashed, and
+    // a merged object there lost the weights that sit in class names.
+    name: 'font patch: native only, so web neither crashes nor drops its weights',
     run() {
       const source = read('src', 'globalFont.ts');
-      assert.match(source, /typeof \(element as \{ type\?: unknown \}\)\.type === 'string'\s*\? \{ \.\.\.flat, \.\.\.resolved \}\s*: \[element\.props\.style, resolved\]/);
+      assert.match(source, /if \(Platform\.OS !== 'web'\) \{\s*applyBaseFont\(Text as unknown as RenderableComponent\);\s*applyBaseFont\(TextInput as unknown as RenderableComponent\);\s*\}/);
+      // Native keeps the appended array, so the static family wins there.
+      assert.match(source, /style: \[element\.props\.style, \{ fontFamily: family, fontWeight: 'normal' as const \}\]/);
     },
   },
 ];

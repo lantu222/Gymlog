@@ -130,7 +130,7 @@ module.exports = [
       assert.match(
         appWiring,
         // Read inside a try since it throws on web (#bugs 2026-10-01).
-        /cold = Notifications\.getLastNotificationResponse\(\);\s*\} catch \{\s*cold = null;\s*\}\s*if \(cold\) \{\s*handle\(cold\);\s*Notifications\.clearLastNotificationResponse\(\);\s*\}/,
+        /cold = Notifications\.getLastNotificationResponse\(\);\s*\} catch \(error\) \{[\s\S]{0,300}?cold = null;\s*\}\s*if \(cold\) \{\s*handle\(cold\);\s*Notifications\.clearLastNotificationResponse\(\);\s*\}/,
       );
       // And a tap while the app runs is forgotten too, once routed: it is
       // stored for as long as the native module lives, which outlasts a

@@ -58,7 +58,11 @@ module.exports = [
       // No semicolon: since #bugs 2026-10-01 the call carries a .catch, as cleanup.
       const forgetAt = edit.indexOf('await forgetHeldProgramme(template.id)');
       assert.ok(guardAt > 0 && forgetAt > guardAt, 'the edit copies a held programme and forgets it without the rule');
-      assert.equal((app.match(/await forgetHeldProgramme\(/g) ?? []).length, 2, 'a new call to forgetHeldProgramme needs the rule too');
+      // Three since #bugs 2026-10-01: the third forgets the plan of a copy
+      // that was never committed — a programme made a moment ago in this same
+      // call, which no running workout can be of.
+      assert.equal((app.match(/await forgetHeldProgramme\(/g) ?? []).length, 3, 'a new call to forgetHeldProgramme needs the rule too');
+      assert.match(app, /await forgetHeldProgramme\(copyId\)\.catch\(\(\) => undefined\);/);
     },
   },
 ];

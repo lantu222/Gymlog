@@ -314,7 +314,7 @@ const suites = [
   ...require('./lib/sessionClock.test.cjs'),
   ...require('./lib/sessionClockWindow.test.cjs'),
   ...require('./lib/programmeDeletion.test.cjs'),
-  ...require('./lib/programmeCopyRollback.test.cjs'),
+  ...require('./screens/programmeCopyRollback.test.cjs'),
   ...require('./features/workout/liveWorkoutKept.test.cjs'),
   ...require('./screens/liveWorkoutWiring.test.cjs'),
   ...require('./lib/historyDelete.test.cjs'),

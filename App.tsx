@@ -1391,7 +1391,6 @@ function VinhaApp() {
     setBusySavingReadyPick,
     setThemeChoiceVisible,
     setProgramLimitVisible,
-    navigate,
     navigateBack,
     resetToRoute,
     showToast,
@@ -1482,7 +1481,6 @@ function VinhaApp() {
   // Same equipment truth the composer filters exercises with, for the default
   // warmup/cooldown drills: null = setup never said, [] = no equipment at all.
   const {
-    homeTrainingDayIndexes,
     homeDoneThisWeekSessionIds,
     baseTrainingSchedule,
     homeTrainingSchedule,
@@ -2023,7 +2021,6 @@ function VinhaApp() {
       exerciseNameBook,
       teachExerciseName,
       handlePickProgramImage,
-      coachProUnlocked,
     });
   } else if (route.tab === 'progress') {
     content = renderProgressTab({
@@ -2111,7 +2108,6 @@ function VinhaApp() {
       trackedProgress,
       exerciseLibrary,
       unitPreference,
-      homeTrainingDayIndexes,
       distinctRecordCount,
     });
   }

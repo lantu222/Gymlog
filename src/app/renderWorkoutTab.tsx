@@ -235,7 +235,6 @@ export interface WorkoutTabDeps {
    * nothing (2026-09-16).
    */
   handlePickProgramImage?: () => Promise<ProgramImageImportResult>;
-  coachProUnlocked: boolean;
 }
 
 export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | null {

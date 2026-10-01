@@ -3,7 +3,6 @@ import { useMemo } from 'react';
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
 import { resolveFirstRunRecommendationWithTailoring } from '../lib/firstRunSetup';
 import type { getBodyweightProgress } from '../lib/progression';
-import { getReadyProgramContent } from '../lib/readyProgramContent';
 import { buildTailoringPreferences } from '../lib/tailoringFit';
 import type { AppPreferences } from '../types/models';
 import {
@@ -71,19 +70,9 @@ export function useSetupReadings(deps: SetupReadingsDeps) {
     () => (setupSelection ? resolveFirstRunRecommendationWithTailoring(setupSelection, tailoringPreferences) : null),
     [setupSelection, tailoringPreferences],
   );
-  const currentFitReadyTemplate = useMemo(
-    () => (setupRecommendation?.featuredProgramId ? getWorkoutTemplateById(setupRecommendation.featuredProgramId) : null),
-    [setupRecommendation?.featuredProgramId],
-  );
   const recommendedReadyTemplate = useMemo(
     () => (preferences.recommendedProgramId ? getWorkoutTemplateById(preferences.recommendedProgramId) : null),
     [preferences.recommendedProgramId],
-  );
-  const recommendedReadyContent = useMemo(
-    () => (recommendedReadyTemplate ? getReadyProgramContent(recommendedReadyTemplate.id, preferences.appLanguage) : null),
-    // The language too: without it a switch left the content in the old one
-    // until the recommendation itself changed (#bugs 2026-10-01).
-    [recommendedReadyTemplate, preferences.appLanguage],
   );
 
   return {
@@ -93,8 +82,6 @@ export function useSetupReadings(deps: SetupReadingsDeps) {
     setupBasics,
     tailoringPreferences,
     setupRecommendation,
-    currentFitReadyTemplate,
     recommendedReadyTemplate,
-    recommendedReadyContent,
   };
 }

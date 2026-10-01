@@ -143,7 +143,6 @@ export interface ProfileTabDeps {
   trackedProgress: React.ComponentProps<typeof ProfileScreen>['trackedProgress'];
   exerciseLibrary: React.ComponentProps<typeof ProfileScreen>['exerciseLibrary'];
   unitPreference: React.ComponentProps<typeof ProfileScreen>['unitPreference'];
-  homeTrainingDayIndexes: number[];
   distinctRecordCount: number;
 }
 

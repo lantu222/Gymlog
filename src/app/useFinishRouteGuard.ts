@@ -79,6 +79,8 @@ export function useFinishRouteGuard(deps: FinishRouteGuardDeps) {
   }, [finishSaveState.sessionId, finishSaveState.status, workout.activeSession?.sessionId]);
 
   useEffect(() => {
+    /** Re-checks the guided route when a start's window runs out with nothing landed. */
+    let windowExpiry: ReturnType<typeof setTimeout> | null = null;
     if (route.tab === 'workout' && route.screen === 'guided') {
       const allowedAt = workoutLogNavigationAllowedAtRef.current;
       // Spent once the session it waited for has landed, or once it has run
@@ -97,6 +99,20 @@ export function useFinishRouteGuard(deps: FinishRouteGuardDeps) {
       ) {
         replaceRoute(ROOT_ROUTES.home);
         return;
+      }
+
+      // Inside the window with no session yet: nothing re-runs this effect if
+      // the session never lands, so the expiry has to be scheduled, or a lost
+      // start sat on an empty player screen until Back (review of #bugs
+      // 2026-10-01). A session, a route change or a finish re-runs the effect
+      // first, and the cleanup below cancels this.
+      if (!workout.activeSession && allowedAt && Date.now() - allowedAt <= 2000) {
+        windowExpiry = setTimeout(() => {
+          workoutLogNavigationAllowedAtRef.current = null;
+          if (!summaryNavigationPendingRef.current) {
+            replaceRoute(ROOT_ROUTES.home);
+          }
+        }, 2000 - (Date.now() - allowedAt) + 1);
       }
     }
 
@@ -171,6 +187,12 @@ export function useFinishRouteGuard(deps: FinishRouteGuardDeps) {
       summaryExitRouteRef.current = null;
       replaceRoute(nextRoute);
     }
+
+    return () => {
+      if (windowExpiry) {
+        clearTimeout(windowExpiry);
+      }
+    };
   }, [
     completionSummary,
     exerciseBrowserItems,

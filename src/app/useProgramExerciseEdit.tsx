@@ -522,6 +522,8 @@ export function useProgramExerciseEdit(deps: ProgramExerciseEditDeps) {
      * and only the held record's cleanup is left.
      */
     let uncommittedCopyId: string | null = null;
+    /** Past the commit: the copy is the programme, whatever happens after. */
+    let committed = false;
     try {
       const workoutTemplateId = await upsertWorkoutTemplate(draft);
       uncommittedCopyId = workoutTemplateId;
@@ -580,6 +582,7 @@ export function useProgramExerciseEdit(deps: ProgramExerciseEditDeps) {
           : {},
       );
       uncommittedCopyId = null;
+      committed = true;
       if (wasHeld) {
         // The record the copy replaced goes with it, whether or not it was
         // the one running. Left behind, it listed
@@ -627,9 +630,21 @@ export function useProgramExerciseEdit(deps: ProgramExerciseEditDeps) {
       );
       return true;
     } catch (error) {
+      if (committed) {
+        // The copy and the reader's programme are in; what failed is the
+        // landing (a held swap, the route). Saying "copy failed" here would
+        // claim the opposite of what is stored (review of #bugs 2026-10-01).
+        console.error('Copied the ready programme, then failed to land on it', error);
+        return true;
+      }
       if (uncommittedCopyId) {
-        // Best effort: the failure the reader hears about is the copy's.
-        await deleteWorkoutTemplate(uncommittedCopyId).catch(() => undefined);
+        // Best effort, plan first while the copy still names it, then the
+        // copy itself: written before the preferences failed, the plan would
+        // stay behind as an empty record on every retry (review of #bugs
+        // 2026-10-01). The failure the reader hears about is the copy's.
+        const copyId = uncommittedCopyId;
+        await forgetHeldProgramme(copyId).catch(() => undefined);
+        await deleteWorkoutTemplate(copyId).catch(() => undefined);
       }
       if (error instanceof ProgramLimitReachedError) {
         setProgramLimitVisible(true);

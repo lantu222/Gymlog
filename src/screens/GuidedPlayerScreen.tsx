@@ -16,6 +16,7 @@ import {
   Image,
   Modal,
   PanResponder,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -3332,11 +3333,13 @@ function GuidedPlayer({
               <Pressable
                 style={skippablePhase ? styles.splashChoiceRoot : styles.splashRoot}
                 onPress={splashCarriesChoice(step) ? undefined : advance}
-                // Inert by having no onPress, not by `disabled`: on web a
-                // disabled Pressable is aria-disabled, and that marked its own
-                // choice buttons — "Warm up your own way", "Add exercise" —
-                // disabled to assistive tech and to automation (#bugs
-                // 2026-10-01). Out of the focus order the same way.
+                // Disabled on native, where that keeps the wrapper silent to
+                // TalkBack and off the touch path between the buttons. Not on
+                // web: there a disabled Pressable is aria-disabled, which
+                // marked its own choice buttons — "Warm up your own way",
+                // "Add exercise" — disabled to assistive tech and automation
+                // (#bugs 2026-10-01); no onPress keeps it inert there.
+                disabled={Platform.OS === 'web' ? undefined : splashCarriesChoice(step)}
                 focusable={!splashCarriesChoice(step)}
               >
                 {/* The block name owns the upper half; the decision sits down

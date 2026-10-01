@@ -29,13 +29,6 @@ export interface CoachEntryReadingsDeps {
 export function useCoachEntryReadings(deps: CoachEntryReadingsDeps) {
   const { route, workoutSessions, database, preferences } = deps;
 
-  // Seven days out. There is no billing, so this is the demo story the paywall
-  // already tells rather than a date anything will act on.
-  const premiumTrialEndsAt = useMemo(() => {
-    const end = new Date();
-    end.setDate(end.getDate() + 7);
-    return end.toISOString();
-  }, []);
   const analysisSessionId = route.tab === 'home' && route.screen === 'analysis' ? route.sessionId : null;
   // The AI tab's written-analysis entry needs the most recent session that has
   // enough logged sets to analyse. Only built while the chat is open.
@@ -57,5 +50,5 @@ export function useCoachEntryReadings(deps: CoachEntryReadingsDeps) {
       : null;
   }, [database.exerciseLogs, preferences.appLanguage, onCoachChat, workoutSessions]);
 
-  return { premiumTrialEndsAt, analysisSessionId, coachLastSession };
+  return { analysisSessionId, coachLastSession };
 }
