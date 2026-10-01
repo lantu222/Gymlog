@@ -19,6 +19,7 @@ const {
 } = require('../../.test-dist/lib/serverNotice');
 
 const root = path.join(__dirname, '..', '..');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
 const NOTICE = {
@@ -167,7 +168,9 @@ module.exports = [
     run() {
       const app = read('App.tsx');
       assert.match(app, /<ServerNoticeDialog\s+language=\{preferences\.appLanguage\}\s+held=\{appUpdateHeld\}\s+seenIds=\{preferences\.seenServerNoticeIds\}\s+onSeen=\{handleServerNoticeSeen\}/);
-      assert.match(app, /seenServerNoticeIds: rememberServerNotice\(preferences\.seenServerNoticeIds, id\)/);
+      // The "seen" write left App.tsx for a src/app hook in the phase-C split
+      // (2026-10-01); the dialog's mount above is still App.tsx's own JSX.
+      assert.match(readAppWiring(), /seenServerNoticeIds: rememberServerNotice\(preferences\.seenServerNoticeIds, id\)/);
 
       const dialog = read('src/features/serverNotice/ServerNoticeDialog.tsx');
       // Closing it is what marks it seen, and the dialog cannot be dismissed

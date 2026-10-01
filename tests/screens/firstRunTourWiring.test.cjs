@@ -19,6 +19,10 @@ const profileSource = read('src/screens/ProfileScreen.tsx');
 const barSource = read('src/components/BottomTabBar.tsx');
 const shellSource = read('src/components/AppShell.tsx');
 const appSource = read('App.tsx');
+// App.tsx plus the src/app hooks: the tour's gate, the prompt queue and the
+// layer's element left App.tsx in the phase-C split (2026-10-01).
+const wiringSource = require('../helpers/appWiringSource.cjs').readAppWiring().replace(/\r\n/g, '\n');
+const { between } = require('../helpers/sourceSlices.cjs');
 const settingsSource = read('src/screens/SettingsScreen.tsx');
 const databaseSource = read('src/storage/database.ts');
 
@@ -156,7 +160,7 @@ module.exports = [
       assert.match(fold, /setOpenBlock\(null\);/);
 
       const app = stripComments(appSource);
-      assert.match(app, /onBeatChange=\{setTourFocus\}/);
+      assert.match(stripComments(wiringSource), /onBeatChange=\{setTourFocus\}/);
       assert.match(app, /tourFocus=\{tourFocus\}/);
 
       const layer = stripComments(tourSource);
@@ -304,15 +308,17 @@ module.exports = [
       // The terms sheet takes the slot while it is owed (2026-09-26); the
       // tour waits for it, so the two are never both due.
       assert.match(app, /legalConsentDue \? renderLegalConsent\(shellSafeAreaEdges\.includes\('bottom'\)\) : tourElement/);
-      assert.match(app.slice(app.indexOf('const tourActive ='), app.indexOf('const homeTourActive')), /legalConsentDue === null/);
-      const trigger = app.slice(app.indexOf('const tourActive ='), app.indexOf('const homeTourActive'));
+      // Bounded on both anchors, in the whole shell (phase-C split, 2026-10-01).
+      const wiring = stripComments(wiringSource);
+      assert.match(between(wiring, 'const tourActive =', 'const homeTourActive'), /legalConsentDue === null/);
+      const trigger = between(wiring, 'const tourActive =', 'const homeTourActive');
       assert.match(trigger, /brandSplashDone/);
       assert.match(trigger, /!onboardingActive/);
       assert.match(trigger, /!setupHandoffActive/);
       assert.match(trigger, /isTourDue\(preferences\.firstRunToursSeen, tourSurface\)/);
       // The three Home cards wait for the tour: the two queued ones through
       // the queue itself (lib/homePrompts), the widget card at its own gate.
-      const queue = app.slice(app.indexOf('const homePrompt = resolveHomePrompt('), app.indexOf('});', app.indexOf('const homePrompt = resolveHomePrompt(')));
+      const queue = between(wiring, 'const homePrompt = resolveHomePrompt(', '});');
       assert.match(queue, /tourActive: homeTourActive/);
       // The settings CSV sheet is `<SettingsImportSheet>` in VinhaApp's own
       // JSX now — a thin wrapper that reads the bottom inset outside its
