@@ -119,6 +119,54 @@ function panelLastTime(state, instance) {
 
 module.exports = [
   {
+    // #bugs 2026-10-01: "Viimeksi 60 kg 6·6·6", and the dial asked for 3 × 8
+    // at the same 60. The last time came from another day of the programme,
+    // and the missed-reps target read only this slot's own history.
+    name: 'a borrowed short session lowers the reps target, and never the weight',
+    run() {
+      const SHORT_AT = '2026-09-27T09:00:00.000Z';
+      let state = startDay(EMPTY, 'day_a', 'Chest 1', 8, 8, 0);
+      const slotId = state.activeSession.exercises[0].slotId;
+      for (let index = 0; index < 3; index += 1) {
+        state = logSet(state, slotId, index, '60', '6', SHORT_AT);
+      }
+      state = workoutReducer(state, { type: 'session/finishWorkout', payload: { performedAt: SHORT_AT } });
+      state = workoutReducer(state, { type: 'session/clearCompletedSession' });
+
+      const start = (enabled) =>
+        workoutReducer(state, {
+          type: 'session/startFromRuntimeTemplate',
+          payload: {
+            template: runtimeTemplate('day_b', 'Chest 2', 8, 8),
+            sessionOrderIndex: 1,
+            unitPreference: 'kg',
+            progression: {
+              automatedProgressionEnabled: enabled,
+              setupLevel: 'beginner',
+              nowMs: Date.parse('2026-10-01T09:00:00.000Z'),
+            },
+          },
+        }).activeSession.exercises[0];
+
+      const pro = start(true);
+      pro.sets.forEach((set) => {
+        // Borrowed, dated, and at the weight that was lifted.
+        assert.equal(set.prefilledFromPerformedAt, SHORT_AT);
+        assert.equal(set.plannedLoadKg, 60);
+        // The reps those sets showed, not the programme's 8.
+        assert.equal(set.plannedTargetReps, 6);
+        // And no load move off a session the gate never watched.
+        assert.equal(set.autoProgressedFromKg, undefined);
+      });
+
+      // Off (or free): the programme's own reps, as before.
+      start(false).sets.forEach((set) => {
+        assert.equal(set.plannedLoadKg, 60);
+        assert.equal(set.plannedTargetReps, undefined);
+      });
+    },
+  },
+  {
     name: 'the heavy day’s weight does not open the 15-20 rep day',
     run() {
       const state = startDay(afterHeavyDay(), 'day_b', 'Pump day', 15, 20, 1);

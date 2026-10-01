@@ -4,6 +4,7 @@ import { trackEvent } from '../features/analytics/analyticsClient';
 import { adaptCompletedWorkoutSessionForAppDatabase } from '../features/workout/workoutAppAdapter';
 import type { useWorkoutContext } from '../features/workout/WorkoutProvider';
 import type { FreestyleFinishSummary } from '../lib/emptyWorkoutSession';
+import { sessionRecordedWork } from '../lib/exerciseLog';
 import { t } from '../lib/i18n';
 import { createId } from '../lib/ids';
 import { computePostSessionInsight } from '../lib/postSessionInsight';
@@ -116,7 +117,9 @@ export function createFinishSaves(deps: FinishSavesDeps) {
     }
 
     const adaptedSession = adaptCompletedWorkoutSessionForAppDatabase(activeSession);
-    if (adaptedSession.logs.length === 0) {
+    // Nothing lifted is nothing to keep, even when skips, a swap or a note
+    // left logs behind (#bugs 2026-10-01).
+    if (!sessionRecordedWork(adaptedSession.logs)) {
       await handleDiscardWorkout();
       return;
     }

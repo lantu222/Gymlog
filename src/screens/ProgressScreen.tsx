@@ -1359,10 +1359,18 @@ export function ProgressScreen({
                     <View style={[styles.readDot, { backgroundColor: tone.dot }]} />
                   </View>
                   <View style={styles.readCopy}>
+                    {/* The status on its own line: sharing one line with the
+                        name, a long lift cut it to "Jumi…" and "Vähis…"
+                        (#bugs 2026-10-01). The plateau's "Sama huippusarja × 3"
+                        goes for Pro, whose fix under the row says it better;
+                        free, that line IS the finding — the fix is blurred. */}
                     <Text style={styles.readName} numberOfLines={1}>
-                      {row.name} — <Text style={{ color: tone.ink }}>{row.status}</Text>
+                      {row.name}
                     </Text>
-                    <Text style={styles.readMeta}>{row.meta}</Text>
+                    <Text style={[styles.readStatus, { color: tone.ink }]}>{row.status}</Text>
+                    {proUnlocked && row.tone === 'amber' && row.key !== 'recovery' ? null : (
+                      <Text style={styles.readMeta}>{row.meta}</Text>
+                    )}
                   </View>
                   <View style={styles.readBars}>
                     {row.bars.map((bar, index) => (
@@ -1535,7 +1543,9 @@ export function ProgressScreen({
                     record={record}
                     language={language}
                     locked={locked}
-                    onPress={locked ? onOpenPremium : undefined}
+                    // Opens the same set log the records tab does — the row
+                    // was a dead end here (#bugs 2026-10-01).
+                    onPress={locked ? onOpenPremium : () => setSetLogTarget({ key: record.key, fromLift: false })}
                   />
                 );
               })}
@@ -2337,6 +2347,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 15.5,
     fontWeight: '800',
     color: theme.ink,
+  },
+  readStatus: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    marginTop: 1,
   },
   readMeta: {
     fontSize: 12,

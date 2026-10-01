@@ -397,7 +397,6 @@ const EN = {
   // ── History ────────────────────────────────────────────────────────────
   'history.title': 'History',
   'history.subtitle': 'Open the session worth keeping.',  'history.savedSession': 'Saved session',
-  'history.searchPlaceholder': 'Search by workout or top lift',
   'history.browse.meta': '{sessions} sessions',
   'history.cardio': 'Cardio',
   'history.loggedLifts': 'Logged lifts',
@@ -430,8 +429,6 @@ const EN = {
   'history.badge.added': 'Added',
   'history.worthNoting': 'Worth noting',
   'history.heaviestLift': 'Heaviest completed lift from this saved session.',
-  'history.completedSetOne': '1 completed set',
-  'history.completedSetMany': '{count} completed sets',
   'history.skippedSetOne': '1 skipped set',
   'history.skippedSetMany': '{count} skipped sets',
   'history.pendingSetOne': '1 pending set',
@@ -3634,7 +3631,6 @@ const FI: Record<I18nKey, string> = {
 
   'history.title': 'Historia',
   'history.subtitle': 'Avaa treeni, jonka haluat nähdä.',  'history.savedSession': 'Tallennettu treeni',
-  'history.searchPlaceholder': 'Hae treenin tai raskaimman noston mukaan',
   'history.browse.meta': '{sessions} treeniä',
   'history.cardio': 'Cardio',
   'history.loggedLifts': 'Kirjatut liikkeet',
@@ -3667,8 +3663,6 @@ const FI: Record<I18nKey, string> = {
   'history.badge.added': 'Lisätty',
   'history.worthNoting': 'Huomionarvoista',
   'history.heaviestLift': 'Tämän treenin raskain suoritettu nosto.',
-  'history.completedSetOne': '1 tehty sarja',
-  'history.completedSetMany': '{count} tehtyä sarjaa',
   'history.skippedSetOne': '1 ohitettu sarja',
   'history.skippedSetMany': '{count} ohitettua sarjaa',
   'history.pendingSetOne': '1 avoin sarja',

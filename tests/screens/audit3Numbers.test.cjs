@@ -86,7 +86,9 @@ module.exports = [
       // Nor a search card counting the lifted sessions: its "0 treeniä" sat
       // directly above the list of the reader's actual runs (CI review of
       // #147) — the same class of disagreement this batch is about.
-      assert.match(screen, /\{sessions\.length > 0 \? \(\s*<View style=\{styles\.browseCard\}>/);
+      // The search card itself is gone (#bugs 2026-10-01), so it cannot count
+      // anything at all.
+      assert.doesNotMatch(screen, /styles\.browseCard/);
     },
   },
   {

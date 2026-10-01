@@ -314,6 +314,12 @@ interface ResolvedSetDraft {
  * has seen, and this lookup only stops you starting from nothing.
  * `autoProgressedFromKg` stays undefined here, which is what keeps the AUTO
  * badge off a weight the gate did not choose.
+ *
+ * The missed-reps target is the exception, because it never moves the weight:
+ * it only asks for reps the borrowed sets have shown at the weight they were
+ * borrowed for. The card said "last time 60 kg 6·6·6" and the dial asked for
+ * 3 × 8 at the same 60 (#bugs 2026-10-01) — the "last time" and the target
+ * have to read the same session.
  */
 /**
  * The prescription a borrowed weight has to match, or null when it does not
@@ -362,6 +368,7 @@ function resolveNamedHistoryDraft(
   setIndex: number,
   unitPreference: 'kg' | 'lb',
   exercise: WorkoutTemplateExercise,
+  options: WorkoutSessionMaterializeOptions,
 ): ResolvedSetDraft {
   const blank: ResolvedSetDraft = {
     draftLoadText: '',
@@ -371,7 +378,7 @@ function resolveNamedHistoryDraft(
     heldForFatigue: undefined,
     heldForCautionArea: undefined,
     prefilledFromPerformedAt: undefined,
-    // Borrowed history does not feed the rep gate either — see above.
+    // Nothing borrowed, nothing to lower a target from.
     plannedTargetReps: undefined,
     autoProgressedFromReps: undefined,
   };
@@ -391,6 +398,18 @@ function resolveNamedHistoryDraft(
     return blank;
   }
 
+  // Reps short of this prescription in the borrowed session: the same weight,
+  // a target those sets can meet — the one rule that may read a borrow, since
+  // it never moves the load (see above). Pro, like the slot's own path.
+  const missedReps = resolveMissedRepsTarget({
+    history: [entry],
+    repsMin: exercise.repsMin,
+    targetSets: exercise.sets,
+    trackingMode: exercise.trackingMode,
+    automatedProgressionEnabled: options.automatedProgressionEnabled ?? false,
+    nowMs: options.nowMs ?? Date.now(),
+  });
+
   return {
     draftLoadText: formatWeightInputValue(matched.loadKg, unitPreference),
     draftRepsText: '',
@@ -402,7 +421,7 @@ function resolveNamedHistoryDraft(
     // Where it came from, so the logger can say so rather than presenting a
     // weight from another program as if it belonged to this slot.
     prefilledFromPerformedAt: entry.performedAt,
-    plannedTargetReps: undefined,
+    plannedTargetReps: missedReps?.targetReps,
     autoProgressedFromReps: undefined,
   };
 }
@@ -440,7 +459,7 @@ function resolveHistoricalSetDraft(
         autoProgressedFromReps: undefined,
       };
     }
-    return resolveNamedHistoryDraft(history, setIndex, unitPreference, exercise);
+    return resolveNamedHistoryDraft(history, setIndex, unitPreference, exercise, options);
   }
 
   // Automated progression (ADR-004): when the last session cleared the rep
