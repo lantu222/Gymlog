@@ -41,7 +41,6 @@ const SCOPE = [
   'workoutTemplates',
   'workoutHomeRoute',
   'exerciseBrowserItems',
-  'exerciseLibrary',
   'trackedProgress',
   'workoutSessions',
   'completionSummary',
@@ -120,7 +119,6 @@ function world(overrides = {}) {
     workoutTemplates: customTemplates,
     workoutHomeRoute: HOME_ROUTE,
     exerciseBrowserItems: exercises,
-    exerciseLibrary: exercises,
     trackedProgress: [{ key: 'bench press' }],
     workoutSessions: [{ id: 'session_1' }],
     completionSummary: null,
@@ -195,7 +193,14 @@ module.exports = [
       // A start stamps the time; inside two seconds the session is still on its way.
       const recent = { current: NOW - 2000 };
       assert.deepEqual(once({ route: guided('ready_full_body'), workoutLogNavigationAllowedAtRef: recent }), []);
-      assert.equal(recent.current, null, 'the stamp is used once');
+      // Kept while the session is still on its way: a second run inside the
+      // window (any dep changing) must hold too, not find the stamp spent
+      // and send the start Home (#bugs 2026-10-01).
+      assert.equal(recent.current, NOW - 2000, 'the stamp is spent before the session it waits for');
+      assert.deepEqual(once({ route: guided('ready_full_body'), workoutLogNavigationAllowedAtRef: recent }), []);
+      // Spent once the session has landed.
+      once({ route: guided('ready_full_body'), workout: running('s_a'), workoutLogNavigationAllowedAtRef: recent });
+      assert.equal(recent.current, null, 'the stamp outlives the session it waited for');
       const stale = { current: NOW - 2001 };
       assert.deepEqual(
         once({ route: guided('ready_full_body'), workoutLogNavigationAllowedAtRef: stale }),
@@ -237,7 +242,7 @@ module.exports = [
     name: 'finish route guard: detail routes whose subject has gone are replaced',
     run() {
       // The exercise detail reads the browser list, not the library.
-      assert.deepEqual(once({ route: { tab: 'workout', screen: 'detail', exerciseId: 'ex_bench' }, exerciseLibrary: [] }), []);
+      assert.deepEqual(once({ route: { tab: 'workout', screen: 'detail', exerciseId: 'ex_bench' } }), []);
       assert.deepEqual(
         once({ route: { tab: 'workout', screen: 'detail', exerciseId: 'ex_gone' } }),
         replaced(ROOT_ROUTES.workout),
@@ -319,9 +324,8 @@ module.exports = [
       assert.deepEqual(app.render({ ...base }), []);
       // Refs are read, not watched.
       assert.deepEqual(app.render({ ...base, summaryNavigationPendingRef: { current: true } }), []);
-      // The guard watches the library, not the browser list it reads.
-      assert.deepEqual(app.render({ ...base, exerciseBrowserItems: [] }), []);
-      assert.deepEqual(app.render({ ...base, exerciseLibrary: [] }), replaced(ROOT_ROUTES.workout));
+      // The guard watches the browser list it reads (#bugs 2026-10-01).
+      assert.deepEqual(app.render({ ...base, exerciseBrowserItems: [] }), replaced(ROOT_ROUTES.workout));
 
       // The reset watches the save's status and session and the running session's id, not the objects.
       const saving = { status: 'saving', sessionId: 's_a', message: null };

@@ -39,8 +39,12 @@ export function useCoachEntryReadings(deps: CoachEntryReadingsDeps) {
   const analysisSessionId = route.tab === 'home' && route.screen === 'analysis' ? route.sessionId : null;
   // The AI tab's written-analysis entry needs the most recent session that has
   // enough logged sets to analyse. Only built while the chat is open.
+  // On the chat or not, rather than the whole route: keyed on the route
+  // object, this rebuilt the modules on every navigation inside the chat
+  // (#bugs 2026-10-01, phase C).
+  const onCoachChat = route.tab === 'home' && route.screen === 'ai_chat';
   const coachLastSession = useMemo(() => {
-    if (!(route.tab === 'home' && route.screen === 'ai_chat')) {
+    if (!onCoachChat) {
       return null;
     }
     const modules = buildCoachModules({
@@ -51,7 +55,7 @@ export function useCoachEntryReadings(deps: CoachEntryReadingsDeps) {
     return modules.analysis
       ? { id: modules.analysis.sessionId, name: modules.analysis.caption }
       : null;
-  }, [database.exerciseLogs, preferences.appLanguage, route, workoutSessions]);
+  }, [database.exerciseLogs, preferences.appLanguage, onCoachChat, workoutSessions]);
 
   return { premiumTrialEndsAt, analysisSessionId, coachLastSession };
 }

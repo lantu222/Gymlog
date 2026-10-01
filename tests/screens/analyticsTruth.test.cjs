@@ -119,12 +119,14 @@ module.exports = [
     name: 'analytics: a guided workout is counted complete once per session, after a save that proved itself',
     run() {
       const finish = appFunction('handleConfirmFinishWorkout');
-      const sent = finish.indexOf("trackEvent('workout_completed')");
+      const sent = finish.indexOf('countWorkoutCompleted(adaptedSession.sessionId);');
       assert.notEqual(sent, -1);
       assert.ok(sent > finish.indexOf("throw new Error('Workout save did not produce a valid summary')"), 'after the summary is known to be real');
+      // Once per session, by the rule the logged finish uses too (#bugs 2026-10-01).
+      const rule = appFunction('countWorkoutCompleted');
       assert.match(
-        finish,
-        /if \(!completionCountedRef\.current\.has\(adaptedSession\.sessionId\)\) \{\s*completionCountedRef\.current\.add\(adaptedSession\.sessionId\);\s*trackEvent\('workout_completed'\);/,
+        rule,
+        /if \(completionCountedRef\.current\.has\(sessionId\)\) \{\s*return;\s*\}\s*completionCountedRef\.current\.add\(sessionId\);\s*trackEvent\('workout_completed'\);/,
       );
     },
   },

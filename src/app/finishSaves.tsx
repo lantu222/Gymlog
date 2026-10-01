@@ -96,6 +96,22 @@ export function createFinishSaves(deps: FinishSavesDeps) {
     showToast,
   } = deps;
 
+  /**
+   * One count per saved session, whichever finish saved it.
+   *
+   * The guided finish deduplicated through this ref and the logged finish
+   * counted every resolved save on its own terms (#bugs 2026-10-01, phase C):
+   * equal today only because the logged path mints a fresh id per save. One
+   * rule for both, keyed on the session the save produced.
+   */
+  function countWorkoutCompleted(sessionId: string) {
+    if (completionCountedRef.current.has(sessionId)) {
+      return;
+    }
+    completionCountedRef.current.add(sessionId);
+    trackEvent('workout_completed');
+  }
+
   async function handleDiscardWorkout() {
     if (!workout.activeSession) {
       return;
@@ -143,10 +159,7 @@ export function createFinishSaves(deps: FinishSavesDeps) {
       // below — and the retry saves again, which hands back the session
       // already stored: counted on every pass, one workout was two
       // (analytics audit, 2026-09-21).
-      if (!completionCountedRef.current.has(adaptedSession.sessionId)) {
-        completionCountedRef.current.add(adaptedSession.sessionId);
-        trackEvent('workout_completed');
-      }
+      countWorkoutCompleted(adaptedSession.sessionId);
 
       // Only after the database save is verified: finishing flips the session
       // to 'completed' and stamps slot history. Doing it before the save meant
@@ -271,8 +284,8 @@ export function createFinishSaves(deps: FinishSavesDeps) {
       await deleteWorkoutTemplate(workoutTemplateId).catch(() => undefined);
       throw error;
     }
-    // Counted once it is on disk, as the guided path counts it.
-    trackEvent('workout_completed');
+    // Counted once it is on disk, by the guided path's own rule.
+    countWorkoutCompleted(sessionId);
     /**
      * Remembered for the next time these lifts come up.
      *

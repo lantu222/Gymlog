@@ -20,9 +20,10 @@ import type { FinishSaveState } from './useFinishState';
  * A hook, not a helper: these are effects, and VinhaApp calls this exactly
  * where the lines stood — after the toast timer, ahead of the onboarding
  * step's state — so every hook keeps its slot and the two effects still run
- * in this order, the reset first. The dependency lists are as they were,
- * exerciseLibrary standing for the exerciseBrowserItems the body reads (the
- * same array; see App.tsx). The refs are VinhaApp's own objects, handed in,
+ * in this order, the reset first. The guard lists exerciseBrowserItems, the
+ * array it reads — it listed exerciseLibrary, the same array today, which
+ * would stop noticing the day the browser list filters (#bugs 2026-10-01).
+ * The refs are VinhaApp's own objects, handed in,
  * so this reads and clears the flags the finish handlers set.
  * tests/screens/finishRouteGuard.test.cjs runs this source branch by branch.
  */
@@ -41,7 +42,6 @@ export interface FinishRouteGuardDeps {
   summaryNavigationPendingRef: MutableRefObject<boolean>;
   summaryExitRouteRef: MutableRefObject<AppRoute | null>;
   workoutTemplates: AppDatabase['workoutTemplates'];
-  exerciseLibrary: AppDatabase['exerciseLibrary'];
   exerciseBrowserItems: AppDatabase['exerciseLibrary'];
   trackedProgress: ReturnType<typeof getTrackedExerciseProgress>;
   workoutSessions: AppDatabase['workoutSessions'];
@@ -60,7 +60,6 @@ export function useFinishRouteGuard(deps: FinishRouteGuardDeps) {
     summaryNavigationPendingRef,
     summaryExitRouteRef,
     workoutTemplates,
-    exerciseLibrary,
     exerciseBrowserItems,
     trackedProgress,
     workoutSessions,
@@ -82,7 +81,13 @@ export function useFinishRouteGuard(deps: FinishRouteGuardDeps) {
   useEffect(() => {
     if (route.tab === 'workout' && route.screen === 'guided') {
       const allowedAt = workoutLogNavigationAllowedAtRef.current;
-      workoutLogNavigationAllowedAtRef.current = null;
+      // Spent once the session it waited for has landed, or once it has run
+      // out — not on the first read. Cleared on every guided render, a second
+      // run inside the two seconds (anything else in the deps changing) found
+      // no stamp and sent a starting workout Home (#bugs 2026-10-01, phase C).
+      if (workout.activeSession || !allowedAt || Date.now() - allowedAt > 2000) {
+        workoutLogNavigationAllowedAtRef.current = null;
+      }
 
       if (
         !workout.activeSession &&
@@ -168,7 +173,7 @@ export function useFinishRouteGuard(deps: FinishRouteGuardDeps) {
     }
   }, [
     completionSummary,
-    exerciseLibrary,
+    exerciseBrowserItems,
     finishSaveState.status,
     route,
     trackedProgress,

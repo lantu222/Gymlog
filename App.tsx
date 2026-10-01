@@ -606,7 +606,6 @@ function VinhaApp() {
     summaryNavigationPendingRef,
     summaryExitRouteRef,
     workoutTemplates,
-    exerciseLibrary,
     exerciseBrowserItems,
     trackedProgress,
     workoutSessions,

@@ -84,7 +84,8 @@ module.exports = [
       assert.ok(recordAt > 0, 'the save still writes the slot history');
       const finish = save.slice(0, recordAt);
       assert.match(finish, /\} catch \(error\) \{[\s\S]{0,400}await deleteWorkoutTemplate\(workoutTemplateId\)\.catch\(\(\) => undefined\);\s*throw error;/, 'a session save that fails must take its template with it');
-      assert.ok(finish.indexOf("trackEvent('workout_completed')") > finish.indexOf('await saveCompletedWorkoutSession('), 'the event must fire after the save, not before');
+      // Through the one per-session rule both finishes share (#bugs 2026-10-01).
+      assert.ok(finish.indexOf('countWorkoutCompleted(sessionId)') > finish.indexOf('await saveCompletedWorkoutSession('), 'the event must fire after the save, not before');
     },
   },
   {
