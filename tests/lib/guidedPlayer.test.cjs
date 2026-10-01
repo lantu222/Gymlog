@@ -39,6 +39,7 @@ const {
   restRoundCorrections,
   loggedSetsOf,
   GUIDED_POSITION_SECONDS,
+  guidedBlockLastSlotId,
 } = require('../../.test-dist/lib/guidedPlayer.js');
 
 const WARMUP = [
@@ -1269,6 +1270,28 @@ module.exports = [
       // Nothing logged: it stays put. Everything logged: it runs past every set.
       assert.equal(rollPastLoggedWork(steps, blockStart, () => false), blockStart);
       assert.notEqual(steps[rollPastLoggedWork(steps, blockStart, () => true)].type, 'set');
+    },
+  },
+  {
+    // "Lisää liike" on a superset's intro must follow the pair, not split it.
+    name: 'guidedBlockLastSlotId: the last lift of the block, a superset included',
+    run() {
+      const { steps } = buildGuidedSteps({
+        warmup: [],
+        exercises: [
+          { slotId: 'a', name: 'Bench Press', restSeconds: 90, setCount: 3, skipped: false, supersetGroup: 'ss' },
+          { slotId: 'b', name: 'Barbell Row', restSeconds: 90, setCount: 3, skipped: false, supersetGroup: 'ss' },
+          { slotId: 'c', name: 'Squat', restSeconds: 90, setCount: 3, skipped: false },
+        ],
+        cooldown: [],
+      });
+      const order = ['a', 'b', 'c'];
+      const pairIntro = steps.find((step) => step.type === 'position' && step.slotId === 'a');
+      assert.ok(pairIntro, 'the superset has an intro named for its first lift');
+      assert.equal(guidedBlockLastSlotId(steps, pairIntro.groupIndex, order), 'b');
+      const soloIntro = steps.find((step) => step.type === 'position' && step.slotId === 'c');
+      assert.equal(guidedBlockLastSlotId(steps, soloIntro.groupIndex, order), 'c');
+      assert.equal(guidedBlockLastSlotId(steps, 999, order), null);
     },
   },
 ];

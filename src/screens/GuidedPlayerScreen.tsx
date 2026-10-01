@@ -54,6 +54,7 @@ import {
   formatGuidedCountdown,
   formatGuidedTarget,
   getGuidedBackTargetIndex,
+  guidedBlockLastSlotId,
   getGuidedInitials,
   buildGuidedRunSheet,
   getGuidedNextName,
@@ -1728,11 +1729,12 @@ function GuidedPlayer({
    * lift and goes to it; the exercise intro ("Seuraavaksi") adds right after
    * the lift on screen and stays — one more lift, without swapping this one
    * (#bugs 2026-10-01, "saa + liikkeen ilman että vaihdan tätä liikettä").
-   * The slot id is the lift the new one follows.
+   * `anchor` is the lift the new one follows; `intro` the intro it came from,
+   * which differ inside a superset (the intro names the first lift).
    */
-  const [addExerciseAfterSlot, setAddExerciseAfterSlot] = useState<string | null>(null);
+  const [addExerciseAfterSlot, setAddExerciseAfterSlot] = useState<{ anchor: string; intro: string } | null>(null);
   /** Said under the intro's buttons once the lift is in: the sheet closes on it. */
-  const [walkAdded, setWalkAdded] = useState<{ afterSlotId: string; name: string } | null>(null);
+  const [walkAdded, setWalkAdded] = useState<{ introSlotId: string; name: string } | null>(null);
   /**
    * One insert per open of the sheet.
    *
@@ -2525,16 +2527,16 @@ function GuidedPlayer({
     addExerciseInFlightRef.current = true;
     setAddExerciseOpen(false);
     const afterCurrent = addExerciseAfterSlot
-      ? exercises.find((exercise) => exercise.slotId === addExerciseAfterSlot) ?? null
+      ? exercises.find((exercise) => exercise.slotId === addExerciseAfterSlot.anchor) ?? null
       : null;
     const anchor = afterCurrent ?? exercises[exercises.length - 1] ?? null;
     const defaults = getExerciseTemplateDefaults(
       item,
       anchor ? anchor.restSecondsMin : NO_ANCHOR_DEFAULT_REST_SECONDS,
     );
-    if (afterCurrent) {
+    if (afterCurrent && addExerciseAfterSlot) {
       // Stays on this lift: no jump, and the intro says where it went.
-      setWalkAdded({ afterSlotId: afterCurrent.slotId, name: exerciseNameLabel(language, item.name) });
+      setWalkAdded({ introSlotId: addExerciseAfterSlot.intro, name: exerciseNameLabel(language, item.name) });
     } else {
       pendingInsertKnownSlotsRef.current = new Set(exercises.map((exercise) => exercise.slotId));
     }
@@ -3591,13 +3593,23 @@ function GuidedPlayer({
                       icon="plus"
                       label={t(language, 'guided.walk.add')}
                       onPress={() => {
-                        setAddExerciseAfterSlot(step.slotId);
+                        // After the whole block on screen: a superset's intro
+                        // names its first lift, and inserting there split the pair.
+                        setAddExerciseAfterSlot({
+                          anchor:
+                            guidedBlockLastSlotId(
+                              steps,
+                              step.groupIndex,
+                              exercises.map((exercise) => exercise.slotId),
+                            ) ?? step.slotId,
+                          intro: step.slotId,
+                        });
                         setAddExerciseOpen(true);
                       }}
                     />
                   </View>
                 </View>
-                {walkAdded && walkAdded.afterSlotId === step.slotId ? (
+                {walkAdded && walkAdded.introSlotId === step.slotId ? (
                   <Text style={styles.walkAddedNote}>
                     {t(language, 'guided.walk.added', { name: walkAdded.name })}
                   </Text>

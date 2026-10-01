@@ -179,16 +179,16 @@ module.exports = [
       // the swap, anchored on the lift on screen.
       assert.match(
         playerSource,
-        /label=\{t\(language, 'guided\.walk\.add'\)\}\s*onPress=\{\(\) => \{\s*setAddExerciseAfterSlot\(step\.slotId\);\s*setAddExerciseOpen\(true\);/,
+        /label=\{t\(language, 'guided\.walk\.add'\)\}\s*onPress=\{\(\) => \{[\s\S]{0,200}setAddExerciseAfterSlot\(\{\s*anchor:\s*guidedBlockLastSlotId\(/,
       );
       // After that lift, not at the end; and no jump — the pending-insert
       // ref, which drives the jump, is set only on the cooldown path.
       assert.match(
         playerSource,
-        /if \(afterCurrent\) \{\s*\/\/[^\n]*\n\s*setWalkAdded\(\{ afterSlotId: afterCurrent\.slotId, name: exerciseNameLabel\(language, item\.name\) \}\);\s*\} else \{\s*pendingInsertKnownSlotsRef\.current = new Set/,
+        /if \(afterCurrent && addExerciseAfterSlot\) \{\s*\/\/[^\n]*\n\s*setWalkAdded\(\{ introSlotId: addExerciseAfterSlot\.intro, name: exerciseNameLabel\(language, item\.name\) \}\);\s*\} else \{\s*pendingInsertKnownSlotsRef\.current = new Set/,
       );
       // And it says where the lift went, under the buttons of that lift only.
-      assert.match(playerSource, /walkAdded && walkAdded\.afterSlotId === step\.slotId \?/);
+      assert.match(playerSource, /walkAdded && walkAdded\.introSlotId === step\.slotId \?/);
     },
   },
   {
