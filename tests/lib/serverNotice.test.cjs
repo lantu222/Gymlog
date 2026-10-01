@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 const {
   MAX_SEEN_NOTICE_IDS,
@@ -165,9 +166,13 @@ module.exports = [
   {
     name: 'server notice: the app mounts it at a calm moment and remembers what was closed',
     run() {
-      const app = read('App.tsx');
+      // The shell's render tail, dialog included, moved out of App.tsx into src/app.
+      const app = readAppWiring();
       assert.match(app, /<ServerNoticeDialog\s+language=\{preferences\.appLanguage\}\s+held=\{appUpdateHeld\}\s+seenIds=\{preferences\.seenServerNoticeIds\}\s+onSeen=\{handleServerNoticeSeen\}/);
-      assert.match(app, /seenServerNoticeIds: rememberServerNotice\(preferences\.seenServerNoticeIds, id\)/);
+      // The "seen" write left App.tsx for a src/app hook, and the dialog's
+      // mount above for the shell's render function, in the phase-C split
+      // (2026-10-01); both are read from the whole shell.
+      assert.match(readAppWiring(), /seenServerNoticeIds: rememberServerNotice\(preferences\.seenServerNoticeIds, id\)/);
 
       const dialog = read('src/features/serverNotice/ServerNoticeDialog.tsx');
       // Closing it is what marks it seen, and the dialog cannot be dismissed

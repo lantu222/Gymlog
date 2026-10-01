@@ -207,7 +207,12 @@ module.exports = [
       const readyPickCode = readyPick[0].replace(/^\s*\/\/.*$/gm, '');
       assert.doesNotMatch(readyPickCode, /activePlanId: null/);
       // And the fork reaches the catalog without the About form in between.
-      assert.match(appSource, /onBrowsePrograms=\{\(\) => \{[\s\S]*?setOnboardingStep\('ready_catalog'\)/);
+      // The fork's render moved to src/app/renderOnboarding.tsx (phase C,
+      // 2026-10-01): read the whole shell, bounded to the one handler.
+      assert.match(
+        between(shellSource, 'onBrowsePrograms={() => {', 'onBack='),
+        /^onBrowsePrograms=\{\(\) => \{[\s\S]*?setOnboardingStep\('ready_catalog'\);\s*\}\}\s*$/,
+      );
 
       // App-side save truthfulness: persist the plan and activate it before
       // landing on Home (no auto-started workout in the light flow).
@@ -925,9 +930,10 @@ module.exports = [
       // what leaves the screen in charge. The setup route is the same screen,
       // and the app's listener — re-subscribed on every route change, after
       // the child's — used to win there and send back straight to settings
-      // (device, 2026-09-16).
+      // (device, 2026-09-16). The whole shell: the listener left App.tsx for a
+      // src/app hook in the phase-C split (2026-10-01).
       assert.match(
-        appSource,
+        shellSource,
         /if \(onboardingActive \|\| \(route\.tab === 'profile' && route\.screen === 'setup'\)\) \{\s*return undefined;\s*\}\s*const subscription = BackHandler\.addEventListener/,
       );
     },

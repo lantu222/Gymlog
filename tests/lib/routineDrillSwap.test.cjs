@@ -135,6 +135,12 @@ module.exports = [
       ];
       for (const [file, source] of files) {
         const calls = source.match(/getDefault(?:Warmup|Cooldown)\(([\s\S]*?)\)/g) || [];
+        // Each of these builds both blocks. A file whose builders moved out
+        // of it would otherwise pass with nothing left to check.
+        assert.ok(
+          calls.filter((call) => call.includes(',')).length >= 2,
+          `${file} no longer builds a warm-up and a cool-down — recheck where they moved`,
+        );
         for (const call of calls) {
           // The import line names them without calling them.
           if (!call.includes(',')) {

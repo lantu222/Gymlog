@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8');
 const detail = read('src', 'screens', 'ProgramDetailScreen.tsx');
@@ -42,7 +43,9 @@ module.exports = [
       assert.match(strip, /if \(session === null \|\| !onOpenPlanSession\) \{/);
       assert.match(strip, /onPress=\{\(\) => onOpenPlanSession\(session\.id\)\}/);
       // The door itself is App's existing one: the day screen, by session id.
-      const app = read('App.tsx');
+      // Read from the whole shell: the <HomeScreen> element moved from App.tsx
+      // to src/app/renderHomeDashboard.tsx (phase C, 2026-10-01).
+      const app = readAppWiring();
       assert.match(app, /onOpenPlanSession=\{\(sessionId\) => \{[\s\S]{0,400}screen: 'programDay'/);
     },
   },

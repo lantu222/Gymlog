@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 const { getHomeDayView, sessionForSlot } = require('../../.test-dist/lib/homeCalendar.js');
 const { hasOnlyEmptyDays, nextStartableSessionIndex } = require('../../.test-dist/lib/programSessionList.js');
 const { weekdaySchedule } = require('../../.test-dist/lib/trainingSchedule.js');
@@ -127,7 +128,9 @@ module.exports = [
       assert.equal(hasOnlyEmptyDays([0, 3]), false);
       assert.equal(hasOnlyEmptyDays([]), false);
 
-      const app = strip(read('App.tsx'));
+      // The whole shell: the <HomeScreen> element moved out of App.tsx into
+      // src/app/renderHomeDashboard.tsx; the memo stays in App.tsx.
+      const app = strip(readAppWiring().replace(/\r\n/g, '\n'));
       assert.match(
         app,
         /const homeEmptyProgramme = useMemo\(\(\) => \{\s*if \(homeActivePlanCard\) \{\s*return null;\s*\}/,
@@ -151,7 +154,9 @@ module.exports = [
   {
     name: 'setup hand-off: the page stays up until its write lands, and a refusal is said on it',
     run() {
-      const app = strip(read('App.tsx'));
+      // The whole shell: the hand-off's hold and its Done handler left App.tsx
+      // for src/app in the phase-C split (2026-10-01).
+      const app = strip(readAppWiring().replace(/\r\n/g, '\n'));
       assert.match(app, /\(!preferences\.setupHandoffCompleted \|\| setupHandoffHeld\) &&/);
       // And what it shows is frozen for the write: the patch re-plans the page.
       assert.match(

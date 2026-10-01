@@ -161,7 +161,9 @@ module.exports = [
       assert.match(memo, /afterSave: reading\(homeActivePlanCard\.sessionsDone\),/);
       // No calendar week left to disagree with the block.
       assert.doesNotMatch(memo, /getStartOfWeek|getEndOfWeek|countPlanSessionsInRange|workoutSessions/);
-      assert.match(app, /weekProgress=\{completionWeekProgress\}/);
+      // The finish screen's render is in src/app/renderWorkoutCompletion.tsx
+      // since phase C (2026-10-01).
+      assert.match(wiring, /weekProgress=\{completionWeekProgress\}/);
     },
   },
   {

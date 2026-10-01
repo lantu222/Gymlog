@@ -296,7 +296,9 @@ module.exports = [
       assert.ok(liftMemo, 'the liftHistory memo is gone');
       assert.ok(!liftMemo[0].includes('recordSources'), 'the lookup is built from the tracked summaries again');
       assert.match(wiring, /const byName = getLiftHistoryByName\(database\);/, 'the lookup must be built from every log');
-      assert.match(appSource, /renderWorkoutTab\(\{[\s\S]{0,4000}\r?\n {6}liftHistory,\r?\n/);
+      // Any indent, but the deps object's own: `liftHistory,` sits at the
+      // depth of the call's first property, not inside some nested object.
+      assert.match(appSource, /renderWorkoutTab\(\{\r?\n([ \t]+)[\s\S]{0,4000}\r?\n\1liftHistory,\r?\n/);
     },
   },
 ];
