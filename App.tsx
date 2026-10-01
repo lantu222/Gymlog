@@ -17,7 +17,6 @@ import {
   FirstRunSetupSelection,
   getFocusAreaTitle,
   isSetupDaysPerWeek,
-  resolveFirstRunRecommendationWithTailoring,
 } from './src/lib/firstRunSetup';
 import { formatWorkoutDisplayLabel } from './src/lib/displayLabel';
 import { buildCardioStatsLine, getCardioActivity } from './src/lib/cardio';
@@ -56,7 +55,6 @@ import {
 import {
   leadTemplateId,
   listHeldProgrammes,
-  resolveLeadPlanId,
   resumeProgramme,
   stopProgramme,
   switchActiveProgramme,
@@ -69,29 +67,23 @@ import {
 import { describeProgramCap, programCapLineKey } from './src/lib/programCapNotice';
 import { computePostSessionInsight } from './src/lib/postSessionInsight';
 import { composeProgramWeekForSelection } from './src/lib/programDayComposer';
-import { resolveAvailableEquipment } from './src/lib/equipmentExerciseFilter';
 import { getProgrammeBlockWeeks, getReadyProgramBlockWeeks } from './src/lib/readyProgramDuration';
 import { getReadyProgramContent } from './src/lib/readyProgramContent';
 import {
   getCanonicalCompletedSessions,
 } from './src/lib/completedSessions';
 import { useRecordsAndMilestones } from './src/app/useRecordsAndMilestones';
-import { markCoachDemoMomentUsed, resolveDueCoachDemoMoment } from './src/lib/coachDemoMoments';
+import { markCoachDemoMomentUsed } from './src/lib/coachDemoMoments';
 import { blockWeekOfSession, blockWeekTally, buildHomePlanProgress } from './src/lib/homePlanProgress';
 import {
   buildSessionEquipmentLabel,
   classifySessionFocus,
-  getDefaultCooldown,
-  getDefaultWarmup,
   getSessionBodyFocusLabel,
-  SessionFocusKind,
 } from './src/lib/homeSessionHero';
-import { estimateRoutineBlockSeconds } from './src/lib/guidedPlayer';
 import { estimateSessionMinutes } from './src/lib/sessionDuration';
 import { buildMuscleFocus, getVolumeDeltaVsPrevious } from './src/lib/workoutCompleteView';
 import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
 import { I18nKey, t } from './src/lib/i18n';
-import { buildCoachModules } from './src/lib/aiCoachModules';
 import { isProUnlocked, resolveProEntitlement, resolveProgressionOptions } from './src/lib/proEntitlement';
 import { ThemeChoiceDialog } from './src/components/ThemeChoiceDialog';
 import { resolveThemeName } from './src/lib/themePreference';
@@ -189,7 +181,6 @@ import {
   withSessionDrop,
   withSessionSwap,
 } from './src/lib/sessionAdaptation';
-import { buildTailoringPreferences } from './src/lib/tailoringFit';
 import { forgetRoutesForTemplate, popRoute, pushRoute, withoutTrailingRoute } from './src/navigation/routeHistory';
 import { liveSessionBlocksProgrammeDelete } from './src/lib/programmeDeletion';
 import { AppRoute, ROOT_ROUTES, RootTabKey, WORKOUT_PLAN_ROUTE } from './src/navigation/routes';
@@ -206,10 +197,7 @@ import { createProgrammeDayEdits } from './src/app/programmeDayEdits';
 import {
   buildSavedOnboardingPlan,
   buildSavedOnboardingWorkoutPlan,
-  buildSetupBasicsFromPreferences,
   buildSetupPreferencePatch,
-  buildSetupSeedKey,
-  buildSetupSelectionFromPreferences,
 } from './src/app/onboardingHandoff';
 import {
   buildCompletionCardsFromAdaptedSession,
@@ -225,6 +213,12 @@ import { useInstallStamps } from './src/app/useInstallStamps';
 import { useSetupWeightSeed } from './src/app/useSetupWeightSeed';
 import { useTodayKey } from './src/app/useTodayKey';
 import { useDaySummaries } from './src/app/useDaySummaries';
+import { useCoachDemoMoment } from './src/app/useCoachDemoMoment';
+import { useCoachEntryReadings } from './src/app/useCoachEntryReadings';
+import { useRoutineBlockCosts } from './src/app/useRoutineBlockCosts';
+import { useSetupReadings } from './src/app/useSetupReadings';
+import { useLeadPlanRepair } from './src/app/useLeadPlanRepair';
+import { useTemplateBuilderDraft } from './src/app/useTemplateBuilderDraft';
 import { useProInsights } from './src/app/useProInsights';
 import { useHomeStatCards } from './src/app/useHomeStatCards';
 import { useCoachAdviceMemory } from './src/app/useCoachAdviceMemory';
@@ -2833,36 +2827,13 @@ function VinhaApp() {
   const proEntitlement = resolveProEntitlement(preferences);
   const coachProUnlocked = proEntitlement.unlocked;
 
-  /**
-   * The coach demo moment that came due with this session, if one has.
-   *
-   * Free readers get three real coach answers per install, at day 7, 30 and
-   * 90 — offered after a completed session so the log behind the answer is
-   * fresh. Null for Pro, and null until the day and the session count both
-   * come good. See lib/coachDemoMoments.
-   */
-  const coachDemoMoment = useMemo(
-    () =>
-      resolveDueCoachDemoMoment({
-        firstLaunchAt: preferences.firstLaunchAt,
-        usedMoments: preferences.coachDemoMomentsUsed,
-        proUnlocked: coachProUnlocked,
-        sessionCount: database.workoutSessions.length,
-        lifts: proLiftHistories,
-        fatigueSignal: proFatigue?.confident ? proFatigue.signal : null,
-      }),
-    [
-      coachProUnlocked,
-      database.workoutSessions.length,
-      preferences.coachDemoMomentsUsed,
-      preferences.firstLaunchAt,
-      proFatigue,
-      proLiftHistories,
-    ],
-  );
-  const coachDemoQuestion = coachDemoMoment
-    ? t(preferences.appLanguage, coachDemoMoment.questionKey, coachDemoMoment.vars)
-    : null;
+  const { coachDemoMoment, coachDemoQuestion } = useCoachDemoMoment({
+    preferences,
+    coachProUnlocked,
+    database,
+    proLiftHistories,
+    proFatigue,
+  });
 
   const { handleResetAllData, handleCoachAdviceGiven } = useCoachAdviceMemory({
     resetAllData,
@@ -2871,116 +2842,29 @@ function VinhaApp() {
     setHeldSessionAdaptations,
   });
 
-  // Seven days out. There is no billing, so this is the demo story the paywall
-  // already tells rather than a date anything will act on.
-  const premiumTrialEndsAt = useMemo(() => {
-    const end = new Date();
-    end.setDate(end.getDate() + 7);
-    return end.toISOString();
-  }, []);
-  const analysisSessionId = route.tab === 'home' && route.screen === 'analysis' ? route.sessionId : null;
-  // The AI tab's written-analysis entry needs the most recent session that has
-  // enough logged sets to analyse. Only built while the chat is open.
-  const coachLastSession = useMemo(() => {
-    if (!(route.tab === 'home' && route.screen === 'ai_chat')) {
-      return null;
-    }
-    const modules = buildCoachModules({
-      sessions: workoutSessions,
-      logs: database.exerciseLogs,
-      language: preferences.appLanguage,
-    });
-    return modules.analysis
-      ? { id: modules.analysis.sessionId, name: modules.analysis.caption }
-      : null;
-  }, [database.exerciseLogs, preferences.appLanguage, route, workoutSessions]);
-  const availableEquipmentForDrills = useMemo(
-    () =>
-      resolveAvailableEquipment({
-        trainingEnvironment: preferences.setupTrainingEnvironment,
-        equipmentItems: preferences.setupEquipmentItems,
-      }),
-    [preferences.setupTrainingEnvironment, preferences.setupEquipmentItems],
-  );
-  /**
-   * Warm-up and cool-down cost for a session, from the same blocks the player
-   * runs — so Home's "~50 min" and the guided entry's "~50 min" are the same
-   * arithmetic on the same inputs, not two guesses that happen to be close.
-   */
-  const routineBlockSeconds = useCallback(
-    (focus: SessionFocusKind) => ({
-      warmupSeconds: estimateRoutineBlockSeconds(
-        getDefaultWarmup(
-          focus,
-          preferences.appLanguage,
-          availableEquipmentForDrills,
-          preferences.routineDrillOverrides,
-        ),
-      ),
-      cooldownSeconds: estimateRoutineBlockSeconds(
-        getDefaultCooldown(
-          focus,
-          preferences.appLanguage,
-          availableEquipmentForDrills,
-          preferences.routineDrillOverrides,
-        ),
-      ),
-    }),
-    [preferences.appLanguage, availableEquipmentForDrills, preferences.routineDrillOverrides],
-  );
-  /** The same cost for a day known only by its lifts — the programme page's. */
-  const routineSecondsForExercises = useCallback(
-    (exerciseNames: string[]) => routineBlockSeconds(classifySessionFocus(exerciseNames)),
-    [routineBlockSeconds],
-  );
-  // Both used to depend on the whole preferences object, so a theme or sound
-  // toggle handed them a new object and they rebuilt — and everything
-  // downstream of the setup selection (the recommendation, the programme
-  // rankings, the goal-programme suggestions) rebuilt with them. Measured: that
-  // chain was the ~4.9s behind every settings switch. A key over the fields
-  // each one actually reads is what "changed" should have meant all along —
-  // kept beside the builders, where a test holds it to what they read.
-  const setupSelectionKey = buildSetupSeedKey(preferences);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const setupSelection = useMemo(() => buildSetupSelectionFromPreferences(preferences), [setupSelectionKey]);
-  // What the setup questionnaire opens on: the same answers, with the weight
-  // from the weigh-in log rather than what setup was last told. Only the
-  // questionnaire — the recommendation and the composed onboarding week stay
-  // on `setupSelection`, so a weigh-in never reshapes a running programme.
-  const latestWeighInKg = bodyweightProgress.latest?.weight ?? null;
-  const setupEditSelection = useMemo(
-    () => buildSetupSelectionFromPreferences(preferences, latestWeighInKg),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [setupSelectionKey, latestWeighInKg],
-  );
-  const setupBasics = useMemo(
-    () => buildSetupBasicsFromPreferences(preferences, latestWeighInKg),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [setupSelectionKey, latestWeighInKg],
-  );
-  const tailoringKey = JSON.stringify([
-    preferences.setupBodyweightPreference, preferences.setupElbowFriendlySwaps, preferences.setupEquipment,
-    preferences.setupFreeWeightsPreference, preferences.setupKneeFriendlySwaps, preferences.setupMachinesPreference,
-    preferences.setupShoulderFriendlySwaps,
-  ]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const tailoringPreferences = useMemo(() => buildTailoringPreferences(preferences), [tailoringKey]);
-  const setupRecommendation = useMemo(
-    () => (setupSelection ? resolveFirstRunRecommendationWithTailoring(setupSelection, tailoringPreferences) : null),
-    [setupSelection, tailoringPreferences],
-  );
-  const currentFitReadyTemplate = useMemo(
-    () => (setupRecommendation?.featuredProgramId ? getWorkoutTemplateById(setupRecommendation.featuredProgramId) : null),
-    [setupRecommendation?.featuredProgramId],
-  );
-  const recommendedReadyTemplate = useMemo(
-    () => (preferences.recommendedProgramId ? getWorkoutTemplateById(preferences.recommendedProgramId) : null),
-    [preferences.recommendedProgramId],
-  );
-  const recommendedReadyContent = useMemo(
-    () => (recommendedReadyTemplate ? getReadyProgramContent(recommendedReadyTemplate.id, preferences.appLanguage) : null),
-    [recommendedReadyTemplate],
-  );
+  const { premiumTrialEndsAt, analysisSessionId, coachLastSession } = useCoachEntryReadings({
+    route,
+    workoutSessions,
+    database,
+    preferences,
+  });
+  const { availableEquipmentForDrills, routineBlockSeconds, routineSecondsForExercises } = useRoutineBlockCosts({
+    preferences,
+  });
+  const {
+    setupSelection,
+    latestWeighInKg,
+    setupEditSelection,
+    setupBasics,
+    tailoringPreferences,
+    setupRecommendation,
+    currentFitReadyTemplate,
+    recommendedReadyTemplate,
+    recommendedReadyContent,
+  } = useSetupReadings({
+    preferences,
+    bodyweightProgress,
+  });
   const homeActivePlanCard = useMemo(() => {
     const completedPlanSessions = getCanonicalCompletedSessions(database);
     // Local midnight, to date the reader's hand-picked session against. Read
@@ -3487,32 +3371,12 @@ function VinhaApp() {
     homePinnedStatCardKeys,
     homeTrainingSchedule,
   });
-  /**
-   * Home must never say "find a programme" while one is running.
-   *
-   * Removing the lead already promotes the next in line, but that is one path
-   * of several that can empty `activePlanId` — a season leaving, a plan record
-   * being rewritten, a stored value from an older build. Rather than chase each
-   * one, the invariant is repaired wherever it broke: a held programme with no
-   * lead becomes the lead.
-   *
-   * A lead naming a plan that no longer exists is broken the same way — Home
-   * rendered no programme and no row carried the Active tag — and was left
-   * alone because it was not empty (2026-09-16).
-   */
-  useEffect(() => {
-    if (!appHydrated) {
-      return;
-    }
-    const lead = resolveLeadPlanId({
-      activePlanId: preferences.activePlanId,
-      activePlanIds: preferences.activePlanIds,
-      plans: database.workoutPlans,
-    });
-    if (lead !== preferences.activePlanId) {
-      void updatePreferences({ activePlanId: lead });
-    }
-  }, [appHydrated, database.workoutPlans, preferences.activePlanId, preferences.activePlanIds, updatePreferences]);
+  useLeadPlanRepair({
+    appHydrated,
+    preferences,
+    database,
+    updatePreferences,
+  });
 
   const { handleAddHomeWidget } = useHomeWidgetPinState({
     appHydrated,
@@ -4371,57 +4235,12 @@ function VinhaApp() {
     runningProgrammeTitle,
   ]);
 
-  const templateBuilderDraft = useMemo<WorkoutTemplateDraft>(() => {
-    // In the reader's language: the builder keeps any non-empty name it is
-    // given, so "Day 1" here skipped its own Finnish default and was saved as
-    // the day's name (2026-09-14).
-    const dayWord = t(preferences.appLanguage, 'tpl.dayWord');
-    const blankBuilderDays = [1, 2, 3].map((day) => ({ name: `${dayWord} ${day}`, exercises: [] }));
-    if (route.tab !== 'workout' || route.screen !== 'template') {
-      return {
-        name: '',
-        sessions: blankBuilderDays,
-      };
-    }
-
-    if (!route.workoutTemplateId) {
-      return {
-        name: '',
-        sessions: blankBuilderDays,
-      };
-    }
-
-    const template = workoutTemplates.find((item) => item.id === route.workoutTemplateId);
-    if (!template) {
-      return {
-        name: '',
-        sessions: blankBuilderDays,
-      };
-    }
-
-    return {
-      id: template.id,
-      name: template.name,
-      sessions: getWorkoutTemplateSessions(template.id).map((session) => ({
-        id: session.id,
-        name: session.name,
-        exercises: session.exercises.map((exercise) => ({
-          id: exercise.id,
-          name: exercise.name,
-          targetSets: exercise.targetSets,
-          repMin: exercise.repMin,
-          repMax: exercise.repMax,
-          restSeconds: exercise.restSeconds,
-          trackedDefault: exercise.trackedDefault,
-          libraryItemId: exercise.libraryItemId ?? null,
-          // Carried rather than shown: the editor has no superset controls, and
-          // a draft that dropped the field would quietly unpair every superset
-          // in the programme the first time somebody renamed a day here.
-          supersetGroup: exercise.supersetGroup ?? null,
-        })),
-      })),
-    };
-  }, [getWorkoutTemplateSessions, preferences.appLanguage, route, workoutTemplates]);
+  const templateBuilderDraft = useTemplateBuilderDraft({
+    route,
+    preferences,
+    workoutTemplates,
+    getWorkoutTemplateSessions,
+  });
 
   if (!nativeSplashHidden || !hydrated || !workout.hydrated) {
     return <LaunchScreen />;
