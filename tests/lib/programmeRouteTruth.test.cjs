@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 
 const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+const { functionBody } = require('../helpers/sourceSlices.cjs');
 
 /**
  * Programme audit, 2026-09-16: a programme row opens the programme it names,
@@ -153,7 +154,9 @@ module.exports = [
       // hides because the block is no longer finished, and the list it was
       // added to is never cleared — so finishing the same programme a second
       // time was never acknowledged.
-      const restart = code.slice(code.indexOf('async function handleCompletionRestart'), code.indexOf('const activeProgramTemplateIds'));
+      // To its own closing brace: the memo that stood next stays in App.tsx
+      // while the restart moves to src/app (phase C, 2026-10-01).
+      const restart = functionBody(code, 'async function handleCompletionRestart(');
       assert.match(restart, /dismissedCompletionPlanIds: preferences\.dismissedCompletionPlanIds\.filter\(\(id\) => id !== planId\)/);
       assert.doesNotMatch(restart, /await dismissCompletionCard\(planId\);/);
     },

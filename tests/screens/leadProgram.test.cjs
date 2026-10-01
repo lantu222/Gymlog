@@ -3,6 +3,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const appSource = fs.readFileSync(path.join(__dirname, '..', '..', 'App.tsx'), 'utf8');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+const { functionBody } = require('../helpers/sourceSlices.cjs');
 const homeSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'screens', 'HomeScreen.tsx'),
   'utf8',
@@ -23,11 +25,14 @@ module.exports = [
       // Adoption returned early on anything already held, so the only route to
       // changing which programme Home leads with was to REMOVE the other one —
       // a destructive answer to a question about ordering.
-      assert.match(appSource, /async function promoteHeldProgramToLead\(workoutTemplateId: string\)/);
+      // The helper over the shell, to its own closing brace: it moves to
+      // src/app in phase C (2026-10-01). The adoptions calling it stay here.
+      const promote = functionBody(readAppWiring(), 'async function promoteHeldProgramToLead(');
+      assert.match(promote, /async function promoteHeldProgramToLead\(workoutTemplateId: string\)/);
       assert.match(appSource, /if \(options\?\.lead\) \{\s*\r?\n\s*await promoteHeldProgramToLead/);
       // Matched on the template, because the same programme can be held under a
       // plan id minted by onboarding, by adoption, or by a season.
-      assert.match(appSource, /entry\.entries\[0\]\?\.workoutTemplateId === workoutTemplateId/);
+      assert.match(promote, /entry\.entries\[0\]\?\.workoutTemplateId === workoutTemplateId/);
     },
   },
   {

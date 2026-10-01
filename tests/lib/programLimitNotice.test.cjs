@@ -93,12 +93,23 @@ module.exports = [
         /if \(decision\.canUpgrade\) \{\s*navigate\(\{ tab: 'profile', screen: 'premium', reason: 'program_cap' \}\)/,
         'a free reader at the running limit is still sent straight to the paywall',
       );
-      const blocks = app.match(/if \(decision\.canUpgrade\) \{\s*setRunningCapSheet\(\{ visible: true, used: decision\.used, cap: decision\.cap \}\)/g) ?? [];
+      const sheetBlock = /if \(decision\.canUpgrade\) \{\s*setRunningCapSheet\(\{ visible: true, used: decision\.used, cap: decision\.cap \}\)/g;
       // Both adoption paths, switching a held programme back on — which runs
       // under the same cap (device, 2026-09-16) — and resuming a held one from
       // an adoption, which is the same cap again (audit round 4, 2026-09-20).
-      assert.equal(blocks.length, 4, 'every path that starts a programme running shows the sheet');
-      assert.match(body(app, 'async function handleResumeProgram'), /evaluateProgramAdoption\(/);
+      // Counted over the whole shell, and each path by name, to its own
+      // closing brace: phase C (2026-10-01) moves two of the four to src/app.
+      const shell = strip(readAppWiring());
+      assert.equal((shell.match(sheetBlock) ?? []).length, 4, 'every path that starts a programme running shows the sheet');
+      for (const signature of [
+        'async function resumeHeldProgramme(',
+        'async function handleAdoptReadyProgram(',
+        'async function handleResumeProgram(',
+        'async function handleAdoptCustomProgram(',
+      ]) {
+        assert.equal((functionBody(shell, signature).match(sheetBlock) ?? []).length, 1, `${signature} shows the sheet`);
+      }
+      assert.match(functionBody(shell, 'async function handleResumeProgram('), /evaluateProgramAdoption\(/);
       // The sheet itself mounts in the shell's render tail, which may sit in
       // App.tsx or a src/app module; matched within one file.
       assert.ok(
@@ -224,13 +235,14 @@ module.exports = [
   {
     name: 'programme limit: both finishes pass the replaceable id, and a replaced programme stays replaceable',
     run() {
-      const app = read('App.tsx');
+      // Over the shell: the finishes move to src/app in phase C (2026-10-01).
+      const app = strip(readAppWiring());
       // Each finish to its own closing brace, not on to the next declaration.
       for (const signature of ['async function handleOnboardingCompleteToTraining', 'async function handleSetupCompleteToTraining']) {
         assert.match(functionBody(app, signature), /templateDraft: withReplaceableOnboardingId\(savedPlan\.draft\)/);
       }
       assert.match(
-        body(app, 'function withReplaceableOnboardingId'),
+        functionBody(app, 'function withReplaceableOnboardingId('),
         /findReplaceableOnboardingTemplateId\(\{[\s\S]*templates: database\.workoutTemplates,\s*sessions: database\.workoutSessions,/,
       );
 

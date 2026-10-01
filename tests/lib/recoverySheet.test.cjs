@@ -338,11 +338,13 @@ module.exports = [
       // in a src/app module cannot bypass it either.
       assert.equal(wiring.split('startProgrammeWorkout(runtimeTemplate, ').length - 1, 2);
       assert.equal(wiring.split('workout.startCustomWorkout(').length - 1, 1, 'a start bypasses the lighter session');
-      const door = between(app, 'function startProgrammeWorkout(', '\n  }\n');
+      // Over the shell: the door and programmeStart move to src/app in phase C
+      // (2026-10-01), still at two spaces, so each still ends at its own brace.
+      const door = between(wiring, 'function startProgrammeWorkout(', '\n  }\n');
       // The lightening lives in programmeStart, which the door and the
       // coach's preview of the next session both use (2026-09-27).
       assert.match(door, /const start = programmeStart\(runtimeTemplate\);\s*workout\.startCustomWorkout\(start\.template, unit, start\.options\);/);
-      const start = between(app, 'function programmeStart(', '\n  }\n');
+      const start = between(wiring, 'function programmeStart(', '\n  }\n');
       assert.match(start, /lighten \? lightenRuntimeTemplate\(runtimeTemplate\) : runtimeTemplate/);
       assert.match(start, /fatigueSignal: lighten \? lightenedFatigueSignal\(progressionFatigueSignal\) : progressionFatigueSignal/);
       assert.match(door, /updatePreferences\(\{ lightNextSession: null \}\)\.catch\(/, 'a refused spend is swallowed');

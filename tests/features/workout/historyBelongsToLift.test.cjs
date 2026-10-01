@@ -289,7 +289,10 @@ module.exports = [
       assert.doesNotMatch(finish, /finishSaveState\.status === 'saving'/);
       assert.match(finish, /finally \{\s*finishInFlightRef\.current = false;\s*\}/);
 
-      const remove = app.slice(app.indexOf('async function handleDeleteCompletedSession('), app.indexOf('async function handleDismissTip('));
+      // The delete over the whole shell: App.tsx or the src/app module it
+      // stands in.
+      const remove = functionBody(readAppWiring().replace(/\r\n/g, '\n'), 'async function handleDeleteCompletedSession(');
+      assert.ok(remove.indexOf('await deleteCompletedWorkoutSession(sessionId);') >= 0);
       assert.ok(remove.indexOf('await deleteCompletedWorkoutSession(sessionId);') < remove.indexOf('workout.forgetHistorySession(sessionId);'));
       assert.match(app, /deleteCompletedWorkoutSession: handleDeleteCompletedSession,/);
     },

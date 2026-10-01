@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { readAppWiring } = require('../helpers/appWiringSource.cjs');
-const { between, windowBefore } = require('../helpers/sourceSlices.cjs');
+const { between, functionBody, windowBefore } = require('../helpers/sourceSlices.cjs');
 
 const ROOT = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8').replace(/\r\n/g, '\n');
@@ -24,7 +24,9 @@ module.exports = [
   {
     name: 'photo import: the notice the privacy policy promises is shown before the photo leaves',
     run() {
-      const app = strip(read('App.tsx'));
+      // The photo import over the whole shell: it moves from VinhaApp to a
+      // src/app module in phase C (2026-10-01).
+      const app = strip(readAppWiring().replace(/\r\n/g, '\n'));
 
       // The policy, in both languages, says the online mode is entered by
       // reading a notice — and names importing from a photo as one of its
@@ -88,8 +90,13 @@ module.exports = [
       }
       // And the notice is asked BEFORE the picker opens, not after a photo has
       // been chosen.
+      // Inside the import itself, to its own closing brace: over the whole
+      // file a missing picker read as -1 and the order as broken, and a
+      // missing notice as -1 and the order as kept.
+      const importer = functionBody(app, 'async function pickProgramImageForImport()');
+      assert.ok(importer.indexOf('askPhotoOnlineNotice()') >= 0, 'the import no longer asks the notice');
       assert.ok(
-        app.indexOf('askPhotoOnlineNotice()') < app.indexOf('await pickProgramImage()'),
+        importer.indexOf('askPhotoOnlineNotice()') < importer.indexOf('await pickProgramImage()'),
         'the photo is picked only after the notice is answered',
       );
 
@@ -107,7 +114,9 @@ module.exports = [
   {
     name: 'photo import: a reader who backs out is not told their photo was unreadable',
     run() {
-      const app = strip(read('App.tsx'));
+      // The import itself, over the shell, to its own closing brace: it moves
+      // to src/app in phase C (2026-10-01).
+      const app = functionBody(strip(readAppWiring().replace(/\r\n/g, '\n')), 'async function pickProgramImageForImport()');
       const sheet = strip(read('src', 'components', 'NewProgramSheet.tsx'));
 
       // Four endings, three answers: read, the reader ended it, or it failed.

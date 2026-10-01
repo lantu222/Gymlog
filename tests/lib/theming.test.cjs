@@ -119,8 +119,9 @@ module.exports = [
       const app = read('App.tsx');
       // Opened by the entry-flow handler, so the answer is in before the
       // questionnaire the reader then has to look at.
+      // Over the shell: the handler moves to src/app in phase C (2026-10-01).
       assert.match(
-        app,
+        readAppWiring(),
         /async function handleContinueEntry\(\)[\s\S]{0,700}?setThemeChoiceVisible\(true\)/,
       );
       // And the dialog closes onto the flow rather than navigating: it used to

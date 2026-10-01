@@ -4,6 +4,7 @@ const path = require('node:path');
 
 const root = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(root, ...parts), 'utf8').split('\r\n').join('\n');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 const KEYS = ['aiLogChatConsent', 'aiLogComposerConsent', 'aiLogPhotoConsent'];
 
@@ -141,7 +142,9 @@ module.exports = [
       const chat = read('src', 'screens', 'AICoachChatScreen.tsx');
       assert.match(chat, /keepConsent: logConsent\.chat/);
       assert.match(read('src', 'app', 'renderHomeScreens.tsx'), /keepConsent: preferences\.aiLogComposerConsent/);
-      assert.match(read('App.tsx'), /keepConsent: preferences\.aiLogPhotoConsent/);
+      // The photo import's request, over the shell: it moves to src/app in
+      // phase C (2026-10-01).
+      assert.match(readAppWiring(), /keepConsent: preferences\.aiLogPhotoConsent/);
     },
   },
   {

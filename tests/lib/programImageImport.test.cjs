@@ -210,7 +210,10 @@ module.exports = [
       // The sheet defaults proUnlocked to true, so the paid call checks the
       // entitlement itself before anything else, notice included.
       const wiring = readAppWiring();
-      const body = functionBody(wiring, 'async function pickProgramImageForImport');
+      // To its own closing brace: sliced to the end of the shell, a check
+      // missing here could be met by any code after it (phase C, 2026-10-01,
+      // moves the import to src/app, with modules behind it).
+      const body = functionBody(wiring, 'async function pickProgramImageForImport()');
       const gate = body.indexOf('if (!resolveProEntitlement(preferences).unlocked)');
       assert.ok(gate > 0, 'pickProgramImageForImport checks the entitlement');
       assert.ok(gate < body.indexOf('askPhotoOnlineNotice'), 'before the notice and the picker');
