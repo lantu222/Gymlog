@@ -20,29 +20,6 @@ function between(source, from, to) {
 }
 
 /**
- * From `start` through the bracket that closes the first `opener` at or after
- * it — `through(src, 'useEffect(() => {', '{')` is that effect's body.
- */
-function through(source, start, opener = '{') {
-  const pairs = { '{': '}', '(': ')', '[': ']' };
-  const closer = pairs[opener];
-  assert.ok(closer, `unknown opener: ${opener}`);
-  const from = source.indexOf(start);
-  assert.ok(from >= 0, `anchor missing: ${start}`);
-  const open = source.indexOf(opener, from);
-  assert.ok(open >= 0, `no ${opener} after ${start}`);
-  let depth = 0;
-  for (let i = open; i < source.length; i += 1) {
-    if (source[i] === opener) depth += 1;
-    else if (source[i] === closer) {
-      depth -= 1;
-      if (depth === 0) return source.slice(from, i + 1);
-    }
-  }
-  assert.fail(`unbalanced ${opener} after ${start}`);
-}
-
-/**
  * The whole declaration that starts at `signature` (which must be unique):
  * the parameter list is skipped by paren matching, then the body is matched
  * brace for brace. The body must close on a line that is exactly the
@@ -65,7 +42,7 @@ function functionBody(source, signature) {
       if (depth === 0) break;
     }
   }
-  const open = source.indexOf('{', i);
+  const open = bodyOpen(source, i + 1);
   assert.ok(open >= 0, `no body after ${signature}`);
   depth = 0;
   for (let j = open; j < source.length; j += 1) {
@@ -86,6 +63,38 @@ function functionBody(source, signature) {
   assert.fail(`unbalanced body after ${signature}`);
 }
 
+/**
+ * The `{` that opens a function's body, scanning from just after its
+ * parameter list. A return type is stepped over: braces inside `<…>`, `(…)` or
+ * `[…]` belong to the type (`Promise<{ id: string } | null>`), and so does an
+ * object type written straight after `:`, `|`, `&` or `,`. -1 if none.
+ */
+function bodyOpen(source, from) {
+  let at = from;
+  while (at < source.length && /\s/.test(source[at])) at += 1;
+  if (source[at] !== ':') return source.indexOf('{', from);
+  let nesting = 0;
+  let previous = ':';
+  for (let i = at + 1; i < source.length; i += 1) {
+    const char = source[i];
+    if (char === '(' || char === '[' || char === '<') nesting += 1;
+    else if (char === ')' || char === ']' || (char === '>' && source[i - 1] !== '=')) nesting -= 1;
+    else if (char === '{') {
+      if (nesting === 0 && !':|&,'.includes(previous)) return i;
+      let braces = 0;
+      for (; i < source.length; i += 1) {
+        if (source[i] === '{') braces += 1;
+        else if (source[i] === '}') {
+          braces -= 1;
+          if (braces === 0) break;
+        }
+      }
+    }
+    if (!/\s/.test(source[i])) previous = source[i];
+  }
+  return -1;
+}
+
 /** The `n` characters before `anchor`, which must be unique and at least `n` characters in. */
 function windowBefore(source, anchor, n) {
   const at = source.indexOf(anchor);
@@ -95,14 +104,4 @@ function windowBefore(source, anchor, n) {
   return source.slice(at - n, at);
 }
 
-/**
- * From `anchor` to the end of the source. A presence assert to put in front of
- * any doesNotMatch, so the absence is checked over code that is really there.
- */
-function region(source, anchor) {
-  const at = source.indexOf(anchor);
-  assert.ok(at >= 0, `anchor missing: ${anchor}`);
-  return source.slice(at);
-}
-
-module.exports = { between, through, functionBody, windowBefore, region };
+module.exports = { between, functionBody, windowBefore };
