@@ -30,8 +30,8 @@ lists what iOS needs beyond it.
    "Sign in with Apple" capability on the App ID if EAS has not already.
 4. Build: `npx eas build -p ios --profile production`, then
    `npx eas submit -p ios` → TestFlight.
-5. Store listing: 6.7" and 6.5" iPhone screenshots (iPad too, since
-   `supportsTablet` is on), privacy nutrition labels (mirror
+5. Store listing: 6.7" and 6.5" iPhone screenshots (no iPad: `supportsTablet` is off
+   for 1.0, iPads run the iPhone layout), privacy nutrition labels (mirror
    `docs/play-data-safety.md`), support URL, privacy policy URL.
 6. Once App Store Connect gives the listing its id, set both
    `EXPO_PUBLIC_APP_STORE_URL` (app build: invite link, "Rate Vinha" row —
@@ -53,4 +53,5 @@ custom review prompts — and "Rate Vinha" opens the write-review page.
 - **Real billing, on both platforms.** Pro is still the simulated purchase of
   the demo build (`extra.demoBuild`); neither store charges yet.
 
+- iPad layout (`supportsTablet: false` until it has been designed and tested).
 - Home-screen widget (needs a WidgetKit extension in Swift).
