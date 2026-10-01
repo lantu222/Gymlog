@@ -8,7 +8,6 @@ import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 
 import { AppShell } from './src/components/AppShell';
-import { BottomTabBar } from './src/components/BottomTabBar';
 import { getMonthTrainingTotals } from './src/lib/dashboard';
 import { formatDurationMinutes, formatRepRange, formatSetScheme, formatShortDate, formatTime, formatVolume, formatWeight, pluralize, removeTrailingZeros } from './src/lib/format';
 import { createId } from './src/lib/ids';
@@ -16,7 +15,6 @@ import { HistoryScrollMemory } from './src/lib/historyScrollMemory';
 import {
   buildFirstRunRecommendationReasons,
   FirstRunSetupSelection,
-  getFocusAreaTitle,
   isSetupDaysPerWeek,
   resolveFirstRunRecommendationWithTailoring,
 } from './src/lib/firstRunSetup';
@@ -36,7 +34,7 @@ import {
 import { buildHomeWidgetPayload, HomeWidgetTarget, resolveHomeWidgetSessionTap } from './src/lib/widgetPayload';
 import { parseWidgetDeepLink } from './src/lib/widgetDeepLink';
 import { planSetupHandoff } from './src/lib/setupHandoff';
-import { SetupHandoffChoices, SetupHandoffScreen } from './src/screens/SetupHandoffScreen';
+import { SetupHandoffChoices } from './src/screens/SetupHandoffScreen';
 import { LegalDocumentScreen } from './src/screens/LegalDocumentScreen';
 import { LEGAL_LAST_UPDATED, formatLegalDate, type LegalDocumentId } from './src/lib/legalDocuments';
 import { acceptLegal, legalAcceptanceDue } from './src/lib/legalAcceptance';
@@ -108,7 +106,6 @@ import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVi
 import { I18nKey, t } from './src/lib/i18n';
 import { buildCoachModules } from './src/lib/aiCoachModules';
 import { isProUnlocked, resolveProEntitlement, resolveProgressionOptions } from './src/lib/proEntitlement';
-import { ThemeChoiceDialog } from './src/components/ThemeChoiceDialog';
 import { resolveThemeName } from './src/lib/themePreference';
 import { localizeSessionFocus, localizeSessionName } from './src/lib/sessionNameLabel';
 import { trackEvent } from './src/features/analytics/analyticsClient';
@@ -124,7 +121,6 @@ import {
 } from './src/lib/programSessionEdit';
 import { hasOnlyEmptyDays, nextStartableSessionIndex } from './src/lib/programSessionList';
 import { ProgramLimitReachedError } from './src/lib/programSlots';
-import { createUnlessAtLimit } from './src/app/programLimitGuard';
 import { useProgramExerciseEdit } from './src/app/useProgramExerciseEdit';
 import {
   ProgramSeason,
@@ -143,7 +139,6 @@ import {
   seasonWeek,
   seasonWeeksLeft,
 } from './src/lib/season';
-import { isMeasurementCardKey } from './src/lib/homeStatCards';
 import { planTrainedOnDay, resolveNextPlanEntryIndex } from './src/lib/planRotation';
 import { alignHistoryToCopiedDays, programmeHistoryIds } from './src/lib/programLineage';
 import { cycleSchedule, weekdaySchedule, withRestDays } from './src/lib/trainingSchedule';
@@ -180,9 +175,7 @@ import {
   PROGRAM_CATEGORIES,
   ProgramCategoryKey,
 } from './src/lib/programCategories';
-import { ProgramLimitSheet } from './src/components/ProgramLimitSheet';
-import { RateAppSheet } from './src/components/RateAppSheet';
-import { decideRatingPrompt, recordRatingAsked, recordRatingCompleted } from './src/lib/ratingPrompt';
+import { decideRatingPrompt, recordRatingAsked } from './src/lib/ratingPrompt';
 
 /**
  * The listing, opened by every star. Not the in-app review API: Google's own
@@ -200,9 +193,6 @@ import {
   SessionAdaptation,
   spendHeldAdaptation,
   updateHeldAdaptation,
-  withoutSessionDrop,
-  withSessionDrop,
-  withSessionSwap,
 } from './src/lib/sessionAdaptation';
 import { buildTailoringPreferences } from './src/lib/tailoringFit';
 import { forgetRoutesForTemplate, popRoute, pushRoute, withoutTrailingRoute } from './src/navigation/routeHistory';
@@ -212,6 +202,10 @@ import { backSkipsHistory, getBackRoute } from './src/app/backRoute';
 import { renderProfileTab } from './src/app/renderProfileTab';
 import { resolveTodaySessionPick } from './src/lib/todaySessionPick';
 import { renderHomeScreens } from './src/app/renderHomeScreens';
+import { renderAppShell } from './src/app/renderAppShell';
+import { renderHomeDashboard } from './src/app/renderHomeDashboard';
+import { renderOnboardingFlow, renderSetupEditor, renderSetupHandoff } from './src/app/renderOnboarding';
+import { renderWorkoutCompletion } from './src/app/renderWorkoutCompletion';
 import { renderWorkoutTab } from './src/app/renderWorkoutTab';
 import { renderProgressTab } from './src/app/renderProgressTab';
 import { formatGoalLabel, formatHomeSessionTitle } from './src/app/homeSessionTitle';
@@ -246,13 +240,8 @@ import { useHomeStatCards } from './src/app/useHomeStatCards';
 import { useCoachAdviceMemory } from './src/app/useCoachAdviceMemory';
 import { useCustomProgramViews } from './src/app/useCustomProgramViews';
 import { buildSessionAnalysis } from './src/lib/sessionAnalysis';
-import { AboutYouScreen, AboutYouValues } from './src/screens/AboutYouScreen';
+import { AboutYouValues } from './src/screens/AboutYouScreen';
 import { LaunchScreen } from './src/screens/LaunchScreen';
-import { HomeScreen } from './src/screens/HomeScreen';
-import { OnboardingScreen } from './src/screens/OnboardingScreen';
-import { OnboardingReadyCatalogScreen } from './src/screens/OnboardingReadyCatalogScreen';
-import { StartPathScreen } from './src/screens/StartPathScreen';
-import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { setNumberLanguage } from './src/lib/format';
 import { programTableToCsv } from './src/lib/programImageImport';
 import { pickProgramImage, type ProgramImageImportResult } from './src/utils/programImagePicker';
@@ -264,15 +253,12 @@ import { isAiCoachLiveConfigured, requestProgramTableFromImage } from './src/lib
 import { accountNameStep } from './src/lib/accountNameAdoption';
 import type { CatalogScreenItem } from './src/screens/CatalogScreen';
 import { ProgramsExploreItem } from './src/screens/ProgramsHomeScreen';
-import { WorkoutCompletionScreen } from './src/screens/WorkoutCompletionScreen';
 import { FreestyleFinishSummary } from './src/lib/emptyWorkoutSession';
 import { WorkoutProvider, useWorkoutContext } from './src/features/workout/WorkoutProvider';
 import { AdaptedCompletedWorkoutExercise, adaptCompletedWorkoutSessionForAppDatabase } from './src/features/workout/workoutAppAdapter';
 import { getWorkoutTemplateById, WORKOUT_TEMPLATES_V1 } from './src/features/workout/workoutCatalog';
 import { isTimedTrackingMode } from './src/features/workout/workoutTypes';
 import { AppProvider, useAppContext } from './src/state/AppProvider';
-import { AppUpdateDialog } from './src/features/appUpdate/AppUpdateDialog';
-import { ServerNoticeDialog } from './src/features/serverNotice/ServerNoticeDialog';
 import { rememberServerNotice } from './src/lib/serverNotice';
 import { registerAppIdentity } from './src/features/appUpdate/appUpdateSignal';
 import { appInfo } from './src/theme';
@@ -5073,192 +5059,56 @@ function VinhaApp() {
   let content: React.ReactNode = null;
 
   if (onboardingActive) {
-    if (entryFlowActive) {
-      content = (
-        <WelcomeScreen
-          language={preferences.appLanguage}
-          onChangeLanguage={(nextLanguage) => void updatePreferences({ appLanguage: nextLanguage })}
-          onContinue={() => void handleContinueEntry()}
-        />
-      );
-    } else if (onboardingStep === 'path') {
-      content = (
-        <StartPathScreen
-          language={preferences.appLanguage}
-          // Both paths go straight to about-you. A Health Connect step used to
-          // sit here and was removed for v1 on 2026-08-11: it imported exactly
-          // two numbers that the next screen asks for anyway, and on a real
-          // Galaxy A54 it imported nothing at all — the break is between
-          // Samsung Health and Health Connect, outside this app, and only adb
-          // can see it. A user just taps and watches nothing happen, in the
-          // first minute, before the app has shown any value. Health returns in
-          // v2 under Settings, and as an export of finished workouts rather
-          // than an import of body stats.
-          onGuidedOnboarding={() => {
-            setOnboardingStep('about');
-          }}
-          /**
-           * In with nothing at all (user 2026-08-31).
-           *
-           * A reader who wants to look around before committing had to answer
-           * a questionnaire or adopt a programme first — the front door had no
-           * handle for "not yet". No plan, no template, no questionnaire:
-           * `setupCompleted` stays false, so Profile still offers to fill the
-           * profile in later, and Home shows its no-programme state rather
-           * than a plan nobody chose.
-           */
-          onStartEmpty={() => {
-            void completeOnboarding({
-              onboardingCompleted: true,
-              setupCompleted: false,
-              trainingFirstRunDismissed: false,
-              // The handoff's two offers are skipped too: they are the
-              // friction this path exists to escape, and both live in
-              // Settings for whenever the reader wants them.
-              setupHandoffCompleted: true,
-            })
-              .then(() => {
-                // Counted once it has happened, not when it was asked for.
-                trackEvent('onboarding_completed', { path: 'empty' });
-                navigate({ tab: 'home', screen: 'dashboard' });
-              })
-              // A refused write left the reader on this screen with no word
-              // about why the button did nothing (2026-09-17).
-              .catch((error) => {
-                console.error('Failed to start empty', error);
-                showToast(t(preferences.appLanguage, 'toast.startEmptyFailed'));
-              });
-          }}
-          onBrowsePrograms={() => {
-            // Straight to the catalog. This fork used to detour through the
-            // About-you form first, which is the opposite of what the card
-            // promises ("choose the program you want yourself") — the reader
-            // asked to skip the questions and got a form. Nothing downstream
-            // needs the answers: handleOnboardingPickReadyProgram already
-            // reads every basic through `aboutYouValues?.` and stores null.
-            // The profile is filled in later, from Settings.
-            setOnboardingStep('ready_catalog');
-          }}
-          onBack={() => void handleBackToEntry()}
-        />
-      );
-    } else if (onboardingStep === 'about') {
-      content = (
-        <AboutYouScreen
-          language={preferences.appLanguage}
-          initialValues={aboutYouValues}
-          onContinue={(values) => {
-            setAboutYouValues(values);
-            // Only the build path opens About; the ready path goes from the
-            // fork straight to the catalogue.
-            setOnboardingStep('questionnaire');
-          }}
-          onBack={() => setOnboardingStep('path')}
-        />
-      );
-    } else if (onboardingStep === 'ready_catalog') {
-      content = (
-        <OnboardingReadyCatalogScreen
-          language={preferences.appLanguage}
-          busy={busySavingReadyPick}
-          onPick={(programId) => void handleOnboardingPickReadyProgram(programId)}
-          // Back goes where the reader came from, which is the fork — not the
-          // About form they deliberately did not open.
-          onBack={() => setOnboardingStep('path')}
-        />
-      );
-    } else {
-      content = (
-        <OnboardingScreen
-          initialUnitPreference={unitPreference}
-          language={preferences.appLanguage}
-          tailoringPreferences={tailoringPreferences}
-          readyProgramCount={workout.templates.length}
-          dismissedTipIds={dismissedTipIds}
-          basicsSeed={
-            aboutYouValues
-              ? {
-                  gender: aboutYouValues.gender ?? 'unspecified',
-                  ageRange: aboutYouValues.ageRange,
-                  currentWeightKg: aboutYouValues.weightKg,
-                }
-              : null
-          }
-          onDismissTip={handleDismissTip}
-          onBackToEntry={() => setOnboardingStep('about')}
-          onCompleteToTraining={handleOnboardingCompleteToTraining}
-          onFullBleedReviewChange={setFullBleedReview}
-        />
-      );
-    }
+    content = renderOnboardingFlow({
+      entryFlowActive,
+      onboardingStep,
+      setOnboardingStep,
+      preferences,
+      updatePreferences,
+      handleContinueEntry,
+      completeOnboarding,
+      navigate,
+      showToast,
+      handleBackToEntry,
+      aboutYouValues,
+      setAboutYouValues,
+      busySavingReadyPick,
+      handleOnboardingPickReadyProgram,
+      unitPreference,
+      tailoringPreferences,
+      workout,
+      dismissedTipIds,
+      handleDismissTip,
+      handleOnboardingCompleteToTraining,
+      setFullBleedReview,
+    });
   } else if (setupHandoffActive && setupHandoffPlan) {
     // Between the last question and the app. The route behind this is already
     // the one onboarding chose, so finishing here just uncovers it.
-    content = (
-      <>
-      <SetupHandoffScreen
-        language={preferences.appLanguage}
-        plan={setupHandoffPlan}
-        focusLabel={
-          setupHandoffPlan.tracking?.focus
-            ? getFocusAreaTitle(setupHandoffPlan.tracking.focus, preferences.appLanguage)
-            : null
-        }
-        onDone={(choices) => void handleSetupHandoffDone(choices)}
-        onSkip={() =>
-          void handleSetupHandoffDone({
-            addWidget: false,
-            signInForBackup: false,
-            showPro: false,
-            trackedSites: [],
-            legalAccepted: false,
-          })
-        }
-        onOpenLegal={(document) => setHandoffLegalDocument(document)}
-        legalAlreadyAccepted={
-          legalAcceptanceDue(preferences.legalAcceptance, LEGAL_LAST_UPDATED) === null
-        }
-      />
-      {/* Over the hand-off, never instead of it (2026-09-10). The screen owns
-          the reader's answers in local state — which page they are on, which
-          sites they picked, whether they asked for the widget — so swapping it
-          out to show a document threw all of that away and put them back on
-          page one. Reading the policy is not a decision to unmake. */}
-      {handoffLegalDocument ? (
-        <View style={LEGAL_OVER_HANDOFF}>
-          <LegalDocumentScreen
-            document={handoffLegalDocument}
-            language={preferences.appLanguage}
-            onBack={() => setHandoffLegalDocument(null)}
-          />
-        </View>
-      ) : null}
-      </>
-    );
+    content = renderSetupHandoff({
+      preferences,
+      setupHandoffPlan,
+      handleSetupHandoffDone,
+      setHandoffLegalDocument,
+      handoffLegalDocument,
+      LEGAL_OVER_HANDOFF,
+    });
   } else if (route.tab === 'profile' && route.screen === 'setup') {
-    content = (
-      <OnboardingScreen
-        key={`setup:${preferences.recommendedProgramId ?? 'none'}:${preferences.setupCompleted ? 'complete' : 'pending'}:${route.stage ?? 'default'}`}
-        mode="edit"
-        // Answers only for a reader who gave them. One who started empty or
-        // picked from the catalogue was handed the questionnaire's defaults
-        // here, and finishing wrote those over their My Data — gender, age,
-        // height, weight, rhythm (2026-09-17). They get what they entered as
-        // basics, and the questions open unanswered.
-        initialSelection={setupEditSelection}
-        basicsSeed={setupEditSelection ? null : setupBasics}
-        initialStage={route.stage ?? (setupSelection ? 'review' : 'location')}
-        initialUnitPreference={unitPreference}
-        language={preferences.appLanguage}
-        tailoringPreferences={tailoringPreferences}
-        readyProgramCount={workout.templates.length}
-        dismissedTipIds={dismissedTipIds}
-        onDismissTip={handleDismissTip}
-        onCancel={() => navigateBack(ROOT_ROUTES.profile)}
-        onCompleteToTraining={handleSetupCompleteToTraining}
-        onSaveLimitations={route.stage === 'avoid' ? handleSaveSetupLimitations : undefined}
-      />
-    );
+    content = renderSetupEditor({
+      route,
+      preferences,
+      setupEditSelection,
+      setupBasics,
+      setupSelection,
+      unitPreference,
+      tailoringPreferences,
+      workout,
+      dismissedTipIds,
+      handleDismissTip,
+      navigateBack,
+      handleSetupCompleteToTraining,
+      handleSaveSetupLimitations,
+    });
   } else if (
     route.tab === 'home' &&
     (route.screen === 'cardio' ||
@@ -5309,62 +5159,20 @@ function VinhaApp() {
       sessionAnalysis,
     });
   } else if (route.tab === 'workout' && route.screen === 'summary' && completionSummary) {
-    content = (
-      <WorkoutCompletionScreen
-        language={preferences.appLanguage}
-        weekProgress={completionWeekProgress}
-        nextUp={guidedNextUp}
-        workoutName={completionSummary.workoutName}
-        performedAt={completionSummary.performedAt}
-        durationMinutes={completionSummary.durationMinutes}
-        setsCompleted={completionSummary.setsCompleted}
-        exercisesLogged={completionSummary.exercisesLogged}
-        muscles={completionSummary.muscles}
-        exerciseCards={completionSummary.exerciseCards}
-        whatMoved={completionSummary.whatMoved}
-        movementById={completionSummary.movementById}
-        prCards={completionSummary.prCards}
-        // Moment 1 is for free users only — Pro gets the conclusions unlocked
-        // at the surfaces where they live, not a lock on its own screen.
-        lockedInsight={
-          !coachProUnlocked && proCompletionMoment
-            ? {
-                teaser: proCompletionMoment.conclusion.teaser,
-                body: proCompletionMoment.conclusion.body,
-                moment: proCompletionMoment.moment,
-              }
-            : null
-        }
-        onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
-        demoQuestion={coachDemoQuestion}
-        onSendDemoQuestion={() => {
-          if (!coachDemoMoment || !coachDemoQuestion) {
-            return;
-          }
-          // Spending it HERE was wrong, and the device found it: the chat
-          // will not send while the online disclosure is unacknowledged, so a
-          // reader who met that sheet for the first time and backed out lost
-          // one of three answers without ever getting one. The moment is now
-          // spent by the chat, at the moment it actually dispatches the send.
-          navigate({
-            tab: 'home',
-            screen: 'ai_chat',
-            demoQuestion: coachDemoQuestion,
-            demoMomentKey: coachDemoMoment.key,
-          });
-        }}
-        onDone={(feel) => {
-          // The verdict lands on the already-saved session; leaving does not
-          // wait for the write (it goes through the same serial queue every
-          // other database write uses).
-          if (feel) {
-            void updateCompletedWorkoutSession(completionSummary.sessionId, { feel });
-          }
-          workout.clearCompletedWorkout();
-          leaveFinishedWorkout(ROOT_ROUTES.home);
-        }}
-      />
-    );
+    content = renderWorkoutCompletion({
+      preferences,
+      completionWeekProgress,
+      guidedNextUp,
+      completionSummary,
+      coachProUnlocked,
+      proCompletionMoment,
+      navigate,
+      coachDemoQuestion,
+      coachDemoMoment,
+      updateCompletedWorkoutSession,
+      workout,
+      leaveFinishedWorkout,
+    });
   } else if (route.tab === 'workout') {
     // Every route-pure workout branch. `summary` and `celebration` sit above
     // this on purpose: their guards read finish-flow state, and when that
@@ -5557,230 +5365,47 @@ function VinhaApp() {
   // finish-flow state was just cleared): both land on Home, exactly as the
   // chain's final else always did.
   if (content == null) {
-    content = (
-      <HomeScreen
-        language={preferences.appLanguage}
-        tourTargets={tourRegistry}
-        tourFocus={tourFocus}
-        onOpenSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
-        activePlan={homeActivePlanCard}
-        emptyProgramme={homeEmptyProgramme}
-        onOpenEmptyProgramme={() => {
-          if (homeEmptyProgramme) {
-            navigate({
-              tab: 'workout',
-              screen: 'program',
-              programType: 'custom',
-              workoutTemplateId: homeEmptyProgramme.workoutTemplateId,
-            });
-          }
-        }}
-        onCompletionStartNext={(planId, templateId) => void handleCompletionStartNext(planId, templateId)}
-        onCompletionRestart={(planId) => void handleCompletionRestart(planId)}
-        onCompletionDismiss={(planId) => void dismissCompletionCard(planId)}
-        onCompletionBrowse={(planId) => {
-          void dismissCompletionCard(planId);
-          navigate(ROOT_ROUTES.workout);
-        }}
-        otherPrograms={homeOtherPrograms}
-        programCapLine={programCapLine}
-        onOpenOtherProgram={(planId) => {
-          const plan = database.workoutPlans.find((entry) => entry.id === planId);
-          const templateId = plan?.entries[0]?.workoutTemplateId;
-          if (templateId) {
-            handleOpenProgramDetail(templateId);
-          }
-        }}
-        onRemoveOtherProgram={(planId) => void handleRemoveActiveProgram(planId)}
-        availableEquipment={availableEquipmentForDrills}
-        routineDrillOverrides={preferences.routineDrillOverrides}
-        // Permanent by nature: the drills are generated from the session's
-        // focus, so the choice belongs to every day with that focus rather
-        // than to today. There is no "just this time" to offer.
-        onSwapRoutineDrill={(slotKey, drillKey) =>
-          void updatePreferences((current) => ({
-            routineDrillOverrides: { ...current.routineDrillOverrides, [slotKey]: drillKey },
-          }))
-        }
-        widgetPrompt={
-          !homeTourActive && homeWidgetState?.supported && !homeWidgetState.added && !preferences.homeWidgetPromptDismissed
-            ? {
-                onAdd: () => void handleAddHomeWidget(),
-                onDismiss: () => void updatePreferences({ homeWidgetPromptDismissed: true }),
-              }
-            : null
-        }
-        accountBackupPrompt={
-          // One prompt at a time, and this one waits for the third logged
-          // session (lib/homePrompts): a fresh install has nothing worth
-          // backing up, and the account ask is the one most likely to be
-          // both refused and remembered.
-          homePrompt === 'signIn'
-            ? {
-                onSignIn: () => {
-                  void handleAccountSignIn().then((kind) => {
-                    // An answered offer never returns; a cancelled sheet or a
-                    // failure leaves it up for another try or a real dismissal.
-                    if (kind === 'backed_up' || kind === 'restored' || kind === 'choice' || kind === 'confirm_upload') {
-                      void updatePreferences({ accountBackupPromptDismissed: true });
-                    }
-                  });
-                },
-                onDismiss: () => void updatePreferences({ accountBackupPromptDismissed: true }),
-              }
-            : null
-        }
-        trainingSchedule={homeTrainingSchedule}
-        doneThisWeekSessionIds={homeDoneThisWeekSessionIds}
-        statCatalogCards={homeStatCatalogCards}
-        suggestedStatCardKeys={homePrompt === 'suggestion' ? homeSuggestedStatCardKeys : []}
-        onDismissStatCardSuggestion={(key) =>
-          void updatePreferences((current) => ({
-            dismissedCardSuggestionKeys: [...current.dismissedCardSuggestionKeys, key],
-          }))
-        }
-        pinnedStatCardKeys={homePinnedStatCardKeys}
-        onChangePinnedStatCardKeys={(next) => void updatePreferences({ homeStatCardKeys: next })}
-        onOpenStatCard={(key) => {
-          // Each card opens the surface where its data is tracked and logged.
-          if (key === 'bodyweight') {
-            navigate({ tab: 'progress', screen: 'bodyweight' });
-            return;
-          }
-          if (isMeasurementCardKey(key)) {
-            // The card's own measurement, selected and ready to log — not
-            // the section on whatever was picked last.
-            navigate({ tab: 'progress', screen: 'list', section: 'measures', measure: key });
-            return;
-          }
-          if (key.startsWith('lift:')) {
-            navigate({ tab: 'progress', screen: 'detail', exerciseKey: key.slice('lift:'.length) });
-          }
-        }}
-        sessionSwaps={homeSessionAdaptation.swaps}
-        onSwapSessionExercise={(slotId, exerciseName) =>
-          adaptHomeSession((current) => withSessionSwap(current, slotId, exerciseName))
-        }
-        sessionDrops={homeSessionAdaptation.drops}
-        onDropSessionExercise={(slotId) => adaptHomeSession((current) => withSessionDrop(current, slotId))}
-        onRestoreSessionExercise={(slotId) => adaptHomeSession((current) => withoutSessionDrop(current, slotId))}
-        onRemoveSessionExercise={(exerciseId) => {
-          const sessionId = homeActivePlanCard?.nextSession?.id;
-          if (homeActivePlanCard && sessionId) {
-            void handleEditProgramExercise(
-              homeActivePlanCard.programType,
-              homeActivePlanCard.programId,
-              sessionId,
-              exerciseId,
-              { kind: 'remove' },
-            );
-          }
-        }}
-        onKeepSwapInProgram={(exerciseId, exerciseName) => {
-          const sessionId = homeActivePlanCard?.nextSession?.id;
-          if (homeActivePlanCard && sessionId) {
-            void handleEditProgramExercise(
-              homeActivePlanCard.programType,
-              homeActivePlanCard.programId,
-              sessionId,
-              exerciseId,
-              { kind: 'replace', exerciseName },
-            );
-          }
-        }}
-        tailoringPreferences={preferences}
-        exerciseLibrary={exerciseBrowserItems}
-        // Paused counts: it is still a session the button resumes.
-        hasActiveSession={workout.activeSession !== null && workout.activeSession.status !== 'completed'}
-        onPickTodaySession={(sessionId) => void handlePickTodaySession(sessionId)}
-        // Ready programmes are immutable at runtime, so the pencil is simply
-        // not offered for them rather than offered and inert.
-        onRenameSession={
-          homeActivePlanCard?.programType === 'custom'
-            ? (sessionId, name) => void handleRenameProgramSession(homeActivePlanCard.programId, sessionId, name)
-            : undefined
-        }
-        onStartActivePlanSession={(sessionId) => {
-          if (!homeActivePlanCard) {
-            return;
-          }
-
-          if (homeActivePlanCard.programType === 'custom') {
-            handleStartCustomProgramSession(homeActivePlanCard.programId, sessionId);
-            return;
-          }
-
-          handleStartReadyProgramSession(homeActivePlanCard.programId, sessionId);
-        }}
-        // Through the cardio guard like every other start: the empty workout
-        // began over a run still on the clock, and left two sessions live.
-        onCreateWorkoutFromExercises={() =>
-          guardStrengthStartOverCardio(() => navigate({ tab: 'workout', screen: 'empty' }))
-        }
-        // No programme to start: the hero button goes to the catalog instead of
-        // offering an empty session the "empty workout" row already offers.
-        //
-        // `navigate`, not `navigateToTab`: the bar resets history because a tab
-        // is where you START, but this is a button inside a screen, and it left
-        // the reader on Programs with nothing behind them — the next Back
-        // closed the app.
-        onFindProgram={() => navigate(resolveTabRoute('workout'))}
-        onOpenCardio={() => navigate({ tab: 'home', screen: 'cardio' })}
-        activeCardioActivity={workout.activeCardio?.activityType ?? null}
-        onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
-        plateau={
-          proPlateau
-            ? {
-                headline: proPlateau.detection.headline,
-                meta: proPlateau.detection.meta,
-                locked: proPlateau.conclusion,
-                moment: proPlateau.moment,
-                episodeKey: proPlateau.episodeKey,
-              }
-            : null
-        }
-        // Guarded like dismissedTipIds (handleDismissTip) and
-        // dismissedCompletionPlanIds (dismissCompletionCard): a double tap
-        // before the write lands must not append the same episode twice
-        // (break round 2026-09-29).
-        onDismissPlateau={(episodeKey) =>
-          void updatePreferences((current) =>
-            current.dismissedPlateauEpisodes.includes(episodeKey)
-              ? current
-              : { dismissedPlateauEpisodes: [...current.dismissedPlateauEpisodes, episodeKey] },
-          )
-        }
-        proUnlocked={coachProUnlocked}
-        onSetTrainingDays={() =>
-          navigate({ tab: 'profile', screen: 'training_plan', editSchedule: true })
-        }
-        onOpenActivePlan={() => {
-          if (!homeActivePlanCard) {
-            return;
-          }
-          navigate({
-            tab: 'workout',
-            screen: 'program',
-            programType: homeActivePlanCard.programType ?? 'ready',
-            workoutTemplateId: homeActivePlanCard.programId,
-          });
-        }}
-        // A session row opens its own day, not the whole plan — the plan is
-        // one tap away behind the section title (user 2026-08-23).
-        onOpenPlanSession={(sessionId) => {
-          if (!homeActivePlanCard) {
-            return;
-          }
-          navigate({
-            tab: 'workout',
-            screen: 'programDay',
-            programType: homeActivePlanCard.programType ?? 'ready',
-            workoutTemplateId: homeActivePlanCard.programId,
-            sessionId,
-          });
-        }}
-      />
-    );
+    content = renderHomeDashboard({
+      preferences,
+      updatePreferences,
+      tourRegistry,
+      tourFocus,
+      navigate,
+      resolveTabRoute,
+      homeActivePlanCard,
+      homeEmptyProgramme,
+      handleCompletionStartNext,
+      handleCompletionRestart,
+      dismissCompletionCard,
+      homeOtherPrograms,
+      programCapLine,
+      database,
+      handleOpenProgramDetail,
+      handleRemoveActiveProgram,
+      availableEquipmentForDrills,
+      homeTourActive,
+      homeWidgetState,
+      handleAddHomeWidget,
+      homePrompt,
+      handleAccountSignIn,
+      homeTrainingSchedule,
+      homeDoneThisWeekSessionIds,
+      homeStatCatalogCards,
+      homeSuggestedStatCardKeys,
+      homePinnedStatCardKeys,
+      homeSessionAdaptation,
+      adaptHomeSession,
+      handleEditProgramExercise,
+      exerciseBrowserItems,
+      workout,
+      handlePickTodaySession,
+      handleRenameProgramSession,
+      handleStartCustomProgramSession,
+      handleStartReadyProgramSession,
+      guardStrengthStartOverCardio,
+      proPlateau,
+      coachProUnlocked,
+    });
   }
 
   const showTabBar =
@@ -5869,211 +5494,49 @@ function VinhaApp() {
     );
   }
 
-  const shellSafeAreaEdges: Array<'top' | 'left' | 'right' | 'bottom'> =
-    // A saved workout drops the TOP edge so its gradient runs under the
-    // status bar — and used to drop the bottom one with it, which put the
-    // floating tab bar on top of the phone's own navigation buttons.
-    historySessionActive
-      ? ['left', 'right', 'bottom']
-      : welcomeActive || workoutSummaryActive || fullBleedReview !== null
-        ? ['left', 'right']
-        : onboardingScreenActive
-          ? // Every onboarding screen pads for the status bar itself — the
-            // path fork, About you, the ready catalog, the questionnaire
-            // and its back chevron all read insets.top. With the shell
-            // padding the top edge too, each of them sat one status bar
-            // too low, and the questionnaire's chevron (insets.top + 10
-            // inside a root already below the bar) landed on "STEP 2 OF
-            // 6" ("step teksti menee back napin taakse", user
-            // 2026-09-02). Same edges as Welcome, for the same reason.
-            //
-            // onboardingScreenActive, not onboardingActive: the same
-            // questionnaire is the plan editor under Profile, and it
-            // reads the inset there too (PR review).
-            ['left', 'right']
-          : ['top', 'left', 'right', 'bottom'];
-
-  return (
-    <AppShell
-      toastMessage={toastMessage}
-      safeAreaEdges={shellSafeAreaEdges}
-      // Only the gradient-hero screens want light icons; everything else takes
-      // the shell's light default.
-      // The Pro page is black in both themes, so the bands the shell paints
-      // around it have to be too — see premiumActive.
-      shellBackgroundColor={premiumActive ? '#000000' : undefined}
-      statusBarStyleOverride={
-        // The workout summary is off this list since its hero turned gold: a
-        // pale gold bar needs dark icons, and the shell already derives that
-        // from the theme.
-        fullBleedReview
-          ? fullBleedReview
-          : historySessionActive || premiumActive
-            ? 'light'
-            : undefined
-      }
-      statusBarBackgroundColor={
-        // The saved workout's hero scrolls, and under a transparent bar its
-        // date ended up printed across the phone's clock. Painted with the
-        // hero's own top colour it is invisible at rest and a clean cap once
-        // the screen moves.
-        historySessionActive
-          ? '#8B5CF6'
-          : premiumActive
-            ? '#000000'
-            : workoutSummaryActive || welcomeActive || fullBleedReview !== null
-              ? 'transparent'
-              : undefined
-      }
-      statusBarTranslucent={
-        welcomeActive || workoutSummaryActive || historySessionActive || fullBleedReview !== null
-      }
-      tabBar={
-        showTabBar ? (
-          <BottomTabBar
-            language={preferences.appLanguage}
-            activeTab={route.tab === 'workout' && route.screen === 'plans' ? null : route.tab}
-            aiActive={
-              route.tab === 'home' &&
-              route.screen === 'ai_chat'
-            }
-            onTabPress={navigateToTab}
-            // The design's rule for the middle button: it opens the chat, for
-            // everyone, always. It used to open a paywall-shaped sheet — the
-            // app's most valuable placement spent on an advert.
-            onAiPress={() => navigate({ tab: 'home', screen: 'ai_chat' })}
-            sweep={tourSweep}
-            tourTargets={tourRegistry}
-          />
-        ) : undefined
-      }
-      overlay={
-        legalConsentDue ? renderLegalConsent(shellSafeAreaEdges.includes('bottom')) : tourElement
-      }
-    >
-      {content}
-      <AppUpdateDialog language={preferences.appLanguage} held={appUpdateHeld} />
-      <ServerNoticeDialog
-        language={preferences.appLanguage}
-        held={appUpdateHeld}
-        seenIds={preferences.seenServerNoticeIds}
-        onSeen={handleServerNoticeSeen}
-      />
-      <SettingsImportSheet
-        visible={settingsImportVisible}
-        initialView="csv"
-        language={preferences.appLanguage}
-        exerciseLibrary={exerciseBrowserItems}
-        nameBook={exerciseNameBook}
-        onPickImage={handlePickProgramImage}
-        // The photo link on the paste box is Pro only (2026-09-29), so this
-        // sheet passes the lock too; the AI-assisted row it also gates is
-        // never drawn from here.
-        proUnlocked={resolveProEntitlement(preferences).unlocked}
-        onOpenPaywall={() => navigate({ tab: 'profile', screen: 'premium' })}
-        onTeachName={(wrote, exercise) =>
-          teachExerciseName(wrote, { name: exercise.name, libraryItemId: exercise.id })
-        }
-        onClose={() => setSettingsImportVisible(false)}
-        // Settings' CSV sheet opens straight on the paste box, so this row is
-        // never drawn from here. The lock itself was decided on 2026-09-01, reversing the
-        // earlier "the chat, for everyone" call: the gate had moved onto the
-        // act of composing, and the row went to the chat for anyone.
-        onAiAssisted={() =>
-          navigate({ tab: 'home', screen: 'ai_chat' })
-        }
-        onBuildYourself={() => navigate({ tab: 'workout', screen: 'template' })}
-        onImportProgram={async (draft) => {
-          const workoutTemplateId = await createUnlessAtLimit(
-            () => upsertWorkoutTemplate(draft),
-            () => setProgramLimitVisible(true),
-          );
-          if (!workoutTemplateId) {
-            // Refused at the cap: the sheet stays open with the table it read,
-            // so this one does not hide it either.
-            return false;
-          }
-          setSettingsImportVisible(false);
-          navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
-          return true;
-        }}
-        onImportHistory={async (preview) => {
-          // Thrown on when the write fails: the sheet keeps the pasted export
-          // for a retry and says why itself. A toast from here would draw
-          // behind its modal.
-          let result;
-          try {
-            result = await importWorkoutHistory(preview.workouts);
-          } catch (error) {
-            console.error('Failed to import workout history', error);
-            throw error;
-          }
-          setSettingsImportVisible(false);
-          showToast(
-            t(
-              preferences.appLanguage,
-              result.duplicates > 0 ? 'hevy.doneWithDuplicates' : 'hevy.done',
-              { imported: String(result.imported), duplicates: String(result.duplicates) },
-            ),
-          );
-        }}
-      />
-      <ProgramLimitSheet
-        visible={programLimitVisible}
-        kind="own"
-        used={programSlots.used}
-        limit={programSlots.limit ?? programSlots.used}
-        language={preferences.appLanguage}
-        onClose={() => setProgramLimitVisible(false)}
-        onSeePro={() => {
-          setProgramLimitVisible(false);
-          navigate({ tab: 'profile', screen: 'premium' });
-        }}
-      />
-      <ProgramLimitSheet
-        visible={runningCapSheet.visible}
-        kind="running"
-        used={runningCapSheet.used}
-        limit={runningCapSheet.cap}
-        language={preferences.appLanguage}
-        onClose={() => setRunningCapSheet((current) => ({ ...current, visible: false }))}
-        onSeePro={() => {
-          setRunningCapSheet((current) => ({ ...current, visible: false }));
-          navigate({ tab: 'profile', screen: 'premium', reason: 'program_cap' });
-        }}
-      />
-      <ThemeChoiceDialog
-        visible={themeChoiceVisible}
-        language={preferences.appLanguage}
-        darkEnabled={preferences.darkThemeEnabled}
-        // Written straight to preferences, so the dialog repaints itself along
-        // with everything behind it. That IS the preview.
-        onChange={(dark) => void updatePreferences({ darkThemeEnabled: dark })}
-        // Closes onto the path screen, which onboarding is already showing
-        // behind it. No navigation: the dialog interrupts the flow, it does
-        // not move it.
-        onDone={() => setThemeChoiceVisible(false)}
-      />
-      {/* Built months ago and left unwired — the strings even said so. The
-          sheet takes the star it was given and ignores it on purpose: every
-          star opens the same listing, because routing the low ones somewhere
-          private is review gating and against Play policy. */}
-      <RateAppSheet
-        visible={ratingSheetVisible}
-        language={preferences.appLanguage}
-        onRate={() => {
-          setRatingSheetVisible(false);
-          // Every star arrives here. Marked rated on the way out rather than
-          // on the way back: the app never learns whether a review was
-          // actually left, and asking again someone who went to the listing
-          // is worse than missing one who changed their mind.
-          void updatePreferences((current) => ({ ratingPrompt: recordRatingCompleted(current.ratingPrompt) }));
-          void Linking.openURL(PLAY_LISTING_URL);
-        }}
-        onDismiss={() => setRatingSheetVisible(false)}
-      />
-    </AppShell>
-  );
+  return renderAppShell({
+    content,
+    route,
+    historySessionActive,
+    welcomeActive,
+    workoutSummaryActive,
+    onboardingScreenActive,
+    premiumActive,
+    showTabBar,
+    fullBleedReview,
+    toastMessage,
+    preferences,
+    updatePreferences,
+    navigate,
+    navigateToTab,
+    tourSweep,
+    tourRegistry,
+    legalConsentDue,
+    renderLegalConsent,
+    tourElement,
+    appUpdateHeld,
+    handleServerNoticeSeen,
+    SettingsImportSheet,
+    settingsImportVisible,
+    setSettingsImportVisible,
+    exerciseBrowserItems,
+    exerciseNameBook,
+    handlePickProgramImage,
+    teachExerciseName,
+    upsertWorkoutTemplate,
+    importWorkoutHistory,
+    showToast,
+    programLimitVisible,
+    setProgramLimitVisible,
+    programSlots,
+    runningCapSheet,
+    setRunningCapSheet,
+    themeChoiceVisible,
+    setThemeChoiceVisible,
+    ratingSheetVisible,
+    setRatingSheetVisible,
+    PLAY_LISTING_URL,
+  });
 }
 
 /**
