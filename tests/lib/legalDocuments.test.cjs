@@ -28,6 +28,7 @@ const LEGAL_TEXT_VERSIONS = [
   { date: '2026-09-28', fingerprint: '7019c14a32fca330' },
   { date: '2026-09-29', fingerprint: 'c0f19e9dea408950' },
   { date: '2026-09-30', fingerprint: '5998cb9be6282a40' },
+  { date: '2026-10-01', fingerprint: 'e3a2198516dc68a3' },
 ];
 
 const IDS = ['privacy', 'terms'];
@@ -184,6 +185,9 @@ module.exports = [
       assert.deepEqual(
         [...keys].sort(),
         [
+          // The Apple session on iPhone (2026-10-01): the cloud-backup paragraph
+          // says the phone keeps it.
+          '@vinha/account/apple/v1',
           '@vinha/account/signedout/v1',
           '@vinha/account/v1',
           '@vinha/analytics/v1',
@@ -203,6 +207,8 @@ module.exports = [
       const policy = (language) => renderLegalDocumentMarkdown(buildLegalDocument('privacy', language));
       assert.match(policy('en'), /the phone keeps only the identifiers of the accounts that signed out of it/);
       assert.match(policy('fi'), /puhelin säilyttää vain niiden tilien tunnisteet, jotka ovat kirjautuneet siitä ulos/);
+      assert.match(policy('en'), /a sign-in of our own, kept on the phone/);
+      assert.match(policy('fi'), /omaksi kirjautumiseksemme, joka säilytetään puhelimessa/);
       const legacy = new Set(allSource.match(/@gymlog\/[a-z0-9/]+/g) ?? []);
       assert.deepEqual(
         [...legacy].sort(),

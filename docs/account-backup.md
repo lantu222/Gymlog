@@ -10,8 +10,9 @@ without it the CLI tried to push the whole 1.4 GB working tree.
 
 Optional Google sign-in that backs the training data up to a server, so a new
 phone restores it. Offered on the post-onboarding hand-off screen and in
-Settings → YOUR DATA. Free and Pro alike (decision 2026-08-22). Apple sign-in
-is deferred until an iOS version exists.
+Settings → YOUR DATA. Free and Pro alike (decision 2026-08-22). On iPhone,
+Sign in with Apple sits beside Google (2026-10-01, App Review guideline 4.8) —
+see "Sign in with Apple" below.
 
 The whole feature is configuration-gated: a build without
 `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` and `EXPO_PUBLIC_BACKUP_API_URL` shows no
@@ -20,7 +21,9 @@ sign-in anywhere. No dead buttons.
 ## Files
 
 - `api/backup.ts` — serverless endpoint: verify Google ID token, store/fetch/delete one blob per account
+- `src/features/account/accountAuth.ts` — which sign-in the backup uses (the hook's only auth import)
 - `src/features/account/googleAuth.ts` — the only file that touches Google Sign-In
+- `src/features/account/appleAuth.ts` — the only file that touches Sign in with Apple (iPhone)
 - `src/features/account/backupApi.ts` — the app's side of the endpoint
 - `src/features/account/useAccountBackup.ts` — sign-in / backup / restore state machine
 - `src/features/account/accountStore.ts` — `@vinha/account/v1` (identity, last backup time)
@@ -105,3 +108,30 @@ backed up.
   payloads (guarded in tests/releaseReadiness.test.cjs).
 - The privacy policy describes the feature in both languages; the release
   guard fails if the plugin ships without that text.
+
+## Sign in with Apple (iPhone)
+
+An Apple identity token lives ten minutes and Apple has no silent refresh, so
+the phone trades it once for an **Apple session** issued by `api/backup.ts`:
+
+1. `POST /api/backup` with `x-backup-action: apple-session` and the Apple
+   identity token as the bearer. The server checks the signature against
+   Apple's published keys, the issuer, the expiry, and that the audience is
+   `APPLE_BUNDLE_ID` (default `app.vinha`).
+2. It answers `{ sessionToken: "vs1.…", expiresAt }` — 180 days, signed with a
+   key derived from `BACKUP_PATH_SECRET`. The phone keeps it in
+   `@vinha/account/apple/v1` and sends it as the bearer from then on.
+3. Before each use the phone asks Apple (`getCredentialStateAsync`) whether
+   the reader has removed Vinha from their Apple ID; revoked means signed out.
+   In its last 30 days the phone renews it first (`x-backup-action:
+   apple-renew`, the session as the bearer), so a reader who keeps training is
+   never timed out. Only a session that has actually run out — months offline —
+   counts as signed out, and the reader signs in again with one Face ID.
+
+Apple accounts are stored under `apple:<sub>`, so an Apple account and a
+Google account never share a blob. Google subjects stay unprefixed — changing
+them would orphan every existing backup.
+
+Setup: nothing on the server beyond the existing env (`APPLE_BUNDLE_ID` only if
+the bundle id ever changes). On Apple's side, the App ID needs the "Sign in
+with Apple" capability; EAS sets it from `ios.usesAppleSignIn`.

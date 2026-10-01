@@ -57,7 +57,8 @@ import {
   isBackupApiConfigured,
   uploadBackup,
 } from './backupApi';
-import { getFreshIdToken, isGoogleSignInConfigured, signInWithGoogle, signOutGoogle } from './googleAuth';
+import type { SignInProvider } from './accountAuth';
+import { availableSignInProviders, getFreshIdToken, isAccountSignInConfigured, signInWith, signOutAccount } from './accountAuth';
 import {
   clearStoredAccount,
   forgetSignedOutAccount,
@@ -108,9 +109,12 @@ export type AccountOperationResult = 'done' | 'failed' | 'cancelled';
 
 export interface AccountBackupApi {
   available: boolean;
+  /** The sign-ins this build offers, in display order (accountAuth). */
+  providers: SignInProvider[];
   state: AccountBackupState;
   phase: AccountBackupPhase;
-  signIn: () => Promise<SignInOutcome>;
+  /** Without a provider, the first one offered. */
+  signIn: (provider?: SignInProvider) => Promise<SignInOutcome>;
   resolveRestoreChoice: (choice: 'restore' | 'keep_local') => Promise<AccountOperationResult>;
   /**
    * The answer to 'confirm_upload'. 'skip' stays signed in with nothing
@@ -174,7 +178,7 @@ function lookResult(remote: BackupDownloadResult): BackupLookResult {
 }
 
 export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
-  const available = isGoogleSignInConfigured() && isBackupApiConfigured();
+  const available = isAccountSignInConfigured() && isBackupApiConfigured();
   const [account, setAccount] = useState<StoredAccount | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [phase, setPhase] = useState<AccountBackupPhase>('idle');
@@ -505,14 +509,14 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
     [applyRestore, askRestoreOrKeep, persistAccount, uploadCurrent],
   );
 
-  const signIn = useCallback(async (): Promise<SignInOutcome> => {
+  const signIn = useCallback(async (provider?: SignInProvider): Promise<SignInOutcome> => {
     if (!available) {
       return { kind: 'unavailable' };
     }
     const generation = generationRef.current;
     enterPhase('signing_in');
     try {
-      const result = await signInWithGoogle();
+      const result = await signInWith(provider ?? availableSignInProviders()[0] ?? 'google');
       ensureCurrent(generation);
       if (result.status !== 'signed_in') {
         return { kind: result.status === 'cancelled' ? 'cancelled' : result.status === 'unavailable' ? 'unavailable' : 'failed' };
@@ -834,7 +838,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       await markSignedOut(leaving.sub);
     }
     await persistAccount(null);
-    await signOutGoogle();
+    await signOutAccount();
   }, [markSignedOut, persistAccount]);
 
   const deleteRemoteBackup = useCallback(async (): Promise<AccountOperationResult> => {
@@ -994,6 +998,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
 
   return {
     available,
+    providers: availableSignInProviders(),
     state,
     phase,
     signIn,

@@ -1,3 +1,4 @@
+import type { SignInProvider } from '../features/account/accountAuth';
 import { t } from '../lib/i18n';
 import { acceptLegal } from '../lib/legalAcceptance';
 import { LEGAL_LAST_UPDATED } from '../lib/legalDocuments';
@@ -28,7 +29,7 @@ export interface SetupHandoffDoneDeps {
   preferences: AppPreferences;
   /** From ./modules/home-widget. */
   requestPinHomeWidget: () => Promise<boolean>;
-  handleAccountSignIn: () => Promise<unknown>;
+  handleAccountSignIn: (provider?: SignInProvider) => Promise<unknown>;
   navigate: (route: AppRoute) => void;
 }
 
@@ -95,7 +96,7 @@ export function createSetupHandoffDone(deps: SetupHandoffDoneDeps) {
     // And sign-in after that: it opens its own sheet, and the reader asked for
     // it — a cancel there is a change of mind, not an error.
     if (choices.signInForBackup) {
-      await handleAccountSignIn();
+      await handleAccountSignIn(choices.signInProvider ?? undefined);
     }
     // Pro last, and only if it was asked for. It is a page, not a sheet: it
     // takes the screen, so anything that had to happen first has happened.

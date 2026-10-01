@@ -2,6 +2,7 @@ import React from 'react';
 import { TourTargetRegistry } from '../features/tour/tourTargets';
 import { Alert, Linking } from 'react-native';
 
+import type { SignInProvider } from '../features/account/accountAuth';
 import { AccountBackupApi } from '../features/account/useAccountBackup';
 import { buildCancelSurveyAnswer } from '../lib/cancelSurvey';
 import { isDemoBuild } from '../lib/demoMode';
@@ -118,7 +119,7 @@ export interface ProfileTabDeps {
   handleAddHomeWidget: () => Promise<void>;
   tourTargets: TourTargetRegistry;
   accountBackup: AccountBackupApi;
-  handleAccountSignIn: () => Promise<unknown>;
+  handleAccountSignIn: (provider?: SignInProvider) => Promise<unknown>;
   handleAccountBackupNow: () => Promise<unknown>;
   showToast: (message: string) => void;
   setSettingsImportVisible: (visible: boolean) => void;
@@ -689,7 +690,8 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
                 email: accountBackup.state.email,
                 lastBackupAt: accountBackup.state.lastBackupAt,
                 busy: accountBackup.phase !== 'idle',
-                onSignIn: () => void handleAccountSignIn(),
+                providers: accountBackup.providers,
+                onSignIn: (provider) => void handleAccountSignIn(provider),
                 // Only the failure speaks; the row's green timestamp is the
                 // success, and it is already on screen. A phone that has never
                 // synced may be asked restore-or-keep first, as at sign-in.

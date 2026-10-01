@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { Alert } from 'react-native';
+import type { SignInProvider } from '../features/account/accountAuth';
 import { AccountBackupApi, SignInOutcome } from '../features/account/useAccountBackup';
 import { confirmUploadCopy, restoreQuestionCopy } from '../lib/accountBackupCopy';
 import { I18nKey, t } from '../lib/i18n';
@@ -156,7 +157,7 @@ export function useAccountOutcome(deps: AccountOutcomeDeps) {
   }, [accountBackup, preferences.appLanguage]);
 
   const handleAccountSignIn = useCallback(
-    async () => presentAccountOutcome(await accountBackup.signIn(), 'account.signInFailed'),
+    async (provider?: SignInProvider) => presentAccountOutcome(await accountBackup.signIn(provider), 'account.signInFailed'),
     [accountBackup, presentAccountOutcome],
   );
 

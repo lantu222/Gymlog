@@ -153,11 +153,12 @@ async function withHook({ local, stored = null, cloud = null }, scenario) {
         return { ok: true };
       },
     },
-    './googleAuth': {
-      isGoogleSignInConfigured: () => true,
-      signInWithGoogle: async () => google.signIn,
+    './accountAuth': {
+      availableSignInProviders: () => ['google'],
+      isAccountSignInConfigured: () => true,
+      signInWith: async () => google.signIn,
       getFreshIdToken: async () => google.silent,
-      signOutGoogle: async () => undefined,
+      signOutAccount: async () => undefined,
     },
     './accountStore': {
       loadStoredAccount: async () => store.account,
@@ -362,7 +363,7 @@ module.exports = [
 
         const copy = restoreQuestionCopy(outcome.summary, 'fi');
         assert.equal(copy.title, 'Puhelimessa on toisen tilin tiedot');
-        assert.match(copy.body, /kirjattiin, kun puhelimessa oli kirjautuneena toinen Google-tili/);
+        assert.match(copy.body, /kirjattiin, kun puhelimessa oli kirjautuneena toinen tili/);
         assert.equal(copy.useBackup, 'Palauta oma varmuuskopioni');
         // Always asked twice, however the counts compare.
         assert.ok(copy.replace, 'keeping another account\'s data over your own backup was asked once');
@@ -1039,7 +1040,7 @@ module.exports = [
       process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID = 'client.apps.googleusercontent.com';
       require.cache[libraryFile] = { id: libraryFile, filename: libraryFile, loaded: true, exports: library };
       try {
-        const googleAuth = requireWithStubs(GOOGLE_AUTH, {});
+        const googleAuth = requireWithStubs(GOOGLE_AUTH, { 'react-native': { Platform: { OS: 'android' } } });
         answers.push({ type: 'success', data: { idToken: 'fresh', user: { id: 'u', email: null, name: null } } });
         assert.deepEqual(await googleAuth.getFreshIdToken(), { status: 'ok', idToken: 'fresh' });
         // The library turns SIGN_IN_REQUIRED into this answer and throws everything else.

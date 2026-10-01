@@ -13,7 +13,13 @@
       "backgroundColor": "#F7F3FF"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "app.vinha",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "usesAppleSignIn": true
     },
     "android": {
       "allowBackup": false,
@@ -50,6 +56,7 @@
     "plugins": [
       "expo-asset",
       "@react-native-google-signin/google-signin",
+      "expo-apple-authentication",
       [
         "expo-audio",
         {
@@ -74,9 +81,9 @@
         }
       ],
       "./plugins/withHomeWidget.js",
-    "./plugins/withBuildArchitectures.js",
-    "./plugins/withStorageSize.js",
-    "./plugins/withDataExtractionRules.js"
+      "./plugins/withBuildArchitectures.js",
+      "./plugins/withStorageSize.js",
+      "./plugins/withDataExtractionRules.js"
     ]
   }
 }

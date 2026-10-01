@@ -150,7 +150,7 @@ module.exports = [
       // And the Settings row is wired to the asking path, through the same presenter as sign-in.
       const shell = code(readShell());
       assert.match(shell, /presentAccountOutcome\(await accountBackup\.backUpOrAsk\(\), 'account\.backupFailed'\)/);
-      assert.match(shell, /presentAccountOutcome\(await accountBackup\.signIn\(\), 'account\.signInFailed'\)/);
+      assert.match(shell, /presentAccountOutcome\(await accountBackup\.signIn\(provider\), 'account\.signInFailed'\)/);
       assert.match(code(read('src', 'app', 'renderProfileTab.tsx')), /onBackupNow: \(\) => void handleAccountBackupNow\(\)/);
 
       // The automatic path goes through the same planner: it runs backupNow,

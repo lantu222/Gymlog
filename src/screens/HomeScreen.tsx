@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AppleSignInButton } from '../components/AppleSignInButton';
+import type { SignInProvider } from '../features/account/accountAuth';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { KitBar, KitGroupLabel, KitRow, KitSearch, KitSheet } from '../components/sheetKit';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
@@ -398,7 +400,9 @@ interface HomeScreenProps {
    * or in builds without sign-in.
    */
   accountBackupPrompt?: {
-    onSignIn: () => void;
+    /** The sign-ins this build offers (accountAuth): Apple on iPhone, Google where configured. */
+    providers: SignInProvider[];
+    onSignIn: (provider: SignInProvider) => void;
     onDismiss: () => void;
   } | null;
   widgetPrompt?: {
@@ -1995,19 +1999,31 @@ export function HomeScreen({
             </View>
             <Text style={styles.signInTitle}>{t(language, 'account.prompt.title')}</Text>
             <Text style={styles.signInBody}>{t(language, 'account.prompt.body')}</Text>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                setSignInPopupOpen(false);
-                accountBackupPrompt?.onSignIn();
-              }}
-              style={({ pressed }) => [styles.signInGoogle, pressed && styles.pressed]}
-            >
-              <View style={styles.signInGoogleBadge}>
-                <Text style={styles.signInGoogleBadgeText}>G</Text>
-              </View>
-              <Text style={styles.signInGoogleText}>{t(language, 'account.prompt.google')}</Text>
-            </Pressable>
+            {accountBackupPrompt?.providers.includes('apple') ? (
+              <AppleSignInButton
+                cornerRadius={26}
+                style={styles.signInApple}
+                onPress={() => {
+                  setSignInPopupOpen(false);
+                  accountBackupPrompt?.onSignIn('apple');
+                }}
+              />
+            ) : null}
+            {accountBackupPrompt?.providers.includes('google') ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  setSignInPopupOpen(false);
+                  accountBackupPrompt?.onSignIn('google');
+                }}
+                style={({ pressed }) => [styles.signInGoogle, pressed && styles.pressed]}
+              >
+                <View style={styles.signInGoogleBadge}>
+                  <Text style={styles.signInGoogleBadgeText}>G</Text>
+                </View>
+                <Text style={styles.signInGoogleText}>{t(language, 'account.prompt.google')}</Text>
+              </Pressable>
+            ) : null}
             <Pressable
               accessibilityRole="button"
               hitSlop={8}
@@ -3304,6 +3320,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.muted,
     lineHeight: 20,
     marginTop: 10,
+  },
+  signInApple: {
+    marginTop: 20,
   },
   signInGoogle: {
     flexDirection: 'row',

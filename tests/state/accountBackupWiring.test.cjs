@@ -68,7 +68,8 @@ module.exports = [
       assert.match(profile, /busy: accountBackup\.phase !== 'idle',/);
 
       const api = read('api', 'backup.ts');
-      const remove = api.slice(api.indexOf("if (req.method === 'DELETE')"), api.indexOf("res.status(405)"));
+      const deleteAt = api.indexOf("if (req.method === 'DELETE')");
+      const remove = api.slice(deleteAt, api.indexOf("res.status(405)", deleteAt));
       assert.match(
         remove,
         /catch \(error\) \{\s*if \(!\(error instanceof BlobNotFoundError\)\) \{[\s\S]*?res\.status\(502\)\.json\(\{ ok: false, error: 'STORE_UNAVAILABLE' \}\);\s*return;\s*\}\s*\}/,
@@ -90,9 +91,12 @@ module.exports = [
       // And says why, instead of a red row that silently ignores the tap.
       assert.match(resetRow, /sub=\{t\(language, account\?\.busy \? 'settings\.resetData\.busy' : 'settings\.resetData\.sub'\)\}/);
       // Every account row shows its busy state the same way.
-      for (const handler of ['onSignIn', 'onBackupNow', 'onDeleteRemote', 'onSignOut']) {
+      for (const handler of ['onBackupNow', 'onDeleteRemote', 'onSignOut']) {
         assert.match(settings, new RegExp(`disabled=\\{account\\.busy\\}\\s*onPress=\\{account\\.${handler}\\}`), handler);
       }
+      // Sign-in names its provider: Apple's button on iPhone, Google's row.
+      assert.match(settings, /disabled=\{account\.busy\}\s*onPress=\{\(\) => account\.onSignIn\('google'\)\}/, 'onSignIn google');
+      assert.match(settings, /disabled=\{account\.busy\}\s*onPress=\{\(\) => account\.onSignIn\('apple'\)\}/, 'onSignIn apple');
       assert.doesNotMatch(settings, /busy \? undefined/, 'a busy row dropped its handler and looked live');
       // A disabled row renders without a press handler, dimmed, and says so to a screen reader.
       const row = settings.slice(settings.indexOf('function Row('), settings.indexOf('export function SettingsScreen('));

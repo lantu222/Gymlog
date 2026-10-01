@@ -2,9 +2,11 @@
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
+import { AppleSignInButton } from '../components/AppleSignInButton';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
 import { CARD_SHADOW, SectionLabel, ToggleSwitch } from '../components/SettingsUi';
+import type { SignInProvider } from '../features/account/accountAuth';
 import { buildFeedbackMailto } from '../lib/feedbackLink';
 import { formatDateNumeric } from '../lib/format';
 import { t } from '../lib/i18n';
@@ -65,7 +67,9 @@ interface SettingsScreenProps {
     email: string | null;
     lastBackupAt: string | null;
     busy: boolean;
-    onSignIn: () => void;
+    /** The sign-ins this build offers (accountAuth): Apple on iPhone, Google where configured. */
+    providers: SignInProvider[];
+    onSignIn: (provider: SignInProvider) => void;
     onBackupNow: () => void;
     onSignOut: () => void;
     onDeleteRemote: () => void;
@@ -468,14 +472,29 @@ export function SettingsScreen({
           <View style={styles.card}>
             {/* Sign in and the data survives a new phone. Hidden when the build
                 has no sign-in configured; free and Pro alike (2026-08-22). */}
-            {account && !account.signedIn ? (
+            {/* Apple's own button, as App Review wants it, above the Google row. */}
+            {account && !account.signedIn && account.providers.includes('apple') ? (
+              <View style={styles.appleSignIn}>
+                <AppleSignInButton
+                  variant="whiteOutline"
+                  cornerRadius={12}
+                  height={46}
+                  disabled={account.busy}
+                  onPress={() => account.onSignIn('apple')}
+                />
+                {account.providers.includes('google') ? null : (
+                  <Text style={styles.appleSignInSub}>{t(language, 'account.signIn.sub')}</Text>
+                )}
+              </View>
+            ) : null}
+            {account && !account.signedIn && account.providers.includes('google') ? (
               <Row
                 icon="shield"
                 title={t(language, 'account.signIn')}
                 sub={t(language, 'account.signIn.sub')}
                 chevron
                 disabled={account.busy}
-                onPress={account.onSignIn}
+                onPress={() => account.onSignIn('google')}
               />
             ) : null}
             {account && account.signedIn ? (
@@ -731,6 +750,17 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingTop: 4,
     paddingHorizontal: 18,
     paddingBottom: layout.bottomTabBarReserve,
+  },
+  appleSignIn: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 6,
+    gap: 8,
+  },
+  appleSignInSub: {
+    color: theme.muted,
+    fontSize: 12.5,
+    paddingBottom: 6,
   },
   card: {
     backgroundColor: theme.surface,

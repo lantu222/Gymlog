@@ -60,7 +60,7 @@ function publisher(): string {
 }
 
 /** Bumped whenever the wording changes in a way a user should re-read. */
-export const LEGAL_LAST_UPDATED = '2026-09-30';
+export const LEGAL_LAST_UPDATED = '2026-10-01';
 
 export type LegalDocumentId = 'privacy' | 'terms';
 
@@ -86,7 +86,7 @@ const PRIVACY_EN: LegalSection[] = [
     heading: 'The short version',
     body: [
       'Vinha stores your training data on your phone. This policy lists what the app sends to our server, when, and why.',
-      'At present that is four things. The optional cloud backup is sent when you sign in with Google, and the AI coach’s online mode when you read a notice and then send a question, ask for a programme, or import one from a photo. Anonymous usage statistics are sent by the app itself unless you switch them off in Settings — they carry no content and no identity, and they are described in full below. Each of these requests also carries the app’s version number and whether the phone runs Android or iOS, so our server can recognise an app too old to understand and ask you to update it.',
+      'At present that is four things. The optional cloud backup is sent when you sign in with Google or Apple, and the AI coach’s online mode when you read a notice and then send a question, ask for a programme, or import one from a photo. Anonymous usage statistics are sent by the app itself unless you switch them off in Settings — they carry no content and no identity, and they are described in full below. Each of these requests also carries the app’s version number and whether the phone runs Android or iOS, so our server can recognise an app too old to understand and ask you to update it.',
       'The fourth is a check the app makes by itself: when it starts, and again when you come back to it after some hours, it asks our server whether there is a notice for everyone who uses Vinha — for example about a break in service or a security incident — and shows it once. That request carries nothing but the app’s version and platform; like any request, it shows our server the phone’s internet address, and nothing about it is stored.',
       'No ads, no trackers, no selling of data. If something in this policy is unclear, write to us — the address is in the next section.',
     ],
@@ -125,11 +125,12 @@ const PRIVACY_EN: LegalSection[] = [
   {
     heading: 'Cloud backup (optional)',
     body: [
-      'If you sign in with Google, a copy of everything listed under “What the app stores on your phone” — except a workout still in progress — is sent over an encrypted connection to our server and kept there, so a new phone can restore it after you sign in again. Signing in is never required; every feature works without it.',
+      'If you sign in with Google or Apple, a copy of everything listed under “What the app stores on your phone” — except a workout still in progress — is sent over an encrypted connection to our server and kept there, so a new phone can restore it after you sign in again. Signing in is never required; every feature works without it.',
       'From Google we receive your Google account’s identifier, your email address and your name. These stay on your phone, so the app can show which account is signed in. On the server the backup is filed under a scrambled version of the identifier; your email and name are not stored there. When you sign out, the phone keeps only the identifiers of the accounts that signed out of it, so that if a different Google account signs in next, the app asks before backing up the data already on the phone to it; they are removed once that sign-in is settled.',
-      'A backup is sent shortly after you log training, and whenever you press Back up now. The server checks your sign-in with Google on every request, stores the file, and hands it back only to the same Google account. It does not read, analyse or log the contents.',
+      'On iPhone you can sign in with Apple instead. From Apple we receive an identifier for your Apple ID that only Vinha gets, and the first time only, the name and email you choose to share — the email can be a private relay address that Apple forwards. They stay on your phone like Google’s. The phone trades Apple’s sign-in once for a sign-in of our own, kept on the phone, that lasts up to 180 days and is checked on every backup request; before using it, the phone asks Apple whether you have stopped using your Apple ID with Vinha, and signs you out if you have.',
+      'A backup is sent shortly after you log training, and whenever you press Back up now. The server checks your sign-in on every request, stores the file, and hands it back only to the same account. It does not read, analyse or log the contents.',
       'The backup is stored by Vercel, our hosting provider, in the European Union. It is kept until you delete it.',
-      'Settings → Delete cloud backup removes the server copy immediately. Signing out does not delete it, and neither does resetting the phone’s data — a reset signs you out first, precisely so that an empty backup never overwrites a full one. The copy waits until you sign in again. If you can no longer open the app, sign in on any Android phone with the same Google account and delete it there, or write to us.',
+      'Settings → Delete cloud backup removes the server copy immediately. Signing out does not delete it, and neither does resetting the phone’s data — a reset signs you out first, precisely so that an empty backup never overwrites a full one. The copy waits until you sign in again. If you can no longer open the app, sign in on any phone with the same account and delete it there, or write to us.',
     ],
   },
   {
@@ -169,12 +170,13 @@ const PRIVACY_EN: LegalSection[] = [
   {
     heading: 'Who helps us run this',
     body: [
-      'We run no servers of our own. Four companies process data for us, under contracts that bind them to handle it only on our instructions and only for the purposes described here.',
+      'We run no servers of our own. Five companies process data for us, under contracts that bind them to handle it only on our instructions and only for the purposes described here.',
     ],
     bullets: [
       'Vercel (United States): runs our server and stores the cloud backups and the usage events. The storage is in the European Union.',
       'Anthropic (United States): answers coach questions, composes programmes and reads programme photos, as described above.',
       'Google (United States): verifies your Google sign-in and handles Google Play payments. Your relationship with Google is covered by Google’s own privacy policy.',
+      'Apple (United States): verifies your Apple sign-in on iPhone. Your relationship with Apple is covered by Apple’s own privacy policy.',
       'Slack (United States): delivers the coach answers you report to us for review, as described above.',
     ],
   },
@@ -247,7 +249,7 @@ const PRIVACY_EN: LegalSection[] = [
   {
     heading: 'Security',
     body: [
-      'Everything that leaves your phone travels over an encrypted connection. On the server, every backup request is checked against Google before anything is read or written, backups are filed under a scrambled identifier in private storage, training data is never written to logs, and request rates are limited.',
+      'Everything that leaves your phone travels over an encrypted connection. On the server, every backup request is checked against your sign-in before anything is read or written, backups are filed under a scrambled identifier in private storage, training data is never written to logs, and request rates are limited.',
       'On your phone, the app’s data is protected by the phone’s own lock and the separation Android keeps between apps; the app adds no encryption of its own. Anyone who can unlock your phone can open Vinha and see your training data, so keep the phone locked.',
     ],
   },
@@ -296,7 +298,7 @@ const PRIVACY_FI: LegalSection[] = [
     heading: 'Lyhyesti',
     body: [
       'Vinha tallentaa treenitietosi puhelimeesi. Tämä seloste kertoo, mitä sovellus lähettää palvelimellemme, milloin ja miksi.',
-      'Tällä hetkellä asioita on neljä. Vapaaehtoinen pilvivarmuuskopio lähtee, kun kirjaudut Googlella, ja AI-valmentajan verkkotila, kun luet ilmoituksen ja lähetät sen jälkeen kysymyksen, pyydät ohjelman tai tuot sellaisen valokuvasta. Nimettömät käyttötilastot sovellus lähettää itse, ellet kytke niitä pois asetuksista — niissä ei ole sisältöä eikä henkilöllisyyttä, ja ne kuvataan kokonaan alla. Jokaisessa näistä pyynnöistä kulkee lisäksi sovelluksen versionumero ja tieto siitä, onko puhelin Android vai iOS, jotta palvelimemme tunnistaa liian vanhan sovelluksen ja voi pyytää sinua päivittämään sen.',
+      'Tällä hetkellä asioita on neljä. Vapaaehtoinen pilvivarmuuskopio lähtee, kun kirjaudut Googlella tai Applella, ja AI-valmentajan verkkotila, kun luet ilmoituksen ja lähetät sen jälkeen kysymyksen, pyydät ohjelman tai tuot sellaisen valokuvasta. Nimettömät käyttötilastot sovellus lähettää itse, ellet kytke niitä pois asetuksista — niissä ei ole sisältöä eikä henkilöllisyyttä, ja ne kuvataan kokonaan alla. Jokaisessa näistä pyynnöistä kulkee lisäksi sovelluksen versionumero ja tieto siitä, onko puhelin Android vai iOS, jotta palvelimemme tunnistaa liian vanhan sovelluksen ja voi pyytää sinua päivittämään sen.',
       'Neljäs on tarkistus, jonka sovellus tekee itse: käynnistyessään ja palatessasi siihen muutaman tunnin jälkeen se kysyy palvelimeltamme, onko kaikille Vinhan käyttäjille tiedotetta — esimerkiksi palvelukatkosta tai tietoturvaongelmasta — ja näyttää sen kerran. Pyynnössä ei kulje muuta kuin sovelluksen versio ja alusta; kuten mikä tahansa pyyntö, se näyttää palvelimellemme puhelimen internet-osoitteen, eikä siitä tallenneta mitään.',
       'Ei mainoksia, ei seurantaa, ei tietojen myyntiä. Jos jokin tässä selosteessa on epäselvää, kirjoita meille — osoite on seuraavassa kohdassa.',
     ],
@@ -335,11 +337,12 @@ const PRIVACY_FI: LegalSection[] = [
   {
     heading: 'Pilvivarmuuskopio (vapaaehtoinen)',
     body: [
-      'Jos kirjaudut Googlella, kopio kaikesta kohdassa ”Mitä sovellus tallentaa puhelimeesi” luetellusta — paitsi kesken olevasta treenistä — lähetetään salattua yhteyttä pitkin palvelimellemme ja säilytetään siellä, jotta uusi puhelin voi palauttaa sen, kun kirjaudut uudelleen. Kirjautumista ei koskaan vaadita; jokainen toiminto toimii ilman sitä.',
+      'Jos kirjaudut Googlella tai Applella, kopio kaikesta kohdassa ”Mitä sovellus tallentaa puhelimeesi” luetellusta — paitsi kesken olevasta treenistä — lähetetään salattua yhteyttä pitkin palvelimellemme ja säilytetään siellä, jotta uusi puhelin voi palauttaa sen, kun kirjaudut uudelleen. Kirjautumista ei koskaan vaadita; jokainen toiminto toimii ilman sitä.',
       'Googlelta saamme Google-tilisi tunnisteen, sähköpostiosoitteesi ja nimesi. Ne säilyvät puhelimessasi, jotta sovellus voi näyttää, mikä tili on kirjautuneena. Palvelimella varmuuskopio tallennetaan tunnisteen sekoitetun muodon alle; sähköpostiasi ja nimeäsi ei tallenneta sinne. Kun kirjaudut ulos, puhelin säilyttää vain niiden tilien tunnisteet, jotka ovat kirjautuneet siitä ulos, jotta sovellus kysyy ennen kuin se varmuuskopioi puhelimen tiedot seuraavaksi kirjautuvalle toiselle Google-tilille; tunnisteet poistetaan, kun tämä kirjautuminen on ratkaistu.',
-      'Varmuuskopio lähetetään hetki sen jälkeen, kun kirjaat treenin, ja aina kun painat Varmuuskopioi nyt. Palvelin tarkistaa kirjautumisesi Googlelta joka pyynnöllä, tallentaa tiedoston ja luovuttaa sen vain samalle Google-tilille. Se ei lue, analysoi eikä lokita sisältöä.',
+      'iPhonella voit kirjautua Googlen sijaan Applella. Applelta saamme Apple ID:llesi tunnisteen, jonka vain Vinha saa, ja vain ensimmäisellä kerralla nimen ja sähköpostin, jotka päätät jakaa — sähköposti voi olla Applen välittämä yksityinen osoite. Ne säilyvät puhelimessasi kuten Googlen tiedot. Puhelin vaihtaa Applen kirjautumisen kerran omaksi kirjautumiseksemme, joka säilytetään puhelimessa ja on voimassa enintään 180 päivää ja joka tarkistetaan joka varmuuskopiopyynnöllä; ennen käyttöä puhelin kysyy Applelta, oletko lopettanut Apple ID:si käytön Vinhassa, ja kirjaa sinut ulos, jos olet.',
+      'Varmuuskopio lähetetään hetki sen jälkeen, kun kirjaat treenin, ja aina kun painat Varmuuskopioi nyt. Palvelin tarkistaa kirjautumisesi joka pyynnöllä, tallentaa tiedoston ja luovuttaa sen vain samalle tilille. Se ei lue, analysoi eikä lokita sisältöä.',
       'Varmuuskopion säilyttää Vercel, palvelintarjoajamme, Euroopan unionin alueella. Se säilyy, kunnes poistat sen.',
-      'Asetukset → Poista pilvivarmuuskopio poistaa palvelinkopion heti. Uloskirjautuminen ei poista sitä, eikä puhelimen tietojen nollaus — nollaus kirjaa sinut ensin ulos juuri siksi, ettei tyhjä varmuuskopio koskaan korvaisi täyttä. Kopio odottaa, kunnes kirjaudut uudelleen. Jos et enää pääse sovellukseen, kirjaudu samalla Google-tilillä millä tahansa Android-puhelimella ja poista se sieltä, tai kirjoita meille.',
+      'Asetukset → Poista pilvivarmuuskopio poistaa palvelinkopion heti. Uloskirjautuminen ei poista sitä, eikä puhelimen tietojen nollaus — nollaus kirjaa sinut ensin ulos juuri siksi, ettei tyhjä varmuuskopio koskaan korvaisi täyttä. Kopio odottaa, kunnes kirjaudut uudelleen. Jos et enää pääse sovellukseen, kirjaudu samalla tilillä millä tahansa puhelimella ja poista se sieltä, tai kirjoita meille.',
     ],
   },
   {
@@ -379,12 +382,13 @@ const PRIVACY_FI: LegalSection[] = [
   {
     heading: 'Ketkä auttavat meitä',
     body: [
-      'Meillä ei ole omia palvelimia. Neljä yritystä käsittelee tietoja puolestamme sopimuksilla, jotka velvoittavat ne käsittelemään tietoja vain meidän ohjeidemme mukaan ja vain tässä kuvattuihin tarkoituksiin.',
+      'Meillä ei ole omia palvelimia. Viisi yritystä käsittelee tietoja puolestamme sopimuksilla, jotka velvoittavat ne käsittelemään tietoja vain meidän ohjeidemme mukaan ja vain tässä kuvattuihin tarkoituksiin.',
     ],
     bullets: [
       'Vercel (Yhdysvallat): ajaa palvelimemme ja säilyttää pilvivarmuuskopiot ja käyttötapahtumat. Tallennustila on Euroopan unionin alueella.',
       'Anthropic (Yhdysvallat): vastaa valmentajan kysymyksiin, koostaa ohjelmia ja lukee ohjelmakuvia, kuten yllä kuvattiin.',
       'Google (Yhdysvallat): vahvistaa Google-kirjautumisesi ja hoitaa Google Playn maksut. Suhdettasi Googleen koskee Googlen oma tietosuojakäytäntö.',
+      'Apple (Yhdysvallat): vahvistaa Apple-kirjautumisesi iPhonella. Suhdettasi Appleen koskee Applen oma tietosuojakäytäntö.',
       'Slack (Yhdysvallat): toimittaa meille tarkistettaviksi valmentajan vastaukset, joista ilmoitat, kuten yllä kuvattiin.',
     ],
   },
@@ -457,7 +461,7 @@ const PRIVACY_FI: LegalSection[] = [
   {
     heading: 'Tietoturva',
     body: [
-      'Kaikki puhelimestasi lähtevä kulkee salattua yhteyttä pitkin. Palvelimella jokainen varmuuskopiopyyntö tarkistetaan Googlelta ennen kuin mitään luetaan tai kirjoitetaan, varmuuskopiot tallennetaan sekoitetun tunnisteen alle yksityiseen tallennustilaan, treenitietoja ei koskaan kirjoiteta lokeihin, ja pyyntöjen määrää rajoitetaan.',
+      'Kaikki puhelimestasi lähtevä kulkee salattua yhteyttä pitkin. Palvelimella jokainen varmuuskopiopyyntö tarkistetaan kirjautumistasi vasten ennen kuin mitään luetaan tai kirjoitetaan, varmuuskopiot tallennetaan sekoitetun tunnisteen alle yksityiseen tallennustilaan, treenitietoja ei koskaan kirjoiteta lokeihin, ja pyyntöjen määrää rajoitetaan.',
       'Puhelimessasi sovelluksen tietoja suojaavat puhelimen oma lukitus ja Androidin sovellusten välinen eristys; sovellus ei lisää omaa salaustaan. Kuka tahansa, joka saa puhelimesi auki, voi avata Vinhan ja nähdä treenitietosi — pidä siis puhelin lukittuna.',
     ],
   },

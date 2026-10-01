@@ -1,5 +1,6 @@
 import React from 'react';
 
+import { availableSignInProviders } from '../features/account/accountAuth';
 import type { HomePrompt } from '../lib/homePrompts';
 import { isMeasurementCardKey } from '../lib/homeStatCards';
 import { SessionAdaptation, withoutSessionDrop, withSessionDrop, withSessionSwap } from '../lib/sessionAdaptation';
@@ -172,8 +173,9 @@ export function renderHomeDashboard(deps: HomeDashboardDeps): React.ReactNode {
         // both refused and remembered.
         homePrompt === 'signIn'
           ? {
-              onSignIn: () => {
-                void handleAccountSignIn().then((kind) => {
+              providers: availableSignInProviders(),
+              onSignIn: (provider) => {
+                void handleAccountSignIn(provider).then((kind) => {
                   // An answered offer never returns; a cancelled sheet or a
                   // failure leaves it up for another try or a real dismissal.
                   if (kind === 'backed_up' || kind === 'restored' || kind === 'choice' || kind === 'confirm_upload') {
