@@ -9,6 +9,8 @@ const { isUnloadedTrackingMode } = require('../../../.test-dist/features/workout
 const { persistCompletedWorkoutSessionToDatabase } = require('../../../.test-dist/state/completedWorkoutPersistence');
 const { applyProgramSessionEdit } = require('../../../.test-dist/lib/programSessionEdit');
 const { createCompletedSession, createExercise, createSet } = require('../../helpers/workoutFixtures.cjs');
+const { readAppWiring } = require('../../helpers/appWiringSource.cjs');
+const { functionBody } = require('../../helpers/sourceSlices.cjs');
 
 /**
  * Session and history audit, 2026-09-15: what a finished workout leaves behind
@@ -278,7 +280,10 @@ module.exports = [
     name: 'history: the finish is guarded by a ref, and History’s delete reaches the workout store',
     run() {
       const app = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'App.tsx'), 'utf8').replace(/\r\n/g, '\n');
-      const finish = app.slice(app.indexOf('async function handleConfirmFinishWorkout()'), app.indexOf('async function handleDeleteCompletedSession('));
+      // The finish handler on its own, wherever the shell keeps it: it leaves
+      // VinhaApp in the phase-C split (2026-10-01), and its old neighbour
+      // handleDeleteCompletedSession no longer bounds it.
+      const finish = functionBody(readAppWiring().replace(/\r\n/g, '\n'), 'async function handleConfirmFinishWorkout()');
       // Two taps inside one render both read the state as idle.
       assert.match(finish, /if \(!activeSession \|\| finishInFlightRef\.current\) \{\s*return;/);
       assert.doesNotMatch(finish, /finishSaveState\.status === 'saving'/);
