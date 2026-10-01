@@ -4,7 +4,6 @@ import Svg, { Defs, FeGaussianBlur, Filter, G, Rect, Text as SvgText } from 'rea
 
 import { layoutBlurredLines } from '../lib/blurredPreviewText';
 import { t } from '../lib/i18n';
-import { PW } from '../lightTheme';
 import { Theme, useThemedStyles, useTheme } from '../theming';
 import { AppLanguage } from '../types/models';
 import { ProLockIcon, ProPill } from './ProLockMarks';
@@ -77,7 +76,7 @@ export function BlurredPreview({ content, height, blur = DEFAULT_BLUR, color, sc
     setWidth((current) => (Math.abs(current - next) < 1 ? current : next));
   };
 
-  const ink = color ?? PW.proInk;
+  const ink = color ?? theme.proInk;
   const wash = scrim ?? theme.purpleLight;
 
   return (
@@ -279,7 +278,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flex: 1,
     fontSize: 12.5,
     fontWeight: '800',
-    color: PW.proInk,
+    color: theme.proInk,
   },
   previewWrap: {
     marginTop: 10,
@@ -294,7 +293,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   overlayTitle: {
     fontSize: 16,
     fontWeight: '900',
-    color: PW.proInk,
+    color: theme.proInk,
     textAlign: 'center',
     lineHeight: 21,
   },

@@ -547,6 +547,22 @@ const CAUTION_LEVEL_COLORS: Record<SetupCautionLevel, { ink: string; soft: strin
   avoid: { ink: '#DC2626', soft: '#FEE2E2' },
 };
 
+/**
+ * The same levels on the dark palette. Only the wash moves: the level body
+ * under it is C.textSoft, which read 2:1 on the light washes in dark (#bugs
+ * 2026-10-01 audit). The darkTheme surfaceSoft / amberSoft / dangerSoft.
+ */
+const CAUTION_LEVEL_SOFT_DARK: Record<SetupCautionLevel, string> = {
+  info: '#201A42',
+  careful: '#2E2216',
+  avoid: '#331A1E',
+};
+
+function cautionLevelColors(level: SetupCautionLevel, dark: boolean): { ink: string; soft: string } {
+  const colors = CAUTION_LEVEL_COLORS[level];
+  return dark ? { ...colors, soft: CAUTION_LEVEL_SOFT_DARK[level] } : colors;
+}
+
 
 
 function CautionGlyph({ color, size = 18 }: { color: string; size?: number }) {
@@ -2585,7 +2601,7 @@ export function OnboardingScreen({
     // "Remove" link under the levels — three controls where the card itself
     // was enough (user, 2026-08-19): on/off is the card, the level is inside.
     const expanded = flag !== null;
-    const colors = flag ? CAUTION_LEVEL_COLORS[flag.level] : null;
+    const colors = flag ? cautionLevelColors(flag.level, C === ONB_DARK) : null;
     const levelLabelKey = flag
       ? CAUTION_LEVEL_OPTIONS.find((item) => item.level === flag.level)?.labelKey ?? null
       : null;
@@ -2631,7 +2647,7 @@ export function OnboardingScreen({
           <View style={styles.avoidRowDetail}>
             <View style={styles.avoidLevelList}>
               {CAUTION_LEVEL_OPTIONS.map((levelOption) => {
-                const levelColors = CAUTION_LEVEL_COLORS[levelOption.level];
+                const levelColors = cautionLevelColors(levelOption.level, C === ONB_DARK);
                 const active = flag.level === levelOption.level;
 
                 return (
@@ -2867,7 +2883,7 @@ export function OnboardingScreen({
             {visibleFocusOptions.map((option) => {
               const active = focusAreas.includes(option.area);
               const caution = getFocusAreaCautionLevel(option.area, cautionFlags);
-              const cautionColors = caution ? CAUTION_LEVEL_COLORS[caution] : null;
+              const cautionColors = caution ? cautionLevelColors(caution, C === ONB_DARK) : null;
 
               return (
                 <Pressable

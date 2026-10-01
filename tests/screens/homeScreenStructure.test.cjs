@@ -93,9 +93,10 @@ module.exports = [
     run() {
       // Home v3 (GAINER Home v3 mock): palette comes from the shared HG token
       // set in lightTheme.ts — no local hex constants for tokenized colors.
-      // Home reads the active theme now. PW's sheet gradients stay outside it,
-      // being a designed dark surface rather than a light-theme variant.
-      assert.match(homeScreenSource, /import \{ PW \} from '\.\.\/lightTheme'/);
+      // Home reads the active theme now, the plateau card included: its fixed
+      // PW cream under theme.ink put white text on cream in dark (#bugs
+      // 2026-10-01), so nothing on Home takes the fixed paywall palette.
+      assert.doesNotMatch(homeScreenSource, /import \{ PW \} from '\.\.\/lightTheme'/);
       assert.match(homeScreenSource, /useThemedStyles\(makeStyles\)/);
       assert.doesNotMatch(homeScreenSource, /const HOME_BACKGROUND =/);
       assert.match(homeScreenSource, /screenBackground:\s*\{[\s\S]*backgroundColor: theme.bg/);

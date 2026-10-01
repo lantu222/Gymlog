@@ -672,7 +672,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 13,
     borderWidth: 1,
     borderColor: theme.border,
-    backgroundColor: '#F4F0FC',
+    // A theme field, not a fixed lavender: theme.ink on #F4F0FC was white
+    // on near-white in dark (#bugs 2026-10-01 audit).
+    backgroundColor: theme.surfaceSoft,
     paddingHorizontal: 15,
     color: theme.ink,
     fontSize: 17,

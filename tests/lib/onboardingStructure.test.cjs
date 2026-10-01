@@ -563,7 +563,7 @@ module.exports = [
 
       // Avoid-step flags colour the rows: amber careful / red avoid + triangle.
       assert.match(planningBody, /getFocusAreaCautionLevel\(option\.area, cautionFlags\)/);
-      assert.match(planningBody, /CAUTION_LEVEL_COLORS\[caution\]/);
+      assert.match(planningBody, /cautionLevelColors\(caution, C === ONB_DARK\)/);
       assert.match(planningBody, /<CautionGlyph/);
       // The area mapping is shared with the exercise filter (P2) so UI colour
       // and actual filtering can never disagree.

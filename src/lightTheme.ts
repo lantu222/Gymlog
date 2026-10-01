@@ -89,6 +89,8 @@ export const HG = {
   // Pro sheet gradient stops (dark violet).
   proSheetTop: '#241A3E',
   proSheetBottom: '#150E28',
+  // The PW.proInk value, so locked cards do not move in light.
+  proInk: '#5B21B6',
 } as const;
 
 export type HGToken = keyof typeof HG;

@@ -2,7 +2,6 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { t } from '../lib/i18n';
-import { PW } from '../lightTheme';
 import { Theme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 import { BlurredPreview } from './BlurredPreview';
@@ -108,7 +107,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flex: 1,
     fontSize: 12.5,
     fontWeight: '800',
-    color: PW.proInk,
+    color: theme.proInk,
   },
   hiddenBlock: {
     marginTop: 9,

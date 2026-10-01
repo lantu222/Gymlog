@@ -89,6 +89,8 @@ export const HG_DARK = {
   dangerBorder: 'rgba(255, 107, 107, 0.30)',
   proSheetTop: '#241A3E',
   proSheetBottom: '#150E28',
+  // About 5:1 on dark `purpleLight`, where the locked teasers sit.
+  proInk: '#A78BFA',
 };
 
 /**

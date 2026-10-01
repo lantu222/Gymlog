@@ -46,6 +46,12 @@ export interface LiftPoint {
   time: number;
   topSetWeightKg: number;
   topSetReps: number;
+  /**
+   * Reps of the sets done AT the top-set weight, in set order — what
+   * "{weight} × {reps}" can honestly claim. A ramp's lighter sets and a
+   * back-off's are not reps at the top weight.
+   */
+  setReps: number[];
   setCount: number;
   totalReps: number;
   volumeKg: number;
@@ -62,7 +68,14 @@ export interface LiftHistory {
   /** Latest top-set weight minus the first one. */
   weightChangeKg: number;
   spanDays: number;
-  /** How many of the most recent sessions share the latest top-set weight. */
+  /**
+   * How many of the most recent sessions share the latest top-set weight
+   * since the last one that set a new rep best at it. A session that adds a
+   * rep at the same weight is progress, not a stall: 60 × 6,6,6 then
+   * 60 × 6,6,7 is double progression working, and calling it a plateau was a
+   * lie (#bugs 2026-10-01). Getting back to an earlier best after a bad day
+   * is not a new one, and neither is an extra set at the same reps.
+   */
   stalledSessions: number;
 }
 
@@ -251,6 +264,35 @@ function summarizeSession(
   };
 }
 
+function averageReps(point: LiftPoint): number {
+  return point.setReps.length > 0
+    ? point.setReps.reduce((sum, count) => sum + count, 0) / point.setReps.length
+    : point.topSetReps;
+}
+
+/**
+ * Within a run at one weight, oldest first: how many sessions since the last
+ * one that beat every earlier session of the run — more reps on the top set,
+ * or more per set at the top weight. Per set, not in total, so an extra set
+ * at the same reps is not a gain.
+ */
+function sessionsSinceRepBest(run: LiftPoint[]): number {
+  let bestTop = -1;
+  let bestAverage = -1;
+  let count = 0;
+  for (const point of run) {
+    const average = averageReps(point);
+    if (point.topSetReps > bestTop || average > bestAverage + 1e-9) {
+      count = 1;
+    } else {
+      count += 1;
+    }
+    bestTop = Math.max(bestTop, point.topSetReps);
+    bestAverage = Math.max(bestAverage, average);
+  }
+  return Math.max(1, count);
+}
+
 /**
  * Per-lift trajectories across the given sessions, oldest point first.
  *
@@ -285,6 +327,9 @@ export function buildLiftHistories(
       time,
       topSetWeightKg: top.weight,
       topSetReps: top.reps,
+      setReps: getComparableLogSets(log)
+        .filter((set) => set.reps > 0 && Math.abs(set.weight - top.weight) < 0.001)
+        .map((set) => set.reps),
       setCount: reps.length,
       totalReps: reps.reduce((sum, count) => sum + count, 0),
       volumeKg: getTotalVolume(log),
@@ -306,6 +351,7 @@ export function buildLiftHistories(
       }
       stalledSessions += 1;
     }
+    stalledSessions = sessionsSinceRepBest(points.slice(-stalledSessions));
 
     histories.push({
       key,

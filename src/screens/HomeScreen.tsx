@@ -58,8 +58,7 @@ import { VinhaWordmark } from '../components/VinhaWordmark';
 import { CutSurface } from '../components/CutSurface';
 import { ProLockedCard } from '../components/ProLockedCard';
 import { ProMomentSheet } from '../components/ProMomentSheet';
-import { PW } from '../lightTheme';
-import { Theme, useTheme, useThemedStyles } from '../theming';
+import { Theme, darkTheme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage, CardioActivityType, ExerciseLibraryItem } from '../types/models';
 import { queryReduceMotion } from '../utils/reduceMotion';
 
@@ -1324,8 +1323,8 @@ export function HomeScreen({
           <View style={styles.plateauCard}>
             <View style={styles.plateauHead}>
               <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                <Path d="M12 3l9 16H3z" stroke={PW.amber} strokeWidth={2.3} strokeLinejoin="round" />
-                <Path d="M12 10v4M12 17h.01" stroke={PW.amber} strokeWidth={2.3} strokeLinecap="round" />
+                <Path d="M12 3l9 16H3z" stroke={theme.amber} strokeWidth={2.3} strokeLinejoin="round" />
+                <Path d="M12 10v4M12 17h.01" stroke={theme.amber} strokeWidth={2.3} strokeLinecap="round" />
               </Svg>
               <Text style={[styles.plateauKicker, { flex: 1 }]}>{t(language, 'pro.plateau.eyebrow')}</Text>
               {/* A positive finding does not need re-reading every day it is
@@ -3626,9 +3625,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   plateauCard: {
     marginTop: 16,
-    backgroundColor: PW.amberSoft,
+    backgroundColor: theme.amberSoft,
     borderWidth: 1,
-    borderColor: PW.amberBorder,
+    borderColor: theme.amberBorder,
     borderRadius: 20,
     paddingVertical: 16,
     paddingHorizontal: 17,
@@ -3642,7 +3641,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 10.5,
     fontWeight: '800',
     letterSpacing: 1,
-    color: PW.amber,
+    color: theme.amber,
   },
   // Reaches 44 the way the plan stepper does (TrainingPlanScreen's
   // stepperButton) — sized on the control itself, not a hitSlop this close
@@ -3658,7 +3657,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   plateauDismissText: {
     fontSize: 12,
     fontWeight: '700',
-    color: PW.amberInk,
+    color: theme.amberInk,
   },
   plateauHeadline: {
     fontSize: 19,
@@ -3670,15 +3669,18 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   plateauMeta: {
     fontSize: 12.5,
     fontWeight: '600',
-    color: PW.amberInk,
+    color: theme.amberInk,
     lineHeight: 18,
     marginTop: 7,
   },
   plateauLock: {
     marginTop: 14,
   },
+  // The card's wash follows the theme, so the inset does too: the fixed PW
+  // cream and a white inset under `theme.ink` put white text on cream in dark
+  // (user 2026-10-01, "eka ui bugi pitkästä aikaa").
   plateauFix: {
-    backgroundColor: 'rgba(255,255,255,0.65)',
+    backgroundColor: theme === darkTheme ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.65)',
     borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 14,

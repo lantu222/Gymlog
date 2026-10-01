@@ -768,7 +768,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'space-between',
   },
   readyTemplateSectionTitle: {
-    color: '#050817',
+    // Was a fixed #050817: near-black on the dark page (#bugs 2026-10-01 audit).
+    color: theme.ink,
     fontSize: 21,
     fontWeight: '900',
     letterSpacing: -0.4,
