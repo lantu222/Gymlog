@@ -1,6 +1,8 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+const { between } = require('../helpers/sourceSlices.cjs');
 
 const ROOT = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8').replace(/\r\n/g, '\n');
@@ -70,8 +72,14 @@ module.exports = [
   {
     name: 'live workout wiring: back on the guided route is the player\'s, from the first frame',
     run() {
-      const app = read('App.tsx');
-      const effect = app.slice(app.indexOf('   * The route-level back.'), app.indexOf("const subscription = BackHandler.addEventListener('hardwareBackPress'"));
+      // The whole shell, and the end searched from the start, not from the top
+      // of the file: the handler left App.tsx for a src/app hook in the
+      // phase-C split (2026-10-01).
+      const effect = between(
+        readAppWiring().replace(/\r\n/g, '\n'),
+        '   * The route-level back.',
+        "const subscription = BackHandler.addEventListener('hardwareBackPress'",
+      );
       assert.ok(effect.length > 0, 'the route-level back handler must be found');
       assert.match(
         effect,

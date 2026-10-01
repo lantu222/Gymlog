@@ -8,6 +8,8 @@ const gate = require(path.join(DIST, 'lib', 'appUpdateGate.js'));
 
 // Comments are stripped before the source guards read a file: the comments
 // here name the very calls the guards look for.
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+const { between } = require('../helpers/sourceSlices.cjs');
 const strip = (source) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 const read = (file) => strip(fs.readFileSync(path.join(root, file), 'utf8'));
 
@@ -143,7 +145,9 @@ module.exports = [
       assert.match(app, /registerAppIdentity\(Constants\.expoConfig\?\.version \?\? appInfo\.version, Platform\.OS\)/);
       assert.match(app, /<AppUpdateDialog language=\{preferences\.appLanguage\} held=\{appUpdateHeld\} \/>/);
       // Never over the terms sheet, the tour or a workout in progress (review, 2026-09-28).
-      const held = app.slice(app.indexOf('const appUpdateHeld ='), app.indexOf('const renderLegalConsent'));
+      // Bounded on both anchors, read from the whole shell: the hold left
+      // App.tsx for a src/app hook in the phase-C split (2026-10-01).
+      const held = between(strip(readAppWiring()), 'const appUpdateHeld =', 'const renderLegalConsent');
       assert.match(held, /legalConsentDue !== null/);
       assert.match(held, /workout\.activeSession !== null/);
       assert.match(held, /Boolean\(tourElement\)/);

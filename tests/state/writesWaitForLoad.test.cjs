@@ -94,7 +94,10 @@ module.exports = [
   {
     name: 'writesWaitForLoad: the route-level back listener does not re-subscribe on every workout tick',
     run() {
-      const app = code(read('App.tsx'));
+      // The whole shell: the listener left App.tsx for a src/app hook in the
+      // phase-C split (2026-10-01). Every slice below is searched from the
+      // listener it found, so it stays inside that one file.
+      const app = code(readShell());
       // The listener that walks routes: the one holding getBackRoute. A check
       // for a document open over the hand-off now comes first inside it.
       const nextRouteAt = app.indexOf('const nextRoute = getBackRoute(route, workoutHomeRoute);');

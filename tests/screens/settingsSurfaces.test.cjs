@@ -209,8 +209,15 @@ module.exports = [
       // navigateBack pops the history before it looks at the fallback, and the
       // unlock moment always has the paywall on top — so the shell must land
       // on the route itself, with the history dropped.
-      const app = stripComments(read('App.tsx'));
-      const handler = between(app, "BackHandler.addEventListener('hardwareBackPress', () => {", 'return () => subscription.remove();');
+      // The route-level listener, found by its own first stand-down and
+      // bounded by its deps — not "the first listener in App.tsx", which
+      // stopped naming it when it left for a src/app hook (phase-C split,
+      // 2026-10-01).
+      const shell = stripComments(readAppWiring().replace(/\r\n/g, '\n'));
+      const standDown = "if (cardioRunActive && route.tab === 'home' && route.screen === 'cardio') {";
+      assert.equal(shell.split(standDown).length - 1, 1, 'the route-level back is not one listener');
+      const routeBack = between(shell, standDown, '}, [cardioRunActive, navigationState.history.length, onboardingActive, route]);');
+      const handler = between(routeBack, "BackHandler.addEventListener('hardwareBackPress', () => {", 'return () => subscription.remove();');
       const skip = handler.indexOf('if (nextRoute && backSkipsHistory(route)) {\n        resetToRoute(nextRoute);\n        return true;');
       assert.ok(skip > 0, 'the unlock route resets to its back route');
       assert.ok(skip < handler.indexOf('navigateBack(nextRoute);'), 'before the history is popped');

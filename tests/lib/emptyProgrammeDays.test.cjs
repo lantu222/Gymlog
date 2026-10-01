@@ -8,6 +8,7 @@ const { weekdaySchedule } = require('../../.test-dist/lib/trainingSchedule.js');
 const { findHomeWidgetNextSession, resolveHomeWidgetSessionTap } = require('../../.test-dist/lib/widgetPayload.js');
 
 const root = path.join(__dirname, '..', '..');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 const read = (...segments) => fs.readFileSync(path.join(root, ...segments), 'utf8').replace(/\r\n/g, '\n');
 const strip = (source) =>
   source.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
@@ -151,7 +152,9 @@ module.exports = [
   {
     name: 'setup hand-off: the page stays up until its write lands, and a refusal is said on it',
     run() {
-      const app = strip(read('App.tsx'));
+      // The whole shell: the hand-off's hold and its Done handler left App.tsx
+      // for src/app in the phase-C split (2026-10-01).
+      const app = strip(readAppWiring().replace(/\r\n/g, '\n'));
       assert.match(app, /\(!preferences\.setupHandoffCompleted \|\| setupHandoffHeld\) &&/);
       // And what it shows is frozen for the write: the patch re-plans the page.
       assert.match(
