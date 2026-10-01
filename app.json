@@ -13,7 +13,12 @@
       "backgroundColor": "#F7F3FF"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "app.vinha",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "allowBackup": false,
@@ -74,9 +79,9 @@
         }
       ],
       "./plugins/withHomeWidget.js",
-    "./plugins/withBuildArchitectures.js",
-    "./plugins/withStorageSize.js",
-    "./plugins/withDataExtractionRules.js"
+      "./plugins/withBuildArchitectures.js",
+      "./plugins/withStorageSize.js",
+      "./plugins/withDataExtractionRules.js"
     ]
   }
 }

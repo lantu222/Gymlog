@@ -5,10 +5,15 @@
  * - EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID — without it there is no OAuth client to
  *   sign in against, and every screen treats the feature as absent. No dead
  *   buttons: a build without the id shows no sign-in card anywhere.
+ * - On iOS, also EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID. app.config.js turns it into
+ *   the URL scheme Google's iOS SDK returns through; without the scheme the
+ *   SDK throws natively, so an iOS build without the id has no sign-in.
  * - The native module itself. It arrives with a prebuild; a dev client built
  *   before it is added would crash on a top-level import, so the require is
  *   lazy and a missing module reports `unavailable` instead of throwing.
  */
+import { Platform } from 'react-native';
+
 export interface GoogleAccount {
   /** Google's stable subject — the backup key. Never shown to the user. */
   sub: string;
@@ -25,8 +30,12 @@ export type GoogleSignInResult =
   | { status: 'failed' };
 
 const WEB_CLIENT_ID = (process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '').trim();
+const IOS_CLIENT_ID = (process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? '').trim();
 
 export function isGoogleSignInConfigured(): boolean {
+  if (Platform.OS === 'ios' && IOS_CLIENT_ID.length === 0) {
+    return false;
+  }
   return WEB_CLIENT_ID.length > 0;
 }
 
@@ -37,7 +46,7 @@ export function isGoogleSignInConfigured(): boolean {
  */
 interface GoogleSigninModule {
   GoogleSignin: {
-    configure(options: { webClientId: string }): void;
+    configure(options: { webClientId: string; iosClientId?: string }): void;
     hasPlayServices(options?: { showPlayServicesUpdateDialog?: boolean }): Promise<boolean>;
     signIn(): Promise<
       | { type: 'success'; data: { idToken: string | null; user: { id: string; email: string | null; name: string | null } } }
@@ -61,7 +70,9 @@ function loadModule(): GoogleSigninModule | null {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const loaded = require('@react-native-google-signin/google-signin') as GoogleSigninModule;
     if (!configured) {
-      loaded.GoogleSignin.configure({ webClientId: WEB_CLIENT_ID });
+      loaded.GoogleSignin.configure(
+        Platform.OS === 'ios' ? { webClientId: WEB_CLIENT_ID, iosClientId: IOS_CLIENT_ID } : { webClientId: WEB_CLIENT_ID },
+      );
       configured = true;
     }
     return loaded;

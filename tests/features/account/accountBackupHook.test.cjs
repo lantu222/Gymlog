@@ -1039,7 +1039,7 @@ module.exports = [
       process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID = 'client.apps.googleusercontent.com';
       require.cache[libraryFile] = { id: libraryFile, filename: libraryFile, loaded: true, exports: library };
       try {
-        const googleAuth = requireWithStubs(GOOGLE_AUTH, {});
+        const googleAuth = requireWithStubs(GOOGLE_AUTH, { 'react-native': { Platform: { OS: 'android' } } });
         answers.push({ type: 'success', data: { idToken: 'fresh', user: { id: 'u', email: null, name: null } } });
         assert.deepEqual(await googleAuth.getFreshIdToken(), { status: 'ok', idToken: 'fresh' });
         // The library turns SIGN_IN_REQUIRED into this answer and throws everything else.
