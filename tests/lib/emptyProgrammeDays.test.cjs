@@ -2,13 +2,13 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 const { getHomeDayView, sessionForSlot } = require('../../.test-dist/lib/homeCalendar.js');
 const { hasOnlyEmptyDays, nextStartableSessionIndex } = require('../../.test-dist/lib/programSessionList.js');
 const { weekdaySchedule } = require('../../.test-dist/lib/trainingSchedule.js');
 const { findHomeWidgetNextSession, resolveHomeWidgetSessionTap } = require('../../.test-dist/lib/widgetPayload.js');
 
 const root = path.join(__dirname, '..', '..');
-const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 const read = (...segments) => fs.readFileSync(path.join(root, ...segments), 'utf8').replace(/\r\n/g, '\n');
 const strip = (source) =>
   source.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
@@ -128,12 +128,16 @@ module.exports = [
       assert.equal(hasOnlyEmptyDays([0, 3]), false);
       assert.equal(hasOnlyEmptyDays([]), false);
 
-      const app = strip(read('App.tsx'));
+      // The whole shell: the <HomeScreen> element moved out of App.tsx into
+      // src/app/renderHomeDashboard.tsx, and the reading into the src/app
+      // module its block moved into (phase-C split, 2026-10-01).
+      const app = strip(readAppWiring().replace(/\r\n/g, '\n'));
+      const shell = app;
       assert.match(
-        app,
+        shell,
         /const homeEmptyProgramme = useMemo\(\(\) => \{\s*if \(homeActivePlanCard\) \{\s*return null;\s*\}/,
       );
-      assert.match(app, /return hasOnlyEmptyDays\(counts\) \? \{ workoutTemplateId: template\.id, title: template\.name \} : null;/);
+      assert.match(shell, /return hasOnlyEmptyDays\(counts\) \? \{ workoutTemplateId: template\.id, title: template\.name \} : null;/);
       assert.match(app, /emptyProgramme=\{homeEmptyProgramme\}/);
       const home = strip(read('src', 'screens', 'HomeScreen.tsx'));
       // In place of "find a programme", not beside it: the two would say

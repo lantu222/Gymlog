@@ -280,11 +280,10 @@ module.exports = [
     name: 'history: the finish is guarded by a ref, and History’s delete reaches the workout store',
     run() {
       const app = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'App.tsx'), 'utf8').replace(/\r\n/g, '\n');
-      // Each handler to its own closing brace. These slices used to end at the
-      // next declaration, and phase C moves the delete handler out of App.tsx
-      // (2026-10-01): the finish's slice would have run on to the end of the
-      // file, and the delete's would have started at -1.
-      const finish = functionBody(app, 'async function handleConfirmFinishWorkout()');
+      // The finish handler on its own, wherever the shell keeps it: it leaves
+      // VinhaApp in the phase-C split (2026-10-01), and its old neighbour
+      // handleDeleteCompletedSession no longer bounds it.
+      const finish = functionBody(readAppWiring().replace(/\r\n/g, '\n'), 'async function handleConfirmFinishWorkout()');
       // Two taps inside one render both read the state as idle.
       assert.match(finish, /if \(!activeSession \|\| finishInFlightRef\.current\) \{\s*return;/);
       assert.doesNotMatch(finish, /finishSaveState\.status === 'saving'/);

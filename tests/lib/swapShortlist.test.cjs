@@ -215,16 +215,36 @@ module.exports = [
   {
     // Both swap sheets draw the library section, and both are handed a
     // library to draw it from. Anchored on the <HomeScreen …/> element in
-    // App.tsx: the prop name appears all over that file, and a guard that
-    // counted it anywhere would pass without Home ever receiving it.
+    // the shell: the prop name appears all over it, and a guard that counted
+    // it anywhere would pass without Home ever receiving it. The element moved
+    // from App.tsx to src/app/renderHomeDashboard.tsx (phase C), so it is
+    // looked up in whichever ONE shell file renders it, and its prop and
+    // closing lines are matched at the element's own indentation, whatever
+    // that is.
     name: 'swap search: Home and the programme day both search the library',
     run() {
-      const app = read('App.tsx');
-      const homeAt = app.indexOf('<HomeScreen');
-      assert.ok(homeAt > 0, 'HomeScreen is no longer rendered from App.tsx — recheck by hand');
-      const homeEnd = app.indexOf('\n      />', homeAt);
+      const shellFiles = [
+        'App.tsx',
+        ...fs
+          .readdirSync(path.join(__dirname, '../..', 'src', 'app'))
+          .filter((name) => name.endsWith('.ts') || name.endsWith('.tsx'))
+          .sort()
+          .map((name) => `src/app/${name}`),
+      ];
+      const opening = /<HomeScreen\s/g;
+      const renderers = shellFiles.map(read).filter((source) => (source.match(opening) || []).length > 0);
+      assert.equal(renderers.length, 1, 'HomeScreen is no longer rendered from exactly one shell file — recheck by hand');
+      const app = renderers[0];
+      assert.equal((app.match(opening) || []).length, 1, 'HomeScreen is rendered twice — recheck by hand');
+      const homeAt = app.search(/<HomeScreen\s/);
+      const indent = app.slice(app.lastIndexOf('\n', homeAt) + 1, homeAt);
+      assert.match(indent, /^[ \t]*$/, 'the HomeScreen element does not open its own line — recheck by hand');
+      const homeEnd = app.indexOf(`\n${indent}/>`, homeAt);
       assert.ok(homeEnd > homeAt, 'the HomeScreen element was restructured — recheck by hand');
-      assert.match(app.slice(homeAt, homeEnd), /\n        exerciseLibrary=\{exerciseBrowserItems\}/);
+      assert.ok(
+        app.slice(homeAt, homeEnd).includes(`\n${indent}  exerciseLibrary={exerciseBrowserItems}`),
+        'Home is not handed the library',
+      );
 
       for (const screen of ['src/screens/HomeScreen.tsx', 'src/screens/ProgramDayScreen.tsx']) {
         const source = read(screen);

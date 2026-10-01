@@ -490,6 +490,7 @@ const suites = [
   ...require('./lib/accessibilityLabels.test.cjs'),
   ...require('./screens/accessibilityAudit.test.cjs'),
   ...require('./screens/sheetBottomInset.test.cjs'),
+  ...require('./screens/finishRouteGuard.test.cjs'),
 ];
 
 (async () => {

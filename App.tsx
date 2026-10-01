@@ -1,20 +1,17 @@
 import './src/globalFont';
 
 import React, { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, Platform, View } from 'react-native';
+import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 
 import { AppShell } from './src/components/AppShell';
-import { BottomTabBar } from './src/components/BottomTabBar';
-import { formatDurationMinutes, formatRepRange, formatSetScheme, formatShortDate, formatTime, formatVolume, formatWeight, pluralize, removeTrailingZeros } from './src/lib/format';
-import { createId } from './src/lib/ids';
+import { formatDurationMinutes, formatRepRange, formatShortDate, formatTime, formatVolume, formatWeight, pluralize, removeTrailingZeros } from './src/lib/format';
 import { HistoryScrollMemory } from './src/lib/historyScrollMemory';
 import {
   buildFirstRunRecommendationReasons,
-  getFocusAreaTitle,
 } from './src/lib/firstRunSetup';
 import { formatWorkoutDisplayLabel } from './src/lib/displayLabel';
 import { buildCardioStatsLine, getCardioActivity } from './src/lib/cardio';
@@ -28,10 +25,6 @@ import {
   refreshHomeWidget,
   requestPinHomeWidget,
 } from './modules/home-widget';
-import { SetupHandoffScreen } from './src/screens/SetupHandoffScreen';
-import { LegalDocumentScreen } from './src/screens/LegalDocumentScreen';
-import { LEGAL_LAST_UPDATED } from './src/lib/legalDocuments';
-import { legalAcceptanceDue } from './src/lib/legalAcceptance';
 import { createTourTargetRegistry } from './src/features/tour/tourTargets';
 import {
   TourBarStop,
@@ -44,40 +37,18 @@ import { getReadyTemplatePresentation } from './src/lib/templatePresentation';
 import {
   addActiveProgram,
   evaluateProgramAdoption,
-  ONBOARDING_PLAN_PREFIX,
 } from './src/lib/activeProgramSet';
-import {
-  leadTemplateId,
-  listHeldProgrammes,
-} from './src/lib/runningProgrammes';
 import {
   buildReadyProgramPlanId,
   buildCustomProgramPlanId,
   buildProgramWorkoutPlan,
 } from './src/lib/programAdoption';
-import { computePostSessionInsight } from './src/lib/postSessionInsight';
-import { composeProgramWeekForSelection } from './src/lib/programDayComposer';
-import { getProgrammeBlockWeeks, getReadyProgramBlockWeeks } from './src/lib/readyProgramDuration';
-import { getReadyProgramContent } from './src/lib/readyProgramContent';
-import {
-  getCanonicalCompletedSessions,
-} from './src/lib/completedSessions';
 import { useRecordsAndMilestones } from './src/app/useRecordsAndMilestones';
 import { markCoachDemoMomentUsed } from './src/lib/coachDemoMoments';
-import { blockWeekOfSession, blockWeekTally, buildHomePlanProgress } from './src/lib/homePlanProgress';
-import {
-  buildSessionEquipmentLabel,
-  classifySessionFocus,
-  getSessionBodyFocusLabel,
-} from './src/lib/homeSessionHero';
-import { estimateSessionMinutes } from './src/lib/sessionDuration';
-import { buildMuscleFocus, getVolumeDeltaVsPrevious } from './src/lib/workoutCompleteView';
 import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
 import { I18nKey, t } from './src/lib/i18n';
 import { isProUnlocked, resolveProEntitlement } from './src/lib/proEntitlement';
-import { ThemeChoiceDialog } from './src/components/ThemeChoiceDialog';
 import { resolveThemeName } from './src/lib/themePreference';
-import { localizeSessionFocus, localizeSessionName } from './src/lib/sessionNameLabel';
 import { trackEvent } from './src/features/analytics/analyticsClient';
 
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
@@ -85,14 +56,9 @@ import { CoachChatMemory } from './src/lib/coachChatMemory';
 import { CoachAdviceMemoryEntry } from './src/lib/coachAdviceMemory';
 import { clearCoachAdviceMemory } from './src/storage/coachAdviceMemoryStore';
 import type { ChatMessage } from './src/screens/AICoachChatScreen';
-import { hasOnlyEmptyDays, nextStartableSessionIndex } from './src/lib/programSessionList';
-import { createUnlessAtLimit } from './src/app/programLimitGuard';
 import { useProgramExerciseEdit } from './src/app/useProgramExerciseEdit';
-import {
-  ProgramSeason,
-  getSeasonProgramId,
-  getSeasonProgramIds,
-} from './src/lib/programSeasons';
+import { getSeasonProgramId } from './src/lib/programSeasons';
+import { getSeasonProgramIds } from './src/lib/programSeasons';
 import {
   SEASON_COLORS,
   SEASON_WEEKS,
@@ -105,37 +71,15 @@ import {
   seasonWeek,
   seasonWeeksLeft,
 } from './src/lib/season';
-import { isMeasurementCardKey } from './src/lib/homeStatCards';
-import { planTrainedOnDay, resolveNextPlanEntryIndex } from './src/lib/planRotation';
-import { programmeHistoryIds } from './src/lib/programLineage';
-import { cycleSchedule, weekdaySchedule, withRestDays } from './src/lib/trainingSchedule';
 import { useRecoverySheet } from './src/app/useRecoverySheet';
-import {
-  planWeekdayIndexes,
-  resolveProgramTrainingDays,
-} from './src/lib/programTrainingDays';
 import {
   planLabelsForProgramme,
 } from './src/lib/trainingWeekSync';
-import { programCoverStyle } from './src/lib/programVisualIdentity';
-import { countSessionsSince, resolveCompletionCard } from './src/lib/programCompletion';
-import { backfillRecommendations } from './src/lib/recommendationBackfill';
-import { expandRunningIdsWithSources, findReadyProgrammeCopyId } from './src/lib/programmeCopyLink';
+import { findReadyProgrammeCopyId } from './src/lib/programmeCopyLink';
 import { useGoalFlow } from './src/app/useGoalFlow';
 import {
-  addSeasonEnrolment,
   isEnrolled,
 } from './src/lib/seasonEnrolment';
-import { buildProgramFingerprint } from './src/lib/programFingerprint';
-import {
-  countByCategory,
-  filterByCategory,
-  PROGRAM_CATEGORIES,
-  ProgramCategoryKey,
-} from './src/lib/programCategories';
-import { ProgramLimitSheet } from './src/components/ProgramLimitSheet';
-import { RateAppSheet } from './src/components/RateAppSheet';
-import { decideRatingPrompt, recordRatingAsked, recordRatingCompleted } from './src/lib/ratingPrompt';
 
 /**
  * The listing, opened by every star. Not the in-app review API: Google's own
@@ -153,19 +97,19 @@ import {
   SessionAdaptation,
   spendHeldAdaptation,
   updateHeldAdaptation,
-  withoutSessionDrop,
-  withSessionDrop,
-  withSessionSwap,
 } from './src/lib/sessionAdaptation';
 import { forgetRoutesForTemplate, popRoute, pushRoute, withoutTrailingRoute } from './src/navigation/routeHistory';
 import { liveSessionBlocksProgrammeDelete } from './src/lib/programmeDeletion';
 import { AppRoute, ROOT_ROUTES, RootTabKey, WORKOUT_PLAN_ROUTE } from './src/navigation/routes';
 import { renderProfileTab } from './src/app/renderProfileTab';
-import { resolveTodaySessionPick } from './src/lib/todaySessionPick';
 import { renderHomeScreens } from './src/app/renderHomeScreens';
+import { renderAppShell } from './src/app/renderAppShell';
+import { renderHomeDashboard } from './src/app/renderHomeDashboard';
+import { renderOnboardingFlow, renderSetupEditor, renderSetupHandoff } from './src/app/renderOnboarding';
+import { renderWorkoutCompletion } from './src/app/renderWorkoutCompletion';
 import { renderWorkoutTab } from './src/app/renderWorkoutTab';
 import { renderProgressTab } from './src/app/renderProgressTab';
-import { formatGoalLabel, formatHomeSessionTitle } from './src/app/homeSessionTitle';
+import { formatGoalLabel } from './src/app/homeSessionTitle';
 import { useSessionNotifications } from './src/app/useSessionNotifications';
 import { useNotificationRoute } from './src/app/useNotificationRoute';
 import { useCoachContext } from './src/app/useCoachContext';
@@ -175,19 +119,16 @@ import { createProgrammePlanEdits } from './src/app/programmePlanEdits';
 import { createProgrammeSwitches } from './src/app/programmeSwitches';
 import { useProgramCapLine } from './src/app/useProgramCapLine';
 import { createOnboardingFinishes } from './src/app/onboardingFinishes';
-import {
-  buildCompletionCardsFromAdaptedSession,
-  buildSessionMovement,
-  buildExerciseLogsForCompletedSession,
-  CompletionSummaryState,
-  getEndOfWeek,
-  getStartOfWeek,
-} from './src/app/workoutCompletionState';
 import { useDeviceSwitches } from './src/app/useDeviceSwitches';
 import { useFunnelAnalytics } from './src/app/useFunnelAnalytics';
 import { useInstallStamps } from './src/app/useInstallStamps';
 import { useSetupWeightSeed } from './src/app/useSetupWeightSeed';
 import { useTodayKey } from './src/app/useTodayKey';
+import { useFinishState } from './src/app/useFinishState';
+import { useFinishRefs } from './src/app/useFinishRefs';
+import { createFinishExits } from './src/app/finishExits';
+import { useFinishRouteGuard } from './src/app/useFinishRouteGuard';
+import { createFinishSaves } from './src/app/finishSaves';
 import { useDaySummaries } from './src/app/useDaySummaries';
 import { useCoachDemoMoment } from './src/app/useCoachDemoMoment';
 import { useCoachEntryReadings } from './src/app/useCoachEntryReadings';
@@ -206,38 +147,30 @@ import { useSetupHandoffOverlays } from './src/app/useSetupHandoffOverlays';
 import { createSetupHandoffDone } from './src/app/setupHandoffDone';
 import { useHomeWidgetFeed } from './src/app/useHomeWidgetFeed';
 import { useWidgetTaps } from './src/app/useWidgetTaps';
-import { buildSessionAnalysis } from './src/lib/sessionAnalysis';
-import { AboutYouScreen, AboutYouValues } from './src/screens/AboutYouScreen';
+import { AboutYouValues } from './src/screens/AboutYouScreen';
+import { useHomeActivePlan } from './src/app/useHomeActivePlan';
+import { useHomeTrainingSchedule } from './src/app/useHomeTrainingSchedule';
+import { usePlanReadouts } from './src/app/usePlanReadouts';
+import { useRecentSessions } from './src/app/useRecentSessions';
+import { useProgramsCatalog } from './src/app/useProgramsCatalog';
+import { useSeasonEnrolment } from './src/app/useSeasonEnrolment';
+import { useProgramsCustomItems } from './src/app/useProgramsCustomItems';
 import { LaunchScreen } from './src/screens/LaunchScreen';
-import { HomeScreen } from './src/screens/HomeScreen';
-import { OnboardingScreen } from './src/screens/OnboardingScreen';
-import { OnboardingReadyCatalogScreen } from './src/screens/OnboardingReadyCatalogScreen';
-import { StartPathScreen } from './src/screens/StartPathScreen';
-import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { setNumberLanguage } from './src/lib/format';
 import { VinhaSplashScreen } from './src/screens/VinhaSplashScreen';
-import { ExportablePlan } from './src/screens/ExportPlanScreen';
 import { NewProgramSheet } from './src/components/NewProgramSheet';
 import { buildCoachContextChips } from './src/lib/coachChat';
 import { accountNameStep } from './src/lib/accountNameAdoption';
-import type { CatalogScreenItem } from './src/screens/CatalogScreen';
-import { ProgramsExploreItem } from './src/screens/ProgramsHomeScreen';
-import { WorkoutCompletionScreen } from './src/screens/WorkoutCompletionScreen';
-import { FreestyleFinishSummary } from './src/lib/emptyWorkoutSession';
 import { WorkoutProvider, useWorkoutContext } from './src/features/workout/WorkoutProvider';
-import { AdaptedCompletedWorkoutExercise, adaptCompletedWorkoutSessionForAppDatabase } from './src/features/workout/workoutAppAdapter';
-import { getWorkoutTemplateById, WORKOUT_TEMPLATES_V1 } from './src/features/workout/workoutCatalog';
-import { isTimedTrackingMode } from './src/features/workout/workoutTypes';
+import { AdaptedCompletedWorkoutExercise } from './src/features/workout/workoutAppAdapter';
+import { getWorkoutTemplateById } from './src/features/workout/workoutCatalog';
 import { AppProvider, useAppContext } from './src/state/AppProvider';
-import { AppUpdateDialog } from './src/features/appUpdate/AppUpdateDialog';
-import { ServerNoticeDialog } from './src/features/serverNotice/ServerNoticeDialog';
 import { registerAppIdentity } from './src/features/appUpdate/appUpdateSignal';
 import { appInfo } from './src/theme';
 import {
   AppLanguage,
   ExerciseTemplateDraft,
   SetupGender,
-  WorkoutTemplateDraft,
 } from './src/types/models';
 
 void SplashScreen.preventAutoHideAsync().catch(() => {
@@ -247,12 +180,6 @@ void SplashScreen.preventAutoHideAsync().catch(() => {
 interface NavigationState {
   route: AppRoute;
   history: AppRoute[];
-}
-
-interface FinishSaveState {
-  status: 'idle' | 'saving' | 'error';
-  sessionId: string | null;
-  message: string | null;
 }
 
 /**
@@ -414,13 +341,14 @@ function VinhaApp() {
   // list a tab switch had reset the search on landed the reader partway
   // down rows they had never scrolled past (recheck round 2026-09-29).
   const historyScrollOffsetRef = useRef<HistoryScrollMemory | null>(null);
-  const [completionSummary, setCompletionSummary] = useState<CompletionSummaryState | null>(null);
-  const [ratingSheetVisible, setRatingSheetVisible] = useState(false);
-  const [finishSaveState, setFinishSaveState] = useState<FinishSaveState>({
-    status: 'idle',
-    sessionId: null,
-    message: null,
-  });
+  const {
+    completionSummary,
+    setCompletionSummary,
+    ratingSheetVisible,
+    setRatingSheetVisible,
+    finishSaveState,
+    setFinishSaveState,
+  } = useFinishState();
   const [cardioSaving, setCardioSaving] = useState(false);
   // Settings' "Import plan (CSV)" opens the same sheet the Programs tab uses,
   // straight into its paste view. One importer, two doors.
@@ -468,12 +396,7 @@ function VinhaApp() {
   // hides a bad row, and hiding is how the two sets drifted apart in the first
   // place.
   const exerciseBrowserItems = exerciseLibrary;
-  const summaryExitRouteRef = useRef<AppRoute | null>(null);
-  const summaryNavigationPendingRef = useRef(false);
-  /** A finish that has started and not yet settled. See handleConfirmFinishWorkout. */
-  const finishInFlightRef = useRef(false);
-  /** Sessions whose `workout_completed` has been sent. See handleConfirmFinishWorkout. */
-  const completionCountedRef = useRef(new Set<string>());
+  const { summaryExitRouteRef, summaryNavigationPendingRef, finishInFlightRef, completionCountedRef } = useFinishRefs();
   const workoutLogNavigationAllowedAtRef = useRef<number | null>(null);
   const route = navigationState.route;
   const appHydrated = hydrated && workout.hydrated;
@@ -583,56 +506,15 @@ function VinhaApp() {
     );
   }
 
-  /**
-   * Leave a finished-workout screen: clear its data and move, in one commit.
-   *
-   * The single transition is the whole point. Every navigation helper here
-   * wraps setNavigationState in startTransition, which makes route changes
-   * non-urgent — so a plain `setCompletionSummary(null)` alongside them is
-   * urgent and lands *first*. That commits a frame where the route is still
-   * {workout, summary} while the summary data is already gone.
-   *
-   * The summary branch is guarded on `&& completionSummary`, so that frame
-   * matches no named workout screen and falls through to the tab's catch-all,
-   * which renders the exercise browser. Reported from the phone as "Ohjelmat
-   * flashes for a beat between the summary and Home".
-   *
-   * Clearing after navigating does not fix it: the clear would still be the
-   * urgent half. They have to be the same update.
-   */
-  function leaveFinishedWorkout(nextRoute: AppRoute) {
-    startTransition(() => {
-      setCompletionSummary(null);
-      setFinishSaveState({ status: 'idle', sessionId: null, message: null });
-      setNavigationState({ route: nextRoute, history: [] });
-    });
-    maybeAskForRating();
-  }
-
-  /**
-   * The rating ask, at the one moment the reader has just finished something.
-   *
-   * Fired on the way out of the finish screen rather than on it: the finish
-   * screen already asks how the session felt, and two sheets stacked on one
-   * tap is how a reader learns to dismiss sheets without reading them.
-   *
-   * The ask is recorded when the sheet is SHOWN, not when it is answered. A
-   * reader who closes it has still been asked, and counting only the answers
-   * would let the app ask forever.
-   */
-  function maybeAskForRating() {
-    const decision = decideRatingPrompt({
-      state: preferences.ratingPrompt,
-      sessionsLogged: database.workoutSessions.length + database.cardioSessions.length,
-      atPeakMoment: true,
-      nowMs: Date.now(),
-    });
-    if (!decision.ask) {
-      return;
-    }
-    setRatingSheetVisible(true);
-    void updatePreferences((current) => ({ ratingPrompt: recordRatingAsked(current.ratingPrompt, Date.now()) }));
-  }
+  const { leaveFinishedWorkout } = createFinishExits({
+    preferences,
+    database,
+    updatePreferences,
+    setCompletionSummary,
+    setFinishSaveState,
+    setNavigationState,
+    setRatingSheetVisible,
+  });
 
   /**
    * Where a tab lands. Programs-tab redesign (flagged): the workout tab lands
@@ -710,117 +592,23 @@ function VinhaApp() {
     return () => clearTimeout(timeout);
   }, [toastMessage]);
 
-  useEffect(() => {
-    if (finishSaveState.status === 'idle') {
-      return;
-    }
-
-    const activeSessionId = workout.activeSession?.sessionId ?? null;
-    if (activeSessionId === finishSaveState.sessionId) {
-      return;
-    }
-
-    setFinishSaveState({ status: 'idle', sessionId: null, message: null });
-  }, [finishSaveState.sessionId, finishSaveState.status, workout.activeSession?.sessionId]);
-
-  useEffect(() => {
-    if (route.tab === 'workout' && route.screen === 'guided') {
-      const allowedAt = workoutLogNavigationAllowedAtRef.current;
-      workoutLogNavigationAllowedAtRef.current = null;
-
-      if (
-        !workout.activeSession &&
-        finishSaveState.status !== 'saving' &&
-        !summaryNavigationPendingRef.current &&
-        (!allowedAt || Date.now() - allowedAt > 2000)
-      ) {
-        replaceRoute(ROOT_ROUTES.home);
-        return;
-      }
-    }
-
-    if (
-      route.tab === 'workout' &&
-      route.screen === 'guided' &&
-      !workout.templates.some((template) => template.id === route.workoutTemplateId) &&
-      !workoutTemplates.some((template) => template.id === route.workoutTemplateId)
-    ) {
-      replaceRoute(workoutHomeRoute);
-    }
-
-      if (
-        route.tab === 'workout' &&
-        route.screen === 'detail' &&
-        !exerciseBrowserItems.some((item) => item.id === route.exerciseId)
-      ) {
-        replaceRoute(ROOT_ROUTES.workout);
-      }
-
-    if (
-      route.tab === 'workout' &&
-      (route.screen === 'program' || route.screen === 'programDay') &&
-      ((route.programType === 'ready' && !workout.templates.some((template) => template.id === route.workoutTemplateId)) ||
-        (route.programType === 'custom' && !workoutTemplates.some((template) => template.id === route.workoutTemplateId)))
-    ) {
-      replaceRoute(workoutHomeRoute);
-    }
-
-    if (
-      route.tab === 'workout' &&
-      route.screen === 'template' &&
-      route.workoutTemplateId &&
-      !workoutTemplates.some((template) => template.id === route.workoutTemplateId)
-    ) {
-      replaceRoute(workoutHomeRoute);
-    }
-
-    if (
-      route.tab === 'progress' &&
-      route.screen === 'detail' &&
-      !trackedProgress.some((item) => item.key === route.exerciseKey)
-    ) {
-      replaceRoute(ROOT_ROUTES.progress);
-    }
-
-    if (
-      route.tab === 'home' &&
-      route.screen === 'session' &&
-      !workoutSessions.some((session) => session.id === route.sessionId)
-    ) {
-      replaceRoute({ tab: 'home', screen: 'history' });
-    }
-
-    if (
-      route.tab === 'workout' &&
-      route.screen === 'summary' &&
-      completionSummary &&
-      summaryNavigationPendingRef.current
-    ) {
-      summaryNavigationPendingRef.current = false;
-    }
-
-    if (
-      route.tab === 'workout' &&
-      route.screen === 'summary' &&
-      !completionSummary &&
-      finishSaveState.status !== 'saving' &&
-      !summaryNavigationPendingRef.current
-    ) {
-      const nextRoute = summaryExitRouteRef.current ?? workoutHomeRoute;
-      summaryExitRouteRef.current = null;
-      replaceRoute(nextRoute);
-    }
-  }, [
+  useFinishRouteGuard({
+    finishSaveState,
+    setFinishSaveState,
     completionSummary,
-    exerciseLibrary,
-    finishSaveState.status,
+    workout,
     route,
-    trackedProgress,
-    workout.activeSession,
-    workoutSessions,
-    workout.templates,
+    replaceRoute,
+    workoutHomeRoute,
+    workoutLogNavigationAllowedAtRef,
+    summaryNavigationPendingRef,
+    summaryExitRouteRef,
     workoutTemplates,
-  ]);
+    exerciseLibrary,
+    exerciseBrowserItems,
+    trackedProgress,
+    workoutSessions,
+  });
 
   const onboardingActive = !preferences.onboardingCompleted;
   const entryFlowActive = onboardingActive && !preferences.entryFlowCompleted;
@@ -1022,156 +810,6 @@ function VinhaApp() {
       recommendedProgramId: preferences.recommendedProgramId,
       setupCompleted: preferences.setupCompleted,
     });
-  }
-
-  async function handleDiscardWorkout() {
-    if (!workout.activeSession) {
-      return;
-    }
-
-    const fallbackRoute = getWorkoutLoggerFallbackRoute();
-    await updatePreferences({ trainingFirstRunDismissed: true });
-    workout.discardWorkout();
-    setFinishSaveState({ status: 'idle', sessionId: null, message: null });
-    navigateBack(fallbackRoute);
-  }
-
-  async function handleConfirmFinishWorkout() {
-    const activeSession = workout.activeSession;
-    // A ref, not `finishSaveState`: two taps inside one render both read the
-    // state as idle, and each went on to save and finish.
-    if (!activeSession || finishInFlightRef.current) {
-      return;
-    }
-
-    const adaptedSession = adaptCompletedWorkoutSessionForAppDatabase(activeSession);
-    if (adaptedSession.logs.length === 0) {
-      await handleDiscardWorkout();
-      return;
-    }
-
-    finishInFlightRef.current = true;
-    setFinishSaveState({
-      status: 'saving',
-      sessionId: adaptedSession.sessionId,
-      message: null,
-    });
-
-    try {
-      const summary = await saveCompletedWorkoutSession({
-        ...adaptedSession,
-        performedAt: adaptedSession.performedAt,
-      });
-      if (!summary.sessionId || !summary.performedAt) {
-        throw new Error('Workout save did not produce a valid summary');
-      }
-      // Once per session. A write after this one can fail — the preferences
-      // below — and the retry saves again, which hands back the session
-      // already stored: counted on every pass, one workout was two
-      // (analytics audit, 2026-09-21).
-      if (!completionCountedRef.current.has(adaptedSession.sessionId)) {
-        completionCountedRef.current.add(adaptedSession.sessionId);
-        trackEvent('workout_completed');
-      }
-
-      // Only after the database save is verified: finishing flips the session
-      // to 'completed' and stamps slot history. Doing it before the save meant
-      // a failed save stranded the session in a state resume would not pick up
-      // — the logged sets were gone on the next launch (launch-scope Risk 1).
-      workout.finishWorkout(adaptedSession.performedAt);
-
-      const sessionExerciseLogs = buildExerciseLogsForCompletedSession(adaptedSession.sessionId, adaptedSession.logs);
-      const insight = computePostSessionInsight(
-        {
-          completedSession: {
-            id: adaptedSession.sessionId,
-            performedAt: summary.performedAt,
-            totalVolumeKg: summary.totalVolume,
-            setsCompleted: summary.setsCompleted,
-          },
-          sessionExerciseLogs,
-          allPriorSessions: database.workoutSessions,
-          allPriorExerciseLogs: database.exerciseLogs,
-          lastInsightSessionId: preferences.lastInsightSessionId,
-          lastInsightType: preferences.lastInsightType,
-          unitPreference,
-        },
-        new Date(summary.performedAt),
-      );
-
-      await updatePreferences({
-        trainingFirstRunDismissed: true,
-        ...(insight
-          ? {
-              lastInsightSessionId: adaptedSession.sessionId,
-              lastInsightType: insight.type,
-            }
-          : {}),
-      });
-      const completionCards = buildCompletionCardsFromAdaptedSession({
-        exercises: adaptedSession.exercises,
-        exerciseTemplates: database.exerciseTemplates,
-        exerciseLibrary,
-        exercisePrLookup,
-        language: preferences.appLanguage,
-      });
-      setCompletionSummary({
-        sessionId: adaptedSession.sessionId,
-        workoutName: adaptedSession.workoutNameSnapshot,
-        performedAt: summary.performedAt,
-        durationMinutes: summary.durationMinutes,
-        setsCompleted: summary.setsCompleted,
-        totalVolume: summary.totalVolume,
-        // The tile counts lifts that were done: the save's own count, by the
-        // rule History reads the same logs with (lib/sessionTotals), so this
-        // tile and the session's History row cannot disagree. The cards below
-        // agree too — a card with a completed set is a log the rule counts.
-        // Not summary.exercisesLogged, which is every persisted entry, skipped
-        // included: "6 LIIKETTÄ" above five rows of "0 sarjaa" was that number.
-        exercisesLogged: summary.exercisesCompleted,
-        volumeDeltaKg: getVolumeDeltaVsPrevious(
-          {
-            sessionId: adaptedSession.sessionId,
-            workoutName: adaptedSession.workoutNameSnapshot,
-            performedAt: summary.performedAt,
-            totalVolumeKg: summary.totalVolume,
-          },
-          database.workoutSessions,
-        ),
-        muscles: buildMuscleFocus(adaptedSession.exercises, exerciseLibrary),
-        exerciseCards: completionCards.exerciseCards,
-        prCards: completionCards.prCards,
-        // Read from the persisted logs. The builder excludes this session by
-        // id, so "last time" cannot mean today whether or not the save has
-        // already landed in the snapshot this closure holds.
-        ...buildSessionMovement({
-          exercises: adaptedSession.exercises,
-          exerciseLogs: database.exerciseLogs,
-          workoutSessions: database.workoutSessions,
-          sessionId: adaptedSession.sessionId,
-          language: preferences.appLanguage,
-          unitPreference,
-        }),
-        insight,
-      });
-      summaryNavigationPendingRef.current = true;
-      // Finish on the completion screen returns Home. Set the exit route so the
-      // summary-dismiss effect can't race onDone's navigation to WORKOUT_PLAN_ROUTE.
-      summaryExitRouteRef.current = ROOT_ROUTES.home;
-      workout.clearCompletedWorkout();
-      replaceRoute({ tab: 'workout', screen: 'summary' });
-      setFinishSaveState({ status: 'idle', sessionId: null, message: null });
-    } catch (error) {
-      console.error('Failed to save completed workout', error);
-      setFinishSaveState({
-        status: 'error',
-        sessionId: adaptedSession.sessionId,
-        message: 'Could not save this workout. Try again before leaving the screen.',
-      });
-      showToast(t(preferences.appLanguage, 'toast.saveWorkoutFailed'));
-    } finally {
-      finishInFlightRef.current = false;
-    }
   }
 
   const {
@@ -1848,372 +1486,29 @@ function VinhaApp() {
     preferences,
     bodyweightProgress,
   });
-  const homeActivePlanCard = useMemo(() => {
-    const completedPlanSessions = getCanonicalCompletedSessions(database);
-    // Local midnight, to date the reader's hand-picked session against. Read
-    // from the day key rather than from the clock, so an app left open
-    // overnight moves on with the reader rather than keeping yesterday — and
-    // local rather than UTC, the same midnight the calendar and the widget
-    // mean.
-    const todayDayStart = todayStartMs;
-    /** The local midnight an ISO timestamp falls in — not the UTC one. */
-    const toDayStartMs = (iso: string) => {
-      const date = new Date(iso);
-      return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-    };
-    // Both hero branches end in the same question — is this block finished,
-    // and what may the card claim? The display name is resolved here because
-    // Home has no catalog access, and the presentation title (not the raw
-    // template name) is what every other surface shows.
-    const buildCompletion = (
-      planId: string,
-      sessionsDone: number,
-      sessionsTotal: number,
-      activeTemplate: ReturnType<typeof getWorkoutTemplateById>,
-      canRestart: boolean,
-    ) => {
-      const card = resolveCompletionCard({
-        planId,
-        sessionsDone,
-        sessionsTotal,
-        activeTemplate,
-        catalog: WORKOUT_TEMPLATES_V1,
-        dismissedPlanIds: preferences.dismissedCompletionPlanIds,
-      });
-      if (!card) {
-        return null;
-      }
-      const nextTemplate = card.nextLevelTemplateId ? getWorkoutTemplateById(card.nextLevelTemplateId) : null;
-      return {
-        planId: card.planId,
-        sessionsTotal: card.sessionsTotal,
-        nextLevelTemplateId: card.nextLevelTemplateId,
-        nextLevelTitle: nextTemplate
-          ? getReadyTemplatePresentation(nextTemplate, preferences.appLanguage).title
-          : null,
-        canRestart,
-      };
-    };
-    const activeWorkoutPlan = database.workoutPlans.find((plan) => plan.id === preferences.activePlanId) ?? null;
-    if (activeWorkoutPlan?.entries.length) {
-      const sortedEntries = [...activeWorkoutPlan.entries].sort((left, right) => left.orderIndex - right.orderIndex);
-      const firstEntry = sortedEntries[0];
-      // A plan can point at either source. Only the database was resolved
-      // here, so an adopted READY programme found no template, rendered no
-      // hero, and fell through to the recommendation branch — which showed a
-      // different programme's day 1 and started it. Removing that fallback is
-      // what made this visible.
-      const dbTemplate = workoutTemplates.find((template) => template.id === firstEntry.workoutTemplateId) ?? null;
-      const readyPlanTemplate = dbTemplate ? null : getWorkoutTemplateById(firstEntry.workoutTemplateId);
-      const activeTemplate = dbTemplate ?? readyPlanTemplate;
-      const activePlanProgramType = dbTemplate ? ('custom' as const) : ('ready' as const);
-      const activeTemplateSessions = dbTemplate
-        ? getWorkoutTemplateSessions(dbTemplate.id)
-        : (readyPlanTemplate?.sessions ?? []).map((session) => ({
-            id: session.id,
-            name: session.name,
-            orderIndex: session.orderIndex,
-            exercises: session.exercises.map((exercise) => ({
-              id: exercise.id,
-              name: exercise.exerciseName,
-              targetSets: exercise.sets,
-              repMin: exercise.repsMin,
-              repMax: exercise.repsMax,
-            })),
-          }));
-      const orderedPlanSessions = sortedEntries
-        .map((entry) => {
-          if (entry.workoutTemplateSessionId) {
-            return activeTemplateSessions.find((session) => session.id === entry.workoutTemplateSessionId) ?? null;
-          }
-
-          return activeTemplateSessions[entry.orderIndex] ?? null;
-        })
-        .filter((session): session is NonNullable<typeof session> => Boolean(session));
-      // The runtime template is where a custom exercise gets its slot id and
-      // substitution group; read them from there rather than rebuilding the
-      // rule here, so Home and the session cannot disagree about a slot.
-      // Catalog exercises already carry slot, role, tracking mode and rests,
-      // so a ready plan reads them straight off the template.
-      const activeRuntimeExercises = new Map(
-        (dbTemplate
-          ? customWorkoutRuntimeMap[dbTemplate.id]?.sessions ?? []
-          : readyPlanTemplate?.sessions ?? []
-        )
-          .flatMap((session) => session.exercises)
-          .map((exercise) => [exercise.id, exercise] as const),
-      );
-      const homeSessions = orderedPlanSessions.map((session, sessionIndex) => {
-        const exerciseCount = session.exercises.length;
-        // Was `exercises × 10 min`, which ignored both sets and rest. Same
-        // formula as the guided entry now, so the two screens agree.
-        const durationInputs = session.exercises.map((exercise) => ({
-          slotId: activeRuntimeExercises.get(exercise.id)?.slotId ?? exercise.id,
-          role: activeRuntimeExercises.get(exercise.id)?.role ?? 'accessory',
-          sets: exercise.targetSets,
-          reps: exercise.repMax,
-          timed: isTimedTrackingMode(activeRuntimeExercises.get(exercise.id)?.trackingMode ?? 'reps_first'),
-          restSeconds: activeRuntimeExercises.get(exercise.id)?.restSecondsMin ?? 90,
-          // Home quotes the same number the entry screen does, so it has to
-          // know the same thing about rests: a superset rests once per round.
-          supersetGroup: activeRuntimeExercises.get(exercise.id)?.supersetGroup ?? null,
-        }));
-        // Classified here, where the whole session is still in hand — Home
-        // receives only the first five exercises below.
-        const focusKind = classifySessionFocus(session.exercises.map((exercise) => exercise.name));
-        const routineSeconds = routineBlockSeconds(focusKind);
-        const estimatedDuration = estimateSessionMinutes({
-          exercises: durationInputs,
-          ...routineSeconds,
-        });
-        // Weekday truth (P6): surface the plan's own entry label so week rows
-        // land on the user's chosen days, not a generic spread.
-        const entryLabel = sortedEntries[sessionIndex]?.label ?? null;
-
-        return {
-          id: session.id,
-          name: session.name,
-          title: formatHomeSessionTitle(session.name, session.exercises),
-          duration: `~${estimatedDuration} min`,
-          dayLabel: entryLabel,
-          totalSets: session.exercises.reduce((sum, exercise) => sum + exercise.targetSets, 0),
-          durationMinutes: estimatedDuration,
-          focusKind,
-          // The whole session, not the first five (user 2026-08-24: "saako
-          // treeni osion näkyviin kokonaan"). Home decides what to show and
-          // the reader can fold the list; truncating here meant the count in
-          // the header and the rows beneath it were two different numbers,
-          // and every consumer had to add the hidden ones back to get one.
-          exercises: session.exercises.map((exercise) => ({
-            name: exercise.name,
-            // The template's own id, which is what removing from the programme
-            // writes against. The slot id belongs to the runtime and cannot
-            // find a row in the stored template.
-            exerciseId: exercise.id,
-            setsLabel: `${exercise.targetSets} sets`,
-            targetSets: exercise.targetSets,
-            schemeLabel: formatSetScheme(
-              exercise.targetSets,
-              exercise.repMin,
-              exercise.repMax,
-              activeRuntimeExercises.get(exercise.id)?.trackingMode ?? 'reps_first',
-            ),
-            slotId: activeRuntimeExercises.get(exercise.id)?.slotId,
-            substitutionGroup: activeRuntimeExercises.get(exercise.id)?.substitutionGroup,
-          })),
-        };
-      });
-      // Was `homeSessions[0]`, always. Finishing day 1 offered day 1 again,
-      // and the start button logged the wrong session against the plan.
-      const completedForTemplate = completedSessionsForTemplate(firstEntry.workoutTemplateId, completedPlanSessions);
-      const nextSessionIndex = resolveNextPlanEntryIndex(sortedEntries, completedForTemplate);
-      // Where the rotation stands, for the calendars: they name days from here
-      // on by what Home will offer, not by counting calendar days
-      // (trainingSchedule forecastSlotOn).
-      const sessionForecast = {
-        fromDayStart: todayDayStart,
-        nextSlot: nextSessionIndex,
-        trainedToday: planTrainedOnDay(sortedEntries, completedForTemplate, todayDayStart),
-      };
-      // The reader's own answer wins for the day they gave it. The rotation
-      // knows what comes next in the programme and cannot know that today is
-      // legs — but it is right again tomorrow, so the override is dated rather
-      // than sticky, and a stale one is ignored instead of cleared.
-      const pickedToday = resolveTodaySessionPick({
-        pick: preferences.todaySession,
-        sessions: homeSessions,
-        todayDayStart,
-        completed: completedPlanSessions,
-        toDayStart: toDayStartMs,
-      });
-      // A day named but not yet filled is not a session to offer: its turn
-      // goes to the next day that has something in it (2026-09-26). A pick of
-      // an empty day is passed over the same way.
-      const startableIndex = nextStartableSessionIndex(
-        homeSessions.map((session) => session.exercises.length),
-        nextSessionIndex,
-      );
-      const nextSession =
-        (pickedToday && pickedToday.exercises.length > 0 ? pickedToday : null) ??
-        (startableIndex === null ? null : homeSessions[startableIndex]) ??
-        null;
-      if (activeTemplate && nextSession) {
-        const estimatedDuration = Number.parseInt(nextSession.duration.replace(/\D/g, ''), 10) || 20;
-        // The programme, not the record that happens to hold it: a copy made
-        // by editing one lift is the same programme the reader has been
-        // training, and every counter below reads this set.
-        const planTemplateIds = new Set([
-          ...sortedEntries.map((entry) => entry.workoutTemplateId),
-          ...programmeHistoryIds(activeTemplate.id, workoutTemplates, templatesRunByOtherPlans(activeTemplate.id)),
-        ]);
-        // Counted from the plan record's own start, not all time. Plan records
-        // are only written at onboarding, adoption and restart, so `updatedAt`
-        // IS the block boundary — and without it "Uusi kierros" is impossible:
-        // an all-time count means a restarted plan is born complete.
-        const completedSessionCount = countSessionsSince(
-          completedPlanSessions,
-          planTemplateIds,
-          activeWorkoutPlan.updatedAt,
-        );
-        // Onboarding-built plans promised a specific block length ("4-week
-        // plan") — the Home hero must count the same total, not the generic
-        // 8-week default.
-        const onboardingBlockWeeks =
-          activeWorkoutPlan.id.startsWith(ONBOARDING_PLAN_PREFIX) && setupSelection && preferences.recommendedProgramId
-            ? composeProgramWeekForSelection(setupSelection, preferences.recommendedProgramId)?.weeks
-            : undefined;
-        // The demo tester's block is one week by construction — see
-        // handleCreateDemoCompletionProgram.
-        const demoBlockWeeks = activeWorkoutPlan.id.startsWith('demo_plan_') ? 1 : undefined;
-        // An adopted ready programme carries its own block length — twelve
-        // weeks for several of them — and Home counted every one of them as
-        // the generic eight. The programme's own page already showed twelve,
-        // so the hero said "week 1/8" beside a page saying 12, and the
-        // session total under it was a third short.
-        // Asked of the programme, not of the record holding it: the copy
-        // made by changing one lift keeps this block's start and its
-        // sessions, so it keeps its length too — see getProgrammeBlockWeeks.
-        const programmeBlockWeeks = getProgrammeBlockWeeks(activeTemplate.id, workoutTemplates, getWorkoutTemplateById);
-        const planProgress = buildHomePlanProgress({ language: preferences.appLanguage,
-          completedSessions: completedSessionCount,
-          sessionsPerWeek: sortedEntries.length,
-          totalWeeks: demoBlockWeeks ?? onboardingBlockWeeks ?? programmeBlockWeeks,
-        });
-
-        return {
-          programId: activeTemplate.id,
-          programType: activePlanProgramType,
-          // The plan's own templates, so every counter that says "of this
-          // plan" can agree on what that means. The week counter used to read
-          // all sessions in the week and filled the programme's week with
-          // freestyle workouts.
-          planTemplateIds: [...planTemplateIds],
-          // The boundary every count above is measured from, so a screen
-          // asking which week a past session filled counts from the same
-          // place the hero does.
-          blockStartedAt: activeWorkoutPlan.updatedAt,
-          eyebrow: `${sortedEntries.length} day custom plan`,
-          goalLabel: formatGoalLabel(preferences.aiPlannerGoal || preferences.setupGoal || 'general'),
-          // For a CUSTOM programme the template's name wins, and the plan's
-          // copy is only the fallback. Both records hold the name — the plan
-          // took its copy the day it was made — and renaming keeps them in
-          // step, but that only helps renames made after the fix existed. A
-          // reader who renamed on an earlier build was left with the old name
-          // on Home for ever, with the programme page showing the new one
-          // (user 2026-09-09, "ei vaihtunut kodissa nimi"). Reading the
-          // template first heals that, and makes the whole class impossible.
-          //
-          // A READY programme keeps the plan's name first: there the plan may
-          // carry a season's name, which is not the template's at all.
-          title: formatWorkoutDisplayLabel(
-            activePlanProgramType === 'custom'
-              ? activeTemplate.name || activeWorkoutPlan.name
-              : activeWorkoutPlan.name || activeTemplate.name,
-            'Workout plan',
-          ),
-          subtitle: `${sortedEntries.length} workouts in rotation.`,
-          weekLabel: planProgress.weekLabel,
-          progressPercent: planProgress.progressPercent,
-          sessionsDone: planProgress.sessionsDone,
-          sessionsTotal: planProgress.sessionsTotal,
-          currentWeek: planProgress.currentWeek,
-          planTotalWeeks: planProgress.totalWeeks,
-          focusLabel: getSessionBodyFocusLabel(undefined),
-          equipmentLabel: buildSessionEquipmentLabel(
-            (orderedPlanSessions[0]?.exercises ?? []).map((exercise) => exercise.name),
-            exerciseLibrary,
-          ),
-          sessionsPerWeek: `${sortedEntries.length}`,
-          weeklyMinutes: `~${estimatedDuration * sortedEntries.length} min`,
-          sessions: homeSessions,
-          nextSession: {
-            ...nextSession,
-            label: 'Week 1 · Day 1',
-          },
-          // The reader's own answer for today, apart from the rotation's. The
-          // widget needs the difference: a pick makes today a training day,
-          // the rotation's next session does not.
-          todayPickSessionId: pickedToday?.id ?? null,
-          sessionForecast,
-
-          // The catalog lookup, not the DB one, but by SOURCE id for a copy:
-          // a custom template carries no goal or level for affinity to
-          // compare, so looking it up by its own id found nothing and the
-          // card offered no step up to a reader who had only edited one lift
-          // in a ready programme (#bugs, 2026-09-26) — see programmeCopyLink.
-          // A hand-built custom programme still has no source and still gets
-          // no step-up card, correctly: there is no "next level" of it.
-          // Restart is real here — a plan record exists to reset.
-          completion: buildCompletion(
-            activeWorkoutPlan.id,
-            planProgress.sessionsDone,
-            planProgress.sessionsTotal,
-            dbTemplate
-              ? (dbTemplate.sourceTemplateId ? getWorkoutTemplateById(dbTemplate.sourceTemplateId) : null)
-              : readyPlanTemplate,
-            true,
-          ),
-        };
-      }
-    }
-
-    // No fallback to the recommended programme.
-    //
-    // This branch used to build the whole hero out of `recommendedProgramId`
-    // whenever the reader had no usable plan — which made three separate
-    // failures invisible. Removing your last programme left Home showing a
-    // programme ("poista ohjelma ei poista"), the demo plan's missing
-    // entries fell through to it, and the start button logged sessions
-    // against a programme the reader had never adopted.
-    //
-    // A suggestion is not a plan. Home's no-plan state is honest: no hero,
-    // and the start button opens a freestyle session. Picking a programme
-    // happens on the Programs tab, which is the one place that can say what
-    // adopting it means.
-    return null;
-  }, [database.workoutPlans, database.workoutSessions, database.exerciseLogs, exerciseLibrary, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.dismissedCompletionPlanIds, preferences.recommendedProgramId, preferences.setupGoal, preferences.todaySession, recommendedReadyContent, recommendedReadyTemplate, setupSelection, todayStartMs, workoutTemplates]);
-  /**
-   * The active programme when it has days but none with anything in them.
-   *
-   * The hero has nothing to offer then, and the card above returns null —
-   * which Home drew as having no programme at all: no hero, no week, no
-   * counters, for a programme the reader is running (audit 8, 2026-09-26;
-   * add an empty day, remove the only filled one). This names it instead,
-   * and opens the programme where days are filled. Only an own programme can
-   * be emptied; a ready one always has its lifts.
-   */
-  const homeEmptyProgramme = useMemo(() => {
-    if (homeActivePlanCard) {
-      return null;
-    }
-    const plan = database.workoutPlans.find((candidate) => candidate.id === preferences.activePlanId) ?? null;
-    const firstEntry = plan ? [...plan.entries].sort((left, right) => left.orderIndex - right.orderIndex)[0] : undefined;
-    const template = firstEntry
-      ? workoutTemplates.find((candidate) => candidate.id === firstEntry.workoutTemplateId) ?? null
-      : null;
-    if (!template) {
-      return null;
-    }
-    const counts = getWorkoutTemplateSessions(template.id).map((session) => session.exercises.length);
-    return hasOnlyEmptyDays(counts) ? { workoutTemplateId: template.id, title: template.name } : null;
-  }, [database.workoutPlans, getWorkoutTemplateSessions, homeActivePlanCard, preferences.activePlanId, workoutTemplates]);
-  /**
-   * The session Home's card offers, which is what its swaps and left-out rows
-   * are held for. Pick another session for today and the card shows that
-   * one's own — none, until some are made for it.
-   */
-  const homeSessionRef: AdaptedSessionRef | null = homeActivePlanCard?.nextSession
-    ? { programId: homeActivePlanCard.programId, sessionId: homeActivePlanCard.nextSession.id }
-    : null;
-  const homeSessionAdaptation = sessionAdaptationFor(homeSessionRef);
-  const adaptHomeSession = (change: (current: SessionAdaptation) => SessionAdaptation) => {
-    if (homeSessionRef) {
-      adaptSession(homeSessionRef, change);
-    }
-  };
-  // The AI tab's opening state. Deterministic, so the most valuable-looking
-  // part of the coach costs nothing to render and works offline.
-  const progressWeeklyTarget = Number.parseInt(homeActivePlanCard?.sessionsPerWeek ?? '', 10) || null;
+  const {
+    homeActivePlanCard,
+    homeEmptyProgramme,
+    homeSessionAdaptation,
+    adaptHomeSession,
+    progressWeeklyTarget,
+  } = useHomeActivePlan({
+    database,
+    preferences,
+    workoutTemplates,
+    exerciseLibrary,
+    getWorkoutTemplateSessions,
+    todayStartMs,
+    setupSelection,
+    recommendedReadyTemplate,
+    recommendedReadyContent,
+    customWorkoutRuntimeMap,
+    routineBlockSeconds,
+    completedSessionsForTemplate,
+    templatesRunByOtherPlans,
+    sessionAdaptationFor,
+    adaptSession,
+  });
   const { homeStatCatalogCards, homePinnedStatCardKeys, homeSuggestedStatCardKeys } = useHomeStatCards({
     database,
     trackedProgress,
@@ -2221,105 +1516,20 @@ function VinhaApp() {
   });
   // Same equipment truth the composer filters exercises with, for the default
   // warmup/cooldown drills: null = setup never said, [] = no equipment at all.
-  // Week-strip training dots from the days the user actually picked
-  // (Monday-first indexes). Empty = unknown → no dots, no invented rhythm.
-  const homeTrainingDayIndexes = useMemo(() => {
-    const order: Record<string, number> = { mon: 0, tue: 1, wed: 2, thu: 3, fri: 4, sat: 5, sun: 6 };
-    const open = preferences.setupAvailableDays
-      .map((day) => order[day])
-      .filter((index) => index !== undefined);
-    // Availability is not a plan. This marked every day the reader said they
-    // COULD train, so a one-session-a-week programme lit three dots and the
-    // strip claimed three workouts where the plan prescribes one.
-    // A plan that names its own weekdays is the answer; deriving over the top
-    // of it would silently undo a rhythm the reader set by hand.
-    const activePlan = database.workoutPlans.find((plan) => plan.id === preferences.activePlanId) ?? null;
-    const named = planWeekdayIndexes(activePlan?.entries ?? []);
-    if (named.length > 0) {
-      return named;
-    }
-    const sessionsPerWeek = homeActivePlanCard
-      ? Number.parseInt(homeActivePlanCard.sessionsPerWeek, 10) || open.length
-      : open.length;
-    return resolveProgramTrainingDays(open, sessionsPerWeek);
-  }, [database.workoutPlans, homeActivePlanCard, preferences.activePlanId, preferences.setupAvailableDays]);
-  /**
-   * The rhythm every calendar in the app reads.
-   *
-   * A saved cycle wins outright over the weekday list. The two cannot be merged
-   * — one repeats every seven days and the other need not — and the plan's own
-   * entry labels are still weekdays after a switch, so anything deriving from
-   * them would quietly put the old week back.
-   */
-  /**
-   * Which of the programme's sessions have been trained since Monday.
-   *
-   * The week list used to carry two chips that predicted — TÄNÄÄN from the
-   * calendar, SEURAAVAKSI from the rotation — and on any day those two differ
-   * the reader has to work out which one the row's outline meant. A week list
-   * is for what happened, so it reports that instead.
-   */
-  const homeDoneThisWeekSessionIds = useMemo(() => {
-    // The programme's own history, read the way the hero counter and the
-    // rotation read it: sessions of the lead programme and of what it was
-    // copied from, with the original's day ids read as the copy's. This
-    // used to match every session's day id against the plan's, unaligned
-    // and unfiltered — so a swap that copied the programme greyed Monday's
-    // chip while the hero kept counting it, and a day trained in ANOTHER
-    // programme lit a chip here, because the catalog reuses day ids across
-    // programmes (audit round 4, 2026-09-20).
-    const programId = homeActivePlanCard?.programId ?? null;
-    if (!programId) {
-      return [];
-    }
-    const lineage = new Set([
-      programId,
-      ...programmeHistoryIds(programId, workoutTemplates, templatesRunByOtherPlans(programId)),
-    ]);
-    // The week is read from the day key too: an app open over Sunday night
-    // kept last week's dots until it was closed.
-    const now = new Date(todayStartMs);
-    const weekStart = getStartOfWeek(now).getTime();
-    const weekEnd = getEndOfWeek(now).getTime();
-    const ids = new Set<string>();
-    for (const session of completedSessionsForTemplate(programId)) {
-      if (!session.workoutTemplateId || !lineage.has(session.workoutTemplateId)) {
-        continue;
-      }
-      const stamp = Date.parse(session.performedAt);
-      if (!Number.isFinite(stamp) || stamp < weekStart || stamp >= weekEnd) {
-        continue;
-      }
-      if (session.workoutTemplateSessionId) {
-        ids.add(session.workoutTemplateSessionId);
-      }
-    }
-    return [...ids];
-    // Keyed on what completedSessionsForTemplate and the lineage read.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    homeActivePlanCard?.programId,
+  const {
+    homeTrainingDayIndexes,
+    homeDoneThisWeekSessionIds,
+    baseTrainingSchedule,
+    homeTrainingSchedule,
+  } = useHomeTrainingSchedule({
+    database,
+    preferences,
+    homeActivePlanCard,
+    workoutTemplates,
     todayStartMs,
-    database.workoutSessions,
-    database.exerciseLogs,
-    database.workoutTemplates,
-    database.workoutPlans,
-  ]);
-
-  /** The rhythm as chosen, before any day taken off. */
-  const baseTrainingSchedule = useMemo(() => {
-    const cycle = preferences.trainingCycle;
-    return cycle ? cycleSchedule(cycle.pattern, cycle.anchorDayStart) : weekdaySchedule(homeTrainingDayIndexes);
-  }, [homeTrainingDayIndexes, preferences.trainingCycle]);
-  /**
-   * The rhythm every calendar draws: the chosen one, with the days the reader
-   * took off from the recovery sheet (2026-09-26). One place, so Home, the
-   * widget, Progress and the coach all agree that tomorrow is rest.
-   */
-  const homeTrainingSchedule = useMemo(
-    () => withRestDays(baseTrainingSchedule, preferences.restDayStarts),
-    [baseTrainingSchedule, preferences.restDayStarts],
-  );
+    completedSessionsForTemplate,
+    templatesRunByOtherPlans,
+  });
 
   const { recoverySheet, handleRecoveryAction, handleRecoveryUndo } = useRecoverySheet({
     proFatigue,
@@ -2495,176 +1705,27 @@ function VinhaApp() {
 
   useNotificationRoute({ appHydrated, resetToRoute });
 
-  // Settings → "Export plan (CSV)". The user's own plans, plus the ready
-  // program they are actually running. The rest of the catalog is app content
-  // that never leaves the app, so there is nothing to carry out for it.
-  const exportablePlans = useMemo<ExportablePlan[]>(() => {
-    const plans: ExportablePlan[] = workoutTemplates.map((template) => ({
-      id: template.id,
-      name: formatWorkoutDisplayLabel(template.name, 'Workout plan'),
-      sessions: getWorkoutTemplateSessions(template.id).map((session) => ({
-        name: session.name,
-        exercises: session.exercises.map((exercise) => ({
-          name: exercise.name,
-          sets: exercise.targetSets,
-          repMin: exercise.repMin,
-          repMax: exercise.repMax,
-        })),
-      })),
-    }));
-
-    if (homeActivePlanCard?.programType === 'ready') {
-      const readyTemplate = getWorkoutTemplateById(homeActivePlanCard.programId);
-      if (readyTemplate && !plans.some((plan) => plan.id === readyTemplate.id)) {
-        plans.push({
-          id: readyTemplate.id,
-          // The card's title, not the raw catalog name: curated titles in
-          // templatePresentation override it, and the export must not name the
-          // plan differently from every other screen.
-          name: homeActivePlanCard.title,
-          sessions: readyTemplate.sessions.map((session) => ({
-            name: session.name,
-            exercises: session.exercises.map((exercise) => ({
-              name: exercise.exerciseName,
-              sets: exercise.sets,
-              repMin: exercise.repsMin,
-              repMax: exercise.repsMax,
-            })),
-          })),
-        });
-      }
-    }
-
-    return plans;
-  }, [workoutTemplates, getWorkoutTemplateSessions, homeActivePlanCard]);
-
-  // Profile "TRAINING PLAN" card. Reuses the same composed plan Home renders so
-  // the two screens can never disagree about what the user is running.
-  // Built only while the analysis route is open; it reads the whole log table.
-  const sessionAnalysis = useMemo(
-    () =>
-      analysisSessionId
-        ? buildSessionAnalysis({
-            sessionId: analysisSessionId,
-            sessions: workoutSessions,
-            logs: database.exerciseLogs,
-            language: preferences.appLanguage,
-            // The week the analysed session filled, not the week the reader
-            // is in: right after a week's last session those are two weeks,
-            // and the analysis read "WEEK 2" beside a summary that had just
-            // said week 1. A session outside the block gets no week at all.
-            weekNumber: homeActivePlanCard
-              ? blockWeekOfSession({
-                  sessionId: analysisSessionId,
-                  sessions: getCanonicalCompletedSessions(database),
-                  templateIds: new Set(homeActivePlanCard.planTemplateIds),
-                  blockStartedAt: homeActivePlanCard.blockStartedAt,
-                  sessionsTotal: homeActivePlanCard.sessionsTotal,
-                  totalWeeks: homeActivePlanCard.planTotalWeeks,
-                })
-              : null,
-          })
-        : null,
-    [analysisSessionId, database, homeActivePlanCard, preferences.appLanguage, workoutSessions],
-  );
-
-  const profilePlanSummary = useMemo(() => {
-    if (!homeActivePlanCard) {
-      return { name: null, daysPerWeek: null, exerciseCount: null, sessionNames: [] as string[] };
-    }
-
-    const exerciseNames = new Set<string>();
-    for (const session of homeActivePlanCard.sessions) {
-      for (const exercise of session.exercises) {
-        exerciseNames.add(exercise.name.trim().toLowerCase());
-      }
-    }
-
-    // One row per day, full names. This used to be a deduplicated one-liner
-    // ("Koko keho + H... · Koko keho + C...") that truncated exactly where the
-    // days stopped reading alike — the user asked for the days themselves
-    // (#bugs 2026-08-25).
-    const sessionNames = homeActivePlanCard.sessions.map((session) =>
-      localizeSessionFocus(formatWorkoutDisplayLabel(session.title), preferences.appLanguage),
-    );
-
-    return {
-      name: homeActivePlanCard.title,
-      daysPerWeek: Number.parseInt(homeActivePlanCard.sessionsPerWeek, 10) || homeActivePlanCard.sessions.length || null,
-      exerciseCount: exerciseNames.size,
-      sessionNames,
-    };
-  }, [homeActivePlanCard, preferences.appLanguage]);
-  // Guided-player context props (entry eyebrow + finish-screen cards).
-  // The weekday from the day key, not the clock: keyed on the week alone, a
-  // player opened after midnight in an app left open named yesterday.
-  const guidedEntryEyebrow = useMemo(() => {
-    const weekday = t(preferences.appLanguage, `guided.weekday.${new Date(todayStartMs).getDay()}` as I18nKey);
-    const week = homeActivePlanCard?.currentWeek;
-    return week ? t(preferences.appLanguage, 'guided.entry.eyebrow', { weekday, week }) : weekday;
-  }, [homeActivePlanCard?.currentWeek, preferences.appLanguage, todayStartMs]);
-  /**
-   * The programme's week, and how much of it is done — "VIIKKO 2 · 1/3".
-   *
-   * Both numbers come from the block, the same count Home's hero reads. The
-   * count used to be the plan's sessions Monday to Sunday under a week label
-   * taken from the block, and the two only line up for a plan started on a
-   * Monday — see blockWeekTally.
-   *
-   * The two screens that show it sit on opposite sides of the save. The
-   * guided player's finish view renders before the session is written, so it
-   * counts the one in hand; the summary renders after, where the log already
-   * has it and the same +1 counted it twice ("2/1" beside a Home that said
-   * 1/1). One count, two honest readings.
-   */
-  const weekProgressBase = useMemo(() => {
-    if (!homeActivePlanCard || !progressWeeklyTarget) {
-      return null;
-    }
-    const reading = (sessionsDone: number) => {
-      const tally = blockWeekTally({
-        sessionsDone,
-        sessionsTotal: homeActivePlanCard.sessionsTotal,
-        totalWeeks: homeActivePlanCard.planTotalWeeks,
-      });
-      return {
-        weekLabel: t(preferences.appLanguage, 'guided.finish.week', { week: tally.week }),
-        done: tally.done,
-        target: tally.target,
-      };
-    };
-    return {
-      beforeSave: reading(homeActivePlanCard.sessionsDone + 1),
-      afterSave: reading(homeActivePlanCard.sessionsDone),
-    };
-  }, [homeActivePlanCard, preferences.appLanguage, progressWeeklyTarget]);
-
-  /** Before the save: the session in hand is not in the log yet. */
-  const guidedWeekProgress = weekProgressBase?.beforeSave ?? null;
-
-  /** After the save: the log already contains it. */
-  const completionWeekProgress = weekProgressBase?.afterSave ?? null;
-  const guidedNextUp = useMemo(() => {
-    const card = homeActivePlanCard;
-    const templateSessionId = workout.activeSession?.templateSessionId;
-    if (!card || !templateSessionId || card.sessions.length < 2) {
-      return null;
-    }
-    const index = card.sessions.findIndex((session) => session.id === templateSessionId);
-    if (index < 0) {
-      return null;
-    }
-    const next = card.sessions[(index + 1) % card.sessions.length];
-    // dayLabel is a stored English code (MON/TUE/…) matched against saved
-    // plans, so it has to be translated before it reaches a screen — it was
-    // printing "WED" over a Finnish summary.
-    const rawDay = 'dayLabel' in next ? next.dayLabel ?? '' : '';
-    const dayKey = WEEKDAY_LABEL_KEYS[rawDay.trim().slice(0, 3).toUpperCase()];
-    return {
-      name: next.title,
-      weekday: dayKey ? t(preferences.appLanguage, dayKey) : rawDay,
-    };
-  }, [homeActivePlanCard, preferences.appLanguage, workout.activeSession?.templateSessionId]);
+  const {
+    exportablePlans,
+    sessionAnalysis,
+    profilePlanSummary,
+    guidedEntryEyebrow,
+    guidedWeekProgress,
+    completionWeekProgress,
+    guidedNextUp,
+  } = usePlanReadouts({
+    workoutTemplates,
+    getWorkoutTemplateSessions,
+    homeActivePlanCard,
+    analysisSessionId,
+    workoutSessions,
+    database,
+    preferences,
+    todayStartMs,
+    progressWeeklyTarget,
+    workout,
+    WEEKDAY_LABEL_KEYS,
+  });
   const nextPlannedWorkout = useMemo(() => {
     if (!homeSummary.nextWorkout?.plan) {
       return null;
@@ -2814,229 +1875,29 @@ function VinhaApp() {
       },
     ];
   }, [homeSummary.bodyweight.latest, homeSummary.bodyweight.previous, homeSummary.weeklySnapshot, unitPreference]);
-  /**
-   * The sessions Progress counts: the canonical list — an exercise done in
-   * it, one row per workout — that the calendar on the same card, the widget
-   * and Profile already count. Handed every saved session, the activity card
-   * counted a free workout with weights typed and nothing ticked, and read
-   * "3 viikkoa putkeen · 3 treeniä" over a calendar that marked two (audit,
-   * 2026-09-20). The History card at the foot of the tab keeps every saved
-   * session, as History itself does.
-   */
-  const completedWorkoutSessions = useMemo(
-    () =>
-      getCanonicalCompletedSessions({
-        workoutSessions: database.workoutSessions,
-        exerciseLogs: database.exerciseLogs,
-      }),
-    [database.exerciseLogs, database.workoutSessions],
-  );
-  const homeRecentSessions = useMemo(
-    () =>
-      [...workoutSessions]
-        .sort((left, right) => new Date(right.performedAt).getTime() - new Date(left.performedAt).getTime())
-        .slice(0, 3)
-        .map((session) => {
-          const sessionLogs = [...getSessionLogs(session.id)].sort((left, right) => left.orderIndex - right.orderIndex);
-          const exercisePreview = sessionLogs
-            .filter((log) => !log.skipped)
-            .map((log) => log.exerciseNameSnapshot)
-            .slice(0, 3)
-            .join(', ');
-          const notePreview =
-            sessionLogs.find((log) => typeof log.notes === 'string' && log.notes.trim().length > 0)?.notes?.trim() ?? null;
-          const completedSets = typeof session.setsCompleted === 'number' ? session.setsCompleted : null;
-          const completedExercises =
-            typeof session.exercisesCompleted === 'number'
-              ? session.exercisesCompleted
-              : sessionLogs.filter((log) => !log.skipped).length;
-
-          return {
-            id: session.id,
-            title: localizeSessionName(
-              formatWorkoutDisplayLabel(session.workoutNameSnapshot, t(preferences.appLanguage, 'ai.signal.workout')),
-              preferences.appLanguage,
-            ),
-            dateLabel: formatShortDate(session.performedAt, preferences.appLanguage),
-            durationLabel:
-              typeof session.durationMinutes === 'number' && session.durationMinutes > 0
-                ? formatDurationMinutes(session.durationMinutes)
-                : '0 min',
-            volumeLabel: formatVolume(session.totalVolumeKg ?? 0, unitPreference),
-            detailLabel:
-              completedSets !== null
-                ? t(preferences.appLanguage, 'recent.setCount', { count: completedSets })
-                : t(preferences.appLanguage, 'recent.exerciseCount', { count: completedExercises }),
-            exercisePreview: exercisePreview || t(preferences.appLanguage, 'recent.completed'),
-            notePreview,
-          };
-        }),
-    [getSessionLogs, preferences.appLanguage, unitPreference, workoutSessions],
-  );
-  const dismissedTipIds = preferences.dismissedTipIds ?? [];
-  /**
-   * The full catalog as browse cards, plus the counts each category tile
-   * shows.
-   *
-   * Explore used to be eight hand-picked ids — a curated row that could not
-   * grow and that no filter could reach past. With categories on the screen
-   * the rail has to be the whole catalog, or a tile saying "Voima 8" would
-   * open a list of three.
-   */
-  const programsCatalogItems = useMemo<ProgramsExploreItem[]>(
-    () =>
-      workout.templates.map((template, index) => ({
-        id: template.id,
-        name: formatWorkoutDisplayLabel(template.name),
-        goal: formatGoalLabel(template.goalType, preferences.appLanguage),
-        blurb: getReadyProgramContent(template.id, preferences.appLanguage)?.summary ?? '',
-        days: template.daysPerWeek,
-        minutes: template.estimatedSessionDuration,
-        cover: programCoverStyle(template.id, template.name),
-        fingerprint: buildProgramFingerprint(template),
-        level: template.level,
-        weeks: getReadyProgramBlockWeeks(template),
-      })),
-    [preferences.appLanguage, workout.templates],
-  );
-  const programsCategoryCounts = useMemo(
-    () => countByCategory(workout.templates),
-    [workout.templates],
-  );
-  /**
-   * The catalog screen's rows: the explore items plus every category each
-   * programme belongs to, because the goal chips narrow on that and a
-   * programme in two categories has to be findable under both.
-   */
-  const catalogScreenItems = useMemo<CatalogScreenItem[]>(() => {
-    const memberships = new Map<string, ProgramCategoryKey[]>();
-    for (const category of PROGRAM_CATEGORIES) {
-      for (const template of filterByCategory(workout.templates, category.key)) {
-        const keys = memberships.get(template.id);
-        if (keys) {
-          keys.push(category.key);
-        } else {
-          memberships.set(template.id, [category.key]);
-        }
-      }
-    }
-    return programsCatalogItems.map((item) => ({
-      ...item,
-      categories: memberships.get(item.id) ?? [],
-    }));
-  }, [programsCatalogItems, workout.templates]);
-  const programsCategoryMembers = useMemo(
-    () =>
-      Object.fromEntries(
-        PROGRAM_CATEGORIES.map((category) => [
-          category.key,
-          filterByCategory(workout.templates, category.key).map((template) => template.id),
-        ]),
-      ) as Record<ProgramCategoryKey, string[]>,
-    [workout.templates],
-  );
-  /**
-   * "For you" — the programs the recommendation engine actually picked, each
-   * with the reason it picked them.
-   *
-   * Every card carries a "why": the waterfall's picks bring their own, and the
-   * affinity backfill names its reason per match (same goal one level up, a
-   * different split, ...). That is the rule that used to cap this row at two —
-   * a recommendation without a reason is the thing this app has repeatedly
-   * refused to ship — and it still holds at six (user asked for more cards,
-   * #bugs 2026-08-25): the row grows only as far as reasoned matches exist.
-   *
-   * NOT labelled AI, deliberately. The model is never used to pick a
-   * programme — that is a scored, testable decision: recommendationScoring
-   * plus a waterfall, covered by tests. An AI badge here would claim
-   * otherwise.
-   */
-  /**
-   * "Sinulle" — and nothing in it is something you already run.
-   *
-   * The questionnaire's two picks lead, but adopting one used to leave it in
-   * the row, so the tab kept recommending a programme the reader was already
-   * training. A taken programme drops out and the row is filled from the
-   * catalog, measured from what is being trained NOW — see
-   * lib/recommendationBackfill. The first reason the ranker reaches for is
-   * "same goal, one level up", so the fill is usually a step harder.
-   */
-  const programsRecommendations = useMemo(
-    () => {
-      const byId = new Map(workout.templates.map((template) => [template.id, template]));
-      const waterfall = setupRecommendation?.waterfall;
-      // A custom programme is not in the catalog, so it cannot anchor the
-      // affinity read directly — but it was composed from the same answers
-      // the questionnaire's featured ready pick matches (goal, level, days),
-      // so that pick stands in. Without the fallback a custom-programme user
-      // saw the row collapse to the two questionnaire cards forever.
-      const anchor =
-        (homeActivePlanCard?.programId ? byId.get(homeActivePlanCard.programId) ?? null : null)
-        ?? recommendedReadyTemplate
-        ?? null;
-      const picks = waterfall
-        ? [
-            { templateId: waterfall.primaryProgramId, whyKey: waterfall.whyPrimary },
-            { templateId: waterfall.alternativeProgramId, whyKey: waterfall.whyAlternative },
-          ].filter(
-            (entry): entry is { templateId: string; whyKey: I18nKey } =>
-              Boolean(entry.templateId && entry.whyKey),
-          )
-        : [];
-
-      return backfillRecommendations({
-        picks,
-        // A programme you run under your own copy of it is a programme you
-        // run. The row dropped what was adopted by template id, and a copy
-        // carries a new one — so the card the questionnaire had just handed
-        // over went on being recommended, under the catalog name, to the
-        // reader already training it (audit round 4, 2026-09-20).
-        adoptedIds: expandRunningIdsWithSources(
-          activeProgramTemplateIds,
-          database.workoutTemplates,
-          workout.templates.map((template) => template.id),
-        ),
-        anchor,
-        catalog: workout.templates,
-        // Six either way: the questionnaire's picks lead when they exist, and
-        // affinity neighbours of the active programme fill the rest. With no
-        // active programme there is nothing to measure affinity from, so the
-        // row honestly shrinks to the picks instead of padding.
-        limit: 6,
-      })
-        .map((slot) => {
-          const template = byId.get(slot.templateId);
-          return template
-            ? {
-                id: template.id,
-                name: formatWorkoutDisplayLabel(template.name),
-                goal: formatGoalLabel(template.goalType, preferences.appLanguage),
-                blurb: getReadyProgramContent(template.id, preferences.appLanguage)?.summary ?? '',
-                why: t(preferences.appLanguage, slot.whyKey, { days: template.daysPerWeek }),
-                days: template.daysPerWeek,
-                minutes: template.estimatedSessionDuration,
-                cover: programCoverStyle(template.id, template.name),
-                fingerprint: buildProgramFingerprint(template),
-                level: template.level,
-                weeks: getReadyProgramBlockWeeks(template),
-              }
-            : null;
-        })
-        .filter((item): item is NonNullable<typeof item> => Boolean(item));
-    },
-    [
-      activeProgramTemplateIds,
-      // The row asks which catalog programmes the running ones are copies
-      // of, so a copy made without the running set changing — a fork made
-      // while browsing — has to reach it (review, 2026-09-20).
-      database.workoutTemplates,
-      homeActivePlanCard?.programId,
-      preferences.appLanguage,
-      recommendedReadyTemplate,
-      setupRecommendation?.waterfall,
-      workout.templates,
-    ],
-  );
+  const { completedWorkoutSessions, homeRecentSessions } = useRecentSessions({
+    database,
+    workoutSessions,
+    getSessionLogs,
+    preferences,
+    unitPreference,
+  });
+  const {
+    dismissedTipIds,
+    programsCatalogItems,
+    programsCategoryCounts,
+    catalogScreenItems,
+    programsCategoryMembers,
+    programsRecommendations,
+  } = useProgramsCatalog({
+    preferences,
+    workout,
+    setupRecommendation,
+    homeActivePlanCard,
+    recommendedReadyTemplate,
+    activeProgramTemplateIds,
+    database,
+  });
   /**
    * The rotating hero's slides, and the counts they promise.
    *
@@ -3068,25 +1929,7 @@ function VinhaApp() {
    * the calendar is actually in, a recommendation the reader is not already
    * running, and a target only once there are lifts to measure one from.
    */
-  /**
-   * Signing up for a season — the whole act, in one place.
-   *
-   * It writes a row and nothing else. Adopting the season programme is a
-   * separate decision made on the season screen, because it replaces what you
-   * are training today and that needs the sentence next to it.
-   */
-  const handleEnrolSeason = useCallback(
-    (season: ProgramSeason, year: number) => {
-      void updatePreferences({
-        seasonEnrolments: addSeasonEnrolment(preferences.seasonEnrolments, {
-          season,
-          year,
-          joinedAt: new Date().toISOString(),
-        }),
-      });
-    },
-    [preferences.seasonEnrolments, updatePreferences],
-  );
+  const { handleEnrolSeason } = useSeasonEnrolment({ preferences, updatePreferences });
 
   const {
     sameLibraryRow,
@@ -3111,112 +1954,12 @@ function VinhaApp() {
     customWorkoutRuntimeMap,
     programsRecommendations,
   });
-  // Programmes the reader built, not every template in the database: a
-  // freestyle log writes a template of its own to hang the session on, and
-  // "Omat ohjelmasi" was listing each of those as a programme. Those sessions
-  // live in History; the same rule the programme cap already uses.
-  const programsCustomItems = useMemo(() => {
-    // The Active tag follows the plan Home leads with, read from the plan
-    // itself. It was read off Home's hero card, which is null whenever the
-    // hero cannot be built — and then no row carried the tag at all.
-    const leadingTemplateId = leadTemplateId({ activePlanId: preferences.activePlanId, plans: database.workoutPlans });
-    const authored = customWorkouts
-      .filter((template) => template.origin !== 'freestyle')
-      .map((template) => ({
-        id: template.id,
-        name: formatWorkoutDisplayLabel(template.name),
-        // Built in English here, under a Finnish heading, on the tab that
-        // sells programs. The key existed the whole time.
-        subtitle: t(
-          preferences.appLanguage,
-          template.sessionCount === 1 ? 'prog.custom.countsOne' : 'prog.custom.counts',
-          { sessions: template.sessionCount, exercises: template.exerciseCount },
-        ),
-        active: leadingTemplateId === template.id,
-        programType: 'custom' as const,
-      }));
-
-    // The plan you are actually training belongs on this list even when it is
-    // a ready programme rather than one you wrote: onboarding's second button
-    // adopts the catalog programme without authoring anything, so the reader
-    // trained a programme that appeared nowhere under "your programmes".
-    // Active first, whether it was authored or adopted (user, 2026-09-01).
-    // An authored programme kept its authoring position, so the one you are
-    // training could sit third under two you are not — and ACTIVE is a tag you
-    // have to read the list to find rather than a place in it.
-    //
-    // Stable beyond that: the rest keep the order they were written in, so
-    // nothing else moves under the reader.
-    const leadFirst = <T extends { active: boolean }>(rows: T[]): T[] => [
-      ...rows.filter((row) => row.active),
-      ...rows.filter((row) => !row.active),
-    ];
-
-    // Every RUNNING programme belongs here, not only the one Home leads with.
-    //
-    // An adopted ready programme has no row of its own in `workoutTemplates`
-    // — adoption points a plan at the catalog rather than copying it — so it
-    // was listed only while it was the leader. Making a second programme lead
-    // dropped it out of the one list called "your programmes" while it kept
-    // running and kept holding a slot against the programme cap: a reader at
-    // the cap could be blocked by a programme this screen would not show them
-    // (user 2026-09-07, "laitoin advanced glutes nayta kodissa niin tama
-    // strong ohjelma katosi kokonaan").
-    //
-    // Home already listed them under its hero, and its own removal copy says
-    // "it stays in Programs" — a promise this list could not keep.
-    const authoredIds = authored.map((item) => item.id);
-    // And every programme the reader HOLDS, running or not: switching one off
-    // is not deleting it, and a list that dropped it made the switch look
-    // like a delete (device, 2026-09-16).
-    const runningRows = listHeldProgrammes({
-      activePlanId: preferences.activePlanId,
-      activePlanIds: preferences.activePlanIds,
-      plans: database.workoutPlans,
-      authoredTemplateIds: authoredIds,
-    })
-      .map((row) => {
-        // Only what the catalog can actually open. A plan pointing at a custom
-        // template the reader has since deleted is neither authored nor ready,
-        // and a row for it would navigate to a programme that is not there.
-        const template = getWorkoutTemplateById(row.templateId);
-        if (!template) {
-          return null;
-        }
-        // The SAME question the authored rows ask, so one list cannot hold two
-        // notions of "active" and mark a row by each.
-        const active = leadingTemplateId === row.templateId;
-        return {
-          id: row.templateId,
-          name: runningProgrammeTitle(row.templateId, row.planName, template.daysPerWeek),
-          /**
-           * "The programme you are training right now" is a claim about ONE
-           * row, and this list can now hold several running programmes. Said
-           * on every one of them it contradicted the ACTIVE tag beside it,
-           * which only the leader carries (review, 2026-09-07). A programme
-           * that runs without leading gets the neutral line the same
-           * programmes already carry under Home's hero.
-           */
-          subtitle: active
-            ? t(preferences.appLanguage, 'programs.activeSubtitle')
-            : row.running
-              ? t(preferences.appLanguage, 'programs.card.days', { count: template.daysPerWeek })
-              : t(preferences.appLanguage, 'programs.card.switchedOff'),
-          active,
-          programType: 'ready' as const,
-        };
-      })
-      .filter((row): row is NonNullable<typeof row> => row !== null);
-
-    return leadFirst([...runningRows, ...authored]);
-  }, [
+  const { programsCustomItems } = useProgramsCustomItems({
     customWorkouts,
-    database.workoutPlans,
-    preferences.activePlanId,
-    preferences.activePlanIds,
-    preferences.appLanguage,
+    database,
+    preferences,
     runningProgrammeTitle,
-  ]);
+  });
 
   const templateBuilderDraft = useTemplateBuilderDraft({
     route,
@@ -3229,275 +1972,82 @@ function VinhaApp() {
     return <LaunchScreen />;
   }
 
-  // Shared finish path for logged one-off sessions (freestyle + editor):
-  // template first, then the completed session, and only then the summary
-  // screen — a failed save must leave the logger open with its sets intact.
-  const finishLoggedWorkoutSave = async (draft: WorkoutTemplateDraft, summary: FreestyleFinishSummary) => {
-    const workoutTemplateId = await upsertWorkoutTemplate(draft);
-    const sessionId = createId('session');
-    try {
-      await saveCompletedWorkoutSession({
-        sessionId,
-        workoutTemplateId,
-        workoutNameSnapshot: summary.workoutName,
-        logs: summary.logs,
-        startedAt: summary.startedAt,
-        performedAt: summary.performedAt,
-      });
-    } catch (error) {
-      // The template is written first so the session can name it. A session
-      // that did not land must not leave the template behind — the retry made
-      // a second one (audit round 4, 2026-09-20). Best effort: the failure
-      // the reader hears about is the save.
-      await deleteWorkoutTemplate(workoutTemplateId).catch(() => undefined);
-      throw error;
-    }
-    // Counted once it is on disk, as the guided path counts it.
-    trackEvent('workout_completed');
-    /**
-     * Remembered for the next time these lifts come up.
-     *
-     * The weight a set opens on is read from the workout provider's slot
-     * history, and the only thing that ever wrote to it was the guided
-     * player's own finish — so a lift done here left no trace, and opened at
-     * nothing next time even though the numbers had just been written to the
-     * database ("paino automaattisesti siihen mitä on viimeksi tehnyt", #bugs
-     * 2026-08-27). Only completed sets with both numbers: a row that was put
-     * on the board and not done is not a weight.
-     */
-    workout.recordLoggedWorkout({
-      performedAt: summary.performedAt,
-      sessionId,
-      templateName: summary.workoutName,
-      exercises: summary.logs.map((log) => ({
-        exerciseName: log.exerciseNameSnapshot,
-        sets: log.sets
-          .filter((set) => set.outcome === 'completed' && set.reps > 0)
-          .map((set, setIndex) => ({
-            setIndex,
-            loadKg: set.weight,
-            reps: set.reps,
-            completedAt: set.completedAt ?? summary.performedAt,
-          })),
-      })),
-    });
-    setCompletionSummary({
-      sessionId,
-      ...summary,
-      // Freestyle sessions have no plan identity: no previous-session
-      // comparison, and muscle focus comes from the logged drafts.
-      volumeDeltaKg: null,
-      muscles: buildMuscleFocus(
-        summary.logs.map((log) => ({
-          exerciseName: log.exerciseNameSnapshot,
-          sets: log.sets.map((set) => ({
-            status: set.outcome === 'completed' ? ('completed' as const) : ('skipped' as const),
-            weightKg: set.weight,
-            reps: set.reps,
-          })),
-        })),
-        exerciseLibrary,
-      ),
-      // A freestyle session has no plan identity, and the comparison this
-      // screen makes is "against the last time you trained this lift" — a
-      // claim the empty-workout flow does not gather the history for.
-      whatMoved: [],
-      movementById: {},
-      insight: null,
-    });
-    summaryExitRouteRef.current = ROOT_ROUTES.home;
-    replaceRoute({ tab: 'workout', screen: 'summary' });
-  };
+  const { handleDiscardWorkout, handleConfirmFinishWorkout, finishLoggedWorkoutSave } = createFinishSaves({
+    workout,
+    database,
+    preferences,
+    unitPreference,
+    exerciseLibrary,
+    updatePreferences,
+    saveCompletedWorkoutSession,
+    upsertWorkoutTemplate,
+    deleteWorkoutTemplate,
+    exercisePrLookup,
+    setCompletionSummary,
+    setFinishSaveState,
+    finishInFlightRef,
+    completionCountedRef,
+    summaryNavigationPendingRef,
+    summaryExitRouteRef,
+    getWorkoutLoggerFallbackRoute,
+    navigateBack,
+    replaceRoute,
+    showToast,
+  });
 
   let content: React.ReactNode = null;
 
   if (onboardingActive) {
-    if (entryFlowActive) {
-      content = (
-        <WelcomeScreen
-          language={preferences.appLanguage}
-          onChangeLanguage={(nextLanguage) => void updatePreferences({ appLanguage: nextLanguage })}
-          onContinue={() => void handleContinueEntry()}
-        />
-      );
-    } else if (onboardingStep === 'path') {
-      content = (
-        <StartPathScreen
-          language={preferences.appLanguage}
-          // Both paths go straight to about-you. A Health Connect step used to
-          // sit here and was removed for v1 on 2026-08-11: it imported exactly
-          // two numbers that the next screen asks for anyway, and on a real
-          // Galaxy A54 it imported nothing at all — the break is between
-          // Samsung Health and Health Connect, outside this app, and only adb
-          // can see it. A user just taps and watches nothing happen, in the
-          // first minute, before the app has shown any value. Health returns in
-          // v2 under Settings, and as an export of finished workouts rather
-          // than an import of body stats.
-          onGuidedOnboarding={() => {
-            setOnboardingStep('about');
-          }}
-          /**
-           * In with nothing at all (user 2026-08-31).
-           *
-           * A reader who wants to look around before committing had to answer
-           * a questionnaire or adopt a programme first — the front door had no
-           * handle for "not yet". No plan, no template, no questionnaire:
-           * `setupCompleted` stays false, so Profile still offers to fill the
-           * profile in later, and Home shows its no-programme state rather
-           * than a plan nobody chose.
-           */
-          onStartEmpty={() => {
-            void completeOnboarding({
-              onboardingCompleted: true,
-              setupCompleted: false,
-              trainingFirstRunDismissed: false,
-              // The handoff's two offers are skipped too: they are the
-              // friction this path exists to escape, and both live in
-              // Settings for whenever the reader wants them.
-              setupHandoffCompleted: true,
-            })
-              .then(() => {
-                // Counted once it has happened, not when it was asked for.
-                trackEvent('onboarding_completed', { path: 'empty' });
-                navigate({ tab: 'home', screen: 'dashboard' });
-              })
-              // A refused write left the reader on this screen with no word
-              // about why the button did nothing (2026-09-17).
-              .catch((error) => {
-                console.error('Failed to start empty', error);
-                showToast(t(preferences.appLanguage, 'toast.startEmptyFailed'));
-              });
-          }}
-          onBrowsePrograms={() => {
-            // Straight to the catalog. This fork used to detour through the
-            // About-you form first, which is the opposite of what the card
-            // promises ("choose the program you want yourself") — the reader
-            // asked to skip the questions and got a form. Nothing downstream
-            // needs the answers: handleOnboardingPickReadyProgram already
-            // reads every basic through `aboutYouValues?.` and stores null.
-            // The profile is filled in later, from Settings.
-            setOnboardingStep('ready_catalog');
-          }}
-          onBack={() => void handleBackToEntry()}
-        />
-      );
-    } else if (onboardingStep === 'about') {
-      content = (
-        <AboutYouScreen
-          language={preferences.appLanguage}
-          initialValues={aboutYouValues}
-          onContinue={(values) => {
-            setAboutYouValues(values);
-            // Only the build path opens About; the ready path goes from the
-            // fork straight to the catalogue.
-            setOnboardingStep('questionnaire');
-          }}
-          onBack={() => setOnboardingStep('path')}
-        />
-      );
-    } else if (onboardingStep === 'ready_catalog') {
-      content = (
-        <OnboardingReadyCatalogScreen
-          language={preferences.appLanguage}
-          busy={busySavingReadyPick}
-          onPick={(programId) => void handleOnboardingPickReadyProgram(programId)}
-          // Back goes where the reader came from, which is the fork — not the
-          // About form they deliberately did not open.
-          onBack={() => setOnboardingStep('path')}
-        />
-      );
-    } else {
-      content = (
-        <OnboardingScreen
-          initialUnitPreference={unitPreference}
-          language={preferences.appLanguage}
-          tailoringPreferences={tailoringPreferences}
-          readyProgramCount={workout.templates.length}
-          dismissedTipIds={dismissedTipIds}
-          basicsSeed={
-            aboutYouValues
-              ? {
-                  gender: aboutYouValues.gender ?? 'unspecified',
-                  ageRange: aboutYouValues.ageRange,
-                  currentWeightKg: aboutYouValues.weightKg,
-                }
-              : null
-          }
-          onDismissTip={handleDismissTip}
-          onBackToEntry={() => setOnboardingStep('about')}
-          onCompleteToTraining={handleOnboardingCompleteToTraining}
-          onFullBleedReviewChange={setFullBleedReview}
-        />
-      );
-    }
+    content = renderOnboardingFlow({
+      entryFlowActive,
+      onboardingStep,
+      setOnboardingStep,
+      preferences,
+      updatePreferences,
+      handleContinueEntry,
+      completeOnboarding,
+      navigate,
+      showToast,
+      handleBackToEntry,
+      aboutYouValues,
+      setAboutYouValues,
+      busySavingReadyPick,
+      handleOnboardingPickReadyProgram,
+      unitPreference,
+      tailoringPreferences,
+      workout,
+      dismissedTipIds,
+      handleDismissTip,
+      handleOnboardingCompleteToTraining,
+      setFullBleedReview,
+    });
   } else if (setupHandoffActive && setupHandoffPlan) {
     // Between the last question and the app. The route behind this is already
     // the one onboarding chose, so finishing here just uncovers it.
-    content = (
-      <>
-      <SetupHandoffScreen
-        language={preferences.appLanguage}
-        plan={setupHandoffPlan}
-        focusLabel={
-          setupHandoffPlan.tracking?.focus
-            ? getFocusAreaTitle(setupHandoffPlan.tracking.focus, preferences.appLanguage)
-            : null
-        }
-        onDone={(choices) => void handleSetupHandoffDone(choices)}
-        onSkip={() =>
-          void handleSetupHandoffDone({
-            addWidget: false,
-            signInForBackup: false,
-            showPro: false,
-            trackedSites: [],
-            legalAccepted: false,
-          })
-        }
-        onOpenLegal={(document) => setHandoffLegalDocument(document)}
-        legalAlreadyAccepted={
-          legalAcceptanceDue(preferences.legalAcceptance, LEGAL_LAST_UPDATED) === null
-        }
-      />
-      {/* Over the hand-off, never instead of it (2026-09-10). The screen owns
-          the reader's answers in local state — which page they are on, which
-          sites they picked, whether they asked for the widget — so swapping it
-          out to show a document threw all of that away and put them back on
-          page one. Reading the policy is not a decision to unmake. */}
-      {handoffLegalDocument ? (
-        <View style={LEGAL_OVER_HANDOFF}>
-          <LegalDocumentScreen
-            document={handoffLegalDocument}
-            language={preferences.appLanguage}
-            onBack={() => setHandoffLegalDocument(null)}
-          />
-        </View>
-      ) : null}
-      </>
-    );
+    content = renderSetupHandoff({
+      preferences,
+      setupHandoffPlan,
+      handleSetupHandoffDone,
+      setHandoffLegalDocument,
+      handoffLegalDocument,
+      LEGAL_OVER_HANDOFF,
+    });
   } else if (route.tab === 'profile' && route.screen === 'setup') {
-    content = (
-      <OnboardingScreen
-        key={`setup:${preferences.recommendedProgramId ?? 'none'}:${preferences.setupCompleted ? 'complete' : 'pending'}:${route.stage ?? 'default'}`}
-        mode="edit"
-        // Answers only for a reader who gave them. One who started empty or
-        // picked from the catalogue was handed the questionnaire's defaults
-        // here, and finishing wrote those over their My Data — gender, age,
-        // height, weight, rhythm (2026-09-17). They get what they entered as
-        // basics, and the questions open unanswered.
-        initialSelection={setupEditSelection}
-        basicsSeed={setupEditSelection ? null : setupBasics}
-        initialStage={route.stage ?? (setupSelection ? 'review' : 'location')}
-        initialUnitPreference={unitPreference}
-        language={preferences.appLanguage}
-        tailoringPreferences={tailoringPreferences}
-        readyProgramCount={workout.templates.length}
-        dismissedTipIds={dismissedTipIds}
-        onDismissTip={handleDismissTip}
-        onCancel={() => navigateBack(ROOT_ROUTES.profile)}
-        onCompleteToTraining={handleSetupCompleteToTraining}
-        onSaveLimitations={route.stage === 'avoid' ? handleSaveSetupLimitations : undefined}
-      />
-    );
+    content = renderSetupEditor({
+      route,
+      preferences,
+      setupEditSelection,
+      setupBasics,
+      setupSelection,
+      unitPreference,
+      tailoringPreferences,
+      workout,
+      dismissedTipIds,
+      handleDismissTip,
+      navigateBack,
+      handleSetupCompleteToTraining,
+      handleSaveSetupLimitations,
+    });
   } else if (
     route.tab === 'home' &&
     (route.screen === 'cardio' ||
@@ -3548,62 +2098,20 @@ function VinhaApp() {
       sessionAnalysis,
     });
   } else if (route.tab === 'workout' && route.screen === 'summary' && completionSummary) {
-    content = (
-      <WorkoutCompletionScreen
-        language={preferences.appLanguage}
-        weekProgress={completionWeekProgress}
-        nextUp={guidedNextUp}
-        workoutName={completionSummary.workoutName}
-        performedAt={completionSummary.performedAt}
-        durationMinutes={completionSummary.durationMinutes}
-        setsCompleted={completionSummary.setsCompleted}
-        exercisesLogged={completionSummary.exercisesLogged}
-        muscles={completionSummary.muscles}
-        exerciseCards={completionSummary.exerciseCards}
-        whatMoved={completionSummary.whatMoved}
-        movementById={completionSummary.movementById}
-        prCards={completionSummary.prCards}
-        // Moment 1 is for free users only — Pro gets the conclusions unlocked
-        // at the surfaces where they live, not a lock on its own screen.
-        lockedInsight={
-          !coachProUnlocked && proCompletionMoment
-            ? {
-                teaser: proCompletionMoment.conclusion.teaser,
-                body: proCompletionMoment.conclusion.body,
-                moment: proCompletionMoment.moment,
-              }
-            : null
-        }
-        onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
-        demoQuestion={coachDemoQuestion}
-        onSendDemoQuestion={() => {
-          if (!coachDemoMoment || !coachDemoQuestion) {
-            return;
-          }
-          // Spending it HERE was wrong, and the device found it: the chat
-          // will not send while the online disclosure is unacknowledged, so a
-          // reader who met that sheet for the first time and backed out lost
-          // one of three answers without ever getting one. The moment is now
-          // spent by the chat, at the moment it actually dispatches the send.
-          navigate({
-            tab: 'home',
-            screen: 'ai_chat',
-            demoQuestion: coachDemoQuestion,
-            demoMomentKey: coachDemoMoment.key,
-          });
-        }}
-        onDone={(feel) => {
-          // The verdict lands on the already-saved session; leaving does not
-          // wait for the write (it goes through the same serial queue every
-          // other database write uses).
-          if (feel) {
-            void updateCompletedWorkoutSession(completionSummary.sessionId, { feel });
-          }
-          workout.clearCompletedWorkout();
-          leaveFinishedWorkout(ROOT_ROUTES.home);
-        }}
-      />
-    );
+    content = renderWorkoutCompletion({
+      preferences,
+      completionWeekProgress,
+      guidedNextUp,
+      completionSummary,
+      coachProUnlocked,
+      proCompletionMoment,
+      navigate,
+      coachDemoQuestion,
+      coachDemoMoment,
+      updateCompletedWorkoutSession,
+      workout,
+      leaveFinishedWorkout,
+    });
   } else if (route.tab === 'workout') {
     // Every route-pure workout branch. `summary` and `celebration` sit above
     // this on purpose: their guards read finish-flow state, and when that
@@ -3796,230 +2304,47 @@ function VinhaApp() {
   // finish-flow state was just cleared): both land on Home, exactly as the
   // chain's final else always did.
   if (content == null) {
-    content = (
-      <HomeScreen
-        language={preferences.appLanguage}
-        tourTargets={tourRegistry}
-        tourFocus={tourFocus}
-        onOpenSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
-        activePlan={homeActivePlanCard}
-        emptyProgramme={homeEmptyProgramme}
-        onOpenEmptyProgramme={() => {
-          if (homeEmptyProgramme) {
-            navigate({
-              tab: 'workout',
-              screen: 'program',
-              programType: 'custom',
-              workoutTemplateId: homeEmptyProgramme.workoutTemplateId,
-            });
-          }
-        }}
-        onCompletionStartNext={(planId, templateId) => void handleCompletionStartNext(planId, templateId)}
-        onCompletionRestart={(planId) => void handleCompletionRestart(planId)}
-        onCompletionDismiss={(planId) => void dismissCompletionCard(planId)}
-        onCompletionBrowse={(planId) => {
-          void dismissCompletionCard(planId);
-          navigate(ROOT_ROUTES.workout);
-        }}
-        otherPrograms={homeOtherPrograms}
-        programCapLine={programCapLine}
-        onOpenOtherProgram={(planId) => {
-          const plan = database.workoutPlans.find((entry) => entry.id === planId);
-          const templateId = plan?.entries[0]?.workoutTemplateId;
-          if (templateId) {
-            handleOpenProgramDetail(templateId);
-          }
-        }}
-        onRemoveOtherProgram={(planId) => void handleRemoveActiveProgram(planId)}
-        availableEquipment={availableEquipmentForDrills}
-        routineDrillOverrides={preferences.routineDrillOverrides}
-        // Permanent by nature: the drills are generated from the session's
-        // focus, so the choice belongs to every day with that focus rather
-        // than to today. There is no "just this time" to offer.
-        onSwapRoutineDrill={(slotKey, drillKey) =>
-          void updatePreferences((current) => ({
-            routineDrillOverrides: { ...current.routineDrillOverrides, [slotKey]: drillKey },
-          }))
-        }
-        widgetPrompt={
-          !homeTourActive && homeWidgetState?.supported && !homeWidgetState.added && !preferences.homeWidgetPromptDismissed
-            ? {
-                onAdd: () => void handleAddHomeWidget(),
-                onDismiss: () => void updatePreferences({ homeWidgetPromptDismissed: true }),
-              }
-            : null
-        }
-        accountBackupPrompt={
-          // One prompt at a time, and this one waits for the third logged
-          // session (lib/homePrompts): a fresh install has nothing worth
-          // backing up, and the account ask is the one most likely to be
-          // both refused and remembered.
-          homePrompt === 'signIn'
-            ? {
-                onSignIn: () => {
-                  void handleAccountSignIn().then((kind) => {
-                    // An answered offer never returns; a cancelled sheet or a
-                    // failure leaves it up for another try or a real dismissal.
-                    if (kind === 'backed_up' || kind === 'restored' || kind === 'choice' || kind === 'confirm_upload') {
-                      void updatePreferences({ accountBackupPromptDismissed: true });
-                    }
-                  });
-                },
-                onDismiss: () => void updatePreferences({ accountBackupPromptDismissed: true }),
-              }
-            : null
-        }
-        trainingSchedule={homeTrainingSchedule}
-        doneThisWeekSessionIds={homeDoneThisWeekSessionIds}
-        statCatalogCards={homeStatCatalogCards}
-        suggestedStatCardKeys={homePrompt === 'suggestion' ? homeSuggestedStatCardKeys : []}
-        onDismissStatCardSuggestion={(key) =>
-          void updatePreferences((current) => ({
-            dismissedCardSuggestionKeys: [...current.dismissedCardSuggestionKeys, key],
-          }))
-        }
-        pinnedStatCardKeys={homePinnedStatCardKeys}
-        onChangePinnedStatCardKeys={(next) => void updatePreferences({ homeStatCardKeys: next })}
-        onOpenStatCard={(key) => {
-          // Each card opens the surface where its data is tracked and logged.
-          if (key === 'bodyweight') {
-            navigate({ tab: 'progress', screen: 'bodyweight' });
-            return;
-          }
-          if (isMeasurementCardKey(key)) {
-            // The card's own measurement, selected and ready to log — not
-            // the section on whatever was picked last.
-            navigate({ tab: 'progress', screen: 'list', section: 'measures', measure: key });
-            return;
-          }
-          if (key.startsWith('lift:')) {
-            navigate({ tab: 'progress', screen: 'detail', exerciseKey: key.slice('lift:'.length) });
-          }
-        }}
-        sessionSwaps={homeSessionAdaptation.swaps}
-        onSwapSessionExercise={(slotId, exerciseName) =>
-          adaptHomeSession((current) => withSessionSwap(current, slotId, exerciseName))
-        }
-        sessionDrops={homeSessionAdaptation.drops}
-        onDropSessionExercise={(slotId) => adaptHomeSession((current) => withSessionDrop(current, slotId))}
-        onRestoreSessionExercise={(slotId) => adaptHomeSession((current) => withoutSessionDrop(current, slotId))}
-        onRemoveSessionExercise={(exerciseId) => {
-          const sessionId = homeActivePlanCard?.nextSession?.id;
-          if (homeActivePlanCard && sessionId) {
-            void handleEditProgramExercise(
-              homeActivePlanCard.programType,
-              homeActivePlanCard.programId,
-              sessionId,
-              exerciseId,
-              { kind: 'remove' },
-            );
-          }
-        }}
-        onKeepSwapInProgram={(exerciseId, exerciseName) => {
-          const sessionId = homeActivePlanCard?.nextSession?.id;
-          if (homeActivePlanCard && sessionId) {
-            void handleEditProgramExercise(
-              homeActivePlanCard.programType,
-              homeActivePlanCard.programId,
-              sessionId,
-              exerciseId,
-              { kind: 'replace', exerciseName },
-            );
-          }
-        }}
-        tailoringPreferences={preferences}
-        exerciseLibrary={exerciseBrowserItems}
-        // Paused counts: it is still a session the button resumes.
-        hasActiveSession={workout.activeSession !== null && workout.activeSession.status !== 'completed'}
-        onPickTodaySession={(sessionId) => void handlePickTodaySession(sessionId)}
-        // Ready programmes are immutable at runtime, so the pencil is simply
-        // not offered for them rather than offered and inert.
-        onRenameSession={
-          homeActivePlanCard?.programType === 'custom'
-            ? (sessionId, name) => void handleRenameProgramSession(homeActivePlanCard.programId, sessionId, name)
-            : undefined
-        }
-        onStartActivePlanSession={(sessionId) => {
-          if (!homeActivePlanCard) {
-            return;
-          }
-
-          if (homeActivePlanCard.programType === 'custom') {
-            handleStartCustomProgramSession(homeActivePlanCard.programId, sessionId);
-            return;
-          }
-
-          handleStartReadyProgramSession(homeActivePlanCard.programId, sessionId);
-        }}
-        // Through the cardio guard like every other start: the empty workout
-        // began over a run still on the clock, and left two sessions live.
-        onCreateWorkoutFromExercises={() =>
-          guardStrengthStartOverCardio(() => navigate({ tab: 'workout', screen: 'empty' }))
-        }
-        // No programme to start: the hero button goes to the catalog instead of
-        // offering an empty session the "empty workout" row already offers.
-        //
-        // `navigate`, not `navigateToTab`: the bar resets history because a tab
-        // is where you START, but this is a button inside a screen, and it left
-        // the reader on Programs with nothing behind them — the next Back
-        // closed the app.
-        onFindProgram={() => navigate(resolveTabRoute('workout'))}
-        onOpenCardio={() => navigate({ tab: 'home', screen: 'cardio' })}
-        activeCardioActivity={workout.activeCardio?.activityType ?? null}
-        onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
-        plateau={
-          proPlateau
-            ? {
-                headline: proPlateau.detection.headline,
-                meta: proPlateau.detection.meta,
-                locked: proPlateau.conclusion,
-                moment: proPlateau.moment,
-                episodeKey: proPlateau.episodeKey,
-              }
-            : null
-        }
-        // Guarded like dismissedTipIds (handleDismissTip) and
-        // dismissedCompletionPlanIds (dismissCompletionCard): a double tap
-        // before the write lands must not append the same episode twice
-        // (break round 2026-09-29).
-        onDismissPlateau={(episodeKey) =>
-          void updatePreferences((current) =>
-            current.dismissedPlateauEpisodes.includes(episodeKey)
-              ? current
-              : { dismissedPlateauEpisodes: [...current.dismissedPlateauEpisodes, episodeKey] },
-          )
-        }
-        proUnlocked={coachProUnlocked}
-        onSetTrainingDays={() =>
-          navigate({ tab: 'profile', screen: 'training_plan', editSchedule: true })
-        }
-        onOpenActivePlan={() => {
-          if (!homeActivePlanCard) {
-            return;
-          }
-          navigate({
-            tab: 'workout',
-            screen: 'program',
-            programType: homeActivePlanCard.programType ?? 'ready',
-            workoutTemplateId: homeActivePlanCard.programId,
-          });
-        }}
-        // A session row opens its own day, not the whole plan — the plan is
-        // one tap away behind the section title (user 2026-08-23).
-        onOpenPlanSession={(sessionId) => {
-          if (!homeActivePlanCard) {
-            return;
-          }
-          navigate({
-            tab: 'workout',
-            screen: 'programDay',
-            programType: homeActivePlanCard.programType ?? 'ready',
-            workoutTemplateId: homeActivePlanCard.programId,
-            sessionId,
-          });
-        }}
-      />
-    );
+    content = renderHomeDashboard({
+      preferences,
+      updatePreferences,
+      tourRegistry,
+      tourFocus,
+      navigate,
+      resolveTabRoute,
+      homeActivePlanCard,
+      homeEmptyProgramme,
+      handleCompletionStartNext,
+      handleCompletionRestart,
+      dismissCompletionCard,
+      homeOtherPrograms,
+      programCapLine,
+      database,
+      handleOpenProgramDetail,
+      handleRemoveActiveProgram,
+      availableEquipmentForDrills,
+      homeTourActive,
+      homeWidgetState,
+      handleAddHomeWidget,
+      homePrompt,
+      handleAccountSignIn,
+      homeTrainingSchedule,
+      homeDoneThisWeekSessionIds,
+      homeStatCatalogCards,
+      homeSuggestedStatCardKeys,
+      homePinnedStatCardKeys,
+      homeSessionAdaptation,
+      adaptHomeSession,
+      handleEditProgramExercise,
+      exerciseBrowserItems,
+      workout,
+      handlePickTodaySession,
+      handleRenameProgramSession,
+      handleStartCustomProgramSession,
+      handleStartReadyProgramSession,
+      guardStrengthStartOverCardio,
+      proPlateau,
+      coachProUnlocked,
+    });
   }
 
   const showTabBar =
@@ -4108,211 +2433,49 @@ function VinhaApp() {
     );
   }
 
-  const shellSafeAreaEdges: Array<'top' | 'left' | 'right' | 'bottom'> =
-    // A saved workout drops the TOP edge so its gradient runs under the
-    // status bar — and used to drop the bottom one with it, which put the
-    // floating tab bar on top of the phone's own navigation buttons.
-    historySessionActive
-      ? ['left', 'right', 'bottom']
-      : welcomeActive || workoutSummaryActive || fullBleedReview !== null
-        ? ['left', 'right']
-        : onboardingScreenActive
-          ? // Every onboarding screen pads for the status bar itself — the
-            // path fork, About you, the ready catalog, the questionnaire
-            // and its back chevron all read insets.top. With the shell
-            // padding the top edge too, each of them sat one status bar
-            // too low, and the questionnaire's chevron (insets.top + 10
-            // inside a root already below the bar) landed on "STEP 2 OF
-            // 6" ("step teksti menee back napin taakse", user
-            // 2026-09-02). Same edges as Welcome, for the same reason.
-            //
-            // onboardingScreenActive, not onboardingActive: the same
-            // questionnaire is the plan editor under Profile, and it
-            // reads the inset there too (PR review).
-            ['left', 'right']
-          : ['top', 'left', 'right', 'bottom'];
-
-  return (
-    <AppShell
-      toastMessage={toastMessage}
-      safeAreaEdges={shellSafeAreaEdges}
-      // Only the gradient-hero screens want light icons; everything else takes
-      // the shell's light default.
-      // The Pro page is black in both themes, so the bands the shell paints
-      // around it have to be too — see premiumActive.
-      shellBackgroundColor={premiumActive ? '#000000' : undefined}
-      statusBarStyleOverride={
-        // The workout summary is off this list since its hero turned gold: a
-        // pale gold bar needs dark icons, and the shell already derives that
-        // from the theme.
-        fullBleedReview
-          ? fullBleedReview
-          : historySessionActive || premiumActive
-            ? 'light'
-            : undefined
-      }
-      statusBarBackgroundColor={
-        // The saved workout's hero scrolls, and under a transparent bar its
-        // date ended up printed across the phone's clock. Painted with the
-        // hero's own top colour it is invisible at rest and a clean cap once
-        // the screen moves.
-        historySessionActive
-          ? '#8B5CF6'
-          : premiumActive
-            ? '#000000'
-            : workoutSummaryActive || welcomeActive || fullBleedReview !== null
-              ? 'transparent'
-              : undefined
-      }
-      statusBarTranslucent={
-        welcomeActive || workoutSummaryActive || historySessionActive || fullBleedReview !== null
-      }
-      tabBar={
-        showTabBar ? (
-          <BottomTabBar
-            language={preferences.appLanguage}
-            activeTab={route.tab === 'workout' && route.screen === 'plans' ? null : route.tab}
-            aiActive={
-              route.tab === 'home' &&
-              route.screen === 'ai_chat'
-            }
-            onTabPress={navigateToTab}
-            // The design's rule for the middle button: it opens the chat, for
-            // everyone, always. It used to open a paywall-shaped sheet — the
-            // app's most valuable placement spent on an advert.
-            onAiPress={() => navigate({ tab: 'home', screen: 'ai_chat' })}
-            sweep={tourSweep}
-            tourTargets={tourRegistry}
-          />
-        ) : undefined
-      }
-      overlay={
-        legalConsentDue ? renderLegalConsent(shellSafeAreaEdges.includes('bottom')) : tourElement
-      }
-    >
-      {content}
-      <AppUpdateDialog language={preferences.appLanguage} held={appUpdateHeld} />
-      <ServerNoticeDialog
-        language={preferences.appLanguage}
-        held={appUpdateHeld}
-        seenIds={preferences.seenServerNoticeIds}
-        onSeen={handleServerNoticeSeen}
-      />
-      <SettingsImportSheet
-        visible={settingsImportVisible}
-        initialView="csv"
-        language={preferences.appLanguage}
-        exerciseLibrary={exerciseBrowserItems}
-        nameBook={exerciseNameBook}
-        onPickImage={handlePickProgramImage}
-        // The photo link on the paste box is Pro only (2026-09-29), so this
-        // sheet passes the lock too; the AI-assisted row it also gates is
-        // never drawn from here.
-        proUnlocked={resolveProEntitlement(preferences).unlocked}
-        onOpenPaywall={() => navigate({ tab: 'profile', screen: 'premium' })}
-        onTeachName={(wrote, exercise) =>
-          teachExerciseName(wrote, { name: exercise.name, libraryItemId: exercise.id })
-        }
-        onClose={() => setSettingsImportVisible(false)}
-        // Settings' CSV sheet opens straight on the paste box, so this row is
-        // never drawn from here. The lock itself was decided on 2026-09-01, reversing the
-        // earlier "the chat, for everyone" call: the gate had moved onto the
-        // act of composing, and the row went to the chat for anyone.
-        onAiAssisted={() =>
-          navigate({ tab: 'home', screen: 'ai_chat' })
-        }
-        onBuildYourself={() => navigate({ tab: 'workout', screen: 'template' })}
-        onImportProgram={async (draft) => {
-          const workoutTemplateId = await createUnlessAtLimit(
-            () => upsertWorkoutTemplate(draft),
-            () => setProgramLimitVisible(true),
-          );
-          if (!workoutTemplateId) {
-            // Refused at the cap: the sheet stays open with the table it read,
-            // so this one does not hide it either.
-            return false;
-          }
-          setSettingsImportVisible(false);
-          navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
-          return true;
-        }}
-        onImportHistory={async (preview) => {
-          // Thrown on when the write fails: the sheet keeps the pasted export
-          // for a retry and says why itself. A toast from here would draw
-          // behind its modal.
-          let result;
-          try {
-            result = await importWorkoutHistory(preview.workouts);
-          } catch (error) {
-            console.error('Failed to import workout history', error);
-            throw error;
-          }
-          setSettingsImportVisible(false);
-          showToast(
-            t(
-              preferences.appLanguage,
-              result.duplicates > 0 ? 'hevy.doneWithDuplicates' : 'hevy.done',
-              { imported: String(result.imported), duplicates: String(result.duplicates) },
-            ),
-          );
-        }}
-      />
-      <ProgramLimitSheet
-        visible={programLimitVisible}
-        kind="own"
-        used={programSlots.used}
-        limit={programSlots.limit ?? programSlots.used}
-        language={preferences.appLanguage}
-        onClose={() => setProgramLimitVisible(false)}
-        onSeePro={() => {
-          setProgramLimitVisible(false);
-          navigate({ tab: 'profile', screen: 'premium' });
-        }}
-      />
-      <ProgramLimitSheet
-        visible={runningCapSheet.visible}
-        kind="running"
-        used={runningCapSheet.used}
-        limit={runningCapSheet.cap}
-        language={preferences.appLanguage}
-        onClose={() => setRunningCapSheet((current) => ({ ...current, visible: false }))}
-        onSeePro={() => {
-          setRunningCapSheet((current) => ({ ...current, visible: false }));
-          navigate({ tab: 'profile', screen: 'premium', reason: 'program_cap' });
-        }}
-      />
-      <ThemeChoiceDialog
-        visible={themeChoiceVisible}
-        language={preferences.appLanguage}
-        darkEnabled={preferences.darkThemeEnabled}
-        // Written straight to preferences, so the dialog repaints itself along
-        // with everything behind it. That IS the preview.
-        onChange={(dark) => void updatePreferences({ darkThemeEnabled: dark })}
-        // Closes onto the path screen, which onboarding is already showing
-        // behind it. No navigation: the dialog interrupts the flow, it does
-        // not move it.
-        onDone={() => setThemeChoiceVisible(false)}
-      />
-      {/* Built months ago and left unwired — the strings even said so. The
-          sheet takes the star it was given and ignores it on purpose: every
-          star opens the same listing, because routing the low ones somewhere
-          private is review gating and against Play policy. */}
-      <RateAppSheet
-        visible={ratingSheetVisible}
-        language={preferences.appLanguage}
-        onRate={() => {
-          setRatingSheetVisible(false);
-          // Every star arrives here. Marked rated on the way out rather than
-          // on the way back: the app never learns whether a review was
-          // actually left, and asking again someone who went to the listing
-          // is worse than missing one who changed their mind.
-          void updatePreferences((current) => ({ ratingPrompt: recordRatingCompleted(current.ratingPrompt) }));
-          void Linking.openURL(PLAY_LISTING_URL);
-        }}
-        onDismiss={() => setRatingSheetVisible(false)}
-      />
-    </AppShell>
-  );
+  return renderAppShell({
+    content,
+    route,
+    historySessionActive,
+    welcomeActive,
+    workoutSummaryActive,
+    onboardingScreenActive,
+    premiumActive,
+    showTabBar,
+    fullBleedReview,
+    toastMessage,
+    preferences,
+    updatePreferences,
+    navigate,
+    navigateToTab,
+    tourSweep,
+    tourRegistry,
+    legalConsentDue,
+    renderLegalConsent,
+    tourElement,
+    appUpdateHeld,
+    handleServerNoticeSeen,
+    SettingsImportSheet,
+    settingsImportVisible,
+    setSettingsImportVisible,
+    exerciseBrowserItems,
+    exerciseNameBook,
+    handlePickProgramImage,
+    teachExerciseName,
+    upsertWorkoutTemplate,
+    importWorkoutHistory,
+    showToast,
+    programLimitVisible,
+    setProgramLimitVisible,
+    programSlots,
+    runningCapSheet,
+    setRunningCapSheet,
+    themeChoiceVisible,
+    setThemeChoiceVisible,
+    ratingSheetVisible,
+    setRatingSheetVisible,
+    PLAY_LISTING_URL,
+  });
 }
 
 /**

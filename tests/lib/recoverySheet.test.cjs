@@ -331,7 +331,7 @@ module.exports = [
       const wiring = readAppWiring().split('\r\n').join('\n');
       // Every calendar reads one schedule, with the rest days in it; "would
       // tomorrow have trained" asks the one without.
-      assert.match(app, /withRestDays\(baseTrainingSchedule, preferences\.restDayStarts\)/);
+      assert.match(wiring, /withRestDays\(baseTrainingSchedule, preferences\.restDayStarts\)/);
       assert.match(wiring, /tomorrowTrains: trainsOn\(baseTrainingSchedule, tomorrow\),/);
       // Both programme starts go through the one door that applies and spends
       // a lighter session — counted across the whole shell, so a start added

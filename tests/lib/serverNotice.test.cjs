@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 const {
   MAX_SEEN_NOTICE_IDS,
@@ -19,7 +20,6 @@ const {
 } = require('../../.test-dist/lib/serverNotice');
 
 const root = path.join(__dirname, '..', '..');
-const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
 const NOTICE = {
@@ -166,10 +166,12 @@ module.exports = [
   {
     name: 'server notice: the app mounts it at a calm moment and remembers what was closed',
     run() {
-      const app = read('App.tsx');
+      // The shell's render tail, dialog included, moved out of App.tsx into src/app.
+      const app = readAppWiring();
       assert.match(app, /<ServerNoticeDialog\s+language=\{preferences\.appLanguage\}\s+held=\{appUpdateHeld\}\s+seenIds=\{preferences\.seenServerNoticeIds\}\s+onSeen=\{handleServerNoticeSeen\}/);
-      // The "seen" write left App.tsx for a src/app hook in the phase-C split
-      // (2026-10-01); the dialog's mount above is still App.tsx's own JSX.
+      // The "seen" write left App.tsx for a src/app hook, and the dialog's
+      // mount above for the shell's render function, in the phase-C split
+      // (2026-10-01); both are read from the whole shell.
       assert.match(readAppWiring(), /seenServerNoticeIds: rememberServerNotice\(preferences\.seenServerNoticeIds, id\)/);
 
       const dialog = read('src/features/serverNotice/ServerNoticeDialog.tsx');

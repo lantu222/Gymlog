@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 /**
  * The first-run tour touches six files that Node cannot run. These guards
@@ -19,12 +20,45 @@ const profileSource = read('src/screens/ProfileScreen.tsx');
 const barSource = read('src/components/BottomTabBar.tsx');
 const shellSource = read('src/components/AppShell.tsx');
 const appSource = read('App.tsx');
-// App.tsx plus the src/app hooks: the tour's gate, the prompt queue and the
-// layer's element left App.tsx in the phase-C split (2026-10-01).
-const wiringSource = require('../helpers/appWiringSource.cjs').readAppWiring().replace(/\r\n/g, '\n');
+// App.tsx plus the src/app modules: phase C (2026-10-01) moved the tour's gate,
+// the prompt queue and the layer's element to src/app hooks, the <HomeScreen>
+// element to src/app/renderHomeDashboard.tsx and the shell's return (tab bar,
+// overlay slot, sheets) to src/app/renderAppShell.tsx.
+const wiringSource = readAppWiring().replace(/\r\n/g, '\n');
 const { between } = require('../helpers/sourceSlices.cjs');
 const settingsSource = read('src/screens/SettingsScreen.tsx');
 const databaseSource = read('src/storage/database.ts');
+
+/**
+ * The <HomeScreen …/> element, sliced out of the ONE shell file (App.tsx or a
+ * src/app module) that renders it, so the slice cannot run on across a join of
+ * the wiring. `<HomeScreen` followed by whitespace — the bare prefix also
+ * matches `HomeScreenProps` type annotations. It ends at the first `/>` after
+ * the tag (none of its props renders JSX), which must sit at the tag's own
+ * indentation.
+ */
+function homeScreenElement() {
+  const files = [
+    'App.tsx',
+    ...fs
+      .readdirSync(path.join(ROOT, 'src', 'app'))
+      .filter((name) => name.endsWith('.ts') || name.endsWith('.tsx'))
+      .sort()
+      .map((name) => `src/app/${name}`),
+  ];
+  const opening = /<HomeScreen\s/g;
+  const renderers = files.map(read).filter((source) => (source.match(opening) || []).length > 0);
+  assert.equal(renderers.length, 1, 'HomeScreen is rendered from exactly one shell file');
+  const source = renderers[0];
+  assert.equal((source.match(opening) || []).length, 1, 'HomeScreen is rendered once in the shell');
+  const start = source.search(/<HomeScreen\s/);
+  const indent = source.slice(source.lastIndexOf('\n', start) + 1, start);
+  assert.match(indent, /^[ \t]*$/, '<HomeScreen does not open its own line');
+  const end = source.indexOf('/>', start);
+  assert.ok(end > start, 'the <HomeScreen element does not close');
+  assert.equal(source.slice(source.lastIndexOf('\n', end) + 1, end), indent, '<HomeScreen did not close at its own indentation');
+  return source.slice(start, end);
+}
 
 /** The JSX the layer returns while a beat is showing. */
 function tourRender() {
@@ -159,8 +193,8 @@ module.exports = [
       assert.match(fold, /setWorkoutListOpen\(false\);/);
       assert.match(fold, /setOpenBlock\(null\);/);
 
-      const app = stripComments(appSource);
-      assert.match(stripComments(wiringSource), /onBeatChange=\{setTourFocus\}/);
+      const app = stripComments(wiringSource);
+      assert.match(app, /onBeatChange=\{setTourFocus\}/);
       assert.match(app, /tourFocus=\{tourFocus\}/);
 
       const layer = stripComments(tourSource);
@@ -306,8 +340,9 @@ module.exports = [
       assert.match(shell, /\{tabBar\}\s*\{overlay\}/);
       const app = stripComments(appSource);
       // The terms sheet takes the slot while it is owed (2026-09-26); the
-      // tour waits for it, so the two are never both due.
-      assert.match(app, /legalConsentDue \? renderLegalConsent\(shellSafeAreaEdges\.includes\('bottom'\)\) : tourElement/);
+      // tour waits for it, so the two are never both due. The overlay slot is
+      // in the shell's return, which moved to src/app/renderAppShell.tsx.
+      assert.match(stripComments(wiringSource), /legalConsentDue \? renderLegalConsent\(shellSafeAreaEdges\.includes\('bottom'\)\) : tourElement/);
       // Bounded on both anchors, in the whole shell (phase-C split, 2026-10-01).
       const wiring = stripComments(wiringSource);
       assert.match(between(wiring, 'const tourActive =', 'const homeTourActive'), /legalConsentDue === null/);
@@ -320,14 +355,14 @@ module.exports = [
       // the queue itself (lib/homePrompts), the widget card at its own gate.
       const queue = between(wiring, 'const homePrompt = resolveHomePrompt(', '});');
       assert.match(queue, /tourActive: homeTourActive/);
-      // The settings CSV sheet is `<SettingsImportSheet>` in VinhaApp's own
-      // JSX now — a thin wrapper that reads the bottom inset outside its
-      // Modal and hands it to NewProgramSheet (#bugs 2026-08-28 pattern) —
-      // so that is the boundary, not the (still-present, just relocated)
-      // `<NewProgramSheet` inside the wrapper's own body.
-      const homeJsx = app.slice(app.indexOf('<HomeScreen'), app.indexOf('<SettingsImportSheet'));
+      // Home's own JSX is the <HomeScreen …/> element, read from the one file
+      // that renders it. It used to run from <HomeScreen to the shell's
+      // <SettingsImportSheet>, which since phase C sit in different files; the
+      // tab bar it also spanned is pinned on its own below.
+      const homeJsx = stripComments(homeScreenElement());
       assert.match(homeJsx, /!homeTourActive && homeWidgetState\?\.supported/);
       assert.match(homeJsx, /tourTargets=\{tourRegistry\}/);
+      assert.match(stripComments(wiringSource), /<BottomTabBar[\s\S]{0,900}tourTargets=\{tourRegistry\}/);
       const prompts = stripComments(read('src/lib/homePrompts.ts'));
       assert.match(prompts, /if \(input\.tourActive\) \{\s*return null;\s*\}/);
     },

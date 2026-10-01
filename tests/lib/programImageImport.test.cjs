@@ -9,7 +9,7 @@ const {
 } = require('../../.test-dist/lib/programImageImport.js');
 const { parseCsvProgram } = require('../../.test-dist/lib/csvProgramImport.js');
 const { readAppWiring } = require('../helpers/appWiringSource.cjs');
-const { functionBody } = require('../helpers/sourceSlices.cjs');
+const { between, functionBody } = require('../helpers/sourceSlices.cjs');
 
 /**
  * Reading a programme out of a photo.
@@ -220,8 +220,11 @@ module.exports = [
       assert.ok(gate < body.indexOf('requestProgramTableFromImage'), 'before the paid call');
 
       // Every sheet handed the photo handler also gets the lock.
-      const settings = wiring.slice(wiring.indexOf('<SettingsImportSheet'));
-      const settingsProps = settings.slice(0, settings.indexOf('/>'));
+      // The element, not the `<SettingsImportSheetProps>` type the render
+      // module that now mounts it declares (phase C).
+      const settingsAt = wiring.search(/<SettingsImportSheet\s/);
+      assert.ok(settingsAt >= 0, 'the settings import sheet is no longer mounted');
+      const settingsProps = between(wiring.slice(settingsAt), '<SettingsImportSheet', '/>');
       assert.match(settingsProps, /proUnlocked=\{resolveProEntitlement\(preferences\)\.unlocked\}/);
       assert.match(settingsProps, /onOpenPaywall=\{/);
     },

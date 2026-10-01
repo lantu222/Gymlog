@@ -32,6 +32,21 @@ function body(source, signature) {
   return source.slice(start, ends.length ? Math.min(...ends) : undefined);
 }
 
+/**
+ * App.tsx and every src/app module, each read on its own so no match can run
+ * from one file into the next. Found rather than listed: the phase-B split
+ * (2026-09-30) moved VinhaApp's hooks into src/app, and the phase-C split
+ * moved the shell's render tail (the sheets included) there too.
+ */
+function shellSources() {
+  const appModules = fs
+    .readdirSync(path.join(root, 'src', 'app'))
+    .filter((name) => /\.tsx?$/.test(name))
+    .sort();
+  assert.ok(appModules.length > 0, 'src/app holds no modules');
+  return [read('App.tsx'), ...appModules.map((name) => read('src', 'app', name))];
+}
+
 const template = (id, createdAt, updatedAt = createdAt) => ({ id, createdAt, updatedAt });
 
 module.exports = [
@@ -95,7 +110,14 @@ module.exports = [
         assert.equal((functionBody(shell, signature).match(sheetBlock) ?? []).length, 1, `${signature} shows the sheet`);
       }
       assert.match(functionBody(shell, 'async function handleResumeProgram('), /evaluateProgramAdoption\(/);
-      assert.match(app, /kind="running"[\s\S]{0,400}navigate\(\{ tab: 'profile', screen: 'premium', reason: 'program_cap' \}\)/);
+      // The sheet itself mounts in the shell's render tail, which may sit in
+      // App.tsx or a src/app module; matched within one file.
+      assert.ok(
+        shellSources().some((source) =>
+          /kind="running"[\s\S]{0,400}navigate\(\{ tab: 'profile', screen: 'premium', reason: 'program_cap' \}\)/.test(source),
+        ),
+        'the running-limit sheet no longer offers Pro on request',
+      );
 
       // The programme page's "take it on" answers only once it is running —
       // and it no longer leaves the page: being carried to Home the moment a
@@ -121,23 +143,14 @@ module.exports = [
     // A CSV import at the limit awaited the provider's refusal and sat there.
     name: 'programme limit: every import path shows the sheet instead of failing silently',
     run() {
-      // App.tsx and every src/app module, not the two tabs by name: the
-      // phase-B split (2026-09-30) moved VinhaApp's hooks into src/app, and an
-      // import path in any of them is held to the same rule. Each file is read
-      // on its own, so no match can run from one into the next.
-      const sources = [
-        read('App.tsx'),
-        ...fs
-          .readdirSync(path.join(root, 'src', 'app'))
-          .filter((name) => /\.tsx?$/.test(name))
-          .sort()
-          .map((name) => read('src', 'app', name)),
-      ];
+      // App.tsx and every src/app module, not the tabs by name: an import
+      // path in any of them is held to the same rule. Each handler runs to
+      // the `}}` at its own prop's indentation, whatever that indentation is.
       let imports = 0;
-      for (const source of sources) {
-        for (const match of source.matchAll(/onImportProgram=\{async \(draft\) => \{([\s\S]*?)\n\s{8}\}\}/g)) {
+      for (const source of shellSources()) {
+        for (const match of source.matchAll(/\n([ \t]*)onImportProgram=\{async \(draft\) => \{([\s\S]*?)\r?\n\1\}\}/g)) {
           imports += 1;
-          assert.match(match[1], /createUnlessAtLimit\(\s*\(\) => upsertWorkoutTemplate\(draft\),\s*\(\) => setProgramLimitVisible\(true\),?\s*\)/);
+          assert.match(match[2], /createUnlessAtLimit\(\s*\(\) => upsertWorkoutTemplate\(draft\),\s*\(\) => setProgramLimitVisible\(true\),?\s*\)/);
         }
       }
       assert.equal(imports, 3, `expected three import paths, found ${imports}`);

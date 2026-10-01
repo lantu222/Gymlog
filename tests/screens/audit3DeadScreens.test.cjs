@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+const { functionBody } = require('../helpers/sourceSlices.cjs');
 
 const ROOT = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8').replace(/\r\n/g, '\n');
@@ -188,14 +189,44 @@ module.exports = [
       }
       assert.ok(declared.size > 30, `only ${declared.size} routes parsed — the union's shape changed`);
 
+      /*
+       * A guard's branch either writes its JSX in place or, since the shell's
+       * tail moved into src/app (phase C), hands off with `content =
+       * renderX({ … })` / `return renderX({ … })`. A handoff resolves to the
+       * element that render function draws first — unless the function has
+       * `route.screen` guards of its own (a tab dispatcher such as
+       * renderHomeScreens or renderAppShell), whose guards are mapped where
+       * they stand, so the handoff maps to nothing, as it did before.
+       */
+      const renderFns = new Map();
+      for (const src of sources) {
+        for (const m of src.matchAll(/^(?:export )?function (render[A-Z]\w*)\(/gm)) {
+          assert.ok(!renderFns.has(m[1]), `${m[1]} is declared twice`);
+          const body = functionBody(src, m[0].slice(m[0].indexOf('function')));
+          renderFns.set(
+            m[1],
+            /route\.screen === '/.test(body) ? null : (body.match(/<([A-Z]\w+)/) ?? [])[1] ?? null,
+          );
+        }
+      }
       const rendersOf = new Map();
       for (const src of sources) {
         for (const m of src.matchAll(/route\.screen === '([^']+)'/g)) {
-          const tag = src.slice(m.index, m.index + 900).match(/<([A-Z]\w+)/);
+          const next = src
+            .slice(m.index, m.index + 900)
+            .match(/<([A-Z]\w+)|(?:content = |return )(render[A-Z]\w*)\(/);
+          const tag = !next ? null : next[1] ?? (renderFns.has(next[2]) ? renderFns.get(next[2]) : null);
           if (!tag) continue;
           if (!rendersOf.has(m[1])) rendersOf.set(m[1], new Set());
-          rendersOf.get(m[1]).add(tag[1]);
+          rendersOf.get(m[1]).add(tag);
         }
+      }
+      // The two branches the phase-C move turned into handoffs: proof the
+      // mapping follows them rather than going quiet where the JSX left.
+      assert.ok(rendersOf.get('setup')?.has('OnboardingScreen'), 'the setup editor maps to no element');
+      assert.ok(rendersOf.get('summary')?.has('WorkoutCompletionScreen'), 'the summary route maps to no element');
+      if (process.env.DEAD_SCREENS_DEBUG) {
+        console.log([...rendersOf].map(([k, v]) => `${k} -> ${[...v].sort().join(',')}`).sort().join('\n'));
       }
 
       const builds = new Map();
@@ -294,8 +325,8 @@ module.exports = [
        * "Structurally identical to WorkoutEditorFinishSummary". Two names for
        * one shape, one of them on a screen nobody could open.
        */
-      const app = read('App.tsx');
-      assert.match(app, /finishLoggedWorkoutSave = async \(draft: WorkoutTemplateDraft, summary: FreestyleFinishSummary\)/);
+      // The whole shell: the save leaves VinhaApp in the phase-C split (2026-10-01).
+      assert.match(shell(), /finishLoggedWorkoutSave = async \(draft: WorkoutTemplateDraft, summary: FreestyleFinishSummary\)/);
       assert.doesNotMatch(shell(), /WorkoutEditorFinishSummary/);
 
       const lib = read('src', 'lib', 'emptyWorkoutSession.ts');

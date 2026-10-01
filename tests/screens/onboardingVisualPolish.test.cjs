@@ -40,11 +40,15 @@ module.exports = [
         /const fullBleedReview =[\s\S]{0,40}onboardingActive \|\|/,
         'the flag must not survive onboarding unmounting',
       );
-      assert.match(appSource, /fullBleedReview\s*\?\s*fullBleedReview/);
-      assert.match(appSource, /onFullBleedReviewChange=\{setFullBleedReview\}/);
+      // The shell's status-bar tone and the questionnaire's render moved to
+      // src/app/renderAppShell.tsx and renderOnboarding.tsx (phase C,
+      // 2026-10-01), so these read the whole shell.
+      const wiring = readAppWiring();
+      assert.match(wiring, /fullBleedReview\s*\?\s*fullBleedReview/);
+      assert.match(wiring, /onFullBleedReviewChange=\{setFullBleedReview\}/);
       // The dark backdrop colour must not come back anywhere in the shell:
       // App.tsx or a src/app module (phase-B split, 2026-09-30).
-      assert.doesNotMatch(readAppWiring(), /#1D1C35/);
+      assert.doesNotMatch(wiring, /#1D1C35/);
 
       // The shared footer is hidden on the programme picker, which is
       // full-bleed and pins its own CTA. Two other things used to make this

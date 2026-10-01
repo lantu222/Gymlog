@@ -76,7 +76,6 @@ module.exports = [
     name: 'every cover on the Programs tab draws the real thing',
     run() {
       const screen = read('src', 'screens', 'ProgramsHomeScreen.tsx');
-      const app = read('App.tsx');
 
       // A cover that took no fingerprint would silently fall back to the
       // gradient alone, and the feature would be half-present. Every cover on
@@ -107,8 +106,11 @@ module.exports = [
       // Built from the template, not from a card field that could drift. Two
       // rows build one: the catalog items every sheet and the catalog screen
       // read, and the "for you" cards. It was three until the season rows were
-      // parked with their section.
-      assert.ok((app.match(/buildProgramFingerprint\(template\)/g) ?? []).length >= 2);
+      // parked with their section. Counted across the shell — App.tsx and
+      // the src/app modules — since the rows left App.tsx for
+      // useProgramsCatalog (phase-C split, 2026-10-01).
+      const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+      assert.ok((readAppWiring().match(/buildProgramFingerprint\(template\)/g) ?? []).length >= 2);
 
       // The bars scale with the cover. They were hard-coded to a 74px ceiling
       // against a 176px card; dropped onto a 92px continue cover unchanged
