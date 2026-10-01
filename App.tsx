@@ -1502,8 +1502,6 @@ function VinhaApp() {
     getWorkoutTemplateSessions,
     todayStartMs,
     setupSelection,
-    recommendedReadyTemplate,
-    recommendedReadyContent,
     customWorkoutRuntimeMap,
     routineBlockSeconds,
     completedSessionsForTemplate,
