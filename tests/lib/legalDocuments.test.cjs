@@ -29,7 +29,7 @@ const LEGAL_TEXT_VERSIONS = [
   { date: '2026-09-29', fingerprint: 'c0f19e9dea408950' },
   { date: '2026-09-30', fingerprint: '5998cb9be6282a40' },
   { date: '2026-10-01', fingerprint: 'e3a2198516dc68a3' },
-  { date: '2026-10-02', fingerprint: '5f8a909910a5fb8e' },
+  { date: '2026-10-02', fingerprint: 'de881a6024122a47' },
 ];
 
 const IDS = ['privacy', 'terms'];
@@ -762,18 +762,28 @@ module.exports = [
       assert.match(server, /const REVOCATION_KEPT_MS = \(APPLE_SESSION_DAYS \+ 1\) \* 24 \* 60 \* 60 \* 1000;/);
       assert.match(server, /await purgeOldRevocations\(\);\s*res\.status\(200\)\.json\(\{ ok: true, \.\.\.issueAppleSession\(apple\.sub/, 'sign-ins no longer sweep old markers');
       assert.match(server, /async function purgeOldRevocations/);
+      // …and only on a sign-in: the deletion answers a phone that is waiting under a timeout, so it does not sweep (the policy says so).
+      const deleteBranch = server.slice(server.indexOf("if (req.method === 'DELETE')"), server.indexOf('res.status(405)'));
+      assert.doesNotMatch(deleteBranch, /purgeOldRevocations/, 'the deletion sweeps again — the policy says the clean-up runs on Apple sign-ins');
+      // The Finnish lifetime purchase is not a "tilaus": no rewrite of the store sentences may say the reader bought one.
+      for (const platform of ['both', 'android', 'ios']) {
+        const terms = renderLegalDocumentMarkdown(buildLegalDocument('terms', 'fi', platform));
+        assert.doesNotMatch(terms, /josta ostit tilauksen/, `the ${platform} Finnish terms treat every Pro purchase as a subscription`);
+      }
       for (const platform of ['android', 'ios', 'both']) {
         const en = renderLegalDocumentMarkdown(buildLegalDocument('privacy', 'en', platform));
         const fi = renderLegalDocumentMarkdown(buildLegalDocument('privacy', 'fi', platform));
         assert.match(en, /Settings → Delete account does the same and more: it deletes the server copy, signs you out on this phone/);
         assert.match(en, /one scrambled marker with a date/);
         assert.match(en, /The server’s routine clean-up removes it once 180 days have passed/);
+        assert.match(en, /That clean-up runs when someone signs in with Apple, so it can take a little longer/);
         assert.doesNotMatch(en, /write to us and we delete it/, 'the policy promises a deletion on request that nobody can perform — the marker has no email on it');
         assert.match(en, /so your other phones signed in with Apple are signed out the next time they back up/);
         assert.match(en, /does not take Vinha off the list of apps you use Sign in with Apple with/);
         assert.match(fi, /Asetukset → Poista tili tekee saman ja enemmän/);
         assert.match(fi, /yksi sekoitettu merkintä päivämäärineen/);
         assert.match(fi, /Palvelimen rutiinisiivous poistaa sen, kun 180 päivää on kulunut/);
+        assert.match(fi, /Siivous ajetaan, kun joku kirjautuu Applella, joten/);
         assert.doesNotMatch(fi, /Sitä ei poisteta automaattisesti/);
         assert.match(fi, /muut Applella kirjautuneet puhelimesi kirjautuvat ulos, kun ne seuraavan kerran varmuuskopioivat/);
         assert.match(fi, /ei poista Vinhaa luettelosta sovelluksista, joissa käytät Apple-kirjautumista/);
@@ -786,7 +796,7 @@ module.exports = [
       assert.match(renderLegalDocumentMarkdown(buildLegalDocument('privacy', 'en')), /beyond the providers named above who work for us/);
       assert.match(renderLegalDocumentMarkdown(buildLegalDocument('privacy', 'fi')), /lukuun ottamatta yllä nimettyjä palveluntarjoajia/);
       // The Finnish price-change sentence reads as a sentence.
-      assert.match(renderLegalDocumentMarkdown(buildLegalDocument('terms', 'fi')), /saat siitä tiedon etukäteen sovelluskaupan kautta, josta ostit tilauksen \(Google Play tai App Store\), eikä muutos/);
+      assert.match(renderLegalDocumentMarkdown(buildLegalDocument('terms', 'fi')), /saat siitä tiedon etukäteen sovelluskaupan kautta, josta ostit \(Google Play tai App Store\), eikä muutos/);
       // The row the policy names exists, under the name it uses.
       const i18n = read('src/lib/i18n.ts');
       assert.match(i18n, /'account\.deleteAccount': 'Delete account'/);

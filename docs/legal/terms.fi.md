@@ -60,9 +60,9 @@ Tietosi ovat sinun. Emme vaadi oikeuksia mihinkään, mitä kirjaat, rakennat ta
 - Tilaus uusiutuu automaattisesti, ellet peruuta sitä vähintään 24 tuntia ennen kauden päättymistä. Peruuta Androidilla Google Playssä tai iPhonella Apple ID:si tilauksissa — sovelluksen Lopeta jäsenyys -ruutu vie sinut sinne. Peruutus lopettaa seuraavan uusiutumisen; Pro pysyy päällä maksetun kauden loppuun.
 - Elinikäinen tarkoittaa palvelun käyttöä niin kauan kuin Vinhaa tarjotaan kaupallisesti ja sitä ylläpidetään. Jos palvelu lopetetaan pysyvästi, elinikäinen käyttöoikeus päättyy samalla. Se on kertamaksu, jossa ei ole mitään uusittavaa tai peruttavaa.
 - Kun Pro päättyy, mitään kirjaamaasi ei menetetä. Tietosi, ohjelmasi ja historiasi säilyvät; vain Pro-ominaisuudet menevät lukkoon, kunnes Pro on taas päällä.
-- Palautukset noudattavat sen sovelluskaupan palautuskäytäntöä, josta ostit tilauksen — Androidilla Google Playn ja iPhonella Applen, jolta palautukset pyydetään — ja lakisääteisiä kuluttajaoikeuksiasi, mukaan lukien peruuttamisoikeus silloin, kun laki sen sinulle antaa. Pro alkaa heti, kun osto on vahvistettu, ja ottamalla sen heti käyttöön hyväksyt, että palvelu alkaa välittömästi.
+- Palautukset noudattavat sen sovelluskaupan palautuskäytäntöä, josta ostit — Androidilla Google Playn ja iPhonella Applen, jolta palautukset pyydetään — ja lakisääteisiä kuluttajaoikeuksiasi, mukaan lukien peruuttamisoikeus silloin, kun laki sen sinulle antaa. Pro alkaa heti, kun osto on vahvistettu, ja ottamalla sen heti käyttöön hyväksyt, että palvelu alkaa välittömästi.
 - Kampanjakoodit voivat olla aika- tai määrärajattuja, ne voivat vanheta, eikä niillä ole rahallista arvoa.
-- Jos hinta muuttuu, saat siitä tiedon etukäteen sovelluskaupan kautta, josta ostit tilauksen (Google Play tai App Store), eikä muutos koskaan koske jo maksamaasi kautta.
+- Jos hinta muuttuu, saat siitä tiedon etukäteen sovelluskaupan kautta, josta ostit (Google Play tai App Store), eikä muutos koskaan koske jo maksamaasi kautta.
 
 ## Toiminnot, jotka tarvitsevat palvelimemme
 
@@ -96,7 +96,7 @@ Treenitietosi, rakentamasi ohjelmat ja kirjoittamasi muistiinpanot ovat sinun. E
 
 ## Muutokset ja päättyminen
 
-Voimme päivittää näitä ehtoja sovelluksen muuttuessa. Olennaiset muutokset näytetään sovelluksessa ennen voimaantuloa, ja käytön jatkaminen sen jälkeen tarkoittaa, että hyväksyt ne. Jos et hyväksy, lopeta sovelluksen käyttö — ja jos sinulla on voimassa oleva tilaus, peruuta se siinä sovelluskaupassa, josta ostit tilauksen.
+Voimme päivittää näitä ehtoja sovelluksen muuttuessa. Olennaiset muutokset näytetään sovelluksessa ennen voimaantuloa, ja käytön jatkaminen sen jälkeen tarkoittaa, että hyväksyt ne. Jos et hyväksy, lopeta sovelluksen käyttö — ja jos sinulla on voimassa oleva tilaus, peruuta se siinä sovelluskaupassa, josta ostit.
 
 Voit lopettaa milloin tahansa poistamalla sovelluksen. Puhelimessa olevat tietosi lähtevät sen mukana; pilvivarmuuskopio säilyy, kunnes poistat sen asetuksista (Poista tili poistaa sen ja kirjaa sinut ulos).
 

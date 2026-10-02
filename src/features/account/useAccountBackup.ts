@@ -177,8 +177,15 @@ const AUTO_BACKUP_QUIET_MS = 8000;
 /** Thrown inside an operation that sign-out overtook; never reaches the caller. */
 class Superseded extends Error {}
 
-/** What the server answers a sign-in it will not take (api/backup.ts), and the prefix of its own Apple session. */
-const INVALID_TOKEN_ERROR = 'INVALID_TOKEN';
+/**
+ * What the server answers an Apple session that is over (api/backup.ts): the
+ * account was deleted, or the session ran out. INVALID_TOKEN — a session that
+ * does not verify, which a wrongly configured deploy produces for everyone at
+ * once — is deliberately not among them: it signs nobody out.
+ */
+const SESSION_REVOKED = 'SESSION_REVOKED';
+const SESSION_EXPIRED = 'SESSION_EXPIRED';
+/** The prefix of the server's own Apple session. */
 const APPLE_SESSION_PREFIX = 'vs1.';
 /** Apple accounts are filed as `apple:<sub>` (appleAuth). */
 const APPLE_ACCOUNT_PREFIX = 'apple:';
@@ -282,19 +289,23 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
   }, []);
 
   /**
-   * The server refusing an Apple session (INVALID_TOKEN) is the account having
-   * been deleted from another phone — or the session being forged or gone —
-   * and no retry can change it: this phone signs out the way the reader's own
-   * Sign out does, so the UI shows signed-out instead of "Signed in" over
-   * backups that fail for up to 180 days. Only for the server's own Apple
-   * session: a Google token's 401 keeps meaning what it did, and a 502 (the
-   * store could not answer) is not INVALID_TOKEN and never signs anyone out.
+   * The server saying an Apple session is over (SESSION_REVOKED: the account
+   * was deleted from another phone; SESSION_EXPIRED) is something no retry can
+   * change: this phone signs out the way the reader's own Sign out does, so the
+   * UI shows signed-out instead of "Signed in" over backups that fail for up to
+   * 180 days. Only for the server's own Apple session and only for those two
+   * answers: a Google token's 401, INVALID_TOKEN (a session that does not
+   * verify) and a 502 (the store could not answer) never sign anyone out.
    * Throws Superseded, like any operation that sign-out overtakes.
    */
   const signOutRef = useRef<() => Promise<void>>(async () => undefined);
   const screenSession = useCallback(
     async <R extends { ok: boolean; error?: string }>(idToken: string, result: R): Promise<R> => {
-      if (!result.ok && result.error === INVALID_TOKEN_ERROR && idToken.startsWith(APPLE_SESSION_PREFIX)) {
+      if (
+        !result.ok &&
+        (result.error === SESSION_REVOKED || result.error === SESSION_EXPIRED) &&
+        idToken.startsWith(APPLE_SESSION_PREFIX)
+      ) {
         await signOutRef.current();
         throw new Superseded();
       }
@@ -988,7 +999,17 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       if (token.status !== 'ok') {
         return 'failed';
       }
-      const result = await screenSession(token.idToken, await deleteBackup(token.idToken, { account: true }));
+      const answer = await deleteBackup(token.idToken, { account: true });
+      ensureCurrent(generation);
+      // An earlier try that the phone never heard back from (the answer was slow
+      // or lost) did delete: its marker is why this session is refused now, and
+      // the copy went before the marker was written. The account is gone, so
+      // this is the answer the reader asked for — not a sign-out in silence.
+      if (!answer.ok && answer.error === SESSION_REVOKED && token.idToken.startsWith(APPLE_SESSION_PREFIX)) {
+        await signOut();
+        return 'done';
+      }
+      const result = await screenSession(token.idToken, answer);
       ensureCurrent(generation);
       if (!result.ok) {
         return 'failed';

@@ -873,50 +873,76 @@ module.exports = [
     },
   },
   {
-    name: 'account hook: the server refusing an Apple session signs this phone out; a Google 401 or a store that could not answer does not',
+    name: 'account hook: the server saying an Apple session is over signs this phone out; INVALID_TOKEN, a Google 401 or a store that could not answer does not',
     async run() {
       const local = database({ workoutSessions: [workout('a')] });
       const unsynced = () => syncedAccount(local, { lastBackupFingerprint: null });
       const apple = { status: 'ok', idToken: 'vs1.session.mac' };
 
-      // The account was deleted on another phone: the next backup's 401 signs this one out.
-      for (const operation of ['upload', 'download', 'delete', 'deleteAccount']) {
-        // A phone that has never synced looks at the cloud first.
-        const stored = operation === 'download' ? syncedAccount(local, { lastBackupAt: null, lastBackupItemCount: null, lastBackupFingerprint: null }) : unsynced();
-        await withHook({ local, stored, cloud: cloudCopy(local) }, async (env) => {
-          env.google.silent = apple;
-          if (operation === 'upload') {
-            env.server.uploadError = 'INVALID_TOKEN';
-            assert.equal((await env.api.backUpOrAsk()).kind, 'cancelled');
-          } else if (operation === 'download') {
-            env.server.downloadError = 'INVALID_TOKEN';
-            assert.equal((await env.api.backUpOrAsk()).kind, 'cancelled');
-          } else {
-            env.server.deleteError = 'INVALID_TOKEN';
-            assert.equal(await env.api[operation === 'delete' ? 'deleteRemoteBackup' : 'deleteAccount'](), 'cancelled');
-          }
-          await env.settle();
-          assert.equal(env.store.account, null, `${operation}: the account record stayed`);
-          assert.equal(env.api.state.status, 'signed_out', `${operation}: the UI kept saying Signed in`);
-          assert.equal(env.calls.signedOut, 1, `${operation}: the Apple session on the phone was kept`);
-          assert.deepEqual(env.store.signedOut, ['sub-1'], `${operation}: the phone forgot whose data it holds`);
-          assert.equal(env.api.phase, 'idle');
-          assert.equal(env.app.database.workoutSessions.length, 1, `${operation}: signing out touched the phone's data`);
-        });
+      // The account was deleted on another phone (SESSION_REVOKED), or the session ran out
+      // (SESSION_EXPIRED): the next request's refusal signs this one out.
+      for (const code of ['SESSION_REVOKED', 'SESSION_EXPIRED']) {
+        for (const operation of ['upload', 'download', 'delete', 'deleteAccount']) {
+          // A phone that has never synced looks at the cloud first.
+          const stored = operation === 'download' ? syncedAccount(local, { lastBackupAt: null, lastBackupItemCount: null, lastBackupFingerprint: null }) : unsynced();
+          await withHook({ local, stored, cloud: cloudCopy(local) }, async (env) => {
+            const label = `${code} on ${operation}`;
+            env.google.silent = apple;
+            if (operation === 'upload') {
+              env.server.uploadError = code;
+              assert.equal((await env.api.backUpOrAsk()).kind, 'cancelled', label);
+            } else if (operation === 'download') {
+              env.server.downloadError = code;
+              assert.equal((await env.api.backUpOrAsk()).kind, 'cancelled', label);
+            } else {
+              env.server.deleteError = code;
+              const outcome = await env.api[operation === 'delete' ? 'deleteRemoteBackup' : 'deleteAccount']();
+              // A retried "Delete account" whose first try did delete (the answer never arrived) is the
+              // account being gone: done, and the reader is told so. An expired session deleted nothing.
+              assert.equal(outcome, operation === 'deleteAccount' && code === 'SESSION_REVOKED' ? 'done' : 'cancelled', label);
+            }
+            await env.settle();
+            assert.equal(env.store.account, null, `${label}: the account record stayed`);
+            assert.equal(env.api.state.status, 'signed_out', `${label}: the UI kept saying Signed in`);
+            assert.equal(env.calls.signedOut, 1, `${label}: the Apple session on the phone was kept`);
+            assert.deepEqual(env.store.signedOut, ['sub-1'], `${label}: the phone forgot whose data it holds`);
+            assert.equal(env.api.phase, 'idle');
+            assert.equal(env.app.database.workoutSessions.length, 1, `${label}: signing out touched the phone's data`);
+          });
+        }
       }
+
+      // The sign-in's own look at the cloud goes through the same screen.
+      await withHook({ local: database(), cloud: cloudCopy(local) }, async (env) => {
+        env.google.signIn = { status: 'signed_in', account: { sub: 'apple:001', email: null, name: null, idToken: 'vs1.fresh.mac' } };
+        env.server.downloadError = 'SESSION_REVOKED';
+        assert.equal((await env.api.signIn()).kind, 'cancelled');
+        await env.settle();
+        assert.equal(env.api.state.status, 'signed_out', 'a refused sign-in left the reader signed in');
+        assert.equal(env.store.account, null);
+        assert.equal(env.calls.signedOut, 1);
+      });
+      await withHook({ local: database(), cloud: cloudCopy(local) }, async (env) => {
+        env.google.signIn = { status: 'signed_in', account: { sub: 'apple:001', email: null, name: null, idToken: 'vs1.fresh.mac' } };
+        env.server.downloadError = 'INVALID_TOKEN';
+        assert.equal((await env.api.signIn()).kind, 'not_backed_up', 'INVALID_TOKEN signed the reader out');
+        await env.settle();
+        assert.equal(env.api.state.status, 'signed_in');
+      });
 
       // The automatic backup too: nothing the reader pressed.
       await withHook({ local, stored: unsynced(), cloud: cloudCopy(local) }, async (env) => {
         env.google.silent = apple;
-        env.server.uploadError = 'INVALID_TOKEN';
+        env.server.uploadError = 'SESSION_REVOKED';
         await env.edit((db) => ({ ...db, bodyweightEntries: [{ id: 'bw', recordedAt: 't', weight: 80 }] }));
         await env.advance(QUIET_MS);
         await env.settle();
         assert.equal(env.api.state.status, 'signed_out');
       });
 
-      // A store that could not answer is a failure to try again, never a sign-out.
-      for (const error of ['STORE_UNAVAILABLE', 'STORAGE_FAILED', 'HTTP_502', 'NETWORK']) {
+      // A session that does not verify (a deploy with the wrong secret refuses everyone at once) and a
+      // store that could not answer are failures to try again — never a sign-out.
+      for (const error of ['INVALID_TOKEN', 'STORE_UNAVAILABLE', 'STORAGE_FAILED', 'HTTP_502', 'NETWORK']) {
         await withHook({ local, stored: unsynced(), cloud: cloudCopy(local) }, async (env) => {
           env.google.silent = apple;
           env.server.uploadError = error;
@@ -932,15 +958,18 @@ module.exports = [
       }
 
       // A Google token the server turned away behaves as it always did: still signed in.
-      await withHook({ local, stored: unsynced(), cloud: cloudCopy(local) }, async (env) => {
-        env.server.uploadError = 'INVALID_TOKEN';
-        assert.equal((await env.api.backUpOrAsk()).kind, 'failed');
-        env.server.deleteError = 'INVALID_TOKEN';
-        assert.equal(await env.api.deleteRemoteBackup(), 'failed');
-        await env.settle();
-        assert.equal(env.api.state.status, 'signed_in');
-        assert.equal(env.calls.signedOut, 0);
-      });
+      for (const code of ['INVALID_TOKEN', 'SESSION_REVOKED']) {
+        await withHook({ local, stored: unsynced(), cloud: cloudCopy(local) }, async (env) => {
+          env.server.uploadError = code;
+          assert.equal((await env.api.backUpOrAsk()).kind, 'failed');
+          env.server.deleteError = code;
+          assert.equal(await env.api.deleteRemoteBackup(), 'failed');
+          assert.equal(await env.api.deleteAccount(), 'failed');
+          await env.settle();
+          assert.equal(env.api.state.status, 'signed_in', `a Google token refused with ${code} signed the reader out`);
+          assert.equal(env.calls.signedOut, 0);
+        });
+      }
     },
   },
   {

@@ -179,7 +179,7 @@ Puhelimessasi sovelluksen tietoja suojaavat puhelimen oma lukitus ja Androidin j
 - Android-varmuuskopio: ei mitään säilytettävää — Androidin oma varmuuskopiointi on tälle sovellukselle pois päältä.
 - iPhonen varmuuskopio: jos iCloud-varmuuskopiointi tai tietokoneelle tehtävä varmuuskopio on päällä, sovelluksen tiedot säilyvät siinä niin kauan kuin Apple tai sinä säilytätte sitä varmuuskopiota — Applen ehtojen mukaan, ei meidän.
 - Pilvivarmuuskopio: kunnes poistat sen asetuksista tai pyydät meitä poistamaan sen.
-- Tilin poiston jättämä merkintä Apple-tilillä: yksi sekoitettu merkintä päivämäärineen, jossa ei ole nimeä, sähköpostia eikä treenitietoja. Palvelimen rutiinisiivous poistaa sen, kun 180 päivää on kulunut eikä se enää voi päättää mitään. Siivous ajetaan, kun joku kirjautuu Applella tai poistaa tilin, joten siinä voi mennä hieman pidempään.
+- Tilin poiston jättämä merkintä Apple-tilillä: yksi sekoitettu merkintä päivämäärineen, jossa ei ole nimeä, sähköpostia eikä treenitietoja. Palvelimen rutiinisiivous poistaa sen, kun 180 päivää on kulunut eikä se enää voi päättää mitään. Siivous ajetaan, kun joku kirjautuu Applella, joten siinä voi mennä hieman pidempään.
 - Valmentajan kysymykset, kuvaukset ja kuvat: emme säilytä niitä, ellet ole antanut lupaa. Luvan kanssa enintään 24 kuukautta tai siihen asti kun peruutat luvan, kumpi tulee ensin. Anthropic poistaa oman kopionsa 30 päivän kuluessa joka tapauksessa.
 - Käyttötilastot: enintään 24 kuukautta, sen jälkeen automaattinen poisto.
 - Palautesähköpostit: niin kauan kuin niiden käsittely vaatii.

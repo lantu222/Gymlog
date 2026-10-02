@@ -179,7 +179,7 @@ On your phone, the app’s data is protected by the phone’s own lock and the s
 - Android backup: nothing to keep — Android’s own backup is switched off for this app.
 - iPhone backup: if iCloud Backup or a computer backup is switched on, the app’s data is kept in it for as long as Apple, or you, keep that backup — under Apple’s terms, not ours.
 - Cloud backup: until you delete it in Settings, or ask us to.
-- The marker left by Delete account on an Apple account: one scrambled marker with a date, with no name, email or training data. The server’s routine clean-up removes it once 180 days have passed and it can no longer end anything. That clean-up runs when someone signs in with Apple or deletes an account, so it can take a little longer.
+- The marker left by Delete account on an Apple account: one scrambled marker with a date, with no name, email or training data. The server’s routine clean-up removes it once 180 days have passed and it can no longer end anything. That clean-up runs when someone signs in with Apple, so it can take a little longer.
 - Coach questions, briefs and photos: not kept by us unless you allowed it, and then for up to 24 months or until you take the permission back, whichever comes first. Anthropic deletes its own copy within 30 days either way.
 - Usage statistics: up to 24 months, then deleted automatically.
 - Feedback emails: as long as it takes to handle them.

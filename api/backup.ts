@@ -287,19 +287,19 @@ function revocationPathname(sub: string, secret: string): string {
  */
 const REVOCATION_KEPT_MS = (APPLE_SESSION_DAYS + 1) * 24 * 60 * 60 * 1000;
 
+const REVOCATION_WRITE_OPTIONS = {
+  access: 'private' as const,
+  contentType: 'application/json',
+  addRandomSuffix: false,
+  allowOverwrite: true,
+};
+
 /**
- * When (unix ms) the account's sessions were last ended, or null if never — or
- * if the marker has outlived its use, in which case it is removed on the spot.
- *
- * A marker that cannot be read (corrupt) must never lock the account out for
- * good: it is taken to say "revoked at the time the store wrote it", which
- * ends the sessions that existed then and lets a sign-in made afterwards
- * work. If the store does not say when it was written, it is taken to say
- * nothing — not revoked, logged — because the other reading refuses every
- * session including a fresh sign-in, forever.
+ * What a marker says, and when the store wrote it. `revokedAtMs` is null for
+ * a marker that cannot be parsed. The SDK's `uploadedAt` is always a date: the
+ * store's Last-Modified, or the moment of the read when the store sends none.
  */
-async function revokedAtOf(sub: string, secret: string): Promise<number | null> {
-  const pathname = revocationPathname(sub, secret);
+async function readRevocationMarker(pathname: string): Promise<{ revokedAtMs: number | null; uploadedAtMs: number } | null> {
   let stored;
   try {
     stored = await get(pathname, { access: 'private', useCache: false });
@@ -319,16 +319,38 @@ async function revokedAtOf(sub: string, secret: string): Promise<number | null> 
       revokedAtMs = record.revokedAtMs;
     }
   } catch {
-    // Unreadable: falls through to the store's own write time below.
+    // Unreadable: the caller resolves it.
   }
+  const uploadedAtMs = new Date(stored.blob.uploadedAt).getTime();
+  return { revokedAtMs, uploadedAtMs: Number.isFinite(uploadedAtMs) ? uploadedAtMs : Date.now() };
+}
+
+/**
+ * When (unix ms) the account's sessions were last ended, or null if never — or
+ * if the marker has outlived its use, in which case it is removed on the spot.
+ *
+ * A marker that cannot be parsed must never lock the account out for good. It
+ * is resolved ONCE, to the time the store gave it (`uploadedAt`), and
+ * rewritten in valid form with that time, so every later read gives the same
+ * answer and a sign-in made after it works. Read on its own each time, a store
+ * that sends no Last-Modified would say "now" on every read and refuse every
+ * session for ever. If the rewrite fails the answer is a 502, not a guess.
+ */
+async function revokedAtOf(sub: string, secret: string): Promise<number | null> {
+  const pathname = revocationPathname(sub, secret);
+  const marker = await readRevocationMarker(pathname);
+  if (!marker) {
+    return null;
+  }
+  let revokedAtMs = marker.revokedAtMs;
   if (revokedAtMs === null) {
-    const writtenAt = new Date(stored.blob?.uploadedAt as unknown as string | number | Date).getTime();
-    if (!Number.isFinite(writtenAt)) {
-      console.error('backup revocation marker unreadable, and the store gave no write time: not revoked');
-      return null;
+    revokedAtMs = marker.uploadedAtMs;
+    try {
+      await put(pathname, JSON.stringify({ revokedAtMs }), REVOCATION_WRITE_OPTIONS);
+    } catch {
+      throw new StoreUnavailable();
     }
-    console.error('backup revocation marker unreadable: revoked as of its write time');
-    revokedAtMs = writtenAt;
+    console.error('backup revocation marker was unreadable: rewritten as revoked at its write time');
   }
   if (revokedAtMs + REVOCATION_KEPT_MS < Date.now()) {
     // Removing it is housekeeping: failing to is not worth failing a request.
@@ -338,41 +360,86 @@ async function revokedAtOf(sub: string, secret: string): Promise<number | null> 
   return revokedAtMs;
 }
 
-/**
- * Housekeeping on the paths that already take the store's time: removes
- * markers older than REVOCATION_KEPT_MS. It runs when an Apple sign-in is
- * exchanged or an account is deleted, so a marker is removed some time after
- * 180 days, not at that day exactly. Never fails a request.
- */
-async function purgeOldRevocations(): Promise<void> {
-  try {
-    const { blobs } = await list({ prefix: 'revoked/', limit: 100 });
-    const old = blobs
-      .filter((blob) => new Date(blob.uploadedAt).getTime() + REVOCATION_KEPT_MS < Date.now())
-      .map((blob) => blob.pathname);
-    if (old.length > 0) {
-      await del(old);
+/** The sweep's bounds: pages of 100, at most 5 pages a run, and 1.5 s of the request's time. */
+const SWEEP_PAGE_SIZE = 100;
+const SWEEP_MAX_PAGES = 5;
+const SWEEP_BUDGET_MS = 1500;
+
+async function sweepRevocations(): Promise<void> {
+  let cursor: string | undefined;
+  for (let page = 0; page < SWEEP_MAX_PAGES; page += 1) {
+    const result = await list({ prefix: 'revoked/', limit: SWEEP_PAGE_SIZE, cursor });
+    for (const blob of result.blobs) {
+      if (new Date(blob.uploadedAt).getTime() + REVOCATION_KEPT_MS >= Date.now()) {
+        continue;
+      }
+      // Read again before removing: a marker written to this path since the
+      // listing (a new deletion of the same account) is not the stale one.
+      const marker = await readRevocationMarker(blob.pathname).catch(() => null);
+      if (marker && (marker.revokedAtMs ?? marker.uploadedAtMs) + REVOCATION_KEPT_MS < Date.now()) {
+        await del(blob.pathname).catch(() => undefined);
+      }
     }
-  } catch {
-    // Best effort.
+    if (!result.hasMore || !result.cursor) {
+      return;
+    }
+    cursor = result.cursor;
   }
 }
 
-async function verifyAppleSession(token: string, pathSecret: string): Promise<VerifiedIdentity | null> {
+/**
+ * Housekeeping on Apple sign-in exchanges only — never on the deletion, whose
+ * answer the phone is waiting for under a timeout, and never allowed to fail
+ * or hold the request past SWEEP_BUDGET_MS. A marker is removed some time
+ * after its 180 days, depending on how often someone signs in.
+ */
+async function purgeOldRevocations(): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      sweepRevocations(),
+      new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, SWEEP_BUDGET_MS);
+      }),
+    ]);
+  } catch {
+    // Best effort.
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
+}
+
+/**
+ * What the server answers a request carrying its own Apple session. Two
+ * refusals are told apart, because the phone signs out on them — the session
+ * is over, not wrong: SESSION_REVOKED (the account was deleted) and
+ * SESSION_EXPIRED. A session that does not verify at all (a bad mac, a
+ * malformed token — which is also what a wrong BACKUP_PATH_SECRET looks like)
+ * stays INVALID_TOKEN, which signs nobody out.
+ */
+type SessionVerdict =
+  | { ok: true; sub: string }
+  | { ok: false; error: 'INVALID_TOKEN' | 'SESSION_REVOKED' | 'SESSION_EXPIRED' };
+
+const INVALID_SESSION: SessionVerdict = { ok: false, error: 'INVALID_TOKEN' };
+
+async function verifyAppleSession(token: string, pathSecret: string): Promise<SessionVerdict> {
   const [payload, mac, extra] = token.slice(APPLE_SESSION_PREFIX.length).split('.');
   if (!payload || !mac || extra !== undefined) {
-    return null;
+    return INVALID_SESSION;
   }
   const expected = createHmac('sha256', appleSessionKey(pathSecret)).update(payload).digest('base64url');
   if (!sameText(mac, expected)) {
-    return null;
+    return INVALID_SESSION;
   }
   const claims = decodeSegment<{ sub?: string; iat?: number; iatMs?: number; exp?: number }>(payload);
   if (!claims || typeof claims.sub !== 'string' || !claims.sub || typeof claims.exp !== 'number') {
-    return null;
+    return INVALID_SESSION;
   }
   if (claims.exp * 1000 < Date.now()) {
-    return null;
+    return { ok: false, error: 'SESSION_EXPIRED' };
   }
   const sub = `apple:${claims.sub}`;
   // Ended by an account deletion since it was issued? A session is otherwise
@@ -385,9 +452,9 @@ async function verifyAppleSession(token: string, pathSecret: string): Promise<Ve
         : (claims.exp - APPLE_SESSION_DAYS * 24 * 60 * 60) * 1000;
   const revokedAtMs = await revokedAtOf(sub, pathSecret);
   if (revokedAtMs !== null && issuedAtMs <= revokedAtMs) {
-    return null;
+    return { ok: false, error: 'SESSION_REVOKED' };
   }
-  return { sub };
+  return { ok: true, sub };
 }
 
 /** Deterministic, unguessable pathname for one account's backup. */
@@ -486,9 +553,9 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       res.status(405).json({ ok: false, error: 'METHOD_NOT_ALLOWED' });
       return;
     }
-    let current: VerifiedIdentity | null = null;
+    let current: SessionVerdict = INVALID_SESSION;
     try {
-      current = token.startsWith(APPLE_SESSION_PREFIX) ? await verifyAppleSession(token, pathSecret) : null;
+      current = token.startsWith(APPLE_SESSION_PREFIX) ? await verifyAppleSession(token, pathSecret) : INVALID_SESSION;
     } catch (error) {
       if (error instanceof StoreUnavailable) {
         console.error('backup revocation record unreadable');
@@ -496,8 +563,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         return;
       }
     }
-    if (!current) {
-      res.status(401).json({ ok: false, error: 'INVALID_TOKEN' });
+    if (!current.ok) {
+      res.status(401).json({ ok: false, error: current.error });
       return;
     }
     const renewed = issueAppleSession(current.sub.slice('apple:'.length), pathSecret);
@@ -514,10 +581,10 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         res.status(502).json({ ok: false, error: 'STORE_UNAVAILABLE' });
         return;
       }
-      current = null;
+      current = INVALID_SESSION;
     }
-    if (!current) {
-      res.status(401).json({ ok: false, error: 'INVALID_TOKEN' });
+    if (!current.ok) {
+      res.status(401).json({ ok: false, error: current.error });
       return;
     }
     res.status(200).json({ ok: true, ...renewed });
@@ -545,10 +612,15 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   let identity: VerifiedIdentity | null = null;
+  let refusal: 'INVALID_TOKEN' | 'SESSION_REVOKED' | 'SESSION_EXPIRED' = 'INVALID_TOKEN';
   try {
-    identity = token.startsWith(APPLE_SESSION_PREFIX)
-      ? await verifyAppleSession(token, pathSecret)
-      : await verifyGoogleIdToken(token, clientId);
+    if (token.startsWith(APPLE_SESSION_PREFIX)) {
+      const verdict = await verifyAppleSession(token, pathSecret);
+      identity = verdict.ok ? { sub: verdict.sub } : null;
+      refusal = verdict.ok ? 'INVALID_TOKEN' : verdict.error;
+    } else {
+      identity = await verifyGoogleIdToken(token, clientId);
+    }
   } catch (error) {
     // A store that cannot answer is not a sign-in that failed: a 401 here
     // signs the phone out, a 502 is tried again.
@@ -560,8 +632,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     identity = null;
   }
   if (!identity) {
-    console.error('backup INVALID_TOKEN');
-    res.status(401).json({ ok: false, error: 'INVALID_TOKEN' });
+    console.error(`backup ${refusal}`);
+    res.status(401).json({ ok: false, error: refusal });
     return;
   }
 
@@ -673,17 +745,19 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       // end (Google's token is checked with Google on every request).
       if (action === DELETE_ACCOUNT_ACTION && identity.sub.startsWith('apple:')) {
         try {
-          await put(
-            revocationPathname(identity.sub, pathSecret),
-            JSON.stringify({ revokedAtMs: Date.now() }),
-            { access: 'private', contentType: 'application/json', addRandomSuffix: false, allowOverwrite: true },
-          );
+          const marker = revocationPathname(identity.sub, pathSecret);
+          await put(marker, JSON.stringify({ revokedAtMs: Date.now() }), REVOCATION_WRITE_OPTIONS);
+          // Written again with the time the first write RETURNED. The first
+          // is stamped before the store has it, so a renewal that was minted
+          // and checked while that write was in flight outlives it; anything
+          // minted before this second stamp is refused by it, and the
+          // renewal's second look sees at least the first.
+          await put(marker, JSON.stringify({ revokedAtMs: Date.now() }), REVOCATION_WRITE_OPTIONS);
         } catch (error) {
           console.error('backup revocation failed:', error instanceof Error ? error.message.slice(0, 200) : 'unknown');
           res.status(502).json({ ok: false, error: 'STORE_UNAVAILABLE' });
           return;
         }
-        await purgeOldRevocations();
       }
       res.status(200).json({ ok: true });
       return;

@@ -330,7 +330,7 @@ const privacyEn = (p: LegalPlatform): LegalSection[] => [
           ]
         : []),
       'Cloud backup: until you delete it in Settings, or ask us to.',
-      'The marker left by Delete account on an Apple account: one scrambled marker with a date, with no name, email or training data. The server’s routine clean-up removes it once 180 days have passed and it can no longer end anything. That clean-up runs when someone signs in with Apple or deletes an account, so it can take a little longer.',
+      'The marker left by Delete account on an Apple account: one scrambled marker with a date, with no name, email or training data. The server’s routine clean-up removes it once 180 days have passed and it can no longer end anything. That clean-up runs when someone signs in with Apple, so it can take a little longer.',
       'Coach questions, briefs and photos: not kept by us unless you allowed it, and then for up to 24 months or until you take the permission back, whichever comes first. Anthropic deletes its own copy within 30 days either way.',
       'Usage statistics: up to 24 months, then deleted automatically.',
       'Feedback emails: as long as it takes to handle them.',
@@ -592,7 +592,7 @@ const privacyFi = (p: LegalPlatform): LegalSection[] => [
           ]
         : []),
       'Pilvivarmuuskopio: kunnes poistat sen asetuksista tai pyydät meitä poistamaan sen.',
-      'Tilin poiston jättämä merkintä Apple-tilillä: yksi sekoitettu merkintä päivämäärineen, jossa ei ole nimeä, sähköpostia eikä treenitietoja. Palvelimen rutiinisiivous poistaa sen, kun 180 päivää on kulunut eikä se enää voi päättää mitään. Siivous ajetaan, kun joku kirjautuu Applella tai poistaa tilin, joten siinä voi mennä hieman pidempään.',
+      'Tilin poiston jättämä merkintä Apple-tilillä: yksi sekoitettu merkintä päivämäärineen, jossa ei ole nimeä, sähköpostia eikä treenitietoja. Palvelimen rutiinisiivous poistaa sen, kun 180 päivää on kulunut eikä se enää voi päättää mitään. Siivous ajetaan, kun joku kirjautuu Applella, joten siinä voi mennä hieman pidempään.',
       'Valmentajan kysymykset, kuvaukset ja kuvat: emme säilytä niitä, ellet ole antanut lupaa. Luvan kanssa enintään 24 kuukautta tai siihen asti kun peruutat luvan, kumpi tulee ensin. Anthropic poistaa oman kopionsa 30 päivän kuluessa joka tapauksessa.',
       'Käyttötilastot: enintään 24 kuukautta, sen jälkeen automaattinen poisto.',
       'Palautesähköpostit: niin kauan kuin niiden käsittely vaatii.',
@@ -840,13 +840,13 @@ const termsFi = (p: LegalPlatform): LegalSection[] => [
       `Palautukset noudattavat ${pick(p, {
         android: 'Google Playn palautuskäytäntöä',
         ios: 'Applen palautuskäytäntöä, ja ne pyydetään Applelta',
-        both: 'sen sovelluskaupan palautuskäytäntöä, josta ostit tilauksen — Androidilla Google Playn ja iPhonella Applen, jolta palautukset pyydetään —',
+        both: 'sen sovelluskaupan palautuskäytäntöä, josta ostit — Androidilla Google Playn ja iPhonella Applen, jolta palautukset pyydetään —',
       })} ja lakisääteisiä kuluttajaoikeuksiasi, mukaan lukien peruuttamisoikeus silloin, kun laki sen sinulle antaa. Pro alkaa heti, kun osto on vahvistettu, ja ottamalla sen heti käyttöön hyväksyt, että palvelu alkaa välittömästi.`,
       'Kampanjakoodit voivat olla aika- tai määrärajattuja, ne voivat vanheta, eikä niillä ole rahallista arvoa.',
       `Jos hinta muuttuu, saat siitä tiedon etukäteen ${pick(p, {
         android: 'Google Playn kautta',
         ios: 'Applen kautta',
-        both: 'sovelluskaupan kautta, josta ostit tilauksen (Google Play tai App Store)',
+        both: 'sovelluskaupan kautta, josta ostit (Google Play tai App Store)',
       })}, eikä muutos koskaan koske jo maksamaasi kautta.`,
     ],
   },
@@ -889,7 +889,7 @@ const termsFi = (p: LegalPlatform): LegalSection[] => [
       `Voimme päivittää näitä ehtoja sovelluksen muuttuessa. Olennaiset muutokset näytetään sovelluksessa ennen voimaantuloa, ja käytön jatkaminen sen jälkeen tarkoittaa, että hyväksyt ne. Jos et hyväksy, lopeta sovelluksen käyttö — ja jos sinulla on voimassa oleva tilaus, peruuta se ${pick(p, {
         android: 'Google Playssä',
         ios: 'Apple ID:si tilauksissa',
-        both: 'siinä sovelluskaupassa, josta ostit tilauksen',
+        both: 'siinä sovelluskaupassa, josta ostit',
       })}.`,
       'Voit lopettaa milloin tahansa poistamalla sovelluksen. Puhelimessa olevat tietosi lähtevät sen mukana; pilvivarmuuskopio säilyy, kunnes poistat sen asetuksista (Poista tili poistaa sen ja kirjaa sinut ulos).',
       'Voimme päättää pääsysi palvelintoimintoihin tai sovellukseen, jos rikot näitä ehtoja vakavasti. Voimme myös lopettaa Vinhan tai sen palvelintoiminnot; jos niin käy, kerromme siitä sovelluksessa etukäteen, ja tietosi säilyvät puhelimessasi ja vietävissä.',

@@ -145,10 +145,11 @@ export async function deleteBackup(
     // The server's own yes, not just a 2xx from whatever answered.
     const body = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
     noteServerAnswer(response.status, body);
-    // The server turning the sign-in itself away — the hook signs an Apple
-    // session out on it — is told apart from a store that could not answer.
-    if (response.status === 401 && body?.error === 'INVALID_TOKEN') {
-      return { ok: false, error: 'INVALID_TOKEN' };
+    // The server turning the sign-in itself away — SESSION_REVOKED, SESSION_EXPIRED
+    // or INVALID_TOKEN; the hook signs an Apple session out on the first two — is
+    // told apart from a store that could not answer.
+    if (response.status === 401 && typeof body?.error === 'string') {
+      return { ok: false, error: body.error };
     }
     return { ok: response.ok && body?.ok === true };
   } catch {
