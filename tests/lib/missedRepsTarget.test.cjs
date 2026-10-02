@@ -195,6 +195,55 @@ module.exports = [
     },
   },
   {
+    // The ramp rule withholds its +1 under a flagged area or a recovery hold;
+    // the lowered target's climb is the same kind of progression (2026-10-02).
+    name: 'a lift held for a flagged area or by recovery does not climb its lowered target',
+    run() {
+      const met = [entry([6, 6, 6, 6], { targetReps: 6 })];
+      const beat = [entry([7, 7, 7, 7], { targetReps: 6 })];
+      assert.equal(rule(met).targetReps, 7);
+      assert.equal(rule(met, { cautionArea: 'knees' }).targetReps, 6);
+      assert.equal(rule(beat, { cautionArea: 'knees' }).targetReps, 7, 'what the sets just did is a repeat, not a climb');
+      assert.equal(rule(met, { fatigueSignal: 'high' }).targetReps, 6);
+      assert.equal(rule(met, { fatigueSignal: 'elevated' }).targetReps, 6);
+      assert.equal(rule(met, { fatigueSignal: 'normal' }).targetReps, 7);
+      assert.equal(rule(met, { cautionArea: null }).targetReps, 7);
+      // The first lowering is a repeat of the average either way.
+      assert.deepEqual(rule([entry([7, 6, 4, 4])], { cautionArea: 'knees' }), { targetReps: 6, fromAverage: 5.25 });
+      // Held, a target the sets already beat to the floor still lets go.
+      assert.equal(rule([entry([12, 12, 12, 12], { targetReps: 6 })], { cautionArea: 'knees' }), null);
+    },
+  },
+  {
+    name: 'end to end: a knees-careful Back Squat opens on its lowered target again and again; unflagged it climbs',
+    run() {
+      const squat = {
+        ...TEMPLATE,
+        sessions: [{ ...TEMPLATE.sessions[0], exercises: [{ ...TEMPLATE.sessions[0].exercises[0], exerciseName: 'Back Squat', slotId: 'squat' }] }],
+      };
+      const open = (state, day, cautionFlags) => {
+        const next = workoutReducer(state, {
+          type: 'session/startFromRuntimeTemplate',
+          payload: {
+            template: squat,
+            sessionOrderIndex: 0,
+            unitPreference: 'kg',
+            progression: { automatedProgressionEnabled: true, setupLevel: 'beginner', nowMs: Date.UTC(2026, 8, day, 8), cautionFlags },
+          },
+        });
+        const lift = next.activeSession.exercises[0];
+        return lift.sets.map((_, index) => resolveGuidedSetTarget(lift.sets, index, lift.trackingMode).reps);
+      };
+      let { state } = session(EMPTY, [7, 6, 4, 4], 20, true, squat);
+      ({ state } = session(state, [6, 6, 6, 6], 22, true, squat));
+      const flags = [{ area: 'knees', level: 'careful', refinements: [] }];
+      assert.deepEqual(open(state, 24, undefined), [7, 7, 7, 7]);
+      assert.deepEqual(open(state, 24, flags), [6, 6, 6, 6]);
+      assert.deepEqual(open(state, 24, [{ area: 'knees', level: 'info', refinements: [] }]), [7, 7, 7, 7]);
+      assert.deepEqual(open(state, 24, [{ area: 'shoulders', level: 'careful', refinements: [] }]), [7, 7, 7, 7]);
+    },
+  },
+  {
     name: 'the coach\'s example sees the lowered target: it previews the same start',
     run() {
       const { previewNextSession } = require('../../.test-dist/features/workout/workoutState');

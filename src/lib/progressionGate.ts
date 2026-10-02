@@ -544,6 +544,10 @@ export interface MissedRepsInput {
    * which is how the pure tests read a history with no clock.
    */
   nowMs?: number;
+  /** A flagged area this lift loads: its target is repeated, never climbed. */
+  cautionArea?: SetupCautionArea | null;
+  /** Recovery says not today: the target is repeated, never climbed. */
+  fatigueSignal?: ProgressionFatigueSignal;
 }
 
 /**
@@ -586,6 +590,10 @@ function givenTarget(entry: WorkoutSlotHistoryEntry, repsMin: number): number | 
  * more than last time's target" cannot be worked out from the reps alone.
  * Bodyweight work progresses by reps already, and a hold is seconds: both are
  * left alone. Pro, like the rest of automated progression (user, 2026-09-28).
+ *
+ * The climb is a progression like the ramp rule's +1, and is withheld the same
+ * way: on a lift that loads a flagged area, or on a day recovery holds, the
+ * target repeats what the sets last did rather than asking one more.
  */
 export function resolveMissedRepsTarget(input: MissedRepsInput): MissedRepsResolution | null {
   const { history, repsMin, targetSets, trackingMode } = input;
@@ -638,7 +646,10 @@ export function resolveMissedRepsTarget(input: MissedRepsInput): MissedRepsResol
   // "Every set" means every set the programme asks for, and fewer than that
   // did not meet it.
   if (given !== null && reps.length >= targetSets && reps.every((count) => count >= given)) {
-    const next = Math.max(given + (reps.every((count) => count > given) ? 2 : 1), averageTarget);
+    const mayClimb =
+      !input.cautionArea && input.fatigueSignal !== 'high' && input.fatigueSignal !== 'elevated';
+    const climbed = given + (reps.every((count) => count > given) ? 2 : 1);
+    const next = Math.max(mayClimb ? climbed : given, averageTarget);
     return next >= repsMin ? null : { targetReps: next, fromAverage: null };
   }
 
