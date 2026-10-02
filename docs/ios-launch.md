@@ -27,7 +27,10 @@ lists what iOS needs beyond it.
   (`appVersionSource: "remote"`) and every `production` build raises them on
   its own (`autoIncrement`). The values in app.json are ignored by EAS builds;
   the local Gradle release (`npm run android:release`) still reads
-  `android.versionCode` from app.json.
+  `android.versionCode` from app.json, and nothing raises it: Android is
+  manual. `release:android:done` records the code in the `android-v<version>`
+  tag (`versionCode=N`), and `release:android` stops while app.json's code is
+  not above the last released one.
 
 ## Manual steps
 

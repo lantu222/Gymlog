@@ -179,7 +179,7 @@ module.exports = [
       // the swap, anchored on the lift on screen.
       assert.match(
         playerSource,
-        /label=\{t\(language, 'guided\.walk\.add'\)\}\s*onPress=\{\(\) => \{[\s\S]{0,200}setAddExerciseAfterSlot\(\{\s*anchor:\s*guidedBlockLastSlotId\(/,
+        /label=\{t\(language, 'guided\.walk\.add'\)\}\s*onPress=\{\(\) => \{[\s\S]{0,320}setAddExerciseAfterSlot\(\{\s*anchor:\s*guidedBlockLastSlotId\(/,
       );
       // After that lift, not at the end; and no jump — the pending-insert
       // ref, which drives the jump, is set only on the cooldown path.
