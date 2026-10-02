@@ -357,4 +357,61 @@ module.exports = [
       assert.deepEqual(normalizeAiCoachTrainingContext(older).cautionAreas, []);
     },
   },
+  {
+    name: 'the coach context leaves a lift held for a flagged area out of the plateau list',
+    run() {
+      const log = (name, weight, daysAgo) => ({
+        id: `log-${name}-${daysAgo}`,
+        sessionId: `s${daysAgo}`,
+        exerciseTemplateId: null,
+        exerciseNameSnapshot: name,
+        weight,
+        repsPerSet: [8, 8, 8],
+        sets: [0, 1, 2].map((orderIndex) => ({ orderIndex, weight, reps: 8, kind: 'working', outcome: 'completed', status: 'completed' })),
+        tracked: true,
+        orderIndex: 0,
+        skipped: false,
+        performedAt: new Date(Date.UTC(2026, 8, 30) - daysAgo * 86400000).toISOString(),
+        workoutNameSnapshot: 'Day',
+      });
+      const summary = (key, name, weight) => {
+        const logs = [0, 7, 14, 21].map((daysAgo) => log(name, weight, daysAgo));
+        return {
+          key,
+          name,
+          logs,
+          latestLog: logs[0],
+          previousLog: logs[1],
+          latestWeight: weight,
+          previousWeight: weight,
+          latestReps: '8,8,8',
+          bestWeight: weight,
+          bestReps: 24,
+        };
+      };
+      const build = (cautionFlags) =>
+        buildAiTrainingContext({
+          unitPreference: 'kg',
+          activeWorkoutSummary: null,
+          homeSummary: { streak: { sessionsThisWeek: 1, sessionsLast30Days: 3, activity: { days: [] } } },
+          workoutSessions: [],
+          exerciseLogs: [],
+          trackedProgress: [summary('back squat', 'Back Squat', 100), summary('bench press', 'Bench Press', 80)],
+          readyProgramCount: 3,
+          recommendedProgramId: null,
+          recommendedProgramTitle: null,
+          customProgramTitle: null,
+          cautionFlags,
+        });
+      assert.deepEqual(build([]).plateaus.map((p) => p.name).sort(), ['Back Squat', 'Bench Press']);
+      assert.deepEqual(
+        build([{ area: 'knees', level: 'careful', refinements: [] }]).plateaus.map((p) => p.name),
+        ['Bench Press'],
+      );
+      assert.deepEqual(
+        build([{ area: 'knees', level: 'info', refinements: [] }]).plateaus.map((p) => p.name).sort(),
+        ['Back Squat', 'Bench Press'],
+      );
+    },
+  },
 ];

@@ -44,11 +44,12 @@ export function useCoachEntryReadings(deps: CoachEntryReadingsDeps) {
       sessions: workoutSessions,
       logs: database.exerciseLogs,
       language: preferences.appLanguage,
+      cautionFlags: preferences.setupCautionFlags,
     });
     return modules.analysis
       ? { id: modules.analysis.sessionId, name: modules.analysis.caption }
       : null;
-  }, [database.exerciseLogs, preferences.appLanguage, onCoachChat, workoutSessions]);
+  }, [database.exerciseLogs, preferences.appLanguage, preferences.setupCautionFlags, onCoachChat, workoutSessions]);
 
   return { analysisSessionId, coachLastSession };
 }

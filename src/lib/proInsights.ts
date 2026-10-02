@@ -124,9 +124,9 @@ function stallReason(lift: LiftHistory): 'recovery' | 'reps_hold' {
 /**
  * A lift that loads an area the reader flagged careful or avoid is held on
  * purpose: the progression gate never adds weight or reps there (onboarding's
- * promise). Its flat line is the plan working, so none of the stall surfaces �
+ * promise). Its flat line is the plan working, so none of the stall surfaces —
  * the card, the in-workout reminder, the completion lock, the weekly stall row
- * � may call it stuck and tell the reader to move up.
+ * — may call it stuck and tell the reader to move up.
  */
 export function isLiftHeldForCaution(
   lift: LiftHistory,

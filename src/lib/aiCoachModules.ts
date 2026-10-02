@@ -10,7 +10,8 @@ import {
   sessionVolumeKg,
   topSetOf,
 } from './trainingHistory';
-import { AppLanguage, ExerciseLog, WorkoutSession } from '../types/models';
+import { AppLanguage, ExerciseLog, SetupCautionFlag, WorkoutSession } from '../types/models';
+import { cautionAreaLoadedBy } from './cautionAreaMatching';
 import { removeTrailingZeros } from './format';
 import { WeightedSet, beatsBest } from './personalRecords';
 
@@ -78,6 +79,8 @@ export interface CoachModulesInput {
   recentDays?: number;
   /** Injectable so the recent-session window can be pinned in a test. */
   now?: Date;
+  /** Flagged body areas: a lift held for one is not a stall to suggest a fix for. */
+  cautionFlags?: SetupCautionFlag[] | null;
 }
 
 const DEFAULT_RECENT_DAYS = 21;
@@ -248,11 +251,16 @@ function buildSuggestion(
   sessions: WorkoutSession[],
   logs: ExerciseLog[],
   language: AppLanguage,
+  cautionFlags?: SetupCautionFlag[] | null,
 ): CoachSuggestionModule | null {
   // The only suggestion this build can make honestly: a lift whose top set has
   // not moved across three or more logged sessions.
   for (const lift of buildLiftHistories(sessions, logs)) {
     if (lift.stalledSessions < 3) {
+      continue;
+    }
+    // Held on purpose for a flagged area: the plan is working, not stuck.
+    if (cautionAreaLoadedBy(lift.name, cautionFlags) !== null) {
       continue;
     }
 
@@ -282,6 +290,7 @@ export function buildCoachModules({
   language,
   recentDays = DEFAULT_RECENT_DAYS,
   now = new Date(),
+  cautionFlags,
 }: CoachModulesInput): CoachModules {
   // Calendar stepping, and a reference date rather than Date.now() read inline:
   // the first keeps the edge on the time of day the window claims across a
@@ -299,7 +308,7 @@ export function buildCoachModules({
   // is limited to what is recent enough to still be worth commenting on.
   const focus = buildFocus(sessions, logs, language);
   const analysis = buildAnalysis(recent, logs, language);
-  const suggestion = buildSuggestion(sessions, logs, language);
+  const suggestion = buildSuggestion(sessions, logs, language, cautionFlags);
 
   return {
     focus,

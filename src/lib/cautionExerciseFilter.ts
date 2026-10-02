@@ -1,7 +1,10 @@
 import { WorkoutTemplateExercise } from '../features/workout/workoutTypes';
 import { SetupCautionArea, SetupCautionFlag, SetupFocusArea } from '../types/models';
 import { trackingModeAfterSwap } from './catalogExercisePools';
+import { exerciseHitsCautionArea, findPhrase, normalize, phraseWords, words } from './cautionAreaMatching';
 import { isHoldExerciseName } from './holdExercises';
+
+export { cautionAreaLoadedBy, exerciseHitsCautionArea } from './cautionAreaMatching';
 
 /**
  * Caution flags become real training changes (onboarding truth plan P2).
@@ -13,15 +16,9 @@ import { isHoldExerciseName } from './holdExercises';
  * - flagged area picked as a FOCUS on step 6 (careful only) — that area's
  *   exercises swap to bodyweight variants instead (the step-6 promise).
  *
- * Everything is exercise-NAME based, grounded in the catalog's names, so
- * composed and custom programs behave the same. A name is split into words
- * (hyphens, spaces and punctuation all separate them, so "Step-Up" and "Step
- * Ups" read alike) and a pattern matches when its words appear in a row, each
- * allowing the plain English endings s, es and ing ("run" matches "Running",
- * "dip" matches "Dipping"). It never matches inside a word: "run" is not in
- * "Crunch". Per-area EXCLUSION phrases mask words that appear in a name without
- * loading the joint ("curl" in "Leg Curl" is not an elbow lift) before the
- * patterns are tried. Swaps use the same word rule.
+ * Everything is exercise-NAME based, so composed and custom programs behave the
+ * same; how a name is matched to an area (whole words, exclusions) lives in
+ * cautionAreaMatching. Swaps use the same word rule.
  */
 
 /** Caution areas → the focus areas they touch (mirrors the onboarding UI). */
@@ -34,68 +31,6 @@ export const CAUTION_TO_FOCUS_AREAS: Record<SetupCautionArea, SetupFocusArea[]> 
   hips: ['glutes'],
   knees: ['legs', 'quads', 'hamstrings'],
   ankles: ['calves'],
-};
-
-// Broad per-area stress patterns. `avoid` removes every match.
-const AREA_AVOID_PATTERNS: Record<SetupCautionArea, string[]> = {
-  shoulders: [
-    'overhead press',
-    'shoulder press',
-    'push press',
-    'arnold press',
-    'upright row',
-    'upright barbell row',
-    'lateral raise',
-    'rear delt',
-    'handstand',
-    'dip',
-  ],
-  lower_back: [
-    'deadlift',
-    'romanian',
-    'good morning',
-    'bent-over',
-    'barbell row',
-    'pendlay',
-    'back extension',
-    'lower back curl',
-    'kettlebell swing',
-    'clean',
-    'snatch',
-  ],
-  knees: [
-    'squat',
-    'lunge',
-    'leg press',
-    'leg extension',
-    'step-up',
-    'pistol',
-    'box jump',
-    'wall sit',
-  ],
-  elbows: ['curl', 'skull crusher', 'triceps', 'close-grip', 'pushdown', 'dip'],
-  wrists: ['barbell curl', 'push-up', 'front squat', 'handstand', 'wrist'],
-  hips: ['hip thrust', 'sumo', 'adductor', 'abductor', 'bulgarian', 'pistol'],
-  neck: ['shrug', 'neck', 'behind-the-neck'],
-  ankles: ['calf raise', 'calf press', 'jump', 'skipping', 'sprint', 'run', 'jog', 'treadmill', 'stride'],
-};
-
-// Phrases that contain a pattern word but do not load the area. Their words are
-// masked out of the name before the patterns above are tried, so the rest of
-// the name still counts ("Leg Curl and Triceps Pushdown" is still a triceps
-// lift). Add one only for a name that is a real false positive.
-const AREA_EXCLUDE_PATTERNS: Record<SetupCautionArea, string[]> = {
-  shoulders: [],
-  // A grip, and rows done upright or supported on a bench, are not a hinge.
-  lower_back: ['clean grip', 'upright barbell row', 'lying cambered barbell row'],
-  // The leg press of a calf press is done with straight legs.
-  knees: ['calf press on the leg press'],
-  // "curl" is also the hamstring curl and the prone back raise.
-  elbows: ['leg curl', 'hamstring curl', 'lower back curl'],
-  wrists: [],
-  hips: [],
-  neck: [],
-  ankles: [],
 };
 
 // `careful` swaps: first matching pattern wins; unmatched exercises keep their
@@ -113,6 +48,8 @@ export const AREA_CAREFUL_SWAPS: Record<SetupCautionArea, Array<[string, string]
     ['incline bench press', 'Machine Chest Press'],
     ['bench press', 'Machine Chest Press'],
     ['dip', 'Machine Chest Press'],
+    ['dippi', 'Machine Chest Press'],
+    ['dipit', 'Machine Chest Press'],
   ],
   lower_back: [
     ['romanian deadlift', 'Hip Thrust'],
@@ -183,89 +120,6 @@ export const AREA_BODYWEIGHT_SWAPS: Record<SetupCautionArea, Array<[string, stri
   neck: [],
   ankles: [],
 };
-
-function normalize(name: string) {
-  return name.trim().toLowerCase();
-}
-
-/** Lowercase words; every run of non-letters/digits is one boundary. */
-function words(text: string): string[] {
-  return normalize(text)
-    .split(/[^a-z0-9]+/)
-    .filter((word) => word.length > 0);
-}
-
-const phraseCache = new Map<string, string[]>();
-function phraseWords(phrase: string): string[] {
-  let cached = phraseCache.get(phrase);
-  if (!cached) {
-    cached = words(phrase);
-    phraseCache.set(phrase, cached);
-  }
-  return cached;
-}
-
-/** `word` is `base` or `base` with a plain ending: s, es, ing (run -> running, lunge -> lunging). */
-function wordMatches(word: string | null, base: string): boolean {
-  if (word === null) {
-    return false;
-  }
-  if (word === base || word === `${base}s` || word === `${base}es` || word === `${base}ing`) {
-    return true;
-  }
-  if (word === `${base}${base.slice(-1)}ing`) {
-    return true;
-  }
-  return base.endsWith('e') && word === `${base.slice(0, -1)}ing`;
-}
-
-/** Index of the first place `phrase`'s words appear in a row in `nameWords`, or -1. */
-function findPhrase(nameWords: Array<string | null>, phrase: string[]): number {
-  if (phrase.length === 0) {
-    return -1;
-  }
-  for (let start = 0; start + phrase.length <= nameWords.length; start += 1) {
-    if (phrase.every((base, offset) => wordMatches(nameWords[start + offset], base))) {
-      return start;
-    }
-  }
-  return -1;
-}
-
-export function exerciseHitsCautionArea(exerciseName: string, area: SetupCautionArea): boolean {
-  const nameWords: Array<string | null> = words(exerciseName);
-  for (const exclusion of AREA_EXCLUDE_PATTERNS[area]) {
-    const phrase = phraseWords(exclusion);
-    for (let at = findPhrase(nameWords, phrase); at !== -1; at = findPhrase(nameWords, phrase)) {
-      for (let offset = 0; offset < phrase.length; offset += 1) {
-        nameWords[at + offset] = null;
-      }
-    }
-  }
-  return AREA_AVOID_PATTERNS[area].some((pattern) => findPhrase(nameWords, phraseWords(pattern)) !== -1);
-}
-
-/**
- * The flagged area a lift loads, for the progression hold, or null.
- *
- * Only `careful` and `avoid` count — `info` promises nothing about training.
- * An `avoid` match normally never reaches a session (the filter removes it),
- * but a lift the reader added by hand can, and it is held the same way. The
- * same name patterns as the filter decide "loads this area", so a swap the
- * filter picked because it spares the area (Leg Press -> Hip Thrust for knees)
- * progresses normally, and one that still loads it (Box Squat) is held.
- */
-export function cautionAreaLoadedBy(
-  exerciseName: string,
-  flags: SetupCautionFlag[] | null | undefined,
-): SetupCautionArea | null {
-  for (const flag of flags ?? []) {
-    if (flag.level !== 'info' && exerciseHitsCautionArea(exerciseName, flag.area)) {
-      return flag.area;
-    }
-  }
-  return null;
-}
 
 function findSwap(exerciseName: string, table: Array<[string, string]>): string | null {
   const nameWords = words(exerciseName);

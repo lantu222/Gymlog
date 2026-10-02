@@ -232,6 +232,24 @@ module.exports = [
     },
   },
   {
+    name: 'the plateau suggestion skips a lift held for a flagged area',
+    run() {
+      const input = {
+        sessions: [
+          session('s3', 'Day 1', daysAgo(1), 900),
+          session('s2', 'Day 1', daysAgo(8), 900),
+          session('s1', 'Day 1', daysAgo(15), 900),
+        ],
+        logs: ['s1', 's2', 's3'].map((id) => log(id, 'Back Squat', 100, [5])),
+        language: 'en',
+      };
+      assert.ok(buildCoachModules(input).suggestion, 'unflagged, a flat squat is the suggestion');
+      assert.equal(buildCoachModules({ ...input, cautionFlags: [{ area: 'knees', level: 'careful', refinements: [] }] }).suggestion, null);
+      assert.ok(buildCoachModules({ ...input, cautionFlags: [{ area: 'knees', level: 'info', refinements: [] }] }).suggestion);
+      assert.ok(buildCoachModules({ ...input, cautionFlags: [{ area: 'shoulders', level: 'avoid', refinements: [] }] }).suggestion);
+    },
+  },
+  {
     name: 'skipped and zero-weight logs are ignored rather than counted as sets',
     run() {
       const modules = buildCoachModules({

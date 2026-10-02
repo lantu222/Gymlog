@@ -133,6 +133,39 @@ module.exports = [
     },
   },
   {
+    name: 'cautionNameMatching: a bench-supported bent-over lift is not a hinge; an unsupported one still is',
+    run() {
+      assert.equal(hits('Bent Over Dumbbell Rear Delt Raise With Head On Bench', 'lower_back'), false);
+      assert.equal(hits('Chest-Supported Barbell Row', 'lower_back'), false);
+      assert.equal(hits('Chest Supported Bent Over Row', 'lower_back'), false);
+      // Unsupported bent-over work still loads the back, spelled either way.
+      assert.equal(hits('Bent Over Low-Pulley Side Lateral', 'lower_back'), true);
+      assert.equal(hits('Bent-Over Row', 'lower_back'), true);
+      assert.equal(hits('Seated Bent-Over Rear Delt Raise', 'lower_back'), true);
+      // The supported one is still a rear-delt lift.
+      assert.equal(hits('Bent Over Dumbbell Rear Delt Raise With Head On Bench', 'shoulders'), true);
+    },
+  },
+  {
+    // The old substring rule caught these inside a reader's own Finnish names;
+    // whole-word matching must not lose them (review, 2026-10-02).
+    name: 'cautionNameMatching: Finnish names for dips and curls still hit, leg curls still do not hit elbows',
+    run() {
+      for (const name of ['Dippi', 'Dipit', 'Penkkidippi', 'Tricepsdipit', 'Dippi (painolla)']) {
+        assert.equal(hits(name, 'shoulders'), true, `${name} must hit shoulders`);
+        assert.equal(hits(name, 'elbows'), true, `${name} must hit elbows`);
+      }
+      for (const name of ['Hauiscurl', 'Vasaracurl', 'Curl', 'Hauiscurlit']) {
+        assert.equal(hits(name, 'elbows'), true, `${name} must hit elbows`);
+      }
+      for (const name of ['Jalkacurl', 'Reisicurl', 'Takareisicurl']) {
+        assert.equal(hits(name, 'elbows'), false, `${name} must not hit elbows`);
+      }
+      // Whole-word still applies to the English ones.
+      assert.equal(hits('Dipstick Row', 'shoulders'), false);
+    },
+  },
+  {
     name: 'cautionNameMatching: a swap uses the same word rule as the hit test',
     run() {
       const exercise = (name) => ({
@@ -156,6 +189,8 @@ module.exports = [
       assert.equal(swapTo('Back Squats', 'knees'), 'Box Squat');
       assert.equal(swapTo('Walking Lunges', 'knees'), 'Glute Bridge');
       assert.equal(swapTo('Deep Squat Hold', 'knees'), 'Supported Deep Squat Hold');
+      assert.equal(swapTo('Dipit', 'shoulders'), 'Machine Chest Press');
+      assert.equal(swapTo('Penkkidippi', 'shoulders'), 'Machine Chest Press');
       // A crunch is not an ankle lift, and a leg curl is not an elbow lift:
       // neither is held, swapped or removed.
       for (const [name, area] of [['Cable Crunch', 'ankles'], ['Seated Leg Curl', 'elbows']]) {
