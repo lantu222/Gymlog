@@ -379,6 +379,7 @@ const suites = [
   ...require('./lib/programFocusSplit.test.cjs'),
   ...require('./lib/programDayComposer.test.cjs'),
   ...require('./lib/cautionExerciseFilter.test.cjs'),
+  ...require('./lib/cautionNameMatching.test.cjs'),
   ...require('./lib/focusEmphasis.test.cjs'),
   ...require('./lib/equipmentExerciseFilter.test.cjs'),
   ...require('./lib/onboardingStructure.test.cjs'),
