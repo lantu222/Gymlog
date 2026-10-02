@@ -312,6 +312,14 @@ jobs:
             exit 0
           fi
           turns=$(echo "$summary" | jq -r '.num_turns // "?"')
+          # An errored run's own words: the result text, any error field, and
+          # what the assistant said. Without these a usage limit, a model the
+          # plan cannot use and a provider incident all read as "is_error: true"
+          # (2026-10-01/02: nine reds in a row with nothing else to go on).
+          if [ "$(echo "$summary" | jq -r '.is_error // false')" = "true" ]; then
+            echo "Error text from the run:"
+            jq -rs '[.[] | .. | objects | (.result? // empty), (.error? | if type == "string" then . elif type == "object" then tojson else empty end), (select(.type? == "assistant") | .message.content[]? | .text? // empty)] | map(select(type == "string" and length > 0)) | unique | .[] | .[0:500]' "$EXECUTION_FILE" 2>/dev/null || echo "(could not read it)"
+          fi
           # The file holds the SDK's raw result, where denials are an array.
           # A count field exists only in the summary the action prints, so
           # reading one here said 0 on every run, including the ones whose
