@@ -96,7 +96,7 @@ module.exports = [
       const profile = read('src', 'app', 'renderProfileTab.tsx');
       const handler = profile.slice(profile.indexOf('onDeleteAccount: () => {'));
       // A confirmation first, destructive, naming what goes (the message key).
-      assert.match(handler, /'account\.deleteAccount\.message'/);
+      assert.match(handler, /accountBackup\.state\.provider === 'apple'\s*\?\s*'account\.deleteAccount\.message\.apple'\s*:\s*'account\.deleteAccount\.message',/);
       assert.match(handler, /style: 'destructive',\s*onPress: \(\) => \{[\s\S]*?accountBackup\s*\.deleteAccount\(\)/);
       // The done dialog is inside the answer of the delete, behind `result === 'done'`.
       const call = handler.indexOf('.deleteAccount()');

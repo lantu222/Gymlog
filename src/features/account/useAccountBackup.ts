@@ -77,6 +77,8 @@ export interface AccountBackupState {
   email: string | null;
   name: string | null;
   lastBackupAt: string | null;
+  /** Whose sign-in this is, for wording that only fits one (null when signed out). */
+  provider: 'google' | 'apple' | null;
 }
 
 export type SignInOutcome =
@@ -174,6 +176,12 @@ const AUTO_BACKUP_QUIET_MS = 8000;
 
 /** Thrown inside an operation that sign-out overtook; never reaches the caller. */
 class Superseded extends Error {}
+
+/** What the server answers a sign-in it will not take (api/backup.ts), and the prefix of its own Apple session. */
+const INVALID_TOKEN_ERROR = 'INVALID_TOKEN';
+const APPLE_SESSION_PREFIX = 'vs1.';
+/** Apple accounts are filed as `apple:<sub>` (appleAuth). */
+const APPLE_ACCOUNT_PREFIX = 'apple:';
 
 function lookResult(remote: BackupDownloadResult): BackupLookResult {
   if (remote.ok) {
@@ -274,6 +282,28 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
   }, []);
 
   /**
+   * The server refusing an Apple session (INVALID_TOKEN) is the account having
+   * been deleted from another phone — or the session being forged or gone —
+   * and no retry can change it: this phone signs out the way the reader's own
+   * Sign out does, so the UI shows signed-out instead of "Signed in" over
+   * backups that fail for up to 180 days. Only for the server's own Apple
+   * session: a Google token's 401 keeps meaning what it did, and a 502 (the
+   * store could not answer) is not INVALID_TOKEN and never signs anyone out.
+   * Throws Superseded, like any operation that sign-out overtakes.
+   */
+  const signOutRef = useRef<() => Promise<void>>(async () => undefined);
+  const screenSession = useCallback(
+    async <R extends { ok: boolean; error?: string }>(idToken: string, result: R): Promise<R> => {
+      if (!result.ok && result.error === INVALID_TOKEN_ERROR && idToken.startsWith(APPLE_SESSION_PREFIX)) {
+        await signOutRef.current();
+        throw new Superseded();
+      }
+      return result;
+    },
+    [],
+  );
+
+  /**
    * Remembers whose data stays on the phone as an account signs out — added
    * to the accounts already remembered, never in their place.
    *
@@ -306,7 +336,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       // Taken with the payload: an edit made while the upload runs is still a
       // difference afterwards, and gets its own backup.
       const fingerprint = accountBackupFingerprint(database, workoutHistory);
-      const result = await uploadBackup(idToken, payload, expectedVersion);
+      const result = await screenSession(idToken, await uploadBackup(idToken, payload, expectedVersion));
       ensureCurrent(generation);
       if (!result.ok) {
         return result.error === BACKUP_CHANGED ? 'changed' : 'failed';
@@ -539,7 +569,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         cloudVersion: null,
       };
 
-      const remote = await downloadBackup(result.account.idToken);
+      const remote = await screenSession(result.account.idToken, await downloadBackup(result.account.idToken));
       ensureCurrent(generation);
       return await settleWithRemote(result.account.idToken, base, remote, generation);
     } catch (error) {
@@ -706,7 +736,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         // restored, or — after a look — the one it has just read.
         let expectedVersion = current.cloudVersion;
         if (plan === 'look') {
-          const remote = await downloadBackup(idToken);
+          const remote = await screenSession(idToken, await downloadBackup(idToken));
           ensureCurrent(generation);
           const decision = decideAfterLook({
             interactive,
@@ -784,7 +814,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
           return { kind: 'failed' };
         }
         // "Back up now": the look this phone would have done had it known.
-        const remote = await downloadBackup(idToken);
+        const remote = await screenSession(idToken, await downloadBackup(idToken));
         ensureCurrent(generation);
         if (remote.ok) {
           return await askRestoreOrKeep(idToken, current, remote.payload, remote.version);
@@ -846,6 +876,8 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
     await signOutAccount();
   }, [markSignedOut, persistAccount]);
 
+  signOutRef.current = signOut;
+
   const deleteRemoteBackup = useCallback(async (): Promise<AccountOperationResult> => {
     if (!available || !accountRef.current) {
       return 'failed';
@@ -881,7 +913,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       if (token.status !== 'ok') {
         return 'failed';
       }
-      const result = await deleteBackup(token.idToken);
+      const result = await screenSession(token.idToken, await deleteBackup(token.idToken));
       ensureCurrent(generation);
       if (!result.ok) {
         return 'failed';
@@ -956,7 +988,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       if (token.status !== 'ok') {
         return 'failed';
       }
-      const result = await deleteBackup(token.idToken, { account: true });
+      const result = await screenSession(token.idToken, await deleteBackup(token.idToken, { account: true }));
       ensureCurrent(generation);
       if (!result.ok) {
         return 'failed';
@@ -1048,19 +1080,20 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
 
   const state = useMemo<AccountBackupState>(() => {
     if (!available) {
-      return { status: 'unavailable', email: null, name: null, lastBackupAt: null };
+      return { status: 'unavailable', email: null, name: null, lastBackupAt: null, provider: null };
     }
     if (!loaded) {
-      return { status: 'loading', email: null, name: null, lastBackupAt: null };
+      return { status: 'loading', email: null, name: null, lastBackupAt: null, provider: null };
     }
     if (!account) {
-      return { status: 'signed_out', email: null, name: null, lastBackupAt: null };
+      return { status: 'signed_out', email: null, name: null, lastBackupAt: null, provider: null };
     }
     return {
       status: 'signed_in',
       email: account.email,
       name: account.name,
       lastBackupAt: account.lastBackupAt,
+      provider: account.sub.startsWith(APPLE_ACCOUNT_PREFIX) ? 'apple' : 'google',
     };
   }, [account, available, loaded]);
 

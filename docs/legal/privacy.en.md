@@ -60,7 +60,7 @@ The backup is stored by Vercel, our hosting provider, in the European Union. It 
 
 Settings → Delete cloud backup removes the server copy immediately. Signing out does not delete it, and neither does resetting the phone’s data — a reset signs you out first, precisely so that an empty backup never overwrites a full one. The copy waits until you sign in again. If you can no longer open the app, sign in on any phone with the same account and delete it there, or write to us.
 
-Settings → Delete account does the same and more: it deletes the server copy, signs you out on this phone, and ends the sign-in our own server gave an Apple account — on your other phones too. The training data on this phone stays; Reset all data clears that separately. Afterwards our server holds nothing of yours except, for an Apple account, one scrambled marker with a date, which says that sign-ins made before it have ended, so that an old sign-in cannot be used again. It holds no name, email or training data.
+Settings → Delete account does the same and more: it deletes the server copy, signs you out on this phone, and ends the sign-in our own server gave an Apple account, so your other phones signed in with Apple are signed out the next time they back up. The training data on this phone stays; Reset all data clears that separately. Afterwards our server holds nothing of yours except, for an Apple account, one scrambled marker with a date, which says that sign-ins made before it have ended, so that an old sign-in cannot be used again. It holds no name, email or training data.
 
 ## The AI coach
 
@@ -133,7 +133,7 @@ The GDPR requires a lawful basis for each kind of processing. These are ours.
 - No trackers and no social media components. There is no feed, no followers and no public profile.
 - No access to your location, contacts, microphone, camera or files. A photo is read only when you pick one yourself, through the phone’s own picker, and only that photo.
 - No advertising profile. The app does tailor programmes and suggestions from your answers and your log, but that happens on your phone, and nothing is decided about you automatically in a way that has legal or similar effects.
-- No selling, renting or sharing of your data with anyone, beyond the three providers named above who work for us.
+- No selling, renting or sharing of your data with anyone, beyond the providers named above who work for us.
 - No account needed. Sign-in exists only to key the optional cloud backup.
 - No cookies. The app is not a web page and does not open one inside itself, so none are set and none are read.
 
@@ -179,7 +179,7 @@ On your phone, the app’s data is protected by the phone’s own lock and the s
 - Android backup: nothing to keep — Android’s own backup is switched off for this app.
 - iPhone backup: if iCloud Backup or a computer backup is switched on, the app’s data is kept in it for as long as Apple, or you, keep that backup — under Apple’s terms, not ours.
 - Cloud backup: until you delete it in Settings, or ask us to.
-- The marker left by Delete account on an Apple account: one scrambled marker with a date, with no name, email or training data. It is not removed automatically; write to us and we delete it.
+- The marker left by Delete account on an Apple account: one scrambled marker with a date, with no name, email or training data. The server’s routine clean-up removes it once 180 days have passed and it can no longer end anything. That clean-up runs when someone signs in with Apple or deletes an account, so it can take a little longer.
 - Coach questions, briefs and photos: not kept by us unless you allowed it, and then for up to 24 months or until you take the permission back, whichever comes first. Anthropic deletes its own copy within 30 days either way.
 - Usage statistics: up to 24 months, then deleted automatically.
 - Feedback emails: as long as it takes to handle them.

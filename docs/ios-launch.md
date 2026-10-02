@@ -81,7 +81,6 @@ custom review prompts — and "Rate Vinha" opens the write-review page.
   refresh token (stored next to the revocation marker), and call `/auth/revoke`
   with the client secret on `delete-account`. Env: `APPLE_TEAM_ID`,
   `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`.
-- Purging `revoked/` markers older than 180 days (they stop mattering then).
 - Excluding the app's data from the iPhone's own backup (the policy now says it
   is included, under Apple's terms). The alternative would be setting
   `isExcludedFromBackup` on the AsyncStorage directory in a config plugin, as

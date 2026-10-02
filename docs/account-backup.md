@@ -130,20 +130,33 @@ the phone trades it once for an **Apple session** issued by `api/backup.ts`:
 
 **Delete account (2026-10-02).** Settings → Delete account sends `DELETE` with
 `x-backup-action: delete-account`. The server deletes the copy first, then
-writes `revoked/<hmac>.json` — `{ "revokedAt": <unix seconds> }`, under a hash
+writes `revoked/<hmac>.json` — `{ "revokedAtMs": <unix ms> }`, under a hash
 of the account that is not the backup's pathname — and from then on every
-Apple session issued at or before that second is refused (`verifyAppleSession`
-on every request, `apple-renew` included). Sessions carry `iat`; one from
-before `iat` existed counts as issued at `exp − 180 days`. A new Apple sign-in
-afterwards is a later session and works. The copy goes first so a failed marker
+Apple session issued at or before that millisecond is refused
+(`verifyAppleSession` on every request, `apple-renew` included, which looks a
+second time just before answering so a delete that landed meanwhile is caught).
+Sessions carry `iatMs` (and `iat` in seconds); one with only `iat` counts from
+the start of that second, one with neither as issued at `exp − 180 days`. A new
+Apple sign-in afterwards is a later session and works, in the same second.
+A marker that cannot be parsed is read as revoked at the store's own write
+time (`uploadedAt`), or as nothing if the store gives none, so it can never
+lock an account out for good.
+
+**On the phone**, an `INVALID_TOKEN` answer to a request made with a `vs1.`
+session (upload, download, delete) signs the phone out like the Sign out row:
+so the other phones of a deleted Apple account stop saying "Signed in". A
+Google token's 401 and any 502 do not. The copy goes first so a failed marker
 write leaves the session alive and the reader can ask again. A plain `DELETE`
 ("Delete cloud backup") writes no marker: it keeps the reader signed in. A store
 that cannot read the marker answers 502, not 401, so a blip does not sign a
 phone out. The app signs out locally (clears the Google or Apple session and
 the account record) only after the server said yes, then shows the done
 message. Google accounts have no session of ours; only the copy is deleted.
-Nothing purges the markers; once 180 days have passed they no longer change
-anything, and the policy says they are removed on request. **Needs a Vercel
+Markers older than 181 days no longer change anything: a request from the
+account itself removes its own, and `purgeOldRevocations` (a `list` of
+`revoked/`) runs on every Apple sign-in exchange and every account deletion —
+so removal comes some time after the 180 days, depending on traffic, which is
+what the policy says. **Needs a Vercel
 deploy** — until then the app's `delete-account` request is an ordinary
 `DELETE` that leaves the Apple sessions alive.
 

@@ -729,7 +729,14 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
                 onDeleteAccount: () => {
                   Alert.alert(
                     t(preferences.appLanguage, 'account.deleteAccount'),
-                    t(preferences.appLanguage, 'account.deleteAccount.message'),
+                    // The Apple sentence only for a reader signed in with Apple:
+                    // a Google sign-in has no session of ours to end elsewhere.
+                    t(
+                      preferences.appLanguage,
+                      accountBackup.state.provider === 'apple'
+                        ? 'account.deleteAccount.message.apple'
+                        : 'account.deleteAccount.message',
+                    ),
                     [
                       { text: t(preferences.appLanguage, 'common.cancel'), style: 'cancel' },
                       {

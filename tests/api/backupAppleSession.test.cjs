@@ -32,6 +32,8 @@ function pathBlobStore() {
   class BlobNotFoundError extends Error {}
   class BlobPreconditionFailedError extends Error {}
   const blobs = new Map();
+  // When each pathname was last written, by the (movable) clock: the store's own uploadedAt.
+  const uploaded = new Map();
   const store = {
     blobs,
     BlobNotFoundError,
@@ -39,6 +41,11 @@ function pathBlobStore() {
     // Set to a predicate on the pathname to make that read or write fail.
     failGets: null,
     failPuts: null,
+    failList: false,
+    // Called after a read has been answered: lets a test make something happen between two reads.
+    afterGet: null,
+    // A store that does not say when a blob was written.
+    omitUploadedAt: false,
     async head(pathname) {
       if (!blobs.has(pathname)) {
         throw new BlobNotFoundError();
@@ -50,17 +57,40 @@ function pathBlobStore() {
         throw new Error('store unavailable');
       }
       const body = blobs.get(pathname);
-      return body === undefined ? null : { statusCode: 200, stream: new Blob([body]).stream(), blob: { etag: '"etag"' } };
+      const answer =
+        body === undefined
+          ? null
+          : {
+              statusCode: 200,
+              stream: new Blob([body]).stream(),
+              blob: { etag: '"etag"', ...(store.omitUploadedAt ? {} : { uploadedAt: new Date(uploaded.get(pathname)) }) },
+            };
+      store.afterGet?.(pathname);
+      return answer;
+    },
+    async list({ prefix = '' } = {}) {
+      if (store.failList) {
+        throw new Error('list unavailable');
+      }
+      return {
+        blobs: [...blobs.keys()]
+          .filter((pathname) => pathname.startsWith(prefix))
+          .map((pathname) => ({ pathname, uploadedAt: new Date(uploaded.get(pathname)) })),
+        hasMore: false,
+      };
     },
     async put(pathname, body) {
       if (store.failPuts?.(pathname)) {
         throw new Error('store unavailable');
       }
       blobs.set(pathname, body);
+      uploaded.set(pathname, Date.now());
       return { etag: '"etag"' };
     },
-    async del(pathname) {
-      blobs.delete(pathname);
+    async del(pathnames) {
+      for (const pathname of [].concat(pathnames)) {
+        blobs.delete(pathname);
+      }
     },
   };
   return store;
@@ -195,7 +225,7 @@ module.exports = [
     },
   },
   {
-    name: 'apple backup: a session carries the time it was issued, and a renewal carries a new one',
+    name: 'apple backup: a session carries the time it was issued (to the millisecond), and a renewal carries a new one',
     async run() {
       await withEndpoint(async ({ call, exchange }) => {
         const claimsOf = (token) => JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8'));
@@ -203,6 +233,8 @@ module.exports = [
         const { sessionToken } = (await exchange(appleToken())).body;
         const claims = claimsOf(sessionToken);
         assert.ok(claims.iat >= before && claims.iat <= before + 5, `iat ${claims.iat} is not the issue time`);
+        assert.equal(claims.iat, Math.floor(claims.iatMs / 1000), 'iat and iatMs name different moments');
+        assert.ok(Math.abs(claims.iatMs - Date.now()) < 5000, 'iatMs is not the issue time in milliseconds');
         assert.equal(claims.exp - claims.iat, 180 * 24 * 60 * 60, 'a session lasts 180 days from its iat');
 
         const renewed = await call('POST', sessionToken, { 'x-backup-action': 'apple-renew' });
@@ -211,7 +243,7 @@ module.exports = [
     },
   },
   {
-    name: 'apple backup: deleting the account ends every session issued before it, here and on any other phone',
+    name: 'apple backup: deleting the account ends every session issued before it, whichever phone holds it',
     async run() {
       await withEndpoint(async ({ call, exchange, blobs, clock }) => {
         const first = (await exchange(appleToken())).body.sessionToken;
@@ -236,8 +268,9 @@ module.exports = [
         }
         assert.equal([...blobs.keys()].filter((key) => key.startsWith('backups/')).length, 0, 'a revoked session wrote');
 
-        // Signing in with Apple again is a new account use, and works.
-        clock.advance(5000);
+        // Signing in with Apple again is a new account use, and works — in the
+        // same second as the deletion, one millisecond after it.
+        clock.advance(1);
         const again = (await exchange(appleToken())).body.sessionToken;
         assert.equal((await call('GET', again)).status, 404, 'a session issued after the deletion was refused');
         assert.equal((await call('PUT', again, { 'x-backup-expected-version': 'none' }, copy('apple-2'))).status, 200);
@@ -268,7 +301,7 @@ module.exports = [
         assert.equal((await call('POST', old, { 'x-backup-action': 'apple-renew' })).status, 401);
 
         // Made now, a session of the old format claims an issue time before the stamp too.
-        clock.advance(5000);
+        clock.advance(1);
         assert.equal((await call('GET', legacy())).status, 401);
       });
     },
@@ -322,6 +355,115 @@ module.exports = [
         store.failGets = null;
         assert.equal((await call('GET', next)).status, 404);
         assert.equal(blobs.size, 1, 'only the first account’s revocation record is left');
+      });
+    },
+  },
+  {
+    name: 'apple backup: a session with only the older second-based iat is read from the start of that second',
+    async run() {
+      await withEndpoint(async ({ call, exchange, clock }) => {
+        const { createHmac } = require('node:crypto');
+        const key = createHmac('sha256', 'test-secret').update('apple-session-v1').digest();
+        const secondsOnly = (issuedAtMs) => {
+          const payload = Buffer.from(
+            JSON.stringify({
+              sub: 'apple-user-1',
+              iat: Math.floor(issuedAtMs / 1000),
+              exp: Math.floor(issuedAtMs / 1000) + 180 * 24 * 60 * 60,
+            }),
+          ).toString('base64url');
+          return `vs1.${payload}.${createHmac('sha256', key).update(payload).digest('base64url')}`;
+        };
+        const before = secondsOnly(Date.now());
+        assert.equal((await call('GET', before)).status, 404, 'a session with iat in seconds was refused before any deletion');
+        const live = (await exchange(appleToken())).body.sessionToken;
+        assert.equal((await call('DELETE', live, { 'x-backup-action': 'delete-account' })).status, 200);
+        assert.equal((await call('GET', before)).status, 401, 'a seconds-only session outlived the deletion');
+      });
+    },
+  },
+  {
+    name: 'apple backup: a marker that cannot be read never locks the account out for good',
+    async run() {
+      await withEndpoint(async ({ call, exchange, blobs, clock, store }) => {
+        const old = (await exchange(appleToken())).body.sessionToken;
+        assert.equal((await call('DELETE', old, { 'x-backup-action': 'delete-account' })).status, 200);
+        const [markerPath] = [...blobs.keys()].filter((key) => key.startsWith('revoked/'));
+        blobs.set(markerPath, '{ this is not json');
+
+        // Taken as revoked at the moment the store wrote it: what existed then is ended…
+        assert.equal((await call('GET', old)).status, 401, 'a corrupt marker stopped ending the older session');
+        // …and a sign-in made afterwards works, however long ago the marker was.
+        clock.advance(1);
+        const fresh = (await exchange(appleToken())).body.sessionToken;
+        assert.equal((await call('GET', fresh)).status, 404, 'a corrupt marker refused a fresh sign-in');
+        const renewed = await call('POST', fresh, { 'x-backup-action': 'apple-renew' });
+        assert.equal(renewed.status, 200);
+
+        // A store that does not say when it was written: the marker says nothing, and nothing is refused.
+        store.omitUploadedAt = true;
+        assert.equal((await call('GET', fresh)).status, 404);
+        assert.equal((await call('GET', old)).status, 404, 'with no write time the marker was read as revoking everything');
+      });
+    },
+  },
+  {
+    name: 'apple backup: a revocation marker is removed once 180 days have passed, by the sweep or on first read',
+    async run() {
+      const DAY = 24 * 60 * 60 * 1000;
+      await withEndpoint(async ({ call, exchange, blobs, clock, store }) => {
+        const session = (await exchange(appleToken())).body.sessionToken;
+        assert.equal((await call('DELETE', session, { 'x-backup-action': 'delete-account' })).status, 200);
+        const markers = () => [...blobs.keys()].filter((key) => key.startsWith('revoked/')).length;
+        assert.equal(markers(), 1);
+
+        // Not yet: a session issued before it could still be valid.
+        clock.advance(179 * DAY);
+        await exchange(appleToken({ sub: 'someone-else' }));
+        assert.equal(markers(), 1, 'the marker went while a session it ends could still be valid');
+
+        // Past 180 days every session it ended has expired: the next sign-in's sweep removes it.
+        clock.advance(2 * DAY);
+        await exchange(appleToken({ sub: 'someone-else' }));
+        assert.equal(markers(), 0, 'the marker outlived its use');
+        assert.equal((await call('GET', session)).status, 401, 'and the old session is expired anyway');
+      });
+      // With the sweep failing, a request from the account itself removes its marker.
+      await withEndpoint(async ({ call, exchange, blobs, clock, store }) => {
+        const session = (await exchange(appleToken())).body.sessionToken;
+        await call('DELETE', session, { 'x-backup-action': 'delete-account' });
+        store.failList = true;
+        clock.advance(182 * DAY);
+        const fresh = (await exchange(appleToken())).body.sessionToken;
+        assert.equal(fresh.startsWith('vs1.'), true, 'a failing sweep failed the sign-in');
+        assert.equal([...blobs.keys()].filter((key) => key.startsWith('revoked/')).length, 1);
+        assert.equal((await call('GET', fresh)).status, 404);
+        assert.equal([...blobs.keys()].filter((key) => key.startsWith('revoked/')).length, 0, 'the read did not remove the old marker');
+      });
+    },
+  },
+  {
+    name: 'apple backup: a renewal that raced an account deletion is refused, not given a session issued after the marker',
+    async run() {
+      await withEndpoint(async ({ call, exchange, blobs, clock, store }) => {
+        const session = (await exchange(appleToken())).body.sessionToken;
+        // The first look finds no marker; before the renewal answers, the
+        // deletion lands — its marker is dated before the new session.
+        let reads = 0;
+        store.afterGet = (pathname) => {
+          if (!pathname.startsWith('revoked/')) {
+            return;
+          }
+          reads += 1;
+          if (reads === 1) {
+            blobs.set(pathname, JSON.stringify({ revokedAtMs: Date.now() }));
+            clock.advance(1);
+          }
+        };
+        const raced = await call('POST', session, { 'x-backup-action': 'apple-renew' });
+        assert.equal(raced.status, 401, 'a session was renewed after the account was deleted');
+        assert.equal(raced.body.sessionToken, undefined);
+        assert.ok(reads >= 2, 'the renewal looked once');
       });
     },
   },

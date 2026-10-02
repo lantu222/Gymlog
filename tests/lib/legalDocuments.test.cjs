@@ -29,7 +29,7 @@ const LEGAL_TEXT_VERSIONS = [
   { date: '2026-09-29', fingerprint: 'c0f19e9dea408950' },
   { date: '2026-09-30', fingerprint: '5998cb9be6282a40' },
   { date: '2026-10-01', fingerprint: 'e3a2198516dc68a3' },
-  { date: '2026-10-02', fingerprint: '26c232fa1145c56f' },
+  { date: '2026-10-02', fingerprint: '5f8a909910a5fb8e' },
 ];
 
 const IDS = ['privacy', 'terms'];
@@ -757,23 +757,51 @@ module.exports = [
       // is a sentence in the policy, in both languages.
       const server = read('api/backup.ts');
       // The marker is exactly a date: a field added here is a field the policy does not describe.
-      assert.match(server, /JSON\.stringify\(\{ revokedAt: Math\.floor\(Date\.now\(\) \/ 1000\) \}\)/, 'the revocation marker is not just a date any more');
+      assert.match(server, /JSON\.stringify\(\{ revokedAtMs: Date\.now\(\) \}\)/, 'the revocation marker is not just a date any more');
+      // The policy says the server's clean-up removes it after 180 days: the code has to.
+      assert.match(server, /const REVOCATION_KEPT_MS = \(APPLE_SESSION_DAYS \+ 1\) \* 24 \* 60 \* 60 \* 1000;/);
+      assert.match(server, /await purgeOldRevocations\(\);\s*res\.status\(200\)\.json\(\{ ok: true, \.\.\.issueAppleSession\(apple\.sub/, 'sign-ins no longer sweep old markers');
+      assert.match(server, /async function purgeOldRevocations/);
       for (const platform of ['android', 'ios', 'both']) {
         const en = renderLegalDocumentMarkdown(buildLegalDocument('privacy', 'en', platform));
         const fi = renderLegalDocumentMarkdown(buildLegalDocument('privacy', 'fi', platform));
         assert.match(en, /Settings → Delete account does the same and more: it deletes the server copy, signs you out on this phone/);
         assert.match(en, /one scrambled marker with a date/);
-        assert.match(en, /It is not removed automatically; write to us and we delete it/);
+        assert.match(en, /The server’s routine clean-up removes it once 180 days have passed/);
+        assert.doesNotMatch(en, /write to us and we delete it/, 'the policy promises a deletion on request that nobody can perform — the marker has no email on it');
+        assert.match(en, /so your other phones signed in with Apple are signed out the next time they back up/);
         assert.match(en, /does not take Vinha off the list of apps you use Sign in with Apple with/);
         assert.match(fi, /Asetukset → Poista tili tekee saman ja enemmän/);
         assert.match(fi, /yksi sekoitettu merkintä päivämäärineen/);
-        assert.match(fi, /Sitä ei poisteta automaattisesti; kirjoita meille, niin poistamme sen/);
+        assert.match(fi, /Palvelimen rutiinisiivous poistaa sen, kun 180 päivää on kulunut/);
+        assert.doesNotMatch(fi, /Sitä ei poisteta automaattisesti/);
+        assert.match(fi, /muut Applella kirjautuneet puhelimesi kirjautuvat ulos, kun ne seuraavan kerran varmuuskopioivat/);
         assert.match(fi, /ei poista Vinhaa luettelosta sovelluksista, joissa käytät Apple-kirjautumista/);
       }
+      // The providers: no number in the sentence that drifted from the list (it said three beside five).
+      for (const language of LANGUAGES) {
+        const text = renderLegalDocumentMarkdown(buildLegalDocument('privacy', language));
+        assert.doesNotMatch(text, /three providers named above|kolmea yllä nimettyä/, `the ${language} policy counts the providers wrongly again`);
+      }
+      assert.match(renderLegalDocumentMarkdown(buildLegalDocument('privacy', 'en')), /beyond the providers named above who work for us/);
+      assert.match(renderLegalDocumentMarkdown(buildLegalDocument('privacy', 'fi')), /lukuun ottamatta yllä nimettyjä palveluntarjoajia/);
+      // The Finnish price-change sentence reads as a sentence.
+      assert.match(renderLegalDocumentMarkdown(buildLegalDocument('terms', 'fi')), /saat siitä tiedon etukäteen sovelluskaupan kautta, josta ostit tilauksen \(Google Play tai App Store\), eikä muutos/);
       // The row the policy names exists, under the name it uses.
       const i18n = read('src/lib/i18n.ts');
       assert.match(i18n, /'account\.deleteAccount': 'Delete account'/);
       assert.match(i18n, /'account\.deleteAccount': 'Poista tili'/);
+      // The confirmation names the Apple consequence only in its own, Apple-only, key.
+      for (const [message, apple] of [
+        [/'account\.deleteAccount\.message':\s*'([^']*)'/g, false],
+        [/'account\.deleteAccount\.message\.apple':\s*'([^']*)'/g, true],
+      ]) {
+        const found = [...i18n.matchAll(message)].map((match) => match[1]);
+        assert.equal(found.length, 2, 'an English and a Finnish confirmation each');
+        for (const text of found) {
+          assert.equal(/Apple/.test(text), apple, `a confirmation ${apple ? 'for Apple readers lost' : 'for everyone else carries'} the Apple sentence`);
+        }
+      }
     },
   },
   {

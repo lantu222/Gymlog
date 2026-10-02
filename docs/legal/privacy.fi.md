@@ -60,7 +60,7 @@ Varmuuskopion säilyttää Vercel, palvelintarjoajamme, Euroopan unionin alueell
 
 Asetukset → Poista pilvivarmuuskopio poistaa palvelinkopion heti. Uloskirjautuminen ei poista sitä, eikä puhelimen tietojen nollaus — nollaus kirjaa sinut ensin ulos juuri siksi, ettei tyhjä varmuuskopio koskaan korvaisi täyttä. Kopio odottaa, kunnes kirjaudut uudelleen. Jos et enää pääse sovellukseen, kirjaudu samalla tilillä millä tahansa puhelimella ja poista se sieltä, tai kirjoita meille.
 
-Asetukset → Poista tili tekee saman ja enemmän: se poistaa palvelinkopion, kirjaa sinut ulos tästä puhelimesta ja päättää oman palvelimemme Apple-tilille antaman kirjautumisen — myös muilla puhelimillasi. Treenitiedot tässä puhelimessa säilyvät; Nollaa kaikki tiedot tyhjentää ne erikseen. Sen jälkeen palvelimellamme ei ole sinusta mitään, paitsi Apple-tilillä yksi sekoitettu merkintä päivämäärineen, joka kertoo, että sitä ennen tehdyt kirjautumiset ovat päättyneet, jottei vanhaa kirjautumista voi käyttää uudelleen. Siinä ei ole nimeä, sähköpostia eikä treenitietoja.
+Asetukset → Poista tili tekee saman ja enemmän: se poistaa palvelinkopion, kirjaa sinut ulos tästä puhelimesta ja päättää oman palvelimemme Apple-tilille antaman kirjautumisen, joten muut Applella kirjautuneet puhelimesi kirjautuvat ulos, kun ne seuraavan kerran varmuuskopioivat. Treenitiedot tässä puhelimessa säilyvät; Nollaa kaikki tiedot tyhjentää ne erikseen. Sen jälkeen palvelimellamme ei ole sinusta mitään, paitsi Apple-tilillä yksi sekoitettu merkintä päivämäärineen, joka kertoo, että sitä ennen tehdyt kirjautumiset ovat päättyneet, jottei vanhaa kirjautumista voi käyttää uudelleen. Siinä ei ole nimeä, sähköpostia eikä treenitietoja.
 
 ## AI-valmentaja
 
@@ -133,7 +133,7 @@ Tietosuoja-asetus (GDPR) vaatii jokaiselle käsittelylle laillisen perusteen. Me
 - Ei seurantaa eikä sosiaalisen median osia. Ei syötettä, ei seuraajia, ei julkista profiilia.
 - Ei pääsyä sijaintiisi, yhteystietoihisi, mikrofoniin, kameraan tai tiedostoihisi. Kuva luetaan vain, kun itse valitset sen puhelimen omalla valitsimella, ja vain se kuva.
 - Ei mainosprofiilia. Sovellus kyllä räätälöi ohjelmia ja ehdotuksia vastaustesi ja lokisi perusteella, mutta se tapahtuu puhelimessasi, eikä sinusta päätetä automaattisesti mitään, millä olisi oikeudellisia tai vastaavia vaikutuksia.
-- Ei tietojesi myyntiä, vuokrausta eikä jakamista kenellekään — lukuun ottamatta kolmea yllä nimettyä palveluntarjoajaa, jotka työskentelevät meille.
+- Ei tietojesi myyntiä, vuokrausta eikä jakamista kenellekään — lukuun ottamatta yllä nimettyjä palveluntarjoajia, jotka työskentelevät meille.
 - Ei tilipakkoa. Kirjautuminen on olemassa vain vapaaehtoista pilvivarmuuskopiota varten.
 - Ei evästeitä. Sovellus ei ole verkkosivu eikä avaa sellaista sisäänsä, joten evästeitä ei aseteta eikä lueta.
 
@@ -179,7 +179,7 @@ Puhelimessasi sovelluksen tietoja suojaavat puhelimen oma lukitus ja Androidin j
 - Android-varmuuskopio: ei mitään säilytettävää — Androidin oma varmuuskopiointi on tälle sovellukselle pois päältä.
 - iPhonen varmuuskopio: jos iCloud-varmuuskopiointi tai tietokoneelle tehtävä varmuuskopio on päällä, sovelluksen tiedot säilyvät siinä niin kauan kuin Apple tai sinä säilytätte sitä varmuuskopiota — Applen ehtojen mukaan, ei meidän.
 - Pilvivarmuuskopio: kunnes poistat sen asetuksista tai pyydät meitä poistamaan sen.
-- Tilin poiston jättämä merkintä Apple-tilillä: yksi sekoitettu merkintä päivämäärineen, jossa ei ole nimeä, sähköpostia eikä treenitietoja. Sitä ei poisteta automaattisesti; kirjoita meille, niin poistamme sen.
+- Tilin poiston jättämä merkintä Apple-tilillä: yksi sekoitettu merkintä päivämäärineen, jossa ei ole nimeä, sähköpostia eikä treenitietoja. Palvelimen rutiinisiivous poistaa sen, kun 180 päivää on kulunut eikä se enää voi päättää mitään. Siivous ajetaan, kun joku kirjautuu Applella tai poistaa tilin, joten siinä voi mennä hieman pidempään.
 - Valmentajan kysymykset, kuvaukset ja kuvat: emme säilytä niitä, ellet ole antanut lupaa. Luvan kanssa enintään 24 kuukautta tai siihen asti kun peruutat luvan, kumpi tulee ensin. Anthropic poistaa oman kopionsa 30 päivän kuluessa joka tapauksessa.
 - Käyttötilastot: enintään 24 kuukautta, sen jälkeen automaattinen poisto.
 - Palautesähköpostit: niin kauan kuin niiden käsittely vaatii.

@@ -168,7 +168,7 @@ const privacyEn = (p: LegalPlatform): LegalSection[] => [
       'A backup is sent shortly after you log training, and whenever you press Back up now. The server checks your sign-in on every request, stores the file, and hands it back only to the same account. It does not read, analyse or log the contents.',
       'The backup is stored by Vercel, our hosting provider, in the European Union. It is kept until you delete it.',
       'Settings → Delete cloud backup removes the server copy immediately. Signing out does not delete it, and neither does resetting the phone’s data — a reset signs you out first, precisely so that an empty backup never overwrites a full one. The copy waits until you sign in again. If you can no longer open the app, sign in on any phone with the same account and delete it there, or write to us.',
-      'Settings → Delete account does the same and more: it deletes the server copy, signs you out on this phone, and ends the sign-in our own server gave an Apple account — on your other phones too. The training data on this phone stays; Reset all data clears that separately. Afterwards our server holds nothing of yours except, for an Apple account, one scrambled marker with a date, which says that sign-ins made before it have ended, so that an old sign-in cannot be used again. It holds no name, email or training data.',
+      'Settings → Delete account does the same and more: it deletes the server copy, signs you out on this phone, and ends the sign-in our own server gave an Apple account, so your other phones signed in with Apple are signed out the next time they back up. The training data on this phone stays; Reset all data clears that separately. Afterwards our server holds nothing of yours except, for an Apple account, one scrambled marker with a date, which says that sign-ins made before it have ended, so that an old sign-in cannot be used again. It holds no name, email or training data.',
     ],
   },
   {
@@ -256,7 +256,7 @@ const privacyEn = (p: LegalPlatform): LegalSection[] => [
       'No trackers and no social media components. There is no feed, no followers and no public profile.',
       'No access to your location, contacts, microphone, camera or files. A photo is read only when you pick one yourself, through the phone’s own picker, and only that photo.',
       'No advertising profile. The app does tailor programmes and suggestions from your answers and your log, but that happens on your phone, and nothing is decided about you automatically in a way that has legal or similar effects.',
-      'No selling, renting or sharing of your data with anyone, beyond the three providers named above who work for us.',
+      'No selling, renting or sharing of your data with anyone, beyond the providers named above who work for us.',
       'No account needed. Sign-in exists only to key the optional cloud backup.',
       'No cookies. The app is not a web page and does not open one inside itself, so none are set and none are read.',
     ],
@@ -330,7 +330,7 @@ const privacyEn = (p: LegalPlatform): LegalSection[] => [
           ]
         : []),
       'Cloud backup: until you delete it in Settings, or ask us to.',
-      'The marker left by Delete account on an Apple account: one scrambled marker with a date, with no name, email or training data. It is not removed automatically; write to us and we delete it.',
+      'The marker left by Delete account on an Apple account: one scrambled marker with a date, with no name, email or training data. The server’s routine clean-up removes it once 180 days have passed and it can no longer end anything. That clean-up runs when someone signs in with Apple or deletes an account, so it can take a little longer.',
       'Coach questions, briefs and photos: not kept by us unless you allowed it, and then for up to 24 months or until you take the permission back, whichever comes first. Anthropic deletes its own copy within 30 days either way.',
       'Usage statistics: up to 24 months, then deleted automatically.',
       'Feedback emails: as long as it takes to handle them.',
@@ -430,7 +430,7 @@ const privacyFi = (p: LegalPlatform): LegalSection[] => [
       'Varmuuskopio lähetetään hetki sen jälkeen, kun kirjaat treenin, ja aina kun painat Varmuuskopioi nyt. Palvelin tarkistaa kirjautumisesi joka pyynnöllä, tallentaa tiedoston ja luovuttaa sen vain samalle tilille. Se ei lue, analysoi eikä lokita sisältöä.',
       'Varmuuskopion säilyttää Vercel, palvelintarjoajamme, Euroopan unionin alueella. Se säilyy, kunnes poistat sen.',
       'Asetukset → Poista pilvivarmuuskopio poistaa palvelinkopion heti. Uloskirjautuminen ei poista sitä, eikä puhelimen tietojen nollaus — nollaus kirjaa sinut ensin ulos juuri siksi, ettei tyhjä varmuuskopio koskaan korvaisi täyttä. Kopio odottaa, kunnes kirjaudut uudelleen. Jos et enää pääse sovellukseen, kirjaudu samalla tilillä millä tahansa puhelimella ja poista se sieltä, tai kirjoita meille.',
-      'Asetukset → Poista tili tekee saman ja enemmän: se poistaa palvelinkopion, kirjaa sinut ulos tästä puhelimesta ja päättää oman palvelimemme Apple-tilille antaman kirjautumisen — myös muilla puhelimillasi. Treenitiedot tässä puhelimessa säilyvät; Nollaa kaikki tiedot tyhjentää ne erikseen. Sen jälkeen palvelimellamme ei ole sinusta mitään, paitsi Apple-tilillä yksi sekoitettu merkintä päivämäärineen, joka kertoo, että sitä ennen tehdyt kirjautumiset ovat päättyneet, jottei vanhaa kirjautumista voi käyttää uudelleen. Siinä ei ole nimeä, sähköpostia eikä treenitietoja.',
+      'Asetukset → Poista tili tekee saman ja enemmän: se poistaa palvelinkopion, kirjaa sinut ulos tästä puhelimesta ja päättää oman palvelimemme Apple-tilille antaman kirjautumisen, joten muut Applella kirjautuneet puhelimesi kirjautuvat ulos, kun ne seuraavan kerran varmuuskopioivat. Treenitiedot tässä puhelimessa säilyvät; Nollaa kaikki tiedot tyhjentää ne erikseen. Sen jälkeen palvelimellamme ei ole sinusta mitään, paitsi Apple-tilillä yksi sekoitettu merkintä päivämäärineen, joka kertoo, että sitä ennen tehdyt kirjautumiset ovat päättyneet, jottei vanhaa kirjautumista voi käyttää uudelleen. Siinä ei ole nimeä, sähköpostia eikä treenitietoja.',
     ],
   },
   {
@@ -518,7 +518,7 @@ const privacyFi = (p: LegalPlatform): LegalSection[] => [
       'Ei seurantaa eikä sosiaalisen median osia. Ei syötettä, ei seuraajia, ei julkista profiilia.',
       'Ei pääsyä sijaintiisi, yhteystietoihisi, mikrofoniin, kameraan tai tiedostoihisi. Kuva luetaan vain, kun itse valitset sen puhelimen omalla valitsimella, ja vain se kuva.',
       'Ei mainosprofiilia. Sovellus kyllä räätälöi ohjelmia ja ehdotuksia vastaustesi ja lokisi perusteella, mutta se tapahtuu puhelimessasi, eikä sinusta päätetä automaattisesti mitään, millä olisi oikeudellisia tai vastaavia vaikutuksia.',
-      'Ei tietojesi myyntiä, vuokrausta eikä jakamista kenellekään — lukuun ottamatta kolmea yllä nimettyä palveluntarjoajaa, jotka työskentelevät meille.',
+      'Ei tietojesi myyntiä, vuokrausta eikä jakamista kenellekään — lukuun ottamatta yllä nimettyjä palveluntarjoajia, jotka työskentelevät meille.',
       'Ei tilipakkoa. Kirjautuminen on olemassa vain vapaaehtoista pilvivarmuuskopiota varten.',
       'Ei evästeitä. Sovellus ei ole verkkosivu eikä avaa sellaista sisäänsä, joten evästeitä ei aseteta eikä lueta.',
     ],
@@ -592,7 +592,7 @@ const privacyFi = (p: LegalPlatform): LegalSection[] => [
           ]
         : []),
       'Pilvivarmuuskopio: kunnes poistat sen asetuksista tai pyydät meitä poistamaan sen.',
-      'Tilin poiston jättämä merkintä Apple-tilillä: yksi sekoitettu merkintä päivämäärineen, jossa ei ole nimeä, sähköpostia eikä treenitietoja. Sitä ei poisteta automaattisesti; kirjoita meille, niin poistamme sen.',
+      'Tilin poiston jättämä merkintä Apple-tilillä: yksi sekoitettu merkintä päivämäärineen, jossa ei ole nimeä, sähköpostia eikä treenitietoja. Palvelimen rutiinisiivous poistaa sen, kun 180 päivää on kulunut eikä se enää voi päättää mitään. Siivous ajetaan, kun joku kirjautuu Applella tai poistaa tilin, joten siinä voi mennä hieman pidempään.',
       'Valmentajan kysymykset, kuvaukset ja kuvat: emme säilytä niitä, ellet ole antanut lupaa. Luvan kanssa enintään 24 kuukautta tai siihen asti kun peruutat luvan, kumpi tulee ensin. Anthropic poistaa oman kopionsa 30 päivän kuluessa joka tapauksessa.',
       'Käyttötilastot: enintään 24 kuukautta, sen jälkeen automaattinen poisto.',
       'Palautesähköpostit: niin kauan kuin niiden käsittely vaatii.',
@@ -840,14 +840,14 @@ const termsFi = (p: LegalPlatform): LegalSection[] => [
       `Palautukset noudattavat ${pick(p, {
         android: 'Google Playn palautuskäytäntöä',
         ios: 'Applen palautuskäytäntöä, ja ne pyydetään Applelta',
-        both: 'sen kaupan palautuskäytäntöä, josta ostit — Androidilla Google Playn, iPhonella Applen, jolta ne pyydetään —',
+        both: 'sen sovelluskaupan palautuskäytäntöä, josta ostit tilauksen — Androidilla Google Playn ja iPhonella Applen, jolta palautukset pyydetään —',
       })} ja lakisääteisiä kuluttajaoikeuksiasi, mukaan lukien peruuttamisoikeus silloin, kun laki sen sinulle antaa. Pro alkaa heti, kun osto on vahvistettu, ja ottamalla sen heti käyttöön hyväksyt, että palvelu alkaa välittömästi.`,
       'Kampanjakoodit voivat olla aika- tai määrärajattuja, ne voivat vanheta, eikä niillä ole rahallista arvoa.',
       `Jos hinta muuttuu, saat siitä tiedon etukäteen ${pick(p, {
-        android: 'Google Playn',
-        ios: 'Applen',
-        both: 'sen kaupan, josta ostit (Google Play tai Apple),',
-      })} kautta, eikä muutos koskaan koske jo maksamaasi kautta.`,
+        android: 'Google Playn kautta',
+        ios: 'Applen kautta',
+        both: 'sovelluskaupan kautta, josta ostit tilauksen (Google Play tai App Store)',
+      })}, eikä muutos koskaan koske jo maksamaasi kautta.`,
     ],
   },
   {
@@ -889,7 +889,7 @@ const termsFi = (p: LegalPlatform): LegalSection[] => [
       `Voimme päivittää näitä ehtoja sovelluksen muuttuessa. Olennaiset muutokset näytetään sovelluksessa ennen voimaantuloa, ja käytön jatkaminen sen jälkeen tarkoittaa, että hyväksyt ne. Jos et hyväksy, lopeta sovelluksen käyttö — ja jos sinulla on voimassa oleva tilaus, peruuta se ${pick(p, {
         android: 'Google Playssä',
         ios: 'Apple ID:si tilauksissa',
-        both: 'siinä kaupassa, josta ostit',
+        both: 'siinä sovelluskaupassa, josta ostit tilauksen',
       })}.`,
       'Voit lopettaa milloin tahansa poistamalla sovelluksen. Puhelimessa olevat tietosi lähtevät sen mukana; pilvivarmuuskopio säilyy, kunnes poistat sen asetuksista (Poista tili poistaa sen ja kirjaa sinut ulos).',
       'Voimme päättää pääsysi palvelintoimintoihin tai sovellukseen, jos rikot näitä ehtoja vakavasti. Voimme myös lopettaa Vinhan tai sen palvelintoiminnot; jos niin käy, kerromme siitä sovelluksessa etukäteen, ja tietosi säilyvät puhelimessasi ja vietävissä.',

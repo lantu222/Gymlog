@@ -124,7 +124,10 @@ export async function downloadBackup(idToken: string): Promise<BackupDownloadRes
  * sessions it has issued for the account, this phone's included
  * (api/backup.ts, `delete-account`); without it the reader stays signed in.
  */
-export async function deleteBackup(idToken: string, options: { account?: boolean } = {}): Promise<{ ok: boolean }> {
+export async function deleteBackup(
+  idToken: string,
+  options: { account?: boolean } = {},
+): Promise<{ ok: boolean; error?: string }> {
   if (!BACKUP_API_URL) {
     return { ok: false };
   }
@@ -140,8 +143,13 @@ export async function deleteBackup(idToken: string, options: { account?: boolean
       signal,
     });
     // The server's own yes, not just a 2xx from whatever answered.
-    const body = (await response.json().catch(() => null)) as { ok?: boolean } | null;
+    const body = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
     noteServerAnswer(response.status, body);
+    // The server turning the sign-in itself away — the hook signs an Apple
+    // session out on it — is told apart from a store that could not answer.
+    if (response.status === 401 && body?.error === 'INVALID_TOKEN') {
+      return { ok: false, error: 'INVALID_TOKEN' };
+    }
     return { ok: response.ok && body?.ok === true };
   } catch {
     return { ok: false };
