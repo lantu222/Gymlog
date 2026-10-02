@@ -17,6 +17,11 @@ const root = path.join(__dirname, '..', '..');
  * patterns can span the joins; a guard that starts failing after an
  * extraction is telling you it matched across two files, not that the
  * wiring broke.
+ *
+ * Line endings are normalised to LF. A Windows checkout holds CRLF and CI holds
+ * LF, and a guard that measures a window in characters (`slice(start, start +
+ * N)`, `[\s\S]{0,N}`) would otherwise pass on one and fail on the other: the
+ * same stretch of source is about 2% longer with CRLF.
  */
 function readAppWiring() {
   const appDir = path.join(root, 'src', 'app');
@@ -26,7 +31,7 @@ function readAppWiring() {
       parts.push(fs.readFileSync(path.join(appDir, name), 'utf8'));
     }
   }
-  return parts.join('\n');
+  return parts.join('\n').replace(/\r\n/g, '\n');
 }
 
 module.exports = { readAppWiring };

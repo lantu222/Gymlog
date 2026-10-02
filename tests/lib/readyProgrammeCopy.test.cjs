@@ -5,7 +5,8 @@ const path = require('node:path');
 const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 function read(relative) {
-  return fs.readFileSync(path.join(__dirname, '../..', relative), 'utf8');
+  // LF whatever the checkout holds: no guard below may depend on line endings.
+  return fs.readFileSync(path.join(__dirname, '../..', relative), 'utf8').replace(/\r\n/g, '\n');
 }
 
 /**
@@ -156,10 +157,15 @@ module.exports = [
     run() {
       const wiring = readAppWiring();
       const start = wiring.indexOf('const draft = buildDuplicatedCustomProgramDraft(');
-      // The window has to reach past the copy builder itself, which grows
-      // whenever a field is added to what a copied row carries — and whenever
-      // an edit kind learns to fan out across a superset block.
-      const body = wiring.slice(start, start + 7000);
+      assert.ok(start > -1, 'the copy builder should be in the wiring');
+      // Bounded by the commit, not by a character count: the copy builder
+      // grows whenever a field is added to what a copied row carries, and a
+      // fixed window failed on a checkout whose line endings were longer. The
+      // read-back has to come before `committed = true`, so this is exactly
+      // the stretch the guard is about.
+      const end = wiring.indexOf('committed = true;', start);
+      assert.ok(end > start, 'the copy flow should mark the commit');
+      const body = wiring.slice(start, end);
       assert.match(body, /await getWorkoutTemplateSessionsFresh\(workoutTemplateId\)/);
       assert.ok(
         !/const copiedSessions = getWorkoutTemplateSessions\(/.test(body),
