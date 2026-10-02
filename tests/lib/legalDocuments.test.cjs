@@ -29,6 +29,7 @@ const LEGAL_TEXT_VERSIONS = [
   { date: '2026-09-29', fingerprint: 'c0f19e9dea408950' },
   { date: '2026-09-30', fingerprint: '5998cb9be6282a40' },
   { date: '2026-10-01', fingerprint: 'e3a2198516dc68a3' },
+  { date: '2026-10-02', fingerprint: 'de881a6024122a47' },
 ];
 
 const IDS = ['privacy', 'terms'];
@@ -649,6 +650,166 @@ module.exports = [
             `app.json says android.allowBackup=${allowBackup}, and the ${language} privacy policy still says otherwise. `
               + 'Both the Android backup section and the retention list have to agree with the flag.',
           );
+        }
+      }
+    },
+  },
+  {
+    name: 'each phone is told about its own store and backup, and the published documents name both',
+    run() {
+      // #261/#262 gave an iPhone Apple's sign-in and Apple's subscription
+      // screen and left the legal text saying "Google Play" and "Android's
+      // own backup" — payment, cancelling, refunds, rating, the backup. The
+      // document is built for a platform now, and each one is held to
+      // naming only its own.
+      const text = (id, language, platform) => renderLegalDocumentMarkdown(buildLegalDocument(id, language, platform));
+      // The one place the other platform is named on purpose: what the app
+      // reports with each request, which is the same on both.
+      const withoutRequestNote = (value) => value.replace('whether the phone runs Android or iOS', '').replace('onko puhelin Android vai iOS', '');
+
+      for (const id of IDS) {
+        for (const language of LANGUAGES) {
+          const ios = withoutRequestNote(text(id, language, 'ios'));
+          assert.doesNotMatch(
+            ios,
+            /Google Play|Playssä|Playn|Playst|Android/,
+            `the iPhone ${language} ${id} still talks about Google Play or Android`,
+          );
+          const android = text(id, language, 'android');
+          assert.doesNotMatch(android, /App Store|iCloud|App Storen|App Storessa/, `the Android ${language} ${id} talks about Apple's store or backup`);
+        }
+      }
+
+      // Each says what it is the store: the payment line in both documents.
+      assert.match(text('privacy', 'en', 'ios'), /handled entirely by Apple, through the App Store/);
+      assert.match(text('privacy', 'fi', 'ios'), /maksun hoitaa kokonaan Apple App Storen kautta/);
+      assert.match(text('privacy', 'en', 'android'), /handled entirely by Google Play\./);
+      assert.match(text('terms', 'en', 'ios'), /Cancel in your Apple ID’s subscriptions/);
+      assert.match(text('terms', 'fi', 'ios'), /Peruuta Apple ID:si tilauksissa/);
+      assert.match(text('terms', 'en', 'ios'), /Refunds follow Apple’s refund policy/);
+      assert.match(text('terms', 'en', 'android'), /Cancel in Google Play/);
+      assert.match(text('terms', 'en', 'ios'), /If a price changes, you will be told in advance through Apple/);
+      assert.match(text('privacy', 'en', 'ios'), /Rate Vinha opens Apple’s review prompt/);
+      assert.match(text('privacy', 'fi', 'ios'), /Arvioi Vinha avaa Applen arviointikehotteen/);
+      assert.match(text('privacy', 'en', 'ios'), /Apple handles the payment for Pro/);
+
+      // The published ones, for the website and the store listings, cover both.
+      for (const language of LANGUAGES) {
+        for (const id of IDS) {
+          const published = text(id, language);
+          assert.equal(published, text(id, language, 'both'));
+          assert.match(published, /Google Play/, `the published ${language} ${id} dropped Google Play`);
+          assert.match(published, /App Store/, `the published ${language} ${id} says nothing of the App Store`);
+        }
+      }
+      assert.match(text('terms', 'en'), /Google Play on Android and through the App Store on iPhone/);
+      assert.match(text('terms', 'en'), /Cancel in Google Play on Android, or in your Apple ID’s subscriptions on iPhone/);
+
+      // All three keep the two languages the same document.
+      for (const platform of ['android', 'ios', 'both']) {
+        for (const id of IDS) {
+          const en = buildLegalDocument(id, 'en', platform);
+          const fi = buildLegalDocument(id, 'fi', platform);
+          assert.equal(en.sections.length, fi.sections.length, `${platform} ${id}: a section exists in one language only`);
+          en.sections.forEach((section, index) => {
+            assert.equal((section.body ?? []).length, (fi.sections[index].body ?? []).length, `${platform} ${id} "${section.heading}" paragraphs`);
+            assert.equal((section.bullets ?? []).length, (fi.sections[index].bullets ?? []).length, `${platform} ${id} "${section.heading}" bullets`);
+          });
+        }
+      }
+    },
+  },
+  {
+    name: 'the policy tells an iPhone reader about the phone’s own backup, and the Android section stays Android’s',
+    run() {
+      // app.json's android.allowBackup=false and plugins/withDataExtractionRules.js
+      // keep Vinha out of Android's backup. Nothing does on iOS: AsyncStorage's
+      // files go into an iCloud or computer backup like any other app's, and
+      // the policy used to say nothing — a reader who thought "no backup"
+      // was wrong the other way. Excluding it natively would be the
+      // alternative (isExcludedFromBackup on the storage directory); until
+      // then the text says what is true.
+      const policy = (language, platform) => renderLegalDocumentMarkdown(buildLegalDocument('privacy', language, platform));
+      for (const platform of ['ios', 'both']) {
+        assert.match(policy('en', platform), /## iPhone backup/);
+        assert.match(policy('en', platform), /If iCloud Backup is switched on, or you back the phone up to a computer, Vinha’s data goes into that backup/);
+        assert.match(policy('en', platform), /We do not make it, cannot see it and cannot delete it/);
+        assert.match(policy('en', platform), /iPhone backup: if iCloud Backup or a computer backup is switched on/);
+        assert.match(policy('fi', platform), /## iPhonen varmuuskopio/);
+        assert.match(policy('fi', platform), /Jos iCloud-varmuuskopiointi on päällä tai varmuuskopioit puhelimen tietokoneelle/);
+        assert.match(policy('fi', platform), /Emme tee sitä, emme näe sitä emmekä voi poistaa sitä/);
+        assert.match(policy('fi', platform), /iPhonen varmuuskopio: jos iCloud-varmuuskopiointi/);
+      }
+      // An iPhone is not told Android's backup is off, and an Android phone is not told about iCloud.
+      assert.doesNotMatch(policy('en', 'ios'), /## Android backup|switched off for this app/);
+      assert.doesNotMatch(policy('en', 'android'), /## iPhone backup/);
+      assert.match(policy('en', 'android'), /## Android backup/);
+      assert.match(policy('en', 'both'), /## Android backup/);
+      assert.match(policy('fi', 'ios'), /iOS:n sovellusten välinen eristys/);
+    },
+  },
+  {
+    name: 'the policy describes Delete account the way the endpoint and the app do it',
+    run() {
+      // api/backup.ts `delete-account`: the copy is deleted, then one marker
+      // (revoked/<hash>.json) ends sessions issued before it. No name, email
+      // or training data, and nothing removes it by itself — each of those
+      // is a sentence in the policy, in both languages.
+      const server = read('api/backup.ts');
+      // The marker is exactly a date: a field added here is a field the policy does not describe.
+      assert.match(server, /JSON\.stringify\(\{ revokedAtMs: Date\.now\(\) \}\)/, 'the revocation marker is not just a date any more');
+      // The policy says the server's clean-up removes it after 180 days: the code has to.
+      assert.match(server, /const REVOCATION_KEPT_MS = \(APPLE_SESSION_DAYS \+ 1\) \* 24 \* 60 \* 60 \* 1000;/);
+      assert.match(server, /await purgeOldRevocations\(\);\s*res\.status\(200\)\.json\(\{ ok: true, \.\.\.issueAppleSession\(apple\.sub/, 'sign-ins no longer sweep old markers');
+      assert.match(server, /async function purgeOldRevocations/);
+      // …and only on a sign-in: the deletion answers a phone that is waiting under a timeout, so it does not sweep (the policy says so).
+      const deleteBranch = server.slice(server.indexOf("if (req.method === 'DELETE')"), server.indexOf('res.status(405)'));
+      assert.doesNotMatch(deleteBranch, /purgeOldRevocations/, 'the deletion sweeps again — the policy says the clean-up runs on Apple sign-ins');
+      // The Finnish lifetime purchase is not a "tilaus": no rewrite of the store sentences may say the reader bought one.
+      for (const platform of ['both', 'android', 'ios']) {
+        const terms = renderLegalDocumentMarkdown(buildLegalDocument('terms', 'fi', platform));
+        assert.doesNotMatch(terms, /josta ostit tilauksen/, `the ${platform} Finnish terms treat every Pro purchase as a subscription`);
+      }
+      for (const platform of ['android', 'ios', 'both']) {
+        const en = renderLegalDocumentMarkdown(buildLegalDocument('privacy', 'en', platform));
+        const fi = renderLegalDocumentMarkdown(buildLegalDocument('privacy', 'fi', platform));
+        assert.match(en, /Settings → Delete account does the same and more: it deletes the server copy, signs you out on this phone/);
+        assert.match(en, /one scrambled marker with a date/);
+        assert.match(en, /The server’s routine clean-up removes it once 180 days have passed/);
+        assert.match(en, /That clean-up runs when someone signs in with Apple, so it can take a little longer/);
+        assert.doesNotMatch(en, /write to us and we delete it/, 'the policy promises a deletion on request that nobody can perform — the marker has no email on it');
+        assert.match(en, /so your other phones signed in with Apple are signed out the next time they back up/);
+        assert.match(en, /does not take Vinha off the list of apps you use Sign in with Apple with/);
+        assert.match(fi, /Asetukset → Poista tili tekee saman ja enemmän/);
+        assert.match(fi, /yksi sekoitettu merkintä päivämäärineen/);
+        assert.match(fi, /Palvelimen rutiinisiivous poistaa sen, kun 180 päivää on kulunut/);
+        assert.match(fi, /Siivous ajetaan, kun joku kirjautuu Applella, joten/);
+        assert.doesNotMatch(fi, /Sitä ei poisteta automaattisesti/);
+        assert.match(fi, /muut Applella kirjautuneet puhelimesi kirjautuvat ulos, kun ne seuraavan kerran varmuuskopioivat/);
+        assert.match(fi, /ei poista Vinhaa luettelosta sovelluksista, joissa käytät Apple-kirjautumista/);
+      }
+      // The providers: no number in the sentence that drifted from the list (it said three beside five).
+      for (const language of LANGUAGES) {
+        const text = renderLegalDocumentMarkdown(buildLegalDocument('privacy', language));
+        assert.doesNotMatch(text, /three providers named above|kolmea yllä nimettyä/, `the ${language} policy counts the providers wrongly again`);
+      }
+      assert.match(renderLegalDocumentMarkdown(buildLegalDocument('privacy', 'en')), /beyond the providers named above who work for us/);
+      assert.match(renderLegalDocumentMarkdown(buildLegalDocument('privacy', 'fi')), /lukuun ottamatta yllä nimettyjä palveluntarjoajia/);
+      // The Finnish price-change sentence reads as a sentence.
+      assert.match(renderLegalDocumentMarkdown(buildLegalDocument('terms', 'fi')), /saat siitä tiedon etukäteen sovelluskaupan kautta, josta ostit \(Google Play tai App Store\), eikä muutos/);
+      // The row the policy names exists, under the name it uses.
+      const i18n = read('src/lib/i18n.ts');
+      assert.match(i18n, /'account\.deleteAccount': 'Delete account'/);
+      assert.match(i18n, /'account\.deleteAccount': 'Poista tili'/);
+      // The confirmation names the Apple consequence only in its own, Apple-only, key.
+      for (const [message, apple] of [
+        [/'account\.deleteAccount\.message':\s*'([^']*)'/g, false],
+        [/'account\.deleteAccount\.message\.apple':\s*'([^']*)'/g, true],
+      ]) {
+        const found = [...i18n.matchAll(message)].map((match) => match[1]);
+        assert.equal(found.length, 2, 'an English and a Finnish confirmation each');
+        for (const text of found) {
+          assert.equal(/Apple/.test(text), apple, `a confirmation ${apple ? 'for Apple readers lost' : 'for everyone else carries'} the Apple sentence`);
         }
       }
     },

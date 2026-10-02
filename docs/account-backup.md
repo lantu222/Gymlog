@@ -128,6 +128,53 @@ the phone trades it once for an **Apple session** issued by `api/backup.ts`:
    never timed out. Only a session that has actually run out — months offline —
    counts as signed out, and the reader signs in again with one Face ID.
 
+**Delete account (2026-10-02).** Settings → Delete account sends `DELETE` with
+`x-backup-action: delete-account`. The server deletes the copy first, then
+writes `revoked/<hmac>.json` — `{ "revokedAtMs": <unix ms> }`, under a hash of
+the account that is not the backup's pathname — and writes it a second time with
+the time the first write returned (a renewal minted while the first write was in
+flight is older than the second stamp). From then on every Apple session issued
+at or before the marker's millisecond is refused: `verifyAppleSession` runs on
+every request, `apple-renew` included, which looks a second time just before
+answering. Sessions carry `iatMs` (and `iat` in seconds); one with only `iat`
+counts from the start of that second, one with neither as issued at
+`exp − 180 days`. A new Apple sign-in afterwards is a later session and works,
+in the same second. The copy goes first so a failed marker write leaves the
+session alive and the reader can ask again. A plain `DELETE` ("Delete cloud
+backup") writes no marker: it keeps the reader signed in. A store that cannot
+read the marker answers 502, not 401. A marker that cannot be parsed is resolved
+ONCE to the store's `uploadedAt` and rewritten in valid form (the SDK's
+`uploadedAt` is "now" when the store sends no Last-Modified, so a marker read
+afresh each time would refuse every session for ever); a rewrite the store
+refuses is a 502.
+
+**What the phone is told.** A refused Apple session is answered `401` with
+`SESSION_REVOKED` (the marker) or `SESSION_EXPIRED`; a session that does not
+verify (bad mac, malformed — also what a wrongly configured
+`BACKUP_PATH_SECRET` looks like, for everyone at once) is `INVALID_TOKEN`. The
+phone signs out like the Sign out row on the first two, for a `vs1.` session
+only (upload, download, delete, and the sign-in's own look at the cloud), so the
+other phones of a deleted account stop saying "Signed in". `INVALID_TOKEN`, a
+Google token's 401 and any 502 sign nobody out, so a bad deploy cannot mass
+sign-out phones that a rollback would not bring back. A retried Delete account
+whose first answer was lost meets `SESSION_REVOKED` and is reported as done
+(the copy went before the marker was written).
+
+**Clean-up.** A marker older than 181 days no longer changes anything. A
+request from the account itself removes its own; `purgeOldRevocations` (a
+paged `list` of `revoked/`, 5 pages of 100 at most, 1.5 s at most, each
+candidate re-read before it is deleted) runs on Apple sign-in exchanges and
+never on the deletion, whose answer the phone is waiting for. Removal therefore
+comes some time after the 180 days, depending on sign-in traffic — which is what
+the policy says.
+
+**Known, not fixed here.** An upload already in flight from another phone when
+the account is deleted can write the copy back after the delete (the same race
+a plain "Delete cloud backup" has); the account's sessions are ended, but the
+blob stays until the reader deletes it again. **Needs a Vercel deploy** — until
+then the app's `delete-account` request is an ordinary `DELETE` that leaves the
+Apple sessions alive, and the new codes are never sent.
+
 Apple accounts are stored under `apple:<sub>`, so an Apple account and a
 Google account never share a blob. Google subjects stay unprefixed — changing
 them would orphan every existing backup.

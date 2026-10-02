@@ -1,6 +1,6 @@
 # Tietosuojaseloste
 
-*Päivitetty 1.10.2026*
+*Päivitetty 2.10.2026*
 
 Mitä Vinha tallentaa, mikä lähtee puhelimestasi ja mitä voit sille tehdä.
 
@@ -40,19 +40,27 @@ Androidin oma varmuuskopiointi on tälle sovellukselle pois päältä. Puhelimes
 
 Uusi puhelin aloittaa siis tyhjästä, ellet käytä alla kuvattua pilvivarmuuskopiota tai vie lokiasi ensin CSV-tiedostona. Se on pois päältä siksi, että alla kuvattu sovelluksen oma varmuuskopio, jonka kytket itse päälle, on ainoa paikka, jossa koko treenilokiasi säilytetään tämän puhelimen ulkopuolella.
 
+## iPhonen varmuuskopio
+
+iPhonella sovelluksen tietoja ei jätetä puhelimen oman varmuuskopion ulkopuolelle. Jos iCloud-varmuuskopiointi on päällä tai varmuuskopioit puhelimen tietokoneelle, Vinhan tiedot menevät siihen muiden sovellustesi tietojen mukana ja palautuvat sen mukana, kun otat puhelimen käyttöön siitä. Sen varmuuskopion tekee ja säilyttää Apple tai oma tietokoneesi Applen ehtojen mukaisesti. Emme tee sitä, emme näe sitä emmekä voi poistaa sitä.
+
+Jos et halua treenilokiasi siihen, voit jättää Vinhan pois iCloud-varmuuskopiosta iPhonen iCloud-asetuksissa tai kytkeä iCloud-varmuuskopioinnin pois. Alla kuvattu pilvivarmuuskopio on erillinen: se on ainoa treenilokistasi meillä oleva kopio.
+
 ## Pilvivarmuuskopio (vapaaehtoinen)
 
 Jos kirjaudut Googlella tai Applella, kopio kaikesta kohdassa ”Mitä sovellus tallentaa puhelimeesi” luetellusta — paitsi kesken olevasta treenistä — lähetetään salattua yhteyttä pitkin palvelimellemme ja säilytetään siellä, jotta uusi puhelin voi palauttaa sen, kun kirjaudut uudelleen. Kirjautumista ei koskaan vaadita; jokainen toiminto toimii ilman sitä.
 
 Googlelta saamme Google-tilisi tunnisteen, sähköpostiosoitteesi ja nimesi. Ne säilyvät puhelimessasi, jotta sovellus voi näyttää, mikä tili on kirjautuneena. Palvelimella varmuuskopio tallennetaan tunnisteen sekoitetun muodon alle; sähköpostiasi ja nimeäsi ei tallenneta sinne. Kun kirjaudut ulos, puhelin säilyttää vain niiden tilien tunnisteet, jotka ovat kirjautuneet siitä ulos, jotta sovellus kysyy ennen kuin se varmuuskopioi puhelimen tiedot seuraavaksi kirjautuvalle toiselle Google-tilille; tunnisteet poistetaan, kun tämä kirjautuminen on ratkaistu.
 
-iPhonella voit kirjautua Googlen sijaan Applella. Applelta saamme Apple ID:llesi tunnisteen, jonka vain Vinha saa, ja vain ensimmäisellä kerralla nimen ja sähköpostin, jotka päätät jakaa — sähköposti voi olla Applen välittämä yksityinen osoite. Ne säilyvät puhelimessasi kuten Googlen tiedot. Puhelin vaihtaa Applen kirjautumisen kerran omaksi kirjautumiseksemme, joka säilytetään puhelimessa ja on voimassa enintään 180 päivää ja joka tarkistetaan joka varmuuskopiopyynnöllä; ennen käyttöä puhelin kysyy Applelta, oletko lopettanut Apple ID:si käytön Vinhassa, ja kirjaa sinut ulos, jos olet.
+iPhonella voit kirjautua Googlen sijaan Applella. Applelta saamme Apple ID:llesi tunnisteen, jonka vain Vinha saa, ja vain ensimmäisellä kerralla nimen ja sähköpostin, jotka päätät jakaa — sähköposti voi olla Applen välittämä yksityinen osoite. Ne säilyvät puhelimessasi kuten Googlen tiedot. Puhelin vaihtaa Applen kirjautumisen kerran omaksi kirjautumiseksemme, joka säilytetään puhelimessa ja on voimassa enintään 180 päivää ja joka tarkistetaan joka varmuuskopiopyynnöllä; ennen käyttöä puhelin kysyy Applelta, oletko lopettanut Apple ID:si käytön Vinhassa, ja kirjaa sinut ulos, jos olet. Tilin poistaminen (alla) ei poista Vinhaa luettelosta sovelluksista, joissa käytät Apple-kirjautumista; voit poistaa sen sieltä itse iPhonen Apple ID -asetuksissa.
 
 Varmuuskopio lähetetään hetki sen jälkeen, kun kirjaat treenin, ja aina kun painat Varmuuskopioi nyt. Palvelin tarkistaa kirjautumisesi joka pyynnöllä, tallentaa tiedoston ja luovuttaa sen vain samalle tilille. Se ei lue, analysoi eikä lokita sisältöä.
 
 Varmuuskopion säilyttää Vercel, palvelintarjoajamme, Euroopan unionin alueella. Se säilyy, kunnes poistat sen.
 
 Asetukset → Poista pilvivarmuuskopio poistaa palvelinkopion heti. Uloskirjautuminen ei poista sitä, eikä puhelimen tietojen nollaus — nollaus kirjaa sinut ensin ulos juuri siksi, ettei tyhjä varmuuskopio koskaan korvaisi täyttä. Kopio odottaa, kunnes kirjaudut uudelleen. Jos et enää pääse sovellukseen, kirjaudu samalla tilillä millä tahansa puhelimella ja poista se sieltä, tai kirjoita meille.
+
+Asetukset → Poista tili tekee saman ja enemmän: se poistaa palvelinkopion, kirjaa sinut ulos tästä puhelimesta ja päättää oman palvelimemme Apple-tilille antaman kirjautumisen, joten muut Applella kirjautuneet puhelimesi kirjautuvat ulos, kun ne seuraavan kerran varmuuskopioivat. Treenitiedot tässä puhelimessa säilyvät; Nollaa kaikki tiedot tyhjentää ne erikseen. Sen jälkeen palvelimellamme ei ole sinusta mitään, paitsi Apple-tilillä yksi sekoitettu merkintä päivämäärineen, joka kertoo, että sitä ennen tehdyt kirjautumiset ovat päättyneet, jottei vanhaa kirjautumista voi käyttää uudelleen. Siinä ei ole nimeä, sähköpostia eikä treenitietoja.
 
 ## AI-valmentaja
 
@@ -101,8 +109,8 @@ Meillä ei ole omia palvelimia. Viisi yritystä käsittelee tietoja puolestamme 
 
 - Vercel (Yhdysvallat): ajaa palvelimemme ja säilyttää pilvivarmuuskopiot ja käyttötapahtumat. Tallennustila on Euroopan unionin alueella.
 - Anthropic (Yhdysvallat): vastaa valmentajan kysymyksiin, koostaa ohjelmia ja lukee ohjelmakuvia, kuten yllä kuvattiin.
-- Google (Yhdysvallat): vahvistaa Google-kirjautumisesi ja hoitaa Google Playn maksut. Suhdettasi Googleen koskee Googlen oma tietosuojakäytäntö.
-- Apple (Yhdysvallat): vahvistaa Apple-kirjautumisesi iPhonella. Suhdettasi Appleen koskee Applen oma tietosuojakäytäntö.
+- Google (Yhdysvallat): vahvistaa Google-kirjautumisesi ja hoitaa Androidilla Google Playn maksut. Suhdettasi Googleen koskee Googlen oma tietosuojakäytäntö.
+- Apple (Yhdysvallat): vahvistaa iPhonella Apple-kirjautumisesi ja hoitaa App Storen maksut. Suhdettasi Appleen koskee Applen oma tietosuojakäytäntö.
 - Slack (Yhdysvallat): toimittaa meille tarkistettaviksi valmentajan vastaukset, joista ilmoitat, kuten yllä kuvattiin.
 
 ## Tiedot Euroopan unionin ulkopuolella
@@ -115,8 +123,8 @@ Tietosuoja-asetus (GDPR) vaatii jokaiselle käsittelylle laillisen perusteen. Me
 
 - Sovelluksen tarjoaminen sinulle (sopimus): tietojesi säilyttäminen puhelimessasi, Pron toimittaminen ja oman historiasi näyttäminen.
 - Suostumuksesi: pilvivarmuuskopio (kirjaudut sisään), valmentajan verkkotila (luet ilmoituksen ja lähetät kysymyksen), ohjelmakoostaja ja kuvatuonti (pyydät niitä) sekä vastauksesta ilmoittaminen (lähetät ilmoituksen). Treeni- ja kehontiedot ovat terveystietoja, joten aina kun niitä lähtee puhelimestasi, nojaamme nimenomaiseen suostumukseesi. Voit peruuttaa sen milloin tahansa: poista varmuuskopio ja kirjaudu ulos, ja lakkaa lähettämästä kysymyksiä.
-- Oikeutettu etumme: nimettömät käyttötilastot, jotta näemme, missä sovellus pettää käyttäjät, lyhytaikainen pyyntöjen rajoitus, joka suojaa palvelinta väärinkäytöltä, sekä sovelluksen versio jokaisessa pyynnössä, jotta palvelin voi pyytää vanhentunutta sovellusta päivittymään. Voit vastustaa tätä kytkemällä tilastot pois asetuksista tai kirjoittamalla meille.
-- Lakisääteiset velvoitteet: mikään meidän velvoitteistamme ei tänään koske henkilötietojasi. Google Play on Pron myyjä ja säilyttää ostotiedot; Googlelta saamamme myyntiraportit eivät sisällä henkilötietoja.
+- Oikeutettu etumme: nimettömät käyttötilastot, jotta näemme, missä sovellus pettää käyttäjät, lyhytaikainen pyyntöjen rajoitus, joka suojaa palvelinta väärinkäytöltä, sovelluksen versio jokaisessa pyynnössä, jotta palvelin voi pyytää vanhentunutta sovellusta päivittymään, sekä — kun poistat tilisi — merkintä, joka estää vanhan kirjautumisen käyttämisen uudelleen. Voit vastustaa tätä kytkemällä tilastot pois asetuksista tai kirjoittamalla meille.
+- Lakisääteiset velvoitteet: mikään meidän velvoitteistamme ei tänään koske henkilötietojasi. Google Play (Androidilla) ja Apple App Storen kautta (iPhonella) hoitavat Pron maksun ja säilyttävät ostotiedot; niiltä saamamme myyntiraportit eivät sisällä henkilötietoja.
 
 ## Mitä sovellus ei tee
 
@@ -125,7 +133,7 @@ Tietosuoja-asetus (GDPR) vaatii jokaiselle käsittelylle laillisen perusteen. Me
 - Ei seurantaa eikä sosiaalisen median osia. Ei syötettä, ei seuraajia, ei julkista profiilia.
 - Ei pääsyä sijaintiisi, yhteystietoihisi, mikrofoniin, kameraan tai tiedostoihisi. Kuva luetaan vain, kun itse valitset sen puhelimen omalla valitsimella, ja vain se kuva.
 - Ei mainosprofiilia. Sovellus kyllä räätälöi ohjelmia ja ehdotuksia vastaustesi ja lokisi perusteella, mutta se tapahtuu puhelimessasi, eikä sinusta päätetä automaattisesti mitään, millä olisi oikeudellisia tai vastaavia vaikutuksia.
-- Ei tietojesi myyntiä, vuokrausta eikä jakamista kenellekään — lukuun ottamatta kolmea yllä nimettyä palveluntarjoajaa, jotka työskentelevät meille.
+- Ei tietojesi myyntiä, vuokrausta eikä jakamista kenellekään — lukuun ottamatta yllä nimettyjä palveluntarjoajia, jotka työskentelevät meille.
 - Ei tilipakkoa. Kirjautuminen on olemassa vain vapaaehtoista pilvivarmuuskopiota varten.
 - Ei evästeitä. Sovellus ei ole verkkosivu eikä avaa sellaista sisäänsä, joten evästeitä ei aseteta eikä lueta.
 
@@ -143,11 +151,11 @@ Sovellus pyytää puhelimeltasi hyvin vähän. Tätä se käyttää:
 
 Ilmoituksia on kolmea ryhmää: treenin aikana (lepoajastin ja käynnissä oleva treeni), voitot ja koosteet treenin jälkeen sekä muistutukset, kuten punnituspäivä tai treenipäivä. Jokaisen niistä ajastaa sovellus itse puhelimessasi. Ne eivät ole push-ilmoituksia: palvelinta ei ole mukana eikä laitetunnistetta ole olemassa.
 
-Kytke mikä tahansa ryhmä tai kaikki pois kohdasta Asetukset → Ilmoitukset tai Androidin omista ilmoitusasetuksista.
+Kytke mikä tahansa ryhmä tai kaikki pois kohdasta Asetukset → Ilmoitukset tai puhelimesi omista ilmoitusasetuksista.
 
 ## Maksut
 
-Jos ostat Pron, maksun hoitaa kokonaan Google Play. Emme koskaan näe korttinumeroasi, laskutusosoitettasi emmekä mitään maksutietoa. Sovellus saa tietää vain, onko Pro voimassa, mikä tilaus ja mihin asti.
+Jos ostat Pron, maksun hoitaa kokonaan Androidilla Google Play ja iPhonella Apple App Storen kautta. Emme koskaan näe korttinumeroasi, laskutusosoitettasi emmekä mitään maksutietoa. Sovellus saa tietää vain, onko Pro voimassa, mikä tilaus ja mihin asti.
 
 Ilmainen kokeilu ei maksa mitään: sen aloittaminen kirjoittaa puhelimeesi yhden päivämäärän, Pro on voimassa siihen asti ja päättyy sitten itsestään. Päättyminen ei veloita mitään, mitään ei lähetetä minnekään, eikä korttia kysytä. Jos ilmoitukset ovat päällä, sovellus muistuttaa kaksi päivää ennen loppua; sen muistutuksen kirjoittaa ja näyttää puhelimesi, emme me.
 
@@ -155,7 +163,7 @@ Ilmainen kokeilu ei maksa mitään: sen aloittaminen kirjoittaa puhelimeesi yhde
 
 Lähetä palautetta avaa oman sähköpostisovelluksesi, johon on valmiiksi täytetty osoitteemme ja sovelluksen versio. Sinä päätät, mitä kirjoitat. Me näemme sitten sähköpostiosoitteesi ja viestisi, ja säilytämme ne vain niin kauan kuin palautteen käsittely vaatii.
 
-Arvioi Vinha avaa sovelluksen sivun Google Playssä. Sovellus itse ei lähetä mitään.
+Arvioi Vinha avaa Androidilla sovelluksen sivun Google Playssä ja iPhonella Applen arviointikehotteen tai sovelluksen sivun App Storessa. Sovellus itse ei lähetä mitään.
 
 Ohjelman tai treenilokin vienti CSV-muodossa sekä kaverin kutsuminen kulkevat puhelimesi jakovalikon kautta valitsemaasi sovellukseen. Me emme koskaan näe, minne ne menevät.
 
@@ -163,13 +171,15 @@ Ohjelman tai treenilokin vienti CSV-muodossa sekä kaverin kutsuminen kulkevat p
 
 Kaikki puhelimestasi lähtevä kulkee salattua yhteyttä pitkin. Palvelimella jokainen varmuuskopiopyyntö tarkistetaan kirjautumistasi vasten ennen kuin mitään luetaan tai kirjoitetaan, varmuuskopiot tallennetaan sekoitetun tunnisteen alle yksityiseen tallennustilaan, treenitietoja ei koskaan kirjoiteta lokeihin, ja pyyntöjen määrää rajoitetaan.
 
-Puhelimessasi sovelluksen tietoja suojaavat puhelimen oma lukitus ja Androidin sovellusten välinen eristys; sovellus ei lisää omaa salaustaan. Kuka tahansa, joka saa puhelimesi auki, voi avata Vinhan ja nähdä treenitietosi — pidä siis puhelin lukittuna.
+Puhelimessasi sovelluksen tietoja suojaavat puhelimen oma lukitus ja Androidin ja iOS:n sovellusten välinen eristys; sovellus ei lisää omaa salaustaan. Kuka tahansa, joka saa puhelimesi auki, voi avata Vinhan ja nähdä treenitietosi — pidä siis puhelin lukittuna.
 
 ## Kuinka kauan säilytämme tiedot
 
 - Puhelimessasi: kunnes nollaat sovelluksen tiedot tai poistat sovelluksen.
 - Android-varmuuskopio: ei mitään säilytettävää — Androidin oma varmuuskopiointi on tälle sovellukselle pois päältä.
+- iPhonen varmuuskopio: jos iCloud-varmuuskopiointi tai tietokoneelle tehtävä varmuuskopio on päällä, sovelluksen tiedot säilyvät siinä niin kauan kuin Apple tai sinä säilytätte sitä varmuuskopiota — Applen ehtojen mukaan, ei meidän.
 - Pilvivarmuuskopio: kunnes poistat sen asetuksista tai pyydät meitä poistamaan sen.
+- Tilin poiston jättämä merkintä Apple-tilillä: yksi sekoitettu merkintä päivämäärineen, jossa ei ole nimeä, sähköpostia eikä treenitietoja. Palvelimen rutiinisiivous poistaa sen, kun 180 päivää on kulunut eikä se enää voi päättää mitään. Siivous ajetaan, kun joku kirjautuu Applella, joten siinä voi mennä hieman pidempään.
 - Valmentajan kysymykset, kuvaukset ja kuvat: emme säilytä niitä, ellet ole antanut lupaa. Luvan kanssa enintään 24 kuukautta tai siihen asti kun peruutat luvan, kumpi tulee ensin. Anthropic poistaa oman kopionsa 30 päivän kuluessa joka tapauksessa.
 - Käyttötilastot: enintään 24 kuukautta, sen jälkeen automaattinen poisto.
 - Palautesähköpostit: niin kauan kuin niiden käsittely vaatii.
@@ -182,7 +192,7 @@ Suurimman osan näistä teet itse sovelluksessa keneltäkään kysymättä. Muis
 
 - Näe ne: Asetukset → Omat tiedot näyttää profiilisi ja Kehitys lokisi. Pilvivarmuuskopio on sama data, joten meidän puolellamme ei ole mitään lisää näytettävää.
 - Korjaa ne: muokkaa profiiliasi tai mitä tahansa kirjattua treeniä tai merkintää.
-- Poista ne: Asetukset → Nollaa kaikki tiedot tyhjentää puhelimen, ja Asetukset → Poista pilvivarmuuskopio tyhjentää palvelimen. Sovelluksen poistaminen poistaa myös puhelimen kopion. Käyttötilastoja ei voi jäljittää sinuun, joten niistä ei löydy mitään sinun.
+- Poista ne: Asetukset → Nollaa kaikki tiedot tyhjentää puhelimen, Asetukset → Poista pilvivarmuuskopio tyhjentää palvelinkopion ja Asetukset → Poista tili tyhjentää palvelinkopion ja kirjaa sinut ulos. Sovelluksen poistaminen poistaa myös puhelimen kopion. Käyttötilastoja ei voi jäljittää sinuun, joten niistä ei löydy mitään sinun.
 - Ota ne mukaasi: Asetukset → Vie ohjelma (CSV) lähettää ohjelmasi tai jokaisen kirjatun sarjan CSV-tekstinä valitsemaasi sovellukseen.
 - Peruuta suostumus tai vastusta: poista pilvivarmuuskopio ja kirjaudu ulos; lakkaa lähettämästä kysymyksiä valmentajalle; kytke käyttötilastot pois asetuksista.
 - Valita: kirjoita ensin osoitteeseen santeriylonen@gmail.com, jotta voimme korjata asian. Sinulla on myös oikeus tehdä valitus tietosuojaviranomaiselle — Suomessa tietosuojavaltuutetun toimistolle, tietosuoja.fi tai tietosuoja@om.fi.

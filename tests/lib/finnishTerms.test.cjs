@@ -103,8 +103,8 @@ function finnishSlices() {
     // was never read (2026-09-27).
     ['src/lib/exerciseNameLabel.ts', between(names, 'const EXERCISE_NAME_FI', 'const EXERCISE_NAME_EN')],
     ['src/lib/exerciseTeaching.ts', between(teaching, 'const TEACHING_FI', 'export function getExerciseTeaching')],
-    ['src/lib/legalDocuments.ts (privacy)', between(legal, 'const PRIVACY_FI', 'const TERMS_EN')],
-    ['src/lib/legalDocuments.ts (terms)', between(legal, 'const TERMS_FI', 'const TITLES')],
+    ['src/lib/legalDocuments.ts (privacy)', between(legal, 'const privacyFi', 'const termsEn')],
+    ['src/lib/legalDocuments.ts (terms)', between(legal, 'const termsFi', 'const TITLES')],
   ].map(([file, text]) => [file, stripComments(text)]);
 }
 

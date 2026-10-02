@@ -726,6 +726,53 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
                     ],
                   );
                 },
+                onDeleteAccount: () => {
+                  Alert.alert(
+                    t(preferences.appLanguage, 'account.deleteAccount'),
+                    // The Apple sentence only for a reader signed in with Apple:
+                    // a Google sign-in has no session of ours to end elsewhere.
+                    t(
+                      preferences.appLanguage,
+                      accountBackup.state.provider === 'apple'
+                        ? 'account.deleteAccount.message.apple'
+                        : 'account.deleteAccount.message',
+                    ),
+                    [
+                      { text: t(preferences.appLanguage, 'common.cancel'), style: 'cancel' },
+                      {
+                        text: t(preferences.appLanguage, 'account.deleteAccount'),
+                        style: 'destructive',
+                        onPress: () => {
+                          // "Done" is said only once the server has deleted and
+                          // this phone has signed out — both writes resolved.
+                          // A failure speaks as a toast and leaves the reader
+                          // signed in to try again.
+                          void accountBackup
+                            .deleteAccount()
+                            .then((result) => {
+                              if (result === 'done') {
+                                Alert.alert(
+                                  t(preferences.appLanguage, 'account.deleteAccount.done.title'),
+                                  t(preferences.appLanguage, 'account.deleteAccount.done.body'),
+                                );
+                              } else if (result === 'ended') {
+                                // Signed out because the account was deleted
+                                // elsewhere or its sign-in had ended: nothing was
+                                // deleted by this tap, and the words say so.
+                                Alert.alert(
+                                  t(preferences.appLanguage, 'account.deleteAccount.ended.title'),
+                                  t(preferences.appLanguage, 'account.deleteAccount.ended.body'),
+                                );
+                              } else if (result === 'failed') {
+                                showToast(t(preferences.appLanguage, 'account.deleteAccount.failed'));
+                              }
+                            })
+                            .catch(() => showToast(t(preferences.appLanguage, 'account.deleteAccount.failed')));
+                        },
+                      },
+                    ],
+                  );
+                },
               }
             : null
         }

@@ -1669,6 +1669,18 @@ const EN = {
   'account.deleteRemote': 'Delete cloud backup',
   'account.deleteRemote.sub': 'Removes the copy on the server, keeps this phone',
   'account.deleteRemote.failed': 'Could not delete the cloud backup. Try again.',
+  'account.deleteAccount': 'Delete account',
+  'account.deleteAccount.sub': 'Deletes the cloud backup and signs this phone out',
+  'account.deleteAccount.message':
+    'This deletes your cloud backup from our server and signs you out on this phone. The training data on this phone stays — Reset all data clears that separately.',
+  'account.deleteAccount.message.apple':
+    'This deletes your cloud backup from our server and signs you out on this phone. Your other phones signed in with Apple are signed out the next time they back up. The training data on this phone stays — Reset all data clears that separately.',
+  'account.deleteAccount.done.title': 'Account deleted',
+  'account.deleteAccount.done.body': 'Your cloud backup is deleted and you are signed out. Your training data is still on this phone.',
+  'account.deleteAccount.failed': 'Could not delete the account. Check your connection and try again.',
+  'account.deleteAccount.ended.title': 'Signed out',
+  'account.deleteAccount.ended.body':
+    'This account was already deleted from another phone, or its sign-in had ended, so you are now signed out. Sign in again if you want to delete it.',
   'account.count.workouts': '{count} workouts',
   'account.count.workouts.one': '1 workout',
   'account.count.programs': '{count} programs',
@@ -4798,6 +4810,18 @@ const FI: Record<I18nKey, string> = {
   'account.deleteRemote': 'Poista pilvivarmuuskopio',
   'account.deleteRemote.sub': 'Poistaa kopion palvelimelta, tämä puhelin säilyy',
   'account.deleteRemote.failed': 'Pilvivarmuuskopiota ei voitu poistaa. Yritä uudelleen.',
+  'account.deleteAccount': 'Poista tili',
+  'account.deleteAccount.sub': 'Poistaa pilvivarmuuskopion ja kirjaa tämän puhelimen ulos',
+  'account.deleteAccount.message':
+    'Tämä poistaa pilvivarmuuskopion palvelimeltamme ja kirjaa sinut ulos tästä puhelimesta. Treenitiedot tässä puhelimessa säilyvät — Nollaa kaikki tiedot tyhjentää ne erikseen.',
+  'account.deleteAccount.message.apple':
+    'Tämä poistaa pilvivarmuuskopion palvelimeltamme ja kirjaa sinut ulos tästä puhelimesta. Muut puhelimesi, joihin olet kirjautunut Applella, kirjautuvat ulos, kun ne seuraavan kerran varmuuskopioivat. Treenitiedot tässä puhelimessa säilyvät — Nollaa kaikki tiedot tyhjentää ne erikseen.',
+  'account.deleteAccount.done.title': 'Tili poistettu',
+  'account.deleteAccount.done.body': 'Pilvivarmuuskopio on poistettu ja olet kirjautunut ulos. Treenitietosi ovat edelleen tässä puhelimessa.',
+  'account.deleteAccount.failed': 'Tiliä ei voitu poistaa. Tarkista yhteys ja yritä uudelleen.',
+  'account.deleteAccount.ended.title': 'Kirjauduit ulos',
+  'account.deleteAccount.ended.body':
+    'Tämä tili oli jo poistettu toiselta puhelimelta tai sen kirjautuminen oli päättynyt, joten sinut kirjattiin ulos. Kirjaudu uudelleen, jos haluat poistaa sen.',
   'account.count.workouts': '{count} treeniä',
   'account.count.workouts.one': '1 treeni',
   'account.count.programs': '{count} ohjelmaa',

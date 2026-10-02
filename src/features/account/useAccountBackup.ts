@@ -77,6 +77,8 @@ export interface AccountBackupState {
   email: string | null;
   name: string | null;
   lastBackupAt: string | null;
+  /** Whose sign-in this is, for wording that only fits one (null when signed out). */
+  provider: 'google' | 'apple' | null;
 }
 
 export type SignInOutcome =
@@ -107,6 +109,13 @@ export type SignInOutcome =
 /** How an operation the reader started ended. 'cancelled': sign-out or Reset overtook it. */
 export type AccountOperationResult = 'done' | 'failed' | 'cancelled';
 
+/**
+ * Delete account's own: 'ended' is the account having been deleted elsewhere
+ * (or its sign-in over) — this phone is signed out, nothing was deleted by this
+ * request, and the reader is told exactly that.
+ */
+export type DeleteAccountResult = AccountOperationResult | 'ended';
+
 export interface AccountBackupApi {
   available: boolean;
   /** The sign-ins this build offers, in display order (accountAuth). */
@@ -131,6 +140,11 @@ export interface AccountBackupApi {
   backUpOrAsk: () => Promise<SignInOutcome>;
   signOut: () => Promise<void>;
   deleteRemoteBackup: () => Promise<AccountOperationResult>;
+  /**
+   * Deletes the cloud copy and the server's sign-in for this account, then
+   * signs this phone out. The phone's training data stays.
+   */
+  deleteAccount: () => Promise<DeleteAccountResult>;
 }
 
 export interface AccountBackupInput {
@@ -169,6 +183,19 @@ const AUTO_BACKUP_QUIET_MS = 8000;
 
 /** Thrown inside an operation that sign-out overtook; never reaches the caller. */
 class Superseded extends Error {}
+
+/**
+ * What the server answers an Apple session that is over (api/backup.ts): the
+ * account was deleted, or the session ran out. INVALID_TOKEN — a session that
+ * does not verify, which a wrongly configured deploy produces for everyone at
+ * once — is deliberately not among them: it signs nobody out.
+ */
+const SESSION_REVOKED = 'SESSION_REVOKED';
+const SESSION_EXPIRED = 'SESSION_EXPIRED';
+/** The prefix of the server's own Apple session. */
+const APPLE_SESSION_PREFIX = 'vs1.';
+/** Apple accounts are filed as `apple:<sub>` (appleAuth). */
+const APPLE_ACCOUNT_PREFIX = 'apple:';
 
 function lookResult(remote: BackupDownloadResult): BackupLookResult {
   if (remote.ok) {
@@ -269,6 +296,32 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
   }, []);
 
   /**
+   * The server saying an Apple session is over (SESSION_REVOKED: the account
+   * was deleted from another phone; SESSION_EXPIRED) is something no retry can
+   * change: this phone signs out the way the reader's own Sign out does, so the
+   * UI shows signed-out instead of "Signed in" over backups that fail for up to
+   * 180 days. Only for the server's own Apple session and only for those two
+   * answers: a Google token's 401, INVALID_TOKEN (a session that does not
+   * verify) and a 502 (the store could not answer) never sign anyone out.
+   * Throws Superseded, like any operation that sign-out overtakes.
+   */
+  const signOutRef = useRef<() => Promise<void>>(async () => undefined);
+  const screenSession = useCallback(
+    async <R extends { ok: boolean; error?: string }>(idToken: string, result: R): Promise<R> => {
+      if (
+        !result.ok &&
+        (result.error === SESSION_REVOKED || result.error === SESSION_EXPIRED) &&
+        idToken.startsWith(APPLE_SESSION_PREFIX)
+      ) {
+        await signOutRef.current();
+        throw new Superseded();
+      }
+      return result;
+    },
+    [],
+  );
+
+  /**
    * Remembers whose data stays on the phone as an account signs out — added
    * to the accounts already remembered, never in their place.
    *
@@ -301,7 +354,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       // Taken with the payload: an edit made while the upload runs is still a
       // difference afterwards, and gets its own backup.
       const fingerprint = accountBackupFingerprint(database, workoutHistory);
-      const result = await uploadBackup(idToken, payload, expectedVersion);
+      const result = await screenSession(idToken, await uploadBackup(idToken, payload, expectedVersion));
       ensureCurrent(generation);
       if (!result.ok) {
         return result.error === BACKUP_CHANGED ? 'changed' : 'failed';
@@ -534,7 +587,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         cloudVersion: null,
       };
 
-      const remote = await downloadBackup(result.account.idToken);
+      const remote = await screenSession(result.account.idToken, await downloadBackup(result.account.idToken));
       ensureCurrent(generation);
       return await settleWithRemote(result.account.idToken, base, remote, generation);
     } catch (error) {
@@ -701,7 +754,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         // restored, or — after a look — the one it has just read.
         let expectedVersion = current.cloudVersion;
         if (plan === 'look') {
-          const remote = await downloadBackup(idToken);
+          const remote = await screenSession(idToken, await downloadBackup(idToken));
           ensureCurrent(generation);
           const decision = decideAfterLook({
             interactive,
@@ -779,7 +832,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
           return { kind: 'failed' };
         }
         // "Back up now": the look this phone would have done had it known.
-        const remote = await downloadBackup(idToken);
+        const remote = await screenSession(idToken, await downloadBackup(idToken));
         ensureCurrent(generation);
         if (remote.ok) {
           return await askRestoreOrKeep(idToken, current, remote.payload, remote.version);
@@ -841,6 +894,8 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
     await signOutAccount();
   }, [markSignedOut, persistAccount]);
 
+  signOutRef.current = signOut;
+
   const deleteRemoteBackup = useCallback(async (): Promise<AccountOperationResult> => {
     if (!available || !accountRef.current) {
       return 'failed';
@@ -876,7 +931,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       if (token.status !== 'ok') {
         return 'failed';
       }
-      const result = await deleteBackup(token.idToken);
+      const result = await screenSession(token.idToken, await deleteBackup(token.idToken));
       ensureCurrent(generation);
       if (!result.ok) {
         return 'failed';
@@ -907,6 +962,98 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [available, persistAccount]);
+
+  /**
+   * Delete account: the cloud copy goes, the server ends the sign-in's
+   * sessions (an Apple one is otherwise good for 180 days and renews itself),
+   * and only then is this phone signed out. The training data on the phone is
+   * not touched — Reset is the reader's other, separate choice.
+   *
+   * 'done' means both writes resolved: the server said yes, and the phone has
+   * forgotten the account. A failure at the server leaves the reader signed in
+   * and able to try again; nothing here says "deleted" before that.
+   */
+  const deleteAccount = useCallback(async (): Promise<DeleteAccountResult> => {
+    if (!available || !accountRef.current) {
+      return 'failed';
+    }
+    const generation = generationRef.current;
+    const automatic = automaticBackupRef.current;
+    if (automatic) {
+      // As deleteRemoteBackup: an upload on its way would put the copy back.
+      await automatic.catch(() => false);
+      if (generationRef.current !== generation) {
+        return 'cancelled';
+      }
+    }
+    const current = accountRef.current;
+    if (!current) {
+      return 'failed';
+    }
+    enterPhase('deleting');
+    try {
+      const token = await getFreshIdToken();
+      ensureCurrent(generation);
+      if (token.status === 'signed_out') {
+        // The provider has no session for this app any more, so there is no
+        // credential to delete with: signed out here, and the reader signs in
+        // again to delete — said as a failure, not as a deleted account.
+        pendingRestoreRef.current = null;
+        await markSignedOut(current.sub);
+        await persistAccount(null);
+        return 'failed';
+      }
+      if (token.status !== 'ok') {
+        return 'failed';
+      }
+      // Written BEFORE sending, cleared by any answer that settles it: if the
+      // answer is slow or lost, the retry meets a session the server has by
+      // then ended, and this is how that retry knows its own try went through.
+      const triedBefore = Boolean(current.deleteAccountPendingAt);
+      await persistAccount({ ...(accountRef.current ?? current), deleteAccountPendingAt: new Date().toISOString() });
+      ensureCurrent(generation);
+      const answer = await deleteBackup(token.idToken, { account: true });
+      ensureCurrent(generation);
+      if (answer.ok) {
+        // The server has deleted; now this phone forgets the account. Sign-out
+        // ends whatever else is running, clears the Google or Apple session and
+        // the pending record with the account record.
+        await signOut();
+        return 'done';
+      }
+      if (
+        token.idToken.startsWith(APPLE_SESSION_PREFIX) &&
+        (answer.error === SESSION_REVOKED || answer.error === SESSION_EXPIRED)
+      ) {
+        // The session is over, whichever way. It is "done" only if THIS phone
+        // sent a delete earlier whose answer it never got: that one deleted
+        // (the copy goes before the marker is written). Any other phone is
+        // being told the account was deleted elsewhere — maybe by a phone that
+        // has since signed in again and backed up, whose copy is alive — and
+        // says only that, never "deleted".
+        await signOut();
+        return answer.error === SESSION_REVOKED && triedBefore ? 'done' : 'ended';
+      }
+      if (answer.definite) {
+        // The server said no: nothing was deleted by this request, so there is
+        // nothing to remember. (A 5xx or no answer keeps the record — it may
+        // have gone through.)
+        const latest = accountRef.current;
+        if (latest) {
+          await persistAccount({ ...latest, deleteAccountPendingAt: null });
+        }
+      }
+      return 'failed';
+    } catch (error) {
+      if (error instanceof Superseded) {
+        return 'cancelled';
+      }
+      throw error;
+    } finally {
+      endPhase(generation);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [available, persistAccount, signOut]);
 
   // Auto-backup: when signed in and the data differs from what the cloud copy
   // was made of, push a fresh copy after a quiet pause. The fingerprint moves
@@ -980,19 +1127,20 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
 
   const state = useMemo<AccountBackupState>(() => {
     if (!available) {
-      return { status: 'unavailable', email: null, name: null, lastBackupAt: null };
+      return { status: 'unavailable', email: null, name: null, lastBackupAt: null, provider: null };
     }
     if (!loaded) {
-      return { status: 'loading', email: null, name: null, lastBackupAt: null };
+      return { status: 'loading', email: null, name: null, lastBackupAt: null, provider: null };
     }
     if (!account) {
-      return { status: 'signed_out', email: null, name: null, lastBackupAt: null };
+      return { status: 'signed_out', email: null, name: null, lastBackupAt: null, provider: null };
     }
     return {
       status: 'signed_in',
       email: account.email,
       name: account.name,
       lastBackupAt: account.lastBackupAt,
+      provider: account.sub.startsWith(APPLE_ACCOUNT_PREFIX) ? 'apple' : 'google',
     };
   }, [account, available, loaded]);
 
@@ -1008,5 +1156,6 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
     backUpOrAsk,
     signOut,
     deleteRemoteBackup,
+    deleteAccount,
   };
 }

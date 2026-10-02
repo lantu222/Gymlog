@@ -1,6 +1,6 @@
 # Privacy policy
 
-*Updated 1 October 2026*
+*Updated 2 October 2026*
 
 What Vinha stores, what leaves your phone, and what you can do about it.
 
@@ -40,19 +40,27 @@ Android’s own backup is switched off for this app. Your phone does not copy Vi
 
 That means a new phone starts empty unless you use the cloud backup below, or export your log as CSV first. It is off so that the app’s own backup below, which you switch on yourself, is the only place your full training log is kept outside this phone.
 
+## iPhone backup
+
+On iPhone the app’s data is not left out of the phone’s own backup. If iCloud Backup is switched on, or you back the phone up to a computer, Vinha’s data goes into that backup together with the data of your other apps, and comes back with it when you set up a phone from it. That backup is made and kept by Apple or on your own computer, under Apple’s terms. We do not make it, cannot see it and cannot delete it.
+
+If you would rather Vinha’s training log is not in it, you can leave Vinha out of an iCloud backup in your iPhone’s iCloud settings, or switch iCloud Backup off. The cloud backup below is separate: it is the only copy of your training log that we hold.
+
 ## Cloud backup (optional)
 
 If you sign in with Google or Apple, a copy of everything listed under “What the app stores on your phone” — except a workout still in progress — is sent over an encrypted connection to our server and kept there, so a new phone can restore it after you sign in again. Signing in is never required; every feature works without it.
 
 From Google we receive your Google account’s identifier, your email address and your name. These stay on your phone, so the app can show which account is signed in. On the server the backup is filed under a scrambled version of the identifier; your email and name are not stored there. When you sign out, the phone keeps only the identifiers of the accounts that signed out of it, so that if a different Google account signs in next, the app asks before backing up the data already on the phone to it; they are removed once that sign-in is settled.
 
-On iPhone you can sign in with Apple instead. From Apple we receive an identifier for your Apple ID that only Vinha gets, and the first time only, the name and email you choose to share — the email can be a private relay address that Apple forwards. They stay on your phone like Google’s. The phone trades Apple’s sign-in once for a sign-in of our own, kept on the phone, that lasts up to 180 days and is checked on every backup request; before using it, the phone asks Apple whether you have stopped using your Apple ID with Vinha, and signs you out if you have.
+On iPhone you can sign in with Apple instead. From Apple we receive an identifier for your Apple ID that only Vinha gets, and the first time only, the name and email you choose to share — the email can be a private relay address that Apple forwards. They stay on your phone like Google’s. The phone trades Apple’s sign-in once for a sign-in of our own, kept on the phone, that lasts up to 180 days and is checked on every backup request; before using it, the phone asks Apple whether you have stopped using your Apple ID with Vinha, and signs you out if you have. Deleting your account (below) does not take Vinha off the list of apps you use Sign in with Apple with; you can remove it there yourself, in your iPhone’s Apple ID settings.
 
 A backup is sent shortly after you log training, and whenever you press Back up now. The server checks your sign-in on every request, stores the file, and hands it back only to the same account. It does not read, analyse or log the contents.
 
 The backup is stored by Vercel, our hosting provider, in the European Union. It is kept until you delete it.
 
 Settings → Delete cloud backup removes the server copy immediately. Signing out does not delete it, and neither does resetting the phone’s data — a reset signs you out first, precisely so that an empty backup never overwrites a full one. The copy waits until you sign in again. If you can no longer open the app, sign in on any phone with the same account and delete it there, or write to us.
+
+Settings → Delete account does the same and more: it deletes the server copy, signs you out on this phone, and ends the sign-in our own server gave an Apple account, so your other phones signed in with Apple are signed out the next time they back up. The training data on this phone stays; Reset all data clears that separately. Afterwards our server holds nothing of yours except, for an Apple account, one scrambled marker with a date, which says that sign-ins made before it have ended, so that an old sign-in cannot be used again. It holds no name, email or training data.
 
 ## The AI coach
 
@@ -101,8 +109,8 @@ We run no servers of our own. Five companies process data for us, under contract
 
 - Vercel (United States): runs our server and stores the cloud backups and the usage events. The storage is in the European Union.
 - Anthropic (United States): answers coach questions, composes programmes and reads programme photos, as described above.
-- Google (United States): verifies your Google sign-in and handles Google Play payments. Your relationship with Google is covered by Google’s own privacy policy.
-- Apple (United States): verifies your Apple sign-in on iPhone. Your relationship with Apple is covered by Apple’s own privacy policy.
+- Google (United States): verifies your Google sign-in and, on Android, handles Google Play payments. Your relationship with Google is covered by Google’s own privacy policy.
+- Apple (United States): on iPhone, verifies your Apple sign-in and handles App Store payments. Your relationship with Apple is covered by Apple’s own privacy policy.
 - Slack (United States): delivers the coach answers you report to us for review, as described above.
 
 ## Data outside the European Union
@@ -115,8 +123,8 @@ The GDPR requires a lawful basis for each kind of processing. These are ours.
 
 - Providing the app you asked for (contract): keeping your data on your phone, running Pro, and showing you your own history.
 - Your consent: the cloud backup (you sign in), the coach’s online mode (you read the notice and send a question), the programme composer and the photo import (you ask for them), and reporting an answer (you send the report). Training and body data count as health data, so whenever they leave your phone we rely on your explicit consent. You can withdraw it at any time: delete the backup and sign out, and simply stop sending questions.
-- Our legitimate interest: the anonymous usage statistics, so we can see where the app fails people, the brief rate limiting that protects the server from abuse, and the app version on each request, so the server can ask an outdated app to update. You can object by switching the statistics off in Settings, or by writing to us.
-- Legal obligations: none of ours involve your personal data today. Google Play is the seller of record for Pro and keeps the purchase records; the sales reports we receive from Google contain no personal data.
+- Our legitimate interest: the anonymous usage statistics, so we can see where the app fails people, the brief rate limiting that protects the server from abuse, the app version on each request, so the server can ask an outdated app to update, and, once you delete your account, the marker that stops an old sign-in from being used again. You can object by switching the statistics off in Settings, or by writing to us.
+- Legal obligations: none of ours involve your personal data today. Google Play (on Android) and Apple through the App Store (on iPhone) handle the payment for Pro and keep the purchase records; the sales reports we receive from them contain no personal data.
 
 ## What the app does not do
 
@@ -125,7 +133,7 @@ The GDPR requires a lawful basis for each kind of processing. These are ours.
 - No trackers and no social media components. There is no feed, no followers and no public profile.
 - No access to your location, contacts, microphone, camera or files. A photo is read only when you pick one yourself, through the phone’s own picker, and only that photo.
 - No advertising profile. The app does tailor programmes and suggestions from your answers and your log, but that happens on your phone, and nothing is decided about you automatically in a way that has legal or similar effects.
-- No selling, renting or sharing of your data with anyone, beyond the three providers named above who work for us.
+- No selling, renting or sharing of your data with anyone, beyond the providers named above who work for us.
 - No account needed. Sign-in exists only to key the optional cloud backup.
 - No cookies. The app is not a web page and does not open one inside itself, so none are set and none are read.
 
@@ -143,11 +151,11 @@ The app asks your phone for very little. What it does use:
 
 Notifications come in three groups: while you train (the rest timer and the live session), wins and recaps after a workout, and reminders such as a weigh-in day or a training day. Every one of them is scheduled on your phone by the app itself. They are not push notifications: no server is involved and no device token exists.
 
-Turn any group, or all of them, off in Settings → Notifications, or in Android’s own notification settings.
+Turn any group, or all of them, off in Settings → Notifications, or in your phone’s own notification settings.
 
 ## Payments
 
-If you buy Pro, the payment is handled entirely by Google Play. We never see your card number, billing address or any payment detail. The app learns only whether Pro is active, which plan, and until when.
+If you buy Pro, the payment is handled entirely by Google Play on Android and by Apple through the App Store on iPhone. We never see your card number, billing address or any payment detail. The app learns only whether Pro is active, which plan, and until when.
 
 The free trial costs nothing: starting it writes one date on your phone, Pro runs until that date and then stops on its own. Nothing is charged when it ends, nothing is sent anywhere, and no card is asked for. If you have notifications on, the app reminds you two days before it runs out; that reminder is written and shown by your phone, not by us.
 
@@ -155,7 +163,7 @@ The free trial costs nothing: starting it writes one date on your phone, Pro run
 
 Send feedback opens your own mail app with our address and the app version filled in. You decide what to write. We then see your email address and your message, and keep them only as long as it takes to handle the feedback.
 
-Rate Vinha opens the app’s page on Google Play. The app itself sends nothing.
+Rate Vinha opens the app’s page on Google Play on Android, and Apple’s review prompt or the app’s page on the App Store on iPhone. The app itself sends nothing.
 
 Exporting a programme or your training log as CSV, and inviting a friend, go through your phone’s share menu to the app you pick. We never see where they go.
 
@@ -163,13 +171,15 @@ Exporting a programme or your training log as CSV, and inviting a friend, go thr
 
 Everything that leaves your phone travels over an encrypted connection. On the server, every backup request is checked against your sign-in before anything is read or written, backups are filed under a scrambled identifier in private storage, training data is never written to logs, and request rates are limited.
 
-On your phone, the app’s data is protected by the phone’s own lock and the separation Android keeps between apps; the app adds no encryption of its own. Anyone who can unlock your phone can open Vinha and see your training data, so keep the phone locked.
+On your phone, the app’s data is protected by the phone’s own lock and the separation Android and iOS keep between apps; the app adds no encryption of its own. Anyone who can unlock your phone can open Vinha and see your training data, so keep the phone locked.
 
 ## How long we keep it
 
 - On your phone: until you reset the app’s data or uninstall it.
 - Android backup: nothing to keep — Android’s own backup is switched off for this app.
+- iPhone backup: if iCloud Backup or a computer backup is switched on, the app’s data is kept in it for as long as Apple, or you, keep that backup — under Apple’s terms, not ours.
 - Cloud backup: until you delete it in Settings, or ask us to.
+- The marker left by Delete account on an Apple account: one scrambled marker with a date, with no name, email or training data. The server’s routine clean-up removes it once 180 days have passed and it can no longer end anything. That clean-up runs when someone signs in with Apple, so it can take a little longer.
 - Coach questions, briefs and photos: not kept by us unless you allowed it, and then for up to 24 months or until you take the permission back, whichever comes first. Anthropic deletes its own copy within 30 days either way.
 - Usage statistics: up to 24 months, then deleted automatically.
 - Feedback emails: as long as it takes to handle them.
@@ -182,7 +192,7 @@ Most of these you exercise yourself, inside the app, without asking anyone. For 
 
 - See it: Settings → My data shows your profile, and Progress shows your log. The cloud backup is the same data, so there is nothing more on our side to show.
 - Correct it: edit your profile, or any logged session or entry.
-- Delete it: Settings → Reset all data clears the phone, and Settings → Delete cloud backup clears the server. Uninstalling the app removes the phone copy too. Usage statistics cannot be traced back to you, so there is nothing of yours to find in them.
+- Delete it: Settings → Reset all data clears the phone, Settings → Delete cloud backup clears the server copy, and Settings → Delete account clears the server copy and signs you out. Uninstalling the app removes the phone copy too. Usage statistics cannot be traced back to you, so there is nothing of yours to find in them.
 - Take it with you: Settings → Export plan (CSV) sends your programme, or every logged set, as CSV text to any app you choose.
 - Withdraw consent or object: delete the cloud backup and sign out; stop sending questions to the coach; switch usage statistics off in Settings.
 - Complain: write to santeriylonen@gmail.com first, so we can put it right. You also have the right to complain to the data protection authority — in Finland, the Office of the Data Protection Ombudsman, tietosuoja.fi or tietosuoja@om.fi.

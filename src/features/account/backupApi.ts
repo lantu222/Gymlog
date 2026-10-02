@@ -119,7 +119,15 @@ export async function downloadBackup(idToken: string): Promise<BackupDownloadRes
   }
 }
 
-export async function deleteBackup(idToken: string): Promise<{ ok: boolean }> {
+/**
+ * Deletes the cloud copy. With `account: true` the server also ends the Apple
+ * sessions it has issued for the account, this phone's included
+ * (api/backup.ts, `delete-account`); without it the reader stays signed in.
+ */
+export async function deleteBackup(
+  idToken: string,
+  options: { account?: boolean } = {},
+): Promise<{ ok: boolean; error?: string; definite?: boolean }> {
   if (!BACKUP_API_URL) {
     return { ok: false };
   }
@@ -127,13 +135,26 @@ export async function deleteBackup(idToken: string): Promise<{ ok: boolean }> {
   try {
     const response = await fetch(BACKUP_API_URL, {
       method: 'DELETE',
-      headers: { authorization: `Bearer ${idToken}`, ...appVersionHeaders() },
+      headers: {
+        authorization: `Bearer ${idToken}`,
+        ...(options.account ? { 'x-backup-action': 'delete-account' } : {}),
+        ...appVersionHeaders(),
+      },
       signal,
     });
     // The server's own yes, not just a 2xx from whatever answered.
-    const body = (await response.json().catch(() => null)) as { ok?: boolean } | null;
+    const body = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
     noteServerAnswer(response.status, body);
-    return { ok: response.ok && body?.ok === true };
+    // The server turning the sign-in itself away — SESSION_REVOKED, SESSION_EXPIRED
+    // or INVALID_TOKEN; the hook signs an Apple session out on the first two — is
+    // told apart from a store that could not answer.
+    // `definite`: the server answered and it was not a failure of its own (a
+    // 4xx). A 5xx or no answer at all leaves it open whether the delete went
+    // through, which is what "Delete account" has to remember.
+    if (response.status === 401 && typeof body?.error === 'string') {
+      return { ok: false, error: body.error, definite: true };
+    }
+    return { ok: response.ok && body?.ok === true, ...(response.status < 500 ? { definite: true } : {}) };
   } catch {
     return { ok: false };
   } finally {

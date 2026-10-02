@@ -285,6 +285,7 @@ const suites = [
   ...require('./lib/accountBackupCompression.test.cjs'),
   ...require('./features/account/accountBackupHook.test.cjs'),
   ...require('./features/account/appleAuth.test.cjs'),
+  ...require('./features/account/backupApiDelete.test.cjs'),
   ...require('./lib/accountRestoreAwaitsErase.test.cjs'),
   ...require('./features/account/signedOutAccounts.test.cjs'),
   ...require('./api/backupEndpoint.test.cjs'),
