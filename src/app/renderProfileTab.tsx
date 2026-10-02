@@ -726,6 +726,38 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
                     ],
                   );
                 },
+                onDeleteAccount: () => {
+                  Alert.alert(
+                    t(preferences.appLanguage, 'account.deleteAccount'),
+                    t(preferences.appLanguage, 'account.deleteAccount.message'),
+                    [
+                      { text: t(preferences.appLanguage, 'common.cancel'), style: 'cancel' },
+                      {
+                        text: t(preferences.appLanguage, 'account.deleteAccount'),
+                        style: 'destructive',
+                        onPress: () => {
+                          // "Done" is said only once the server has deleted and
+                          // this phone has signed out — both writes resolved.
+                          // A failure speaks as a toast and leaves the reader
+                          // signed in to try again.
+                          void accountBackup
+                            .deleteAccount()
+                            .then((result) => {
+                              if (result === 'done') {
+                                Alert.alert(
+                                  t(preferences.appLanguage, 'account.deleteAccount.done.title'),
+                                  t(preferences.appLanguage, 'account.deleteAccount.done.body'),
+                                );
+                              } else if (result === 'failed') {
+                                showToast(t(preferences.appLanguage, 'account.deleteAccount.failed'));
+                              }
+                            })
+                            .catch(() => showToast(t(preferences.appLanguage, 'account.deleteAccount.failed')));
+                        },
+                      },
+                    ],
+                  );
+                },
               }
             : null
         }

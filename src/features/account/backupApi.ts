@@ -119,7 +119,12 @@ export async function downloadBackup(idToken: string): Promise<BackupDownloadRes
   }
 }
 
-export async function deleteBackup(idToken: string): Promise<{ ok: boolean }> {
+/**
+ * Deletes the cloud copy. With `account: true` the server also ends the Apple
+ * sessions it has issued for the account, this phone's included
+ * (api/backup.ts, `delete-account`); without it the reader stays signed in.
+ */
+export async function deleteBackup(idToken: string, options: { account?: boolean } = {}): Promise<{ ok: boolean }> {
   if (!BACKUP_API_URL) {
     return { ok: false };
   }
@@ -127,7 +132,11 @@ export async function deleteBackup(idToken: string): Promise<{ ok: boolean }> {
   try {
     const response = await fetch(BACKUP_API_URL, {
       method: 'DELETE',
-      headers: { authorization: `Bearer ${idToken}`, ...appVersionHeaders() },
+      headers: {
+        authorization: `Bearer ${idToken}`,
+        ...(options.account ? { 'x-backup-action': 'delete-account' } : {}),
+        ...appVersionHeaders(),
+      },
       signal,
     });
     // The server's own yes, not just a 2xx from whatever answered.

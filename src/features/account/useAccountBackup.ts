@@ -131,6 +131,11 @@ export interface AccountBackupApi {
   backUpOrAsk: () => Promise<SignInOutcome>;
   signOut: () => Promise<void>;
   deleteRemoteBackup: () => Promise<AccountOperationResult>;
+  /**
+   * Deletes the cloud copy and the server's sign-in for this account, then
+   * signs this phone out. The phone's training data stays.
+   */
+  deleteAccount: () => Promise<AccountOperationResult>;
 }
 
 export interface AccountBackupInput {
@@ -908,6 +913,69 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [available, persistAccount]);
 
+  /**
+   * Delete account: the cloud copy goes, the server ends the sign-in's
+   * sessions (an Apple one is otherwise good for 180 days and renews itself),
+   * and only then is this phone signed out. The training data on the phone is
+   * not touched — Reset is the reader's other, separate choice.
+   *
+   * 'done' means both writes resolved: the server said yes, and the phone has
+   * forgotten the account. A failure at the server leaves the reader signed in
+   * and able to try again; nothing here says "deleted" before that.
+   */
+  const deleteAccount = useCallback(async (): Promise<AccountOperationResult> => {
+    if (!available || !accountRef.current) {
+      return 'failed';
+    }
+    const generation = generationRef.current;
+    const automatic = automaticBackupRef.current;
+    if (automatic) {
+      // As deleteRemoteBackup: an upload on its way would put the copy back.
+      await automatic.catch(() => false);
+      if (generationRef.current !== generation) {
+        return 'cancelled';
+      }
+    }
+    const current = accountRef.current;
+    if (!current) {
+      return 'failed';
+    }
+    enterPhase('deleting');
+    try {
+      const token = await getFreshIdToken();
+      ensureCurrent(generation);
+      if (token.status === 'signed_out') {
+        // The provider has no session for this app any more, so there is no
+        // credential to delete with: signed out here, and the reader signs in
+        // again to delete — said as a failure, not as a deleted account.
+        pendingRestoreRef.current = null;
+        await markSignedOut(current.sub);
+        await persistAccount(null);
+        return 'failed';
+      }
+      if (token.status !== 'ok') {
+        return 'failed';
+      }
+      const result = await deleteBackup(token.idToken, { account: true });
+      ensureCurrent(generation);
+      if (!result.ok) {
+        return 'failed';
+      }
+      // The server has deleted; now this phone forgets the account. Sign-out
+      // ends whatever else is running and clears the Google or Apple session.
+      await signOut();
+      return 'done';
+    } catch (error) {
+      if (error instanceof Superseded) {
+        return 'cancelled';
+      }
+      throw error;
+    } finally {
+      endPhase(generation);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [available, persistAccount, signOut]);
+
   // Auto-backup: when signed in and the data differs from what the cloud copy
   // was made of, push a fresh copy after a quiet pause. The fingerprint moves
   // with edits as well as additions, and is only advanced by an upload that
@@ -1008,5 +1076,6 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
     backUpOrAsk,
     signOut,
     deleteRemoteBackup,
+    deleteAccount,
   };
 }

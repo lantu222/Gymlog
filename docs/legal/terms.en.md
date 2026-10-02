@@ -1,6 +1,6 @@
 # Terms of service
 
-*Updated 1 October 2026*
+*Updated 2 October 2026*
 
 The rules for using Vinha: the health warning, how Pro billing works, and what we promise.
 
@@ -48,7 +48,7 @@ You train at your own risk.
 
 Your training data lives on your phone. If you do not sign in, there is no copy of it anywhere we can reach, which means we cannot recover it for you if you lose your phone, uninstall the app or reset your data. Export your log as CSV from Settings whenever you want a copy of your own.
 
-If you sign in with Google, the optional cloud backup keeps one copy on our server so that a new phone can restore it. It is a convenience, not a guarantee: keep your own export of anything you cannot afford to lose. The backup can only be restored by signing in with the same Google account, so keep access to that account.
+If you sign in with Google or Apple, the optional cloud backup keeps one copy on our server so that a new phone can restore it. It is a convenience, not a guarantee: keep your own export of anything you cannot afford to lose. The backup can only be restored by signing in with the same account, so keep access to that account.
 
 You own your data. We claim no rights to anything you log, build or import, and we use the backup for nothing except giving it back to you.
 
@@ -56,13 +56,13 @@ You own your data. We claim no rights to anything you log, build or import, and 
 
 - The free version is a complete app: every ready-made programme, the full exercise library, unlimited logging, your progress, and export. It has limits on building — three programmes of your own, two in use at a time — and it shows trends and records over the most recent three months.
 - Pro unlocks the features listed on the Pro page in the app at the time you buy it, including the coach’s online mode up to the monthly number of questions shown in the app. Pro can be a monthly subscription, a yearly subscription, or a one-time lifetime purchase.
-- Payment is charged through Google Play at the price shown there when you confirm the purchase. We do not handle payments ourselves.
-- Subscriptions renew automatically unless you cancel at least 24 hours before the period ends. Cancel in Google Play — the End membership screen in the app takes you there. Cancelling stops the next renewal; Pro stays on until the paid period ends.
+- Payment is charged through Google Play on Android and through the App Store on iPhone at the price shown there when you confirm the purchase. We do not handle payments ourselves.
+- Subscriptions renew automatically unless you cancel at least 24 hours before the period ends. Cancel in Google Play on Android, or in your Apple ID’s subscriptions on iPhone — the End membership screen in the app takes you there. Cancelling stops the next renewal; Pro stays on until the paid period ends.
 - Lifetime means use of the service for as long as Vinha is offered commercially and maintained. If the service is discontinued for good, the lifetime licence ends with it. It is a single payment with nothing to renew or cancel.
 - When Pro ends, nothing you logged is lost. Your data, your programmes and your history stay; only the Pro features lock until Pro is on again.
-- Refunds follow Google Play’s refund policy and your statutory consumer rights, including a right of withdrawal where the law gives you one. Pro starts the moment the purchase is confirmed, and by using it straight away you agree that the service begins at once.
+- Refunds follow the refund policy of the store you bought from — Google Play’s on Android, Apple’s on iPhone, where they are requested from Apple — and your statutory consumer rights, including a right of withdrawal where the law gives you one. Pro starts the moment the purchase is confirmed, and by using it straight away you agree that the service begins at once.
 - Promo codes may be limited in time or number, can expire, and have no cash value.
-- If a price changes, you will be told in advance through Google Play, and the change never applies to a period you have already paid for.
+- If a price changes, you will be told in advance through Google Play or Apple, whichever you bought from, and the change never applies to a period you have already paid for.
 
 ## Features that need our server
 
@@ -96,9 +96,9 @@ Your training data, the programmes you build and the notes you write are yours. 
 
 ## Changes and ending
 
-We may update these terms as the app changes. Material changes are shown in the app before they take effect, and continuing to use Vinha after that means you accept them. If you do not, stop using the app — and if you have an active subscription, cancel it in Google Play.
+We may update these terms as the app changes. Material changes are shown in the app before they take effect, and continuing to use Vinha after that means you accept them. If you do not, stop using the app — and if you have an active subscription, cancel it in the store you bought it from.
 
-You can stop at any time by uninstalling the app. Your data on the phone goes with it; the cloud backup stays until you delete it in Settings.
+You can stop at any time by uninstalling the app. Your data on the phone goes with it; the cloud backup stays until you delete it in Settings, where Delete account removes it and signs you out.
 
 We may end your access to the server features, or to the app, if you seriously breach these terms. We may also discontinue Vinha or its server features; if that happens, we will say so in the app in advance, and your data stays on your phone and exportable.
 

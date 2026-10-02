@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
 import { CARD_SHADOW } from '../components/SettingsUi';
 import { t } from '../lib/i18n';
 import { LegalDocumentId, buildLegalDocument } from '../lib/legalDocuments';
+import { storePlatformOf } from '../lib/storeLinks';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import { AppLanguage } from '../types/models';
@@ -26,7 +27,10 @@ interface LegalDocumentScreenProps {
 export function LegalDocumentScreen({ document, language, onBack }: LegalDocumentScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const doc = useMemo(() => buildLegalDocument(document, language), [document, language]);
+  // The phone's own store and backup: an iPhone is not told about Google Play.
+  // The published documents (docs/legal) are the ones that name both.
+  const platform = storePlatformOf(Platform.OS);
+  const doc = useMemo(() => buildLegalDocument(document, language, platform), [document, language, platform]);
 
   return (
     <View style={styles.screen}>

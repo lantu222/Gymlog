@@ -73,6 +73,8 @@ interface SettingsScreenProps {
     onBackupNow: () => void;
     onSignOut: () => void;
     onDeleteRemote: () => void;
+    /** Deletes the cloud copy and the server's sign-in, then signs out (App Review 5.1.1(v)). */
+    onDeleteAccount: () => void;
   } | null;
 }
 
@@ -667,6 +669,14 @@ export function SettingsScreen({
                   danger
                   disabled={account.busy}
                   onPress={account.onDeleteRemote}
+                />
+                <Row
+                  icon="trash"
+                  title={t(language, 'account.deleteAccount')}
+                  sub={t(language, 'account.deleteAccount.sub')}
+                  danger
+                  disabled={account.busy}
+                  onPress={account.onDeleteAccount}
                 />
                 <Row
                   icon="body"

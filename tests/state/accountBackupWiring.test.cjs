@@ -82,6 +82,43 @@ module.exports = [
     },
   },
   {
+    name: 'account wiring: Delete account is a destructive, confirmed row, and says "deleted" only after the delete resolved',
+    run() {
+      // App Review 5.1.1(v): an app with sign-in lets the reader delete the account in the app.
+      const settings = read('src', 'screens', 'SettingsScreen.tsx');
+      assert.match(
+        settings,
+        /title=\{t\(language, 'account\.deleteAccount'\)\}\s*sub=\{t\(language, 'account\.deleteAccount\.sub'\)\}\s*danger\s*disabled=\{account\.busy\}/,
+        'the Delete account row is gone, or no longer a busy-aware danger row',
+      );
+      assert.match(settings, /\{account && account\.signedIn \? \(/, 'the account rows lost their signed-in gate');
+
+      const profile = read('src', 'app', 'renderProfileTab.tsx');
+      const handler = profile.slice(profile.indexOf('onDeleteAccount: () => {'));
+      // A confirmation first, destructive, naming what goes (the message key).
+      assert.match(handler, /'account\.deleteAccount\.message'/);
+      assert.match(handler, /style: 'destructive',\s*onPress: \(\) => \{[\s\S]*?accountBackup\s*\.deleteAccount\(\)/);
+      // The done dialog is inside the answer of the delete, behind `result === 'done'`.
+      const call = handler.indexOf('.deleteAccount()');
+      const done = handler.indexOf("'account.deleteAccount.done.title'");
+      assert.ok(call > 0 && done > call, 'the done message is shown before the delete is asked for');
+      assert.match(handler.slice(call, done), /\.then\(\(result\) => \{\s*if \(result === 'done'\) \{\s*Alert\.alert\(\s*t\(preferences\.appLanguage,\s*$/);
+      assert.match(handler, /result === 'failed'\) \{\s*showToast\(t\(preferences\.appLanguage, 'account\.deleteAccount\.failed'\)\)/);
+
+      // The hook: the server first, then sign-out, and the request names the account.
+      const hook = read('src', 'features', 'account', 'useAccountBackup.ts');
+      const body = hook.slice(hook.indexOf('const deleteAccount = useCallback('), hook.indexOf('// Auto-backup: when signed in'));
+      assert.ok(
+        body.indexOf("deleteBackup(token.idToken, { account: true })") > 0 &&
+          body.indexOf("deleteBackup(token.idToken, { account: true })") < body.indexOf('await signOut();'),
+        'the phone signs out before the server has deleted',
+      );
+      assert.match(body, /if \(!result\.ok\) \{\s*return 'failed';\s*\}/);
+      const client = read('src', 'features', 'account', 'backupApi.ts');
+      assert.match(client, /options\.account \? \{ 'x-backup-action': 'delete-account' \} : \{\}/);
+    },
+  },
+  {
     name: 'account wiring: Reset waits for a running account operation, and signs out before it wipes',
     run() {
       const settings = read('src', 'screens', 'SettingsScreen.tsx');
@@ -91,7 +128,7 @@ module.exports = [
       // And says why, instead of a red row that silently ignores the tap.
       assert.match(resetRow, /sub=\{t\(language, account\?\.busy \? 'settings\.resetData\.busy' : 'settings\.resetData\.sub'\)\}/);
       // Every account row shows its busy state the same way.
-      for (const handler of ['onBackupNow', 'onDeleteRemote', 'onSignOut']) {
+      for (const handler of ['onBackupNow', 'onDeleteRemote', 'onDeleteAccount', 'onSignOut']) {
         assert.match(settings, new RegExp(`disabled=\\{account\\.busy\\}\\s*onPress=\\{account\\.${handler}\\}`), handler);
       }
       // Sign-in names its provider: Apple's button on iPhone, Google's row.

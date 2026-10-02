@@ -1,4 +1,5 @@
 import { AppLanguage } from '../types/models';
+import type { StorePlatform } from './storeLinks';
 
 /**
  * The privacy policy and terms, as data.
@@ -31,6 +32,16 @@ import { AppLanguage } from '../types/models';
  *
  * scripts/export-legal.cjs renders the same data to Markdown for hosting, so
  * the published policy and the in-app policy cannot drift.
+ *
+ * 3. Which store, which backup, which platform's settings: a reader on an
+ *    iPhone is not told about Google Play or Android's backup, and a reader on
+ *    Android is not told about the App Store. The app asks for its own
+ *    platform (LegalDocumentScreen passes Platform.OS); the published
+ *    Markdown is for both and names both stores ("both"). Every wording that
+ *    differs lives in one place, next to the others it differs from, picked
+ *    with `pick` — never as a second copy of a paragraph — and
+ *    tests/lib/legalDocuments.test.cjs holds each platform's document to
+ *    saying nothing about the other's store.
  */
 
 /**
@@ -60,9 +71,20 @@ function publisher(): string {
 }
 
 /** Bumped whenever the wording changes in a way a user should re-read. */
-export const LEGAL_LAST_UPDATED = '2026-10-01';
+export const LEGAL_LAST_UPDATED = '2026-10-02';
 
 export type LegalDocumentId = 'privacy' | 'terms';
+
+/**
+ * Whose phone is reading. The app passes its own; the published documents are
+ * 'both', which names Google Play and the App Store side by side.
+ */
+export type LegalPlatform = StorePlatform | 'both';
+
+/** One wording per audience. The three are written together so they stay the same claim. */
+function pick(platform: LegalPlatform, words: { android: string; ios: string; both: string }): string {
+  return words[platform];
+}
 
 export interface LegalSection {
   heading: string;
@@ -81,7 +103,7 @@ export interface LegalDocument {
   sections: LegalSection[];
 }
 
-const PRIVACY_EN: LegalSection[] = [
+const privacyEn = (p: LegalPlatform): LegalSection[] => [
   {
     heading: 'The short version',
     body: [
@@ -115,22 +137,38 @@ const PRIVACY_EN: LegalSection[] = [
       'Small bookkeeping: whether the rating prompt or the online-coach notice has been shown, the summary file the home-screen widget reads, the queue of usage events waiting to be sent, a marker that the coach’s advice memory still needs erasing after a restore if a first attempt could not reach the disk, and a copy of a damaged data file if the app ever finds one — it is set aside rather than deleted, so a broken file is not a lost training log.',
     ],
   },
-  {
-    heading: 'Android backup',
-    body: [
-      'Android’s own backup is switched off for this app. Your phone does not copy Vinha’s data into your Google account’s backup, and it does not hand it to a new phone during the device-to-device transfer at setup. Nothing of your training log leaves the phone that way.',
-      'That means a new phone starts empty unless you use the cloud backup below, or export your log as CSV first. It is off so that the app’s own backup below, which you switch on yourself, is the only place your full training log is kept outside this phone.',
-    ],
-  },
+  ...(p !== 'ios'
+    ? [
+        {
+          heading: 'Android backup',
+          body: [
+            'Android’s own backup is switched off for this app. Your phone does not copy Vinha’s data into your Google account’s backup, and it does not hand it to a new phone during the device-to-device transfer at setup. Nothing of your training log leaves the phone that way.',
+            'That means a new phone starts empty unless you use the cloud backup below, or export your log as CSV first. It is off so that the app’s own backup below, which you switch on yourself, is the only place your full training log is kept outside this phone.',
+          ],
+        },
+      ]
+    : []),
+  ...(p !== 'android'
+    ? [
+        {
+          heading: 'iPhone backup',
+          body: [
+            'On iPhone the app’s data is not left out of the phone’s own backup. If iCloud Backup is switched on, or you back the phone up to a computer, Vinha’s data goes into that backup together with the data of your other apps, and comes back with it when you set up a phone from it. That backup is made and kept by Apple or on your own computer, under Apple’s terms. We do not make it, cannot see it and cannot delete it.',
+            'If you would rather Vinha’s training log is not in it, you can leave Vinha out of an iCloud backup in your iPhone’s iCloud settings, or switch iCloud Backup off. The cloud backup below is separate: it is the only copy of your training log that we hold.',
+          ],
+        },
+      ]
+    : []),
   {
     heading: 'Cloud backup (optional)',
     body: [
       'If you sign in with Google or Apple, a copy of everything listed under “What the app stores on your phone” — except a workout still in progress — is sent over an encrypted connection to our server and kept there, so a new phone can restore it after you sign in again. Signing in is never required; every feature works without it.',
       'From Google we receive your Google account’s identifier, your email address and your name. These stay on your phone, so the app can show which account is signed in. On the server the backup is filed under a scrambled version of the identifier; your email and name are not stored there. When you sign out, the phone keeps only the identifiers of the accounts that signed out of it, so that if a different Google account signs in next, the app asks before backing up the data already on the phone to it; they are removed once that sign-in is settled.',
-      'On iPhone you can sign in with Apple instead. From Apple we receive an identifier for your Apple ID that only Vinha gets, and the first time only, the name and email you choose to share — the email can be a private relay address that Apple forwards. They stay on your phone like Google’s. The phone trades Apple’s sign-in once for a sign-in of our own, kept on the phone, that lasts up to 180 days and is checked on every backup request; before using it, the phone asks Apple whether you have stopped using your Apple ID with Vinha, and signs you out if you have.',
+      'On iPhone you can sign in with Apple instead. From Apple we receive an identifier for your Apple ID that only Vinha gets, and the first time only, the name and email you choose to share — the email can be a private relay address that Apple forwards. They stay on your phone like Google’s. The phone trades Apple’s sign-in once for a sign-in of our own, kept on the phone, that lasts up to 180 days and is checked on every backup request; before using it, the phone asks Apple whether you have stopped using your Apple ID with Vinha, and signs you out if you have. Deleting your account (below) does not take Vinha off the list of apps you use Sign in with Apple with; you can remove it there yourself, in your iPhone’s Apple ID settings.',
       'A backup is sent shortly after you log training, and whenever you press Back up now. The server checks your sign-in on every request, stores the file, and hands it back only to the same account. It does not read, analyse or log the contents.',
       'The backup is stored by Vercel, our hosting provider, in the European Union. It is kept until you delete it.',
       'Settings → Delete cloud backup removes the server copy immediately. Signing out does not delete it, and neither does resetting the phone’s data — a reset signs you out first, precisely so that an empty backup never overwrites a full one. The copy waits until you sign in again. If you can no longer open the app, sign in on any phone with the same account and delete it there, or write to us.',
+      'Settings → Delete account does the same and more: it deletes the server copy, signs you out on this phone, and ends the sign-in our own server gave an Apple account — on your other phones too. The training data on this phone stays; Reset all data clears that separately. Afterwards our server holds nothing of yours except, for an Apple account, one scrambled marker with a date, which says that sign-ins made before it have ended, so that an old sign-in cannot be used again. It holds no name, email or training data.',
     ],
   },
   {
@@ -175,8 +213,16 @@ const PRIVACY_EN: LegalSection[] = [
     bullets: [
       'Vercel (United States): runs our server and stores the cloud backups and the usage events. The storage is in the European Union.',
       'Anthropic (United States): answers coach questions, composes programmes and reads programme photos, as described above.',
-      'Google (United States): verifies your Google sign-in and handles Google Play payments. Your relationship with Google is covered by Google’s own privacy policy.',
-      'Apple (United States): verifies your Apple sign-in on iPhone. Your relationship with Apple is covered by Apple’s own privacy policy.',
+      pick(p, {
+        android: 'Google (United States): verifies your Google sign-in and handles Google Play payments. Your relationship with Google is covered by Google’s own privacy policy.',
+        ios: 'Google (United States): verifies your Google sign-in. Your relationship with Google is covered by Google’s own privacy policy.',
+        both: 'Google (United States): verifies your Google sign-in and, on Android, handles Google Play payments. Your relationship with Google is covered by Google’s own privacy policy.',
+      }),
+      pick(p, {
+        android: 'Apple (United States): verifies your Apple sign-in on iPhone. Your relationship with Apple is covered by Apple’s own privacy policy.',
+        ios: 'Apple (United States): verifies your Apple sign-in and handles App Store payments. Your relationship with Apple is covered by Apple’s own privacy policy.',
+        both: 'Apple (United States): on iPhone, verifies your Apple sign-in and handles App Store payments. Your relationship with Apple is covered by Apple’s own privacy policy.',
+      }),
       'Slack (United States): delivers the coach answers you report to us for review, as described above.',
     ],
   },
@@ -194,8 +240,12 @@ const PRIVACY_EN: LegalSection[] = [
     bullets: [
       'Providing the app you asked for (contract): keeping your data on your phone, running Pro, and showing you your own history.',
       'Your consent: the cloud backup (you sign in), the coach’s online mode (you read the notice and send a question), the programme composer and the photo import (you ask for them), and reporting an answer (you send the report). Training and body data count as health data, so whenever they leave your phone we rely on your explicit consent. You can withdraw it at any time: delete the backup and sign out, and simply stop sending questions.',
-      'Our legitimate interest: the anonymous usage statistics, so we can see where the app fails people, the brief rate limiting that protects the server from abuse, and the app version on each request, so the server can ask an outdated app to update. You can object by switching the statistics off in Settings, or by writing to us.',
-      'Legal obligations: none of ours involve your personal data today. Google Play is the seller of record for Pro and keeps the purchase records; the sales reports we receive from Google contain no personal data.',
+      'Our legitimate interest: the anonymous usage statistics, so we can see where the app fails people, the brief rate limiting that protects the server from abuse, the app version on each request, so the server can ask an outdated app to update, and, once you delete your account, the marker that stops an old sign-in from being used again. You can object by switching the statistics off in Settings, or by writing to us.',
+      pick(p, {
+        android: 'Legal obligations: none of ours involve your personal data today. Google Play is the seller of record for Pro and keeps the purchase records; the sales reports we receive from Google contain no personal data.',
+        ios: 'Legal obligations: none of ours involve your personal data today. Apple handles the payment for Pro through the App Store and keeps the purchase records; the sales reports we receive from Apple contain no personal data.',
+        both: 'Legal obligations: none of ours involve your personal data today. Google Play (on Android) and Apple through the App Store (on iPhone) handle the payment for Pro and keep the purchase records; the sales reports we receive from them contain no personal data.',
+      }),
     ],
   },
   {
@@ -228,13 +278,21 @@ const PRIVACY_EN: LegalSection[] = [
     heading: 'Notifications',
     body: [
       'Notifications come in three groups: while you train (the rest timer and the live session), wins and recaps after a workout, and reminders such as a weigh-in day or a training day. Every one of them is scheduled on your phone by the app itself. They are not push notifications: no server is involved and no device token exists.',
-      'Turn any group, or all of them, off in Settings → Notifications, or in Android’s own notification settings.',
+      pick(p, {
+        android: 'Turn any group, or all of them, off in Settings → Notifications, or in Android’s own notification settings.',
+        ios: 'Turn any group, or all of them, off in Settings → Notifications, or in the iPhone’s own notification settings.',
+        both: 'Turn any group, or all of them, off in Settings → Notifications, or in your phone’s own notification settings.',
+      }),
     ],
   },
   {
     heading: 'Payments',
     body: [
-      'If you buy Pro, the payment is handled entirely by Google Play. We never see your card number, billing address or any payment detail. The app learns only whether Pro is active, which plan, and until when.',
+      `If you buy Pro, the payment is handled entirely by ${pick(p, {
+        android: 'Google Play',
+        ios: 'Apple, through the App Store',
+        both: 'Google Play on Android and by Apple through the App Store on iPhone',
+      })}. We never see your card number, billing address or any payment detail. The app learns only whether Pro is active, which plan, and until when.`,
       'The free trial costs nothing: starting it writes one date on your phone, Pro runs until that date and then stops on its own. Nothing is charged when it ends, nothing is sent anywhere, and no card is asked for. If you have notifications on, the app reminds you two days before it runs out; that reminder is written and shown by your phone, not by us.',
     ],
   },
@@ -242,7 +300,11 @@ const PRIVACY_EN: LegalSection[] = [
     heading: 'Feedback, rating and sharing',
     body: [
       'Send feedback opens your own mail app with our address and the app version filled in. You decide what to write. We then see your email address and your message, and keep them only as long as it takes to handle the feedback.',
-      'Rate Vinha opens the app’s page on Google Play. The app itself sends nothing.',
+      pick(p, {
+        android: 'Rate Vinha opens the app’s page on Google Play. The app itself sends nothing.',
+        ios: 'Rate Vinha opens Apple’s review prompt, or the app’s page on the App Store. The app itself sends nothing.',
+        both: 'Rate Vinha opens the app’s page on Google Play on Android, and Apple’s review prompt or the app’s page on the App Store on iPhone. The app itself sends nothing.',
+      }),
       'Exporting a programme or your training log as CSV, and inviting a friend, go through your phone’s share menu to the app you pick. We never see where they go.',
     ],
   },
@@ -250,15 +312,25 @@ const PRIVACY_EN: LegalSection[] = [
     heading: 'Security',
     body: [
       'Everything that leaves your phone travels over an encrypted connection. On the server, every backup request is checked against your sign-in before anything is read or written, backups are filed under a scrambled identifier in private storage, training data is never written to logs, and request rates are limited.',
-      'On your phone, the app’s data is protected by the phone’s own lock and the separation Android keeps between apps; the app adds no encryption of its own. Anyone who can unlock your phone can open Vinha and see your training data, so keep the phone locked.',
+      `On your phone, the app’s data is protected by the phone’s own lock and the separation ${pick(p, {
+        android: 'Android keeps',
+        ios: 'iOS keeps',
+        both: 'Android and iOS keep',
+      })} between apps; the app adds no encryption of its own. Anyone who can unlock your phone can open Vinha and see your training data, so keep the phone locked.`,
     ],
   },
   {
     heading: 'How long we keep it',
     bullets: [
       'On your phone: until you reset the app’s data or uninstall it.',
-      'Android backup: nothing to keep — Android’s own backup is switched off for this app.',
+      ...(p !== 'ios' ? ['Android backup: nothing to keep — Android’s own backup is switched off for this app.'] : []),
+      ...(p !== 'android'
+        ? [
+            'iPhone backup: if iCloud Backup or a computer backup is switched on, the app’s data is kept in it for as long as Apple, or you, keep that backup — under Apple’s terms, not ours.',
+          ]
+        : []),
       'Cloud backup: until you delete it in Settings, or ask us to.',
+      'The marker left by Delete account on an Apple account: one scrambled marker with a date, with no name, email or training data. It is not removed automatically; write to us and we delete it.',
       'Coach questions, briefs and photos: not kept by us unless you allowed it, and then for up to 24 months or until you take the permission back, whichever comes first. Anthropic deletes its own copy within 30 days either way.',
       'Usage statistics: up to 24 months, then deleted automatically.',
       'Feedback emails: as long as it takes to handle them.',
@@ -273,7 +345,7 @@ const PRIVACY_EN: LegalSection[] = [
     bullets: [
       'See it: Settings → My data shows your profile, and Progress shows your log. The cloud backup is the same data, so there is nothing more on our side to show.',
       'Correct it: edit your profile, or any logged session or entry.',
-      'Delete it: Settings → Reset all data clears the phone, and Settings → Delete cloud backup clears the server. Uninstalling the app removes the phone copy too. Usage statistics cannot be traced back to you, so there is nothing of yours to find in them.',
+      'Delete it: Settings → Reset all data clears the phone, Settings → Delete cloud backup clears the server copy, and Settings → Delete account clears the server copy and signs you out. Uninstalling the app removes the phone copy too. Usage statistics cannot be traced back to you, so there is nothing of yours to find in them.',
       'Take it with you: Settings → Export plan (CSV) sends your programme, or every logged set, as CSV text to any app you choose.',
       'Withdraw consent or object: delete the cloud backup and sign out; stop sending questions to the coach; switch usage statistics off in Settings.',
       `Complain: write to ${LEGAL_ENTITY.email} first, so we can put it right. You also have the right to complain to the data protection authority — in Finland, the Office of the Data Protection Ombudsman, tietosuoja.fi or tietosuoja@om.fi.`,
@@ -293,7 +365,7 @@ const PRIVACY_EN: LegalSection[] = [
   },
 ];
 
-const PRIVACY_FI: LegalSection[] = [
+const privacyFi = (p: LegalPlatform): LegalSection[] => [
   {
     heading: 'Lyhyesti',
     body: [
@@ -327,22 +399,38 @@ const PRIVACY_FI: LegalSection[] = [
       'Pientä kirjanpitoa: onko arviointipyyntö tai verkkovalmentajan ilmoitus jo näytetty, tiivistelmätiedosto, jota kotinäytön widget lukee, jono lähetystä odottavia käyttötapahtumia, merkintä siitä, että valmentajan muisti pitää yhä tyhjentää palautuksen jälkeen, jos ensimmäinen yritys ei tavoittanut levyä, sekä kopio vaurioituneesta datatiedostosta, jos sovellus sellaisen joskus löytää — se siirretään sivuun eikä poisteta, jotta rikkoutunut tiedosto ei ole menetetty treeniloki.',
     ],
   },
-  {
-    heading: 'Androidin oma varmuuskopio',
-    body: [
-      'Androidin oma varmuuskopiointi on tälle sovellukselle pois päältä. Puhelimesi ei kopioi Vinhan tietoja Google-tilisi varmuuskopioon eikä anna niitä uudelle puhelimelle käyttöönoton laitesiirrossa. Treenilokistasi ei lähde tätä kautta mitään.',
-      'Uusi puhelin aloittaa siis tyhjästä, ellet käytä alla kuvattua pilvivarmuuskopiota tai vie lokiasi ensin CSV-tiedostona. Se on pois päältä siksi, että alla kuvattu sovelluksen oma varmuuskopio, jonka kytket itse päälle, on ainoa paikka, jossa koko treenilokiasi säilytetään tämän puhelimen ulkopuolella.',
-    ],
-  },
+  ...(p !== 'ios'
+    ? [
+        {
+          heading: 'Androidin oma varmuuskopio',
+          body: [
+            'Androidin oma varmuuskopiointi on tälle sovellukselle pois päältä. Puhelimesi ei kopioi Vinhan tietoja Google-tilisi varmuuskopioon eikä anna niitä uudelle puhelimelle käyttöönoton laitesiirrossa. Treenilokistasi ei lähde tätä kautta mitään.',
+            'Uusi puhelin aloittaa siis tyhjästä, ellet käytä alla kuvattua pilvivarmuuskopiota tai vie lokiasi ensin CSV-tiedostona. Se on pois päältä siksi, että alla kuvattu sovelluksen oma varmuuskopio, jonka kytket itse päälle, on ainoa paikka, jossa koko treenilokiasi säilytetään tämän puhelimen ulkopuolella.',
+          ],
+        },
+      ]
+    : []),
+  ...(p !== 'android'
+    ? [
+        {
+          heading: 'iPhonen varmuuskopio',
+          body: [
+            'iPhonella sovelluksen tietoja ei jätetä puhelimen oman varmuuskopion ulkopuolelle. Jos iCloud-varmuuskopiointi on päällä tai varmuuskopioit puhelimen tietokoneelle, Vinhan tiedot menevät siihen muiden sovellustesi tietojen mukana ja palautuvat sen mukana, kun otat puhelimen käyttöön siitä. Sen varmuuskopion tekee ja säilyttää Apple tai oma tietokoneesi Applen ehtojen mukaisesti. Emme tee sitä, emme näe sitä emmekä voi poistaa sitä.',
+            'Jos et halua treenilokiasi siihen, voit jättää Vinhan pois iCloud-varmuuskopiosta iPhonen iCloud-asetuksissa tai kytkeä iCloud-varmuuskopioinnin pois. Alla kuvattu pilvivarmuuskopio on erillinen: se on ainoa treenilokistasi meillä oleva kopio.',
+          ],
+        },
+      ]
+    : []),
   {
     heading: 'Pilvivarmuuskopio (vapaaehtoinen)',
     body: [
       'Jos kirjaudut Googlella tai Applella, kopio kaikesta kohdassa ”Mitä sovellus tallentaa puhelimeesi” luetellusta — paitsi kesken olevasta treenistä — lähetetään salattua yhteyttä pitkin palvelimellemme ja säilytetään siellä, jotta uusi puhelin voi palauttaa sen, kun kirjaudut uudelleen. Kirjautumista ei koskaan vaadita; jokainen toiminto toimii ilman sitä.',
       'Googlelta saamme Google-tilisi tunnisteen, sähköpostiosoitteesi ja nimesi. Ne säilyvät puhelimessasi, jotta sovellus voi näyttää, mikä tili on kirjautuneena. Palvelimella varmuuskopio tallennetaan tunnisteen sekoitetun muodon alle; sähköpostiasi ja nimeäsi ei tallenneta sinne. Kun kirjaudut ulos, puhelin säilyttää vain niiden tilien tunnisteet, jotka ovat kirjautuneet siitä ulos, jotta sovellus kysyy ennen kuin se varmuuskopioi puhelimen tiedot seuraavaksi kirjautuvalle toiselle Google-tilille; tunnisteet poistetaan, kun tämä kirjautuminen on ratkaistu.',
-      'iPhonella voit kirjautua Googlen sijaan Applella. Applelta saamme Apple ID:llesi tunnisteen, jonka vain Vinha saa, ja vain ensimmäisellä kerralla nimen ja sähköpostin, jotka päätät jakaa — sähköposti voi olla Applen välittämä yksityinen osoite. Ne säilyvät puhelimessasi kuten Googlen tiedot. Puhelin vaihtaa Applen kirjautumisen kerran omaksi kirjautumiseksemme, joka säilytetään puhelimessa ja on voimassa enintään 180 päivää ja joka tarkistetaan joka varmuuskopiopyynnöllä; ennen käyttöä puhelin kysyy Applelta, oletko lopettanut Apple ID:si käytön Vinhassa, ja kirjaa sinut ulos, jos olet.',
+      'iPhonella voit kirjautua Googlen sijaan Applella. Applelta saamme Apple ID:llesi tunnisteen, jonka vain Vinha saa, ja vain ensimmäisellä kerralla nimen ja sähköpostin, jotka päätät jakaa — sähköposti voi olla Applen välittämä yksityinen osoite. Ne säilyvät puhelimessasi kuten Googlen tiedot. Puhelin vaihtaa Applen kirjautumisen kerran omaksi kirjautumiseksemme, joka säilytetään puhelimessa ja on voimassa enintään 180 päivää ja joka tarkistetaan joka varmuuskopiopyynnöllä; ennen käyttöä puhelin kysyy Applelta, oletko lopettanut Apple ID:si käytön Vinhassa, ja kirjaa sinut ulos, jos olet. Tilin poistaminen (alla) ei poista Vinhaa luettelosta sovelluksista, joissa käytät Apple-kirjautumista; voit poistaa sen sieltä itse iPhonen Apple ID -asetuksissa.',
       'Varmuuskopio lähetetään hetki sen jälkeen, kun kirjaat treenin, ja aina kun painat Varmuuskopioi nyt. Palvelin tarkistaa kirjautumisesi joka pyynnöllä, tallentaa tiedoston ja luovuttaa sen vain samalle tilille. Se ei lue, analysoi eikä lokita sisältöä.',
       'Varmuuskopion säilyttää Vercel, palvelintarjoajamme, Euroopan unionin alueella. Se säilyy, kunnes poistat sen.',
       'Asetukset → Poista pilvivarmuuskopio poistaa palvelinkopion heti. Uloskirjautuminen ei poista sitä, eikä puhelimen tietojen nollaus — nollaus kirjaa sinut ensin ulos juuri siksi, ettei tyhjä varmuuskopio koskaan korvaisi täyttä. Kopio odottaa, kunnes kirjaudut uudelleen. Jos et enää pääse sovellukseen, kirjaudu samalla tilillä millä tahansa puhelimella ja poista se sieltä, tai kirjoita meille.',
+      'Asetukset → Poista tili tekee saman ja enemmän: se poistaa palvelinkopion, kirjaa sinut ulos tästä puhelimesta ja päättää oman palvelimemme Apple-tilille antaman kirjautumisen — myös muilla puhelimillasi. Treenitiedot tässä puhelimessa säilyvät; Nollaa kaikki tiedot tyhjentää ne erikseen. Sen jälkeen palvelimellamme ei ole sinusta mitään, paitsi Apple-tilillä yksi sekoitettu merkintä päivämäärineen, joka kertoo, että sitä ennen tehdyt kirjautumiset ovat päättyneet, jottei vanhaa kirjautumista voi käyttää uudelleen. Siinä ei ole nimeä, sähköpostia eikä treenitietoja.',
     ],
   },
   {
@@ -387,8 +475,16 @@ const PRIVACY_FI: LegalSection[] = [
     bullets: [
       'Vercel (Yhdysvallat): ajaa palvelimemme ja säilyttää pilvivarmuuskopiot ja käyttötapahtumat. Tallennustila on Euroopan unionin alueella.',
       'Anthropic (Yhdysvallat): vastaa valmentajan kysymyksiin, koostaa ohjelmia ja lukee ohjelmakuvia, kuten yllä kuvattiin.',
-      'Google (Yhdysvallat): vahvistaa Google-kirjautumisesi ja hoitaa Google Playn maksut. Suhdettasi Googleen koskee Googlen oma tietosuojakäytäntö.',
-      'Apple (Yhdysvallat): vahvistaa Apple-kirjautumisesi iPhonella. Suhdettasi Appleen koskee Applen oma tietosuojakäytäntö.',
+      pick(p, {
+        android: 'Google (Yhdysvallat): vahvistaa Google-kirjautumisesi ja hoitaa Google Playn maksut. Suhdettasi Googleen koskee Googlen oma tietosuojakäytäntö.',
+        ios: 'Google (Yhdysvallat): vahvistaa Google-kirjautumisesi. Suhdettasi Googleen koskee Googlen oma tietosuojakäytäntö.',
+        both: 'Google (Yhdysvallat): vahvistaa Google-kirjautumisesi ja hoitaa Androidilla Google Playn maksut. Suhdettasi Googleen koskee Googlen oma tietosuojakäytäntö.',
+      }),
+      pick(p, {
+        android: 'Apple (Yhdysvallat): vahvistaa Apple-kirjautumisesi iPhonella. Suhdettasi Appleen koskee Applen oma tietosuojakäytäntö.',
+        ios: 'Apple (Yhdysvallat): vahvistaa Apple-kirjautumisesi ja hoitaa App Storen maksut. Suhdettasi Appleen koskee Applen oma tietosuojakäytäntö.',
+        both: 'Apple (Yhdysvallat): vahvistaa iPhonella Apple-kirjautumisesi ja hoitaa App Storen maksut. Suhdettasi Appleen koskee Applen oma tietosuojakäytäntö.',
+      }),
       'Slack (Yhdysvallat): toimittaa meille tarkistettaviksi valmentajan vastaukset, joista ilmoitat, kuten yllä kuvattiin.',
     ],
   },
@@ -406,8 +502,12 @@ const PRIVACY_FI: LegalSection[] = [
     bullets: [
       'Sovelluksen tarjoaminen sinulle (sopimus): tietojesi säilyttäminen puhelimessasi, Pron toimittaminen ja oman historiasi näyttäminen.',
       'Suostumuksesi: pilvivarmuuskopio (kirjaudut sisään), valmentajan verkkotila (luet ilmoituksen ja lähetät kysymyksen), ohjelmakoostaja ja kuvatuonti (pyydät niitä) sekä vastauksesta ilmoittaminen (lähetät ilmoituksen). Treeni- ja kehontiedot ovat terveystietoja, joten aina kun niitä lähtee puhelimestasi, nojaamme nimenomaiseen suostumukseesi. Voit peruuttaa sen milloin tahansa: poista varmuuskopio ja kirjaudu ulos, ja lakkaa lähettämästä kysymyksiä.',
-      'Oikeutettu etumme: nimettömät käyttötilastot, jotta näemme, missä sovellus pettää käyttäjät, lyhytaikainen pyyntöjen rajoitus, joka suojaa palvelinta väärinkäytöltä, sekä sovelluksen versio jokaisessa pyynnössä, jotta palvelin voi pyytää vanhentunutta sovellusta päivittymään. Voit vastustaa tätä kytkemällä tilastot pois asetuksista tai kirjoittamalla meille.',
-      'Lakisääteiset velvoitteet: mikään meidän velvoitteistamme ei tänään koske henkilötietojasi. Google Play on Pron myyjä ja säilyttää ostotiedot; Googlelta saamamme myyntiraportit eivät sisällä henkilötietoja.',
+      'Oikeutettu etumme: nimettömät käyttötilastot, jotta näemme, missä sovellus pettää käyttäjät, lyhytaikainen pyyntöjen rajoitus, joka suojaa palvelinta väärinkäytöltä, sovelluksen versio jokaisessa pyynnössä, jotta palvelin voi pyytää vanhentunutta sovellusta päivittymään, sekä — kun poistat tilisi — merkintä, joka estää vanhan kirjautumisen käyttämisen uudelleen. Voit vastustaa tätä kytkemällä tilastot pois asetuksista tai kirjoittamalla meille.',
+      pick(p, {
+        android: 'Lakisääteiset velvoitteet: mikään meidän velvoitteistamme ei tänään koske henkilötietojasi. Google Play on Pron myyjä ja säilyttää ostotiedot; Googlelta saamamme myyntiraportit eivät sisällä henkilötietoja.',
+        ios: 'Lakisääteiset velvoitteet: mikään meidän velvoitteistamme ei tänään koske henkilötietojasi. Apple hoitaa Pron maksun App Storen kautta ja säilyttää ostotiedot; Applelta saamamme myyntiraportit eivät sisällä henkilötietoja.',
+        both: 'Lakisääteiset velvoitteet: mikään meidän velvoitteistamme ei tänään koske henkilötietojasi. Google Play (Androidilla) ja Apple App Storen kautta (iPhonella) hoitavat Pron maksun ja säilyttävät ostotiedot; niiltä saamamme myyntiraportit eivät sisällä henkilötietoja.',
+      }),
     ],
   },
   {
@@ -440,13 +540,21 @@ const PRIVACY_FI: LegalSection[] = [
     heading: 'Ilmoitukset',
     body: [
       'Ilmoituksia on kolmea ryhmää: treenin aikana (lepoajastin ja käynnissä oleva treeni), voitot ja koosteet treenin jälkeen sekä muistutukset, kuten punnituspäivä tai treenipäivä. Jokaisen niistä ajastaa sovellus itse puhelimessasi. Ne eivät ole push-ilmoituksia: palvelinta ei ole mukana eikä laitetunnistetta ole olemassa.',
-      'Kytke mikä tahansa ryhmä tai kaikki pois kohdasta Asetukset → Ilmoitukset tai Androidin omista ilmoitusasetuksista.',
+      pick(p, {
+        android: 'Kytke mikä tahansa ryhmä tai kaikki pois kohdasta Asetukset → Ilmoitukset tai Androidin omista ilmoitusasetuksista.',
+        ios: 'Kytke mikä tahansa ryhmä tai kaikki pois kohdasta Asetukset → Ilmoitukset tai iPhonen omista ilmoitusasetuksista.',
+        both: 'Kytke mikä tahansa ryhmä tai kaikki pois kohdasta Asetukset → Ilmoitukset tai puhelimesi omista ilmoitusasetuksista.',
+      }),
     ],
   },
   {
     heading: 'Maksut',
     body: [
-      'Jos ostat Pron, maksun hoitaa kokonaan Google Play. Emme koskaan näe korttinumeroasi, laskutusosoitettasi emmekä mitään maksutietoa. Sovellus saa tietää vain, onko Pro voimassa, mikä tilaus ja mihin asti.',
+      `Jos ostat Pron, maksun hoitaa kokonaan ${pick(p, {
+        android: 'Google Play',
+        ios: 'Apple App Storen kautta',
+        both: 'Androidilla Google Play ja iPhonella Apple App Storen kautta',
+      })}. Emme koskaan näe korttinumeroasi, laskutusosoitettasi emmekä mitään maksutietoa. Sovellus saa tietää vain, onko Pro voimassa, mikä tilaus ja mihin asti.`,
       'Ilmainen kokeilu ei maksa mitään: sen aloittaminen kirjoittaa puhelimeesi yhden päivämäärän, Pro on voimassa siihen asti ja päättyy sitten itsestään. Päättyminen ei veloita mitään, mitään ei lähetetä minnekään, eikä korttia kysytä. Jos ilmoitukset ovat päällä, sovellus muistuttaa kaksi päivää ennen loppua; sen muistutuksen kirjoittaa ja näyttää puhelimesi, emme me.',
     ],
   },
@@ -454,7 +562,11 @@ const PRIVACY_FI: LegalSection[] = [
     heading: 'Palaute, arviointi ja jakaminen',
     body: [
       'Lähetä palautetta avaa oman sähköpostisovelluksesi, johon on valmiiksi täytetty osoitteemme ja sovelluksen versio. Sinä päätät, mitä kirjoitat. Me näemme sitten sähköpostiosoitteesi ja viestisi, ja säilytämme ne vain niin kauan kuin palautteen käsittely vaatii.',
-      'Arvioi Vinha avaa sovelluksen sivun Google Playssä. Sovellus itse ei lähetä mitään.',
+      pick(p, {
+        android: 'Arvioi Vinha avaa sovelluksen sivun Google Playssä. Sovellus itse ei lähetä mitään.',
+        ios: 'Arvioi Vinha avaa Applen arviointikehotteen tai sovelluksen sivun App Storessa. Sovellus itse ei lähetä mitään.',
+        both: 'Arvioi Vinha avaa Androidilla sovelluksen sivun Google Playssä ja iPhonella Applen arviointikehotteen tai sovelluksen sivun App Storessa. Sovellus itse ei lähetä mitään.',
+      }),
       'Ohjelman tai treenilokin vienti CSV-muodossa sekä kaverin kutsuminen kulkevat puhelimesi jakovalikon kautta valitsemaasi sovellukseen. Me emme koskaan näe, minne ne menevät.',
     ],
   },
@@ -462,15 +574,25 @@ const PRIVACY_FI: LegalSection[] = [
     heading: 'Tietoturva',
     body: [
       'Kaikki puhelimestasi lähtevä kulkee salattua yhteyttä pitkin. Palvelimella jokainen varmuuskopiopyyntö tarkistetaan kirjautumistasi vasten ennen kuin mitään luetaan tai kirjoitetaan, varmuuskopiot tallennetaan sekoitetun tunnisteen alle yksityiseen tallennustilaan, treenitietoja ei koskaan kirjoiteta lokeihin, ja pyyntöjen määrää rajoitetaan.',
-      'Puhelimessasi sovelluksen tietoja suojaavat puhelimen oma lukitus ja Androidin sovellusten välinen eristys; sovellus ei lisää omaa salaustaan. Kuka tahansa, joka saa puhelimesi auki, voi avata Vinhan ja nähdä treenitietosi — pidä siis puhelin lukittuna.',
+      `Puhelimessasi sovelluksen tietoja suojaavat puhelimen oma lukitus ja ${pick(p, {
+        android: 'Androidin',
+        ios: 'iOS:n',
+        both: 'Androidin ja iOS:n',
+      })} sovellusten välinen eristys; sovellus ei lisää omaa salaustaan. Kuka tahansa, joka saa puhelimesi auki, voi avata Vinhan ja nähdä treenitietosi — pidä siis puhelin lukittuna.`,
     ],
   },
   {
     heading: 'Kuinka kauan säilytämme tiedot',
     bullets: [
       'Puhelimessasi: kunnes nollaat sovelluksen tiedot tai poistat sovelluksen.',
-      'Android-varmuuskopio: ei mitään säilytettävää — Androidin oma varmuuskopiointi on tälle sovellukselle pois päältä.',
+      ...(p !== 'ios' ? ['Android-varmuuskopio: ei mitään säilytettävää — Androidin oma varmuuskopiointi on tälle sovellukselle pois päältä.'] : []),
+      ...(p !== 'android'
+        ? [
+            'iPhonen varmuuskopio: jos iCloud-varmuuskopiointi tai tietokoneelle tehtävä varmuuskopio on päällä, sovelluksen tiedot säilyvät siinä niin kauan kuin Apple tai sinä säilytätte sitä varmuuskopiota — Applen ehtojen mukaan, ei meidän.',
+          ]
+        : []),
       'Pilvivarmuuskopio: kunnes poistat sen asetuksista tai pyydät meitä poistamaan sen.',
+      'Tilin poiston jättämä merkintä Apple-tilillä: yksi sekoitettu merkintä päivämäärineen, jossa ei ole nimeä, sähköpostia eikä treenitietoja. Sitä ei poisteta automaattisesti; kirjoita meille, niin poistamme sen.',
       'Valmentajan kysymykset, kuvaukset ja kuvat: emme säilytä niitä, ellet ole antanut lupaa. Luvan kanssa enintään 24 kuukautta tai siihen asti kun peruutat luvan, kumpi tulee ensin. Anthropic poistaa oman kopionsa 30 päivän kuluessa joka tapauksessa.',
       'Käyttötilastot: enintään 24 kuukautta, sen jälkeen automaattinen poisto.',
       'Palautesähköpostit: niin kauan kuin niiden käsittely vaatii.',
@@ -485,7 +607,7 @@ const PRIVACY_FI: LegalSection[] = [
     bullets: [
       'Näe ne: Asetukset → Omat tiedot näyttää profiilisi ja Kehitys lokisi. Pilvivarmuuskopio on sama data, joten meidän puolellamme ei ole mitään lisää näytettävää.',
       'Korjaa ne: muokkaa profiiliasi tai mitä tahansa kirjattua treeniä tai merkintää.',
-      'Poista ne: Asetukset → Nollaa kaikki tiedot tyhjentää puhelimen, ja Asetukset → Poista pilvivarmuuskopio tyhjentää palvelimen. Sovelluksen poistaminen poistaa myös puhelimen kopion. Käyttötilastoja ei voi jäljittää sinuun, joten niistä ei löydy mitään sinun.',
+      'Poista ne: Asetukset → Nollaa kaikki tiedot tyhjentää puhelimen, Asetukset → Poista pilvivarmuuskopio tyhjentää palvelinkopion ja Asetukset → Poista tili tyhjentää palvelinkopion ja kirjaa sinut ulos. Sovelluksen poistaminen poistaa myös puhelimen kopion. Käyttötilastoja ei voi jäljittää sinuun, joten niistä ei löydy mitään sinun.',
       'Ota ne mukaasi: Asetukset → Vie ohjelma (CSV) lähettää ohjelmasi tai jokaisen kirjatun sarjan CSV-tekstinä valitsemaasi sovellukseen.',
       'Peruuta suostumus tai vastusta: poista pilvivarmuuskopio ja kirjaudu ulos; lakkaa lähettämästä kysymyksiä valmentajalle; kytke käyttötilastot pois asetuksista.',
       `Valita: kirjoita ensin osoitteeseen ${LEGAL_ENTITY.email}, jotta voimme korjata asian. Sinulla on myös oikeus tehdä valitus tietosuojaviranomaiselle — Suomessa tietosuojavaltuutetun toimistolle, tietosuoja.fi tai tietosuoja@om.fi.`,
@@ -505,7 +627,7 @@ const PRIVACY_FI: LegalSection[] = [
   },
 ];
 
-const TERMS_EN: LegalSection[] = [
+const termsEn = (p: LegalPlatform): LegalSection[] => [
   {
     heading: 'The short version',
     body: [
@@ -556,7 +678,7 @@ const TERMS_EN: LegalSection[] = [
     heading: 'Your data, and the backups',
     body: [
       'Your training data lives on your phone. If you do not sign in, there is no copy of it anywhere we can reach, which means we cannot recover it for you if you lose your phone, uninstall the app or reset your data. Export your log as CSV from Settings whenever you want a copy of your own.',
-      'If you sign in with Google, the optional cloud backup keeps one copy on our server so that a new phone can restore it. It is a convenience, not a guarantee: keep your own export of anything you cannot afford to lose. The backup can only be restored by signing in with the same Google account, so keep access to that account.',
+      `If you sign in with ${pick(p, { android: 'Google', ios: 'Google or Apple', both: 'Google or Apple' })}, the optional cloud backup keeps one copy on our server so that a new phone can restore it. It is a convenience, not a guarantee: keep your own export of anything you cannot afford to lose. The backup can only be restored by signing in with the same account, so keep access to that account.`,
       'You own your data. We claim no rights to anything you log, build or import, and we use the backup for nothing except giving it back to you.',
     ],
   },
@@ -565,13 +687,29 @@ const TERMS_EN: LegalSection[] = [
     bullets: [
       'The free version is a complete app: every ready-made programme, the full exercise library, unlimited logging, your progress, and export. It has limits on building — three programmes of your own, two in use at a time — and it shows trends and records over the most recent three months.',
       'Pro unlocks the features listed on the Pro page in the app at the time you buy it, including the coach’s online mode up to the monthly number of questions shown in the app. Pro can be a monthly subscription, a yearly subscription, or a one-time lifetime purchase.',
-      'Payment is charged through Google Play at the price shown there when you confirm the purchase. We do not handle payments ourselves.',
-      'Subscriptions renew automatically unless you cancel at least 24 hours before the period ends. Cancel in Google Play — the End membership screen in the app takes you there. Cancelling stops the next renewal; Pro stays on until the paid period ends.',
+      `Payment is charged through ${pick(p, {
+        android: 'Google Play',
+        ios: 'the App Store',
+        both: 'Google Play on Android and through the App Store on iPhone',
+      })} at the price shown there when you confirm the purchase. We do not handle payments ourselves.`,
+      `Subscriptions renew automatically unless you cancel at least 24 hours before the period ends. Cancel ${pick(p, {
+        android: 'in Google Play',
+        ios: 'in your Apple ID’s subscriptions',
+        both: 'in Google Play on Android, or in your Apple ID’s subscriptions on iPhone',
+      })} — the End membership screen in the app takes you there. Cancelling stops the next renewal; Pro stays on until the paid period ends.`,
       'Lifetime means use of the service for as long as Vinha is offered commercially and maintained. If the service is discontinued for good, the lifetime licence ends with it. It is a single payment with nothing to renew or cancel.',
       'When Pro ends, nothing you logged is lost. Your data, your programmes and your history stay; only the Pro features lock until Pro is on again.',
-      'Refunds follow Google Play’s refund policy and your statutory consumer rights, including a right of withdrawal where the law gives you one. Pro starts the moment the purchase is confirmed, and by using it straight away you agree that the service begins at once.',
+      `Refunds follow ${pick(p, {
+        android: 'Google Play’s refund policy',
+        ios: 'Apple’s refund policy, and are requested from Apple',
+        both: 'the refund policy of the store you bought from — Google Play’s on Android, Apple’s on iPhone, where they are requested from Apple —',
+      })} and your statutory consumer rights, including a right of withdrawal where the law gives you one. Pro starts the moment the purchase is confirmed, and by using it straight away you agree that the service begins at once.`,
       'Promo codes may be limited in time or number, can expire, and have no cash value.',
-      'If a price changes, you will be told in advance through Google Play, and the change never applies to a period you have already paid for.',
+      `If a price changes, you will be told in advance through ${pick(p, {
+        android: 'Google Play',
+        ios: 'Apple',
+        both: 'Google Play or Apple, whichever you bought from',
+      })}, and the change never applies to a period you have already paid for.`,
     ],
   },
   {
@@ -610,8 +748,12 @@ const TERMS_EN: LegalSection[] = [
   {
     heading: 'Changes and ending',
     body: [
-      'We may update these terms as the app changes. Material changes are shown in the app before they take effect, and continuing to use Vinha after that means you accept them. If you do not, stop using the app — and if you have an active subscription, cancel it in Google Play.',
-      'You can stop at any time by uninstalling the app. Your data on the phone goes with it; the cloud backup stays until you delete it in Settings.',
+      `We may update these terms as the app changes. Material changes are shown in the app before they take effect, and continuing to use Vinha after that means you accept them. If you do not, stop using the app — and if you have an active subscription, cancel it ${pick(p, {
+        android: 'in Google Play',
+        ios: 'in your Apple ID’s subscriptions',
+        both: 'in the store you bought it from',
+      })}.`,
+      'You can stop at any time by uninstalling the app. Your data on the phone goes with it; the cloud backup stays until you delete it in Settings, where Delete account removes it and signs you out.',
       'We may end your access to the server features, or to the app, if you seriously breach these terms. We may also discontinue Vinha or its server features; if that happens, we will say so in the app in advance, and your data stays on your phone and exportable.',
     ],
   },
@@ -623,7 +765,7 @@ const TERMS_EN: LegalSection[] = [
   },
 ];
 
-const TERMS_FI: LegalSection[] = [
+const termsFi = (p: LegalPlatform): LegalSection[] => [
   {
     heading: 'Lyhyesti',
     body: [
@@ -674,7 +816,7 @@ const TERMS_FI: LegalSection[] = [
     heading: 'Tietosi ja varmuuskopiot',
     body: [
       'Treenitietosi ovat puhelimessasi. Jos et kirjaudu sisään, niistä ei ole missään kopiota, johon me pääsisimme käsiksi — emme siis voi palauttaa niitä sinulle, jos hukkaat puhelimesi, poistat sovelluksen tai nollaat tietosi. Vie lokisi CSV-muodossa asetuksista aina, kun haluat oman kopion.',
-      'Jos kirjaudut Googlella, vapaaehtoinen pilvivarmuuskopio pitää yhden kopion palvelimellamme, jotta uusi puhelin voi palauttaa sen. Se on apu, ei takuu: pidä oma vientisi kaikesta, mitä et voi menettää. Varmuuskopion voi palauttaa vain kirjautumalla samalla Google-tilillä, joten pidä pääsy siihen tiliin tallessa.',
+      `Jos kirjaudut ${pick(p, { android: 'Googlella', ios: 'Googlella tai Applella', both: 'Googlella tai Applella' })}, vapaaehtoinen pilvivarmuuskopio pitää yhden kopion palvelimellamme, jotta uusi puhelin voi palauttaa sen. Se on apu, ei takuu: pidä oma vientisi kaikesta, mitä et voi menettää. Varmuuskopion voi palauttaa vain kirjautumalla samalla tilillä, joten pidä pääsy siihen tiliin tallessa.`,
       'Tietosi ovat sinun. Emme vaadi oikeuksia mihinkään, mitä kirjaat, rakennat tai tuot, emmekä käytä varmuuskopiota mihinkään muuhun kuin sen palauttamiseen sinulle.',
     ],
   },
@@ -683,13 +825,29 @@ const TERMS_FI: LegalSection[] = [
     bullets: [
       'Ilmainen versio on kokonainen sovellus: jokainen valmis ohjelma, koko liikekirjasto, rajaton kirjaus, kehityksesi ja vienti. Rakentamisella on rajat — kolme omaa ohjelmaa, kaksi käytössä kerrallaan — ja trendit ja ennätykset näytetään viimeisimmän kolmen kuukauden ajalta.',
       'Pro avaa ne ominaisuudet, jotka on lueteltu sovelluksen Pro-sivulla ostohetkellä, mukaan lukien valmentajan verkkotilan sovelluksessa näytettyyn kuukausittaiseen kysymysmäärään asti. Pro voi olla kuukausitilaus, vuositilaus tai kertaostona elinikäinen.',
-      'Maksu veloitetaan Google Playn kautta siellä ostoa vahvistettaessa näkyvällä hinnalla. Emme käsittele maksuja itse.',
-      'Tilaus uusiutuu automaattisesti, ellet peruuta sitä vähintään 24 tuntia ennen kauden päättymistä. Peruuta Google Playssä — sovelluksen Lopeta jäsenyys -ruutu vie sinut sinne. Peruutus lopettaa seuraavan uusiutumisen; Pro pysyy päällä maksetun kauden loppuun.',
+      `Maksu veloitetaan ${pick(p, {
+        android: 'Google Playn kautta',
+        ios: 'App Storen kautta',
+        both: 'Androidilla Google Playn kautta ja iPhonella App Storen kautta',
+      })} siellä ostoa vahvistettaessa näkyvällä hinnalla. Emme käsittele maksuja itse.`,
+      `Tilaus uusiutuu automaattisesti, ellet peruuta sitä vähintään 24 tuntia ennen kauden päättymistä. Peruuta ${pick(p, {
+        android: 'Google Playssä',
+        ios: 'Apple ID:si tilauksissa',
+        both: 'Androidilla Google Playssä tai iPhonella Apple ID:si tilauksissa',
+      })} — sovelluksen Lopeta jäsenyys -ruutu vie sinut sinne. Peruutus lopettaa seuraavan uusiutumisen; Pro pysyy päällä maksetun kauden loppuun.`,
       'Elinikäinen tarkoittaa palvelun käyttöä niin kauan kuin Vinhaa tarjotaan kaupallisesti ja sitä ylläpidetään. Jos palvelu lopetetaan pysyvästi, elinikäinen käyttöoikeus päättyy samalla. Se on kertamaksu, jossa ei ole mitään uusittavaa tai peruttavaa.',
       'Kun Pro päättyy, mitään kirjaamaasi ei menetetä. Tietosi, ohjelmasi ja historiasi säilyvät; vain Pro-ominaisuudet menevät lukkoon, kunnes Pro on taas päällä.',
-      'Palautukset noudattavat Google Playn palautuskäytäntöä ja lakisääteisiä kuluttajaoikeuksiasi, mukaan lukien peruuttamisoikeus silloin, kun laki sen sinulle antaa. Pro alkaa heti, kun osto on vahvistettu, ja ottamalla sen heti käyttöön hyväksyt, että palvelu alkaa välittömästi.',
+      `Palautukset noudattavat ${pick(p, {
+        android: 'Google Playn palautuskäytäntöä',
+        ios: 'Applen palautuskäytäntöä, ja ne pyydetään Applelta',
+        both: 'sen kaupan palautuskäytäntöä, josta ostit — Androidilla Google Playn, iPhonella Applen, jolta ne pyydetään —',
+      })} ja lakisääteisiä kuluttajaoikeuksiasi, mukaan lukien peruuttamisoikeus silloin, kun laki sen sinulle antaa. Pro alkaa heti, kun osto on vahvistettu, ja ottamalla sen heti käyttöön hyväksyt, että palvelu alkaa välittömästi.`,
       'Kampanjakoodit voivat olla aika- tai määrärajattuja, ne voivat vanheta, eikä niillä ole rahallista arvoa.',
-      'Jos hinta muuttuu, saat siitä tiedon etukäteen Google Playn kautta, eikä muutos koskaan koske jo maksamaasi kautta.',
+      `Jos hinta muuttuu, saat siitä tiedon etukäteen ${pick(p, {
+        android: 'Google Playn',
+        ios: 'Applen',
+        both: 'sen kaupan, josta ostit (Google Play tai Apple),',
+      })} kautta, eikä muutos koskaan koske jo maksamaasi kautta.`,
     ],
   },
   {
@@ -728,8 +886,12 @@ const TERMS_FI: LegalSection[] = [
   {
     heading: 'Muutokset ja päättyminen',
     body: [
-      'Voimme päivittää näitä ehtoja sovelluksen muuttuessa. Olennaiset muutokset näytetään sovelluksessa ennen voimaantuloa, ja käytön jatkaminen sen jälkeen tarkoittaa, että hyväksyt ne. Jos et hyväksy, lopeta sovelluksen käyttö — ja jos sinulla on voimassa oleva tilaus, peruuta se Google Playssä.',
-      'Voit lopettaa milloin tahansa poistamalla sovelluksen. Puhelimessa olevat tietosi lähtevät sen mukana; pilvivarmuuskopio säilyy, kunnes poistat sen asetuksista.',
+      `Voimme päivittää näitä ehtoja sovelluksen muuttuessa. Olennaiset muutokset näytetään sovelluksessa ennen voimaantuloa, ja käytön jatkaminen sen jälkeen tarkoittaa, että hyväksyt ne. Jos et hyväksy, lopeta sovelluksen käyttö — ja jos sinulla on voimassa oleva tilaus, peruuta se ${pick(p, {
+        android: 'Google Playssä',
+        ios: 'Apple ID:si tilauksissa',
+        both: 'siinä kaupassa, josta ostit',
+      })}.`,
+      'Voit lopettaa milloin tahansa poistamalla sovelluksen. Puhelimessa olevat tietosi lähtevät sen mukana; pilvivarmuuskopio säilyy, kunnes poistat sen asetuksista (Poista tili poistaa sen ja kirjaa sinut ulos).',
       'Voimme päättää pääsysi palvelintoimintoihin tai sovellukseen, jos rikot näitä ehtoja vakavasti. Voimme myös lopettaa Vinhan tai sen palvelintoiminnot; jos niin käy, kerromme siitä sovelluksessa etukäteen, ja tietosi säilyvät puhelimessasi ja vietävissä.',
     ],
   },
@@ -783,15 +945,23 @@ function formatUpdated(language: AppLanguage): string {
   return language === 'fi' ? `Päivitetty ${formatLegalDate(language)}` : `Updated ${formatLegalDate(language)}`;
 }
 
-export function buildLegalDocument(id: LegalDocumentId, language: AppLanguage): LegalDocument {
+/**
+ * The document for one reader's phone. Without a platform it is the
+ * published one, which covers both stores.
+ */
+export function buildLegalDocument(
+  id: LegalDocumentId,
+  language: AppLanguage,
+  platform: LegalPlatform = 'both',
+): LegalDocument {
   const sections =
     id === 'privacy'
       ? language === 'fi'
-        ? PRIVACY_FI
-        : PRIVACY_EN
+        ? privacyFi(platform)
+        : privacyEn(platform)
       : language === 'fi'
-        ? TERMS_FI
-        : TERMS_EN;
+        ? termsFi(platform)
+        : termsEn(platform);
   const meta = TITLES[id][language];
   return {
     id,

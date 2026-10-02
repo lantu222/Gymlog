@@ -91,7 +91,7 @@ async function withHook({ local, stored = null, cloud = null }, scenario) {
   const clock = createClock();
   const runtime = createHookRuntime();
   const listeners = new Set();
-  const calls = { upload: 0, download: 0, delete: 0, restoreDatabase: 0, restoreHistory: 0, restored: 0, expected: [] };
+  const calls = { upload: 0, download: 0, delete: 0, deleteOptions: [], signedOut: 0, restoreDatabase: 0, restoreHistory: 0, restored: 0, expected: [] };
   const server = Object.assign(versionedStore(cloud), { uploadError: null, downloadError: null, deleteOk: true, gates: {} });
   const google = {
     silent: { status: 'ok', idToken: 'token' },
@@ -143,8 +143,9 @@ async function withHook({ local, stored = null, cloud = null }, scenario) {
         }
         return server.blob ? { ok: true, payload: server.blob, version: server.version } : { ok: false, error: 'NO_BACKUP' };
       },
-      async deleteBackup() {
+      async deleteBackup(_token, options) {
         calls.delete += 1;
+        calls.deleteOptions.push(options);
         await pass(server.gates, 'delete');
         if (!server.deleteOk) {
           return { ok: false };
@@ -158,7 +159,9 @@ async function withHook({ local, stored = null, cloud = null }, scenario) {
       isAccountSignInConfigured: () => true,
       signInWith: async () => google.signIn,
       getFreshIdToken: async () => google.silent,
-      signOutAccount: async () => undefined,
+      signOutAccount: async () => {
+        calls.signedOut += 1;
+      },
     },
     './accountStore': {
       loadStoredAccount: async () => store.account,
@@ -808,6 +811,56 @@ module.exports = [
         assert.equal(await env.api.deleteRemoteBackup(), 'failed');
         assert.equal(env.store.account.lastBackupAt, '2026-09-10T08:00:00.000Z', 'a failed delete cleared the backup row');
         assert.equal(env.store.account.autoBackupPaused, false);
+      });
+    },
+  },
+  {
+    name: 'account hook: deleting the account asks the server to end the sign-in, and signs out only after it said yes',
+    async run() {
+      const local = database({ workoutSessions: [workout('a')] });
+      await withHook({ local, stored: syncedAccount(local), cloud: cloudCopy(local) }, async (env) => {
+        env.server.gates.delete = deferred();
+        const pending = env.api.deleteAccount();
+        await env.settle();
+        // In flight: still signed in, nothing says done, the other rows wait.
+        assert.equal(env.api.phase, 'deleting');
+        assert.equal(env.api.state.status, 'signed_in');
+        assert.notEqual(env.store.account, null, 'the account was forgotten before the server answered');
+        assert.equal(env.calls.signedOut, 0);
+
+        env.server.gates.delete.resolve();
+        assert.equal(await pending, 'done');
+        await env.settle();
+        assert.deepEqual(env.calls.deleteOptions, [{ account: true }], 'the server was not told this is the account');
+        assert.equal(env.server.blob, null);
+        assert.equal(env.store.account, null);
+        assert.equal(env.api.state.status, 'signed_out');
+        assert.equal(env.calls.signedOut, 1, 'the Google / Apple session on the phone was kept');
+        assert.equal(env.api.phase, 'idle');
+        // The phone's own data is not the reader's account: it stays.
+        assert.equal(env.app.database.workoutSessions.length, 1);
+        // The data left here is remembered as this account's, as after any sign-out.
+        assert.deepEqual(env.store.signedOut, ['sub-1']);
+      });
+      // The server refused: still signed in, nothing forgotten, nothing claimed.
+      await withHook({ local, stored: syncedAccount(local), cloud: cloudCopy(local) }, async (env) => {
+        env.server.deleteOk = false;
+        assert.equal(await env.api.deleteAccount(), 'failed');
+        await env.settle();
+        assert.equal(env.api.state.status, 'signed_in');
+        assert.notEqual(env.store.account, null);
+        assert.equal(env.calls.signedOut, 0);
+        assert.equal(env.api.phase, 'idle');
+        // And can be asked again.
+        env.server.deleteOk = true;
+        assert.equal(await env.api.deleteAccount(), 'done');
+      });
+      // Deleting only the copy still keeps the reader signed in, and does not ask for the account to go.
+      await withHook({ local, stored: syncedAccount(local), cloud: cloudCopy(local) }, async (env) => {
+        assert.equal(await env.api.deleteRemoteBackup(), 'done');
+        assert.deepEqual(env.calls.deleteOptions, [undefined]);
+        assert.equal(env.api.state.status, 'signed_in');
+        assert.equal(env.calls.signedOut, 0);
       });
     },
   },

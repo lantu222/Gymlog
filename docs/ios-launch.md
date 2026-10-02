@@ -63,5 +63,28 @@ custom review prompts — and "Rate Vinha" opens the write-review page.
 - **Real billing, on both platforms.** Pro is still the simulated purchase of
   the demo build (`extra.demoBuild`); neither store charges yet.
 
+- **Apple's token revocation on account deletion.** Settings → Delete account
+  deletes the cloud copy, ends the server's own sessions and signs the phone out
+  (`delete-account`, docs/account-backup.md), but it does not call Apple's
+  `POST https://appleid.apple.com/auth/revoke`, so Vinha stays in the reader's
+  Apple ID → Sign in with Apple list until they remove it themselves; the
+  privacy text says so. App Review 5.1.1(v) accepts in-app deletion; Apple also
+  asks apps that use Sign in with Apple to revoke the token on deletion. What
+  it needs, none of which the repo has: the Team ID, a Sign in with Apple Key ID
+  and its `.p8` private key (Apple Developer → Keys), used to sign an ES256
+  client-secret JWT (`iss` = Team ID, `sub` = `app.vinha`, `aud` =
+  `https://appleid.apple.com`, `kid` = Key ID, expiry ≤ 6 months); and the
+  user's Apple authorization code (or refresh token) from the sign-in — the app
+  does not keep either today: `signInWithApple` reads only the identity token.
+  So: request `AppleAuthentication.signInAsync`'s `authorizationCode`, send it
+  with the exchange, have `api/backup.ts` trade it at `/auth/token` for a
+  refresh token (stored next to the revocation marker), and call `/auth/revoke`
+  with the client secret on `delete-account`. Env: `APPLE_TEAM_ID`,
+  `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`.
+- Purging `revoked/` markers older than 180 days (they stop mattering then).
+- Excluding the app's data from the iPhone's own backup (the policy now says it
+  is included, under Apple's terms). The alternative would be setting
+  `isExcludedFromBackup` on the AsyncStorage directory in a config plugin, as
+  `plugins/withDataExtractionRules.js` does for Android; it needs a device test.
 - iPad layout (`supportsTablet: false` until it has been designed and tested).
 - Home-screen widget (needs a WidgetKit extension in Swift).

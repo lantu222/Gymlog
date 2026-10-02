@@ -142,8 +142,12 @@ async function verifyGoogleIdToken(idToken: string, clientId: string): Promise<V
  * no silent refresh like Google's, so a background backup an hour later would
  * have nothing to send. The phone trades the identity token once, here, for an
  * Apple session: `vs1.<payload>.<mac>`, signed with a key derived from
- * BACKUP_PATH_SECRET, naming the Apple subject and an expiry. The phone checks
- * with Apple that the sign-in has not been revoked before it sends one.
+ * BACKUP_PATH_SECRET, naming the Apple subject, the time it was issued and an
+ * expiry. The phone checks with Apple that the sign-in has not been revoked
+ * before it sends one, and deleting the account (DELETE with
+ * `x-backup-action: delete-account`) records a revocation that ends every
+ * session issued before it. Apple's own token revocation is not called: it
+ * needs a client secret signed with the team's key (docs/ios-launch.md).
  *
  * Apple subjects are stored as `apple:<sub>`, so they can never land on a
  * Google account's blob. Google subjects stay bare: prefixing them now would
@@ -158,6 +162,12 @@ const ACTION_HEADER = 'x-backup-action';
 const APPLE_SESSION_ACTION = 'apple-session';
 /** Trades a still-valid Apple session for a fresh one, so an active reader is never timed out. */
 const APPLE_RENEW_ACTION = 'apple-renew';
+/**
+ * On a DELETE: the reader is deleting the account, not only the copy. A plain
+ * DELETE ("Delete cloud backup") keeps them signed in, so it must not end the
+ * session that sent it.
+ */
+const DELETE_ACCOUNT_ACTION = 'delete-account';
 
 type AppleKey = { kty: string; n: string; e: string; kid?: string; alg?: string };
 let appleKeys: { keys: AppleKey[]; fetchedAt: number } | null = null;
@@ -234,14 +244,61 @@ function appleSessionKey(pathSecret: string): Buffer {
   return createHmac('sha256', pathSecret).update('apple-session-v1').digest();
 }
 
+/**
+ * A session carries the second it was issued (`iat`). One from before sessions
+ * carried it has none, and is taken to have been issued 180 days before it
+ * expires — which is exactly when it was, since every session lasts that long.
+ */
 function issueAppleSession(sub: string, pathSecret: string): { sessionToken: string; expiresAt: string } {
-  const expiresAtMs = Date.now() + APPLE_SESSION_DAYS * 24 * 60 * 60 * 1000;
-  const payload = Buffer.from(JSON.stringify({ sub, exp: Math.floor(expiresAtMs / 1000) })).toString('base64url');
+  const issuedAtMs = Date.now();
+  const expiresAtMs = issuedAtMs + APPLE_SESSION_DAYS * 24 * 60 * 60 * 1000;
+  const payload = Buffer.from(
+    JSON.stringify({ sub, iat: Math.floor(issuedAtMs / 1000), exp: Math.floor(expiresAtMs / 1000) }),
+  ).toString('base64url');
   const mac = createHmac('sha256', appleSessionKey(pathSecret)).update(payload).digest('base64url');
   return { sessionToken: `${APPLE_SESSION_PREFIX}${payload}.${mac}`, expiresAt: new Date(expiresAtMs).toISOString() };
 }
 
-function verifyAppleSession(token: string, pathSecret: string): VerifiedIdentity | null {
+/** The revocation record could not be read or written: neither "revoked" nor "fine". */
+class StoreUnavailable extends Error {}
+
+/**
+ * Where an Apple account's revocation is recorded: `revoked/<hash>.json`, next
+ * to the backups, under a hash of its own so it never names the account and
+ * never lands on a backup's pathname.
+ */
+function revocationPathname(sub: string, secret: string): string {
+  return `revoked/${createHmac('sha256', secret).update(`revoked:${sub}`).digest('hex')}.json`;
+}
+
+/** When (unix seconds) the account's sessions were last ended, or null if never. */
+async function revokedAtOf(sub: string, secret: string): Promise<number | null> {
+  let stored;
+  try {
+    stored = await get(revocationPathname(sub, secret), { access: 'private', useCache: false });
+  } catch (error) {
+    if (error instanceof BlobNotFoundError) {
+      return null;
+    }
+    throw new StoreUnavailable();
+  }
+  if (!stored || stored.statusCode !== 200) {
+    return null;
+  }
+  try {
+    const record = JSON.parse(await new Response(stored.stream).text()) as { revokedAt?: unknown };
+    if (typeof record.revokedAt === 'number' && Number.isFinite(record.revokedAt)) {
+      return record.revokedAt;
+    }
+  } catch {
+    // Unreadable: falls through to the safe reading below.
+  }
+  // A record that exists but says nothing usable still means "ended once":
+  // every session up to now is refused, and a sign-in after this works.
+  return Math.floor(Date.now() / 1000);
+}
+
+async function verifyAppleSession(token: string, pathSecret: string): Promise<VerifiedIdentity | null> {
   const [payload, mac, extra] = token.slice(APPLE_SESSION_PREFIX.length).split('.');
   if (!payload || !mac || extra !== undefined) {
     return null;
@@ -250,14 +307,22 @@ function verifyAppleSession(token: string, pathSecret: string): VerifiedIdentity
   if (!sameText(mac, expected)) {
     return null;
   }
-  const claims = decodeSegment<{ sub?: string; exp?: number }>(payload);
+  const claims = decodeSegment<{ sub?: string; iat?: number; exp?: number }>(payload);
   if (!claims || typeof claims.sub !== 'string' || !claims.sub || typeof claims.exp !== 'number') {
     return null;
   }
   if (claims.exp * 1000 < Date.now()) {
     return null;
   }
-  return { sub: `apple:${claims.sub}` };
+  const sub = `apple:${claims.sub}`;
+  // Ended by an account deletion since it was issued? A session is otherwise
+  // good for 180 days and renews itself, so without this nothing stops it.
+  const issuedAt = typeof claims.iat === 'number' ? claims.iat : claims.exp - APPLE_SESSION_DAYS * 24 * 60 * 60;
+  const revokedAt = await revokedAtOf(sub, pathSecret);
+  if (revokedAt !== null && issuedAt <= revokedAt) {
+    return null;
+  }
+  return { sub };
 }
 
 /** Deterministic, unguessable pathname for one account's backup. */
@@ -356,7 +421,16 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       res.status(405).json({ ok: false, error: 'METHOD_NOT_ALLOWED' });
       return;
     }
-    const current = token.startsWith(APPLE_SESSION_PREFIX) ? verifyAppleSession(token, pathSecret) : null;
+    let current: VerifiedIdentity | null = null;
+    try {
+      current = token.startsWith(APPLE_SESSION_PREFIX) ? await verifyAppleSession(token, pathSecret) : null;
+    } catch (error) {
+      if (error instanceof StoreUnavailable) {
+        console.error('backup revocation record unreadable');
+        res.status(502).json({ ok: false, error: 'STORE_UNAVAILABLE' });
+        return;
+      }
+    }
     if (!current) {
       res.status(401).json({ ok: false, error: 'INVALID_TOKEN' });
       return;
@@ -387,9 +461,16 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   let identity: VerifiedIdentity | null = null;
   try {
     identity = token.startsWith(APPLE_SESSION_PREFIX)
-      ? verifyAppleSession(token, pathSecret)
+      ? await verifyAppleSession(token, pathSecret)
       : await verifyGoogleIdToken(token, clientId);
-  } catch {
+  } catch (error) {
+    // A store that cannot answer is not a sign-in that failed: a 401 here
+    // signs the phone out, a 502 is tried again.
+    if (error instanceof StoreUnavailable) {
+      console.error('backup revocation record unreadable');
+      res.status(502).json({ ok: false, error: 'STORE_UNAVAILABLE' });
+      return;
+    }
     identity = null;
   }
   if (!identity) {
@@ -492,6 +573,25 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         // was still on the server.
         if (!(error instanceof BlobNotFoundError)) {
           console.error('backup DELETE failed:', error instanceof Error ? error.message.slice(0, 200) : 'unknown');
+          res.status(502).json({ ok: false, error: 'STORE_UNAVAILABLE' });
+          return;
+        }
+      }
+      // Deleting the account, not just the copy: the Apple sessions this
+      // server has issued for it stop working, this phone's included. Written
+      // AFTER the copy is gone, so a failure here leaves the session alive and
+      // the reader able to ask again — the other order would lock them out of
+      // a copy they were deleting. A Google account has no session of ours to
+      // end (Google's token is checked with Google on every request).
+      if (action === DELETE_ACCOUNT_ACTION && identity.sub.startsWith('apple:')) {
+        try {
+          await put(
+            revocationPathname(identity.sub, pathSecret),
+            JSON.stringify({ revokedAt: Math.floor(Date.now() / 1000) }),
+            { access: 'private', contentType: 'application/json', addRandomSuffix: false, allowOverwrite: true },
+          );
+        } catch (error) {
+          console.error('backup revocation failed:', error instanceof Error ? error.message.slice(0, 200) : 'unknown');
           res.status(502).json({ ok: false, error: 'STORE_UNAVAILABLE' });
           return;
         }

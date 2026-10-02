@@ -128,6 +128,25 @@ the phone trades it once for an **Apple session** issued by `api/backup.ts`:
    never timed out. Only a session that has actually run out — months offline —
    counts as signed out, and the reader signs in again with one Face ID.
 
+**Delete account (2026-10-02).** Settings → Delete account sends `DELETE` with
+`x-backup-action: delete-account`. The server deletes the copy first, then
+writes `revoked/<hmac>.json` — `{ "revokedAt": <unix seconds> }`, under a hash
+of the account that is not the backup's pathname — and from then on every
+Apple session issued at or before that second is refused (`verifyAppleSession`
+on every request, `apple-renew` included). Sessions carry `iat`; one from
+before `iat` existed counts as issued at `exp − 180 days`. A new Apple sign-in
+afterwards is a later session and works. The copy goes first so a failed marker
+write leaves the session alive and the reader can ask again. A plain `DELETE`
+("Delete cloud backup") writes no marker: it keeps the reader signed in. A store
+that cannot read the marker answers 502, not 401, so a blip does not sign a
+phone out. The app signs out locally (clears the Google or Apple session and
+the account record) only after the server said yes, then shows the done
+message. Google accounts have no session of ours; only the copy is deleted.
+Nothing purges the markers; once 180 days have passed they no longer change
+anything, and the policy says they are removed on request. **Needs a Vercel
+deploy** — until then the app's `delete-account` request is an ordinary
+`DELETE` that leaves the Apple sessions alive.
+
 Apple accounts are stored under `apple:<sub>`, so an Apple account and a
 Google account never share a blob. Google subjects stay unprefixed — changing
 them would orphan every existing backup.
