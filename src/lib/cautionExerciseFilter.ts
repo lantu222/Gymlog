@@ -49,7 +49,6 @@ export const AREA_CAREFUL_SWAPS: Record<SetupCautionArea, Array<[string, string]
     ['bench press', 'Machine Chest Press'],
     ['dip', 'Machine Chest Press'],
     ['dippi', 'Machine Chest Press'],
-    ['dipit', 'Machine Chest Press'],
   ],
   lower_back: [
     ['romanian deadlift', 'Hip Thrust'],

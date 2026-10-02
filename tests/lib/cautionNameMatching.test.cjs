@@ -151,14 +151,17 @@ module.exports = [
     // whole-word matching must not lose them (review, 2026-10-02).
     name: 'cautionNameMatching: Finnish names for dips and curls still hit, leg curls still do not hit elbows',
     run() {
-      for (const name of ['Dippi', 'Dipit', 'Penkkidippi', 'Tricepsdipit', 'Dippi (painolla)']) {
+      for (const name of ['Dippi', 'Dipit', 'Penkkidippi', 'Tricepsdipit', 'Lisäpainodipit', 'Dippi (painolla)']) {
         assert.equal(hits(name, 'shoulders'), true, `${name} must hit shoulders`);
         assert.equal(hits(name, 'elbows'), true, `${name} must hit elbows`);
       }
       for (const name of ['Hauiscurl', 'Vasaracurl', 'Curl', 'Hauiscurlit']) {
         assert.equal(hits(name, 'elbows'), true, `${name} must hit elbows`);
       }
-      for (const name of ['Jalkacurl', 'Reisicurl', 'Takareisicurl']) {
+      for (const name of [
+        'Jalkacurl', 'Reisicurl', 'Takareisicurl', 'Reisicurlit', 'Jalkacurlit', 'Takareisicurlit',
+        'Reisi curl', 'Jalka-curl', 'Takareisi curl', 'Seated Reisi Curl',
+      ]) {
         assert.equal(hits(name, 'elbows'), false, `${name} must not hit elbows`);
       }
       // Whole-word still applies to the English ones.

@@ -395,7 +395,20 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
     const change = Math.max(...lift.latestReps) - Math.max(...lift.firstReps);
     const moved = `best set ${change > 0 ? '+' : ''}${change} reps over ${lift.spanDays} day${lift.spanDays === 1 ? '' : 's'}`;
     const same = `the same ${lift.bestSetRepsSeries[lift.bestSetRepsSeries.length - 1]} reps for ${lift.unchangedSessions} session${lift.unchangedSessions === 1 ? '' : 's'}`;
-    const move = change === 0 ? same : lift.unchangedSessions >= 3 ? `${moved}, but ${same}` : moved;
+    // The same hold as the kg lifts above: a flagged area's reps are not added.
+    const held = heldArea(lift.name);
+    const heldText = held
+      ? `held at ${lift.bestSetRepsSeries[lift.bestSetRepsSeries.length - 1]} reps on purpose for the flagged ${held.replace('_', ' ')} area (the app adds no reps there, so this is not a stall)`
+      : null;
+    const move = heldText
+      ? change === 0
+        ? heldText
+        : `${moved}, ${heldText}`
+      : change === 0
+        ? same
+        : lift.unchangedSessions >= 3
+          ? `${moved}, but ${same}`
+          : moved;
     return `- ${liftName(lift.name)} (no added load): ${move} | best set per session ${series} | first ${lift.firstReps.join(', ')} | latest ${lift.latestReps.join(', ')}`;
   });
   trajectoryLines.push(...repsLiftLines);

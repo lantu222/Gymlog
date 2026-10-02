@@ -35,7 +35,6 @@ const AREA_AVOID_PATTERNS: Record<SetupCautionArea, string[]> = {
     'handstand',
     'dip',
     'dippi',
-    'dipit',
   ],
   lower_back: [
     'deadlift',
@@ -60,7 +59,7 @@ const AREA_AVOID_PATTERNS: Record<SetupCautionArea, string[]> = {
     'box jump',
     'wall sit',
   ],
-  elbows: ['curl', 'skull crusher', 'triceps', 'close-grip', 'pushdown', 'dip', 'dippi', 'dipit'],
+  elbows: ['curl', 'skull crusher', 'triceps', 'close-grip', 'pushdown', 'dip', 'dippi'],
   wrists: ['barbell curl', 'push-up', 'front squat', 'handstand', 'wrist'],
   hips: ['hip thrust', 'sumo', 'adductor', 'abductor', 'bulgarian', 'pistol'],
   neck: ['shrug', 'neck', 'behind-the-neck'],
@@ -79,7 +78,17 @@ const AREA_EXCLUDE_PATTERNS: Record<SetupCautionArea, string[]> = {
   knees: ['calf press on the leg press'],
   // "curl" is also the hamstring curl and the prone back raise, and the
   // Finnish leg curls ("jalkacurl") that the compound rule below would catch.
-  elbows: ['leg curl', 'hamstring curl', 'lower back curl', 'jalkacurl', 'reisicurl', 'takareisicurl'],
+  elbows: [
+    'leg curl',
+    'hamstring curl',
+    'lower back curl',
+    'jalkacurl',
+    'reisicurl',
+    'takareisicurl',
+    'jalka curl',
+    'reisi curl',
+    'takareisi curl',
+  ],
   wrists: [],
   hips: [],
   neck: [],
@@ -120,7 +129,15 @@ export function phraseWords(phrase: string): string[] {
  * word, so for just these a name word may END in the base. Not for any other
  * pattern: "run" must stay out of "crunch".
  */
-const COMPOUND_FINAL_BASES = new Set(['dip', 'dippi', 'dipit', 'curl']);
+const COMPOUND_FINAL_BASES = new Set([
+  'dip',
+  'dippi',
+  'curl',
+  // The Finnish leg curls the elbow exclusions name: Reisicurlit, Jalkacurlit.
+  'jalkacurl',
+  'reisicurl',
+  'takareisicurl',
+]);
 
 /** `word` is `base` or `base` with a plain ending: s, es, ing (run -> running, lunge -> lunging). */
 function wordMatches(word: string | null, base: string): boolean {
