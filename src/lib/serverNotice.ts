@@ -139,6 +139,22 @@ export function serverNoticeUrl(serverUrls: readonly (string | undefined)[]): st
  */
 export const SERVER_NOTICE_RECHECK_MS = 6 * 60 * 60 * 1000;
 
-export function shouldCheckServerNotice(lastCheckedMs: number | null, nowMs: number): boolean {
-  return lastCheckedMs === null || nowMs - lastCheckedMs >= SERVER_NOTICE_RECHECK_MS || nowMs < lastCheckedMs;
+/** After a failed ask (offline, a 5xx) the next one waits this long, not hours. */
+export const SERVER_NOTICE_RETRY_MS = 5 * 60 * 1000;
+
+/**
+ * Whether to ask now. Only an answer from the server starts the long window
+ * (`lastAnsweredMs`): a failed ask — the usual outcome of opening the app on
+ * a bad connection — used to count as one and silenced a service-break notice
+ * for six hours. A failure (`lastFailedMs`) only backs off briefly.
+ */
+export function shouldCheckServerNotice(
+  lastAnsweredMs: number | null,
+  nowMs: number,
+  lastFailedMs: number | null = null,
+): boolean {
+  if (lastFailedMs !== null && nowMs >= lastFailedMs && nowMs - lastFailedMs < SERVER_NOTICE_RETRY_MS) {
+    return false;
+  }
+  return lastAnsweredMs === null || nowMs - lastAnsweredMs >= SERVER_NOTICE_RECHECK_MS || nowMs < lastAnsweredMs;
 }

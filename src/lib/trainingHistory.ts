@@ -294,6 +294,46 @@ function sessionsSinceRepBest(run: LiftPoint[]): number {
 }
 
 /**
+ * One point per session, oldest first: a lift logged twice in one workout keeps
+ * its stronger entry (more top-set reps, then more per set).
+ */
+function collapseBySession(run: LiftPoint[]): LiftPoint[] {
+  const bySession = new Map<string, LiftPoint>();
+  for (const point of run) {
+    const kept = bySession.get(point.sessionId);
+    if (
+      !kept ||
+      point.topSetReps > kept.topSetReps ||
+      (point.topSetReps === kept.topSetReps && averageReps(point) > averageReps(kept))
+    ) {
+      bySession.set(point.sessionId, point);
+    }
+  }
+  return [...bySession.values()];
+}
+
+/**
+ * The points behind `stalledSessions`, oldest first. `stalledSessions` counts
+ * sessions while `points` has one entry per log, so slicing `points` by the
+ * count would miss entries when a lift was logged twice in a workout.
+ */
+export function stalledRunPoints(lift: Pick<LiftHistory, 'points' | 'stalledSessions'>): LiftPoint[] {
+  const seen = new Set<string>();
+  let start = lift.points.length;
+  for (let index = lift.points.length - 1; index >= 0; index -= 1) {
+    const id = lift.points[index].sessionId;
+    if (!seen.has(id)) {
+      if (seen.size >= lift.stalledSessions) {
+        break;
+      }
+      seen.add(id);
+    }
+    start = index;
+  }
+  return lift.points.slice(start);
+}
+
+/**
  * Per-lift trajectories across the given sessions, oldest point first.
  *
  * A lift only produces a point for a session where it was genuinely logged, so
@@ -344,14 +384,17 @@ export function buildLiftHistories(
     const first = points[0];
     const latest = points[points.length - 1];
 
-    let stalledSessions = 1;
-    for (let index = points.length - 2; index >= 0; index -= 1) {
-      if (Math.abs(points[index].topSetWeightKg - latest.topSetWeightKg) >= 0.001) {
-        break;
-      }
-      stalledSessions += 1;
+    // The run at the latest weight, counted in SESSIONS: the same lift logged
+    // twice in one workout is one session, not two (a plateau after two
+    // workouts otherwise). `points` keeps one entry per log for the charts.
+    let runStart = points.length - 1;
+    while (
+      runStart > 0 &&
+      Math.abs(points[runStart - 1].topSetWeightKg - latest.topSetWeightKg) < 0.001
+    ) {
+      runStart -= 1;
     }
-    stalledSessions = sessionsSinceRepBest(points.slice(-stalledSessions));
+    const stalledSessions = sessionsSinceRepBest(collapseBySession(points.slice(runStart)));
 
     histories.push({
       key,

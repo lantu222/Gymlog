@@ -111,6 +111,35 @@ module.exports = [
     },
   },
   {
+    name: 'proInsights: "later sets fade" needs sets that fade within the sessions, not a lower total (#bugs 2026-10-02)',
+    run() {
+      // 19, 18, 18 total reps: lower than the first session, but no set faded.
+      // It said "Your later sets fade every session" and told the reader to cut a set.
+      const flat = history({
+        name: 'Bench Press',
+        weights: [60, 60, 60],
+        reps: [[6, 6, 7], [6, 6, 6], [6, 6, 6]],
+      });
+      const flatLift = detectPlateau(flat);
+      assert.ok(flatLift);
+      assert.equal(
+        buildPlateauConclusion(flatLift, 'en', 'beginner').body,
+        'Next time 60 kg × 7 on every set. Once that holds, move up to 62.5 kg.',
+      );
+
+      // A real fade, set by set in each session, still reads as recovery.
+      const fading = history({
+        name: 'Bench Press',
+        weights: [60, 60, 60],
+        reps: [[8, 7, 6], [8, 6, 5], [7, 6, 5]],
+      });
+      assert.equal(
+        buildPlateauConclusion(detectPlateau(fading), 'en', 'beginner').body,
+        'Your later sets fade every session. Hold 60 kg and do one set fewer.',
+      );
+    },
+  },
+  {
     name: 'proInsights: an improving lift is NOT a plateau',
     run() {
       const lifts = history({ weights: [60, 62.5, 65, 67.5, 70] });

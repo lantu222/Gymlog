@@ -48,6 +48,36 @@ function log(sessionId, name, weight, repsPerSet, extra = {}) {
 
 module.exports = [
   {
+    name: 'a lift logged twice in one workout is one session for the stall count',
+    run() {
+      const { stalledRunPoints } = require('../../.test-dist/lib/trainingHistory.js');
+      const sessions = [0, 1, 2].map((index) => session(`s${index}`, 'Push', at((2 - index) * 4), 3000));
+      const twice = (sessionId) => [
+        log(sessionId, 'Bench Press', 60, [8, 8, 8], { id: `${sessionId}-a` }),
+        log(sessionId, 'Bench Press', 60, [8, 8, 8], { id: `${sessionId}-b`, orderIndex: 1 }),
+      ];
+
+      // Two workouts, the second with the lift twice: two sessions, no plateau.
+      const two = buildLiftHistories(sessions.slice(0, 2), [
+        log('s0', 'Bench Press', 60, [8, 8, 8]),
+        ...twice('s1'),
+      ])[0];
+      assert.equal(two.points.length, 3, 'the charts still get one point per log');
+      assert.equal(two.stalledSessions, 2);
+
+      // Three real workouts is the plateau, with the duplicate inside it.
+      const three = buildLiftHistories(sessions, [
+        log('s0', 'Bench Press', 60, [8, 8, 8]),
+        ...twice('s1'),
+        log('s2', 'Bench Press', 60, [8, 8, 8]),
+      ])[0];
+      assert.equal(three.stalledSessions, 3);
+      // The run's points cover every log of those three sessions.
+      assert.equal(stalledRunPoints(three).length, 4);
+      assert.equal(stalledRunPoints(two).length, 3);
+    },
+  },
+  {
     name: 'the week rows survive a clock change',
     run() {
       withHelsinkiClocks(() => {
