@@ -6,6 +6,7 @@ const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 const {
   MAX_SEEN_NOTICE_IDS,
   SERVER_NOTICE_RECHECK_MS,
+  SERVER_NOTICE_RETRY_MS,
   SERVICE_PAUSED,
   isServicePaused,
   normalizeSeenNoticeIds,
@@ -95,6 +96,43 @@ module.exports = [
       assert.equal(shouldCheckServerNotice(now - SERVER_NOTICE_RECHECK_MS, now), true);
       // A clock set back is not a reason to go quiet for hours.
       assert.equal(shouldCheckServerNotice(now + 60 * 1000, now), true);
+    },
+  },
+  {
+    name: 'server notice: a failed ask retries after minutes, only an answer starts the six-hour window',
+    run() {
+      const now = Date.parse('2026-10-01T09:00:00.000Z');
+      const MIN = 60 * 1000;
+      // Never answered, one failure a minute ago: wait out the short backoff.
+      assert.equal(shouldCheckServerNotice(null, now, now - MIN), false);
+      // Never answered, failed past the backoff: ask again (was: six hours of silence).
+      assert.equal(shouldCheckServerNotice(null, now, now - SERVER_NOTICE_RETRY_MS), true);
+      assert.ok(SERVER_NOTICE_RETRY_MS < SERVER_NOTICE_RECHECK_MS);
+      // Answered recently, then a failure: the long window still holds.
+      assert.equal(shouldCheckServerNotice(now - 10 * MIN, now, now - SERVER_NOTICE_RETRY_MS - MIN), false);
+      // A clock set back does not freeze the retry.
+      assert.equal(shouldCheckServerNotice(null, now, now + MIN), true);
+
+      // The dialog records an answer (even "no notice") and a failure apart.
+      const dialog = read('src/features/serverNotice/ServerNoticeDialog.tsx');
+      assert.match(dialog, /if \(answer\) \{\s*lastAnsweredRef\.current = now;/);
+      assert.match(dialog, /\} else \{\s*lastFailedRef\.current = now;/);
+      assert.doesNotMatch(dialog, /lastCheckedRef\.current = now;\s*const answer/, 'the window starts before the answer');
+    },
+  },
+  {
+    name: 'server notice: a closed notice stays closed through a restore and a reset',
+    run() {
+      const { DEVICE_ONLY_PREFERENCE_FIELDS, keepDeviceEntitlement } = require('../../.test-dist/lib/proEntitlement.js');
+      const { preferencesForRestore } = require('../../.test-dist/lib/accountBackup.js');
+      const { createEmptyDatabase } = require('../../.test-dist/data/seed');
+      assert.ok(DEVICE_ONLY_PREFERENCE_FIELDS.includes('seenServerNoticeIds'));
+      const device = { ...createEmptyDatabase('fi').preferences, seenServerNoticeIds: ['closed-here'] };
+      const fromBackup = { ...createEmptyDatabase('fi').preferences, seenServerNoticeIds: [] };
+      assert.deepEqual(keepDeviceEntitlement(fromBackup, device).seenServerNoticeIds, ['closed-here']);
+      assert.deepEqual(preferencesForRestore(fromBackup, device, []).seenServerNoticeIds, ['closed-here']);
+      // The reset keeps the whole list (tests/storage/resetKeepsInstall.test.cjs
+      // reads it from a used install).
     },
   },
   {

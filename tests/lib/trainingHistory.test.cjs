@@ -48,6 +48,55 @@ function log(sessionId, name, weight, repsPerSet, extra = {}) {
 
 module.exports = [
   {
+    name: 'a lift logged twice in one workout is one session for the stall count',
+    run() {
+      const { stalledRunPoints } = require('../../.test-dist/lib/trainingHistory.js');
+      const sessions = [0, 1, 2].map((index) => session(`s${index}`, 'Push', at((2 - index) * 4), 3000));
+      const twice = (sessionId) => [
+        log(sessionId, 'Bench Press', 60, [8, 8, 8], { id: `${sessionId}-a` }),
+        log(sessionId, 'Bench Press', 60, [8, 8, 8], { id: `${sessionId}-b`, orderIndex: 1 }),
+      ];
+
+      // Two workouts, the second with the lift twice: two sessions, no plateau.
+      const two = buildLiftHistories(sessions.slice(0, 2), [
+        log('s0', 'Bench Press', 60, [8, 8, 8]),
+        ...twice('s1'),
+      ])[0];
+      assert.equal(two.points.length, 3, 'the charts still get one point per log');
+      assert.equal(two.stalledSessions, 2);
+
+      // Three real workouts is the plateau, with the duplicate inside it.
+      const three = buildLiftHistories(sessions, [
+        log('s0', 'Bench Press', 60, [8, 8, 8]),
+        ...twice('s1'),
+        log('s2', 'Bench Press', 60, [8, 8, 8]),
+      ])[0];
+      assert.equal(three.stalledSessions, 3);
+      // The run's points are one per session, the first on the first
+      // stalled session's own date (the plateau card's "from").
+      assert.equal(stalledRunPoints(three).length, 3);
+      assert.equal(stalledRunPoints(two).length, 2);
+      assert.equal(stalledRunPoints(three)[0].sessionId, 's0');
+      assert.equal(stalledRunPoints(three)[0].performedAt, three.points[0].performedAt);
+    },
+  },
+  {
+    name: 'two logs of one workout merge the way a rep gain is judged: top reps or reps per set',
+    run() {
+      // s0 8/6/6 (top 8, average 6.7). s1 logs 8/5/5 and 7/7/7: the second has
+      // the better average, a gain, so the stall counts from s1 — keeping only
+      // the log with more top-set reps dropped it and read as three stalled.
+      const sessions = [0, 1, 2].map((index) => session(`s${index}`, 'Push', at((2 - index) * 4), 3000));
+      const lift = buildLiftHistories(sessions, [
+        log('s0', 'Bench Press', 60, [8, 6, 6]),
+        log('s1', 'Bench Press', 60, [8, 5, 5], { id: 's1-a' }),
+        log('s1', 'Bench Press', 60, [7, 7, 7], { id: 's1-b', orderIndex: 1 }),
+        log('s2', 'Bench Press', 60, [7, 7, 7]),
+      ])[0];
+      assert.equal(lift.stalledSessions, 2);
+    },
+  },
+  {
     name: 'the week rows survive a clock change',
     run() {
       withHelsinkiClocks(() => {

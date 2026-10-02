@@ -48,6 +48,8 @@ function usedInstall(language) {
       aiCoachProQuota: { monthStart: '2026-09-01T00:00:00.000Z', used: 7 },
       coachDemoMomentsUsed: ['first_session', 'plateau'],
       firstLaunchAt: '2026-09-15T09:30:00.000Z',
+      // A notice the reader closed stays closed through a reset.
+      seenServerNoticeIds: ['2026-09-30-backup'],
       // The privacy answers are the reader's, and a reset takes them.
       aiLogId: 'abcdef0123456789',
       aiLogChatConsent: true,

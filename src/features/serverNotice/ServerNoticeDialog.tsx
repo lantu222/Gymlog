@@ -31,18 +31,31 @@ export function ServerNoticeDialog({
   onSeen: (id: string) => void;
 }) {
   const [notice, setNotice] = useState<ServerNotice | null>(null);
-  const lastCheckedRef = useRef<number | null>(null);
+  const lastAnsweredRef = useRef<number | null>(null);
+  const lastFailedRef = useRef<number | null>(null);
+  const inFlightRef = useRef(false);
   const shownRef = useRef<string | null>(null);
 
   const check = useCallback(async () => {
     const now = Date.now();
-    if (!shouldCheckServerNotice(lastCheckedRef.current, now)) {
+    // One ask at a time: launch and the first foreground event arrive together.
+    if (inFlightRef.current || !shouldCheckServerNotice(lastAnsweredRef.current, now, lastFailedRef.current)) {
       return;
     }
-    lastCheckedRef.current = now;
-    const answer = await fetchServerNotice();
-    if (answer) {
-      setNotice(answer.notice);
+    inFlightRef.current = true;
+    try {
+      // null is a failed ask; "no notice" is an answer with notice: null. Only
+      // an answer starts the six-hour window — a failure retries soon.
+      const answer = await fetchServerNotice();
+      if (answer) {
+        lastAnsweredRef.current = now;
+        lastFailedRef.current = null;
+        setNotice(answer.notice);
+      } else {
+        lastFailedRef.current = now;
+      }
+    } finally {
+      inFlightRef.current = false;
     }
   }, []);
 

@@ -4,7 +4,7 @@ import { formatShortDate, formatWeight } from './format';
 import { exerciseNameLabel } from './exerciseNameLabel';
 import { t } from './i18n';
 import { PROGRESSION_LEVEL_PARAMS, getProgressionTier } from './progressionGate';
-import { LiftHistory, normalizedName } from './trainingHistory';
+import { LiftHistory, normalizedName, stalledRunPoints } from './trainingHistory';
 import { AppLanguage, SetupLevel } from '../types/models';
 
 /**
@@ -106,18 +106,18 @@ function normalizedBars(values: number[]): number[] {
 
 /**
  * The deterministic read of WHY a lift is stalled, from its own points.
- * If total reps fall across the stalled run, the sets behind the top set are
- * shrinking — that reads as recovery. If reps hold, the lift is ready to earn
- * the next step through reps. Both are statements about logged sets only.
+ * "Your later sets fade every session" is a per-session claim, so it needs
+ * per-session evidence: in most sessions of the stalled run (more than half,
+ * sessions with at least two sets at the top weight) the last set got fewer
+ * reps than the first. Session totals alone are not that — 6/6/7 then 6/6/6
+ * is a lower total with no set fading (#bugs 2026-10-02). Otherwise the lift
+ * is ready to earn the next step through reps. Both are statements about
+ * logged sets only.
  */
 function stallReason(lift: LiftHistory): 'recovery' | 'reps_hold' {
-  const stalledPoints = lift.points.slice(-Math.max(2, lift.stalledSessions));
-  const first = stalledPoints[0];
-  const last = stalledPoints[stalledPoints.length - 1];
-  if (first && last && last.totalReps < first.totalReps) {
-    return 'recovery';
-  }
-  return 'reps_hold';
+  const sessions = stalledRunPoints(lift).filter((point) => point.setReps.length >= 2);
+  const fading = sessions.filter((point) => point.setReps[point.setReps.length - 1] < point.setReps[0]);
+  return sessions.length >= 2 && fading.length * 2 > sessions.length ? 'recovery' : 'reps_hold';
 }
 
 /** Is this lift, right now, the plateau the paywall moments would find? */
@@ -203,7 +203,7 @@ function nextRepsTarget(lift: LiftHistory): number {
 
 export function buildPlateauDetection(lift: LiftHistory, language: AppLanguage): PlateauDetection {
   const liftLabel = exerciseNameLabel(language, lift.name);
-  const stalledPoints = lift.points.slice(-lift.stalledSessions);
+  const stalledPoints = stalledRunPoints(lift);
   const from = stalledPoints[0]?.performedAt ?? lift.first.performedAt;
   return {
     liftKey: lift.key,

@@ -2,7 +2,9 @@
  * The app's side of api/notice: ask the server whether it has something to
  * say to every reader (lib/serverNotice). Silent on any failure — offline, a
  * build with no server address, an answer that does not parse — because a
- * notice that cannot be fetched is simply not shown.
+ * notice that cannot be fetched is simply not shown. The caller tells the two
+ * apart: null is a failed ask, an answer with `notice: null` is "nothing to
+ * say" — only the latter counts as having checked (shouldCheckServerNotice).
  */
 import { parseServerNotice, ServerNotice, serverNoticeUrl } from '../../lib/serverNotice';
 import { appVersionHeaders, noteServerAnswer } from '../appUpdate/appUpdateSignal';

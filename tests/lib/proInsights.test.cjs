@@ -111,6 +111,72 @@ module.exports = [
     },
   },
   {
+    name: 'proInsights: "later sets fade" needs sets that fade within the sessions, not a lower total (#bugs 2026-10-02)',
+    run() {
+      // 19, 18, 18 total reps: lower than the first session, but no set faded.
+      // It said "Your later sets fade every session" and told the reader to cut a set.
+      const flat = history({
+        name: 'Bench Press',
+        weights: [60, 60, 60],
+        reps: [[6, 6, 7], [6, 6, 6], [6, 6, 6]],
+      });
+      const flatLift = detectPlateau(flat);
+      assert.ok(flatLift);
+      assert.equal(
+        buildPlateauConclusion(flatLift, 'en', 'beginner').body,
+        'Next time 60 kg × 7 on every set. Once that holds, move up to 62.5 kg.',
+      );
+
+      // A real fade, set by set in each session, still reads as recovery.
+      const fading = history({
+        name: 'Bench Press',
+        weights: [60, 60, 60],
+        reps: [[8, 7, 6], [8, 6, 5], [7, 6, 5]],
+      });
+      assert.equal(
+        buildPlateauConclusion(detectPlateau(fading), 'en', 'beginner').body,
+        'Your later sets fade every session. Hold 60 kg and do one set fewer.',
+      );
+    },
+  },
+  {
+    name: 'proInsights: a duplicate log does not weigh a session twice in the fade rule',
+    run() {
+      // 8/8/8, then 8/6/5 logged twice, 8/6/5, 8/8/8: two of four sessions
+      // fade, not "most". Counting logs made it three of five: recovery.
+      const reps = [[[8, 8, 8]], [[8, 6, 5], [8, 6, 5]], [[8, 6, 5]], [[8, 8, 8]]];
+      const sessions = [];
+      const logs = [];
+      reps.forEach((entries, index) => {
+        sessions.push({
+          id: `s${index}`,
+          workoutTemplateId: 'tpl',
+          workoutNameSnapshot: 'Push',
+          performedAt: at((reps.length - 1 - index) * 4),
+          durationMinutes: 50,
+        });
+        entries.forEach((repsPerSet, order) => {
+          logs.push({
+            id: `s${index}-${order}`,
+            sessionId: `s${index}`,
+            exerciseTemplateId: null,
+            exerciseNameSnapshot: 'Bench Press',
+            weight: 60,
+            repsPerSet,
+            tracked: true,
+            orderIndex: order,
+          });
+        });
+      });
+      const lift = detectPlateau(buildLiftHistories(sessions, logs));
+      assert.ok(lift);
+      assert.equal(lift.stalledSessions, 4);
+      assert.match(buildPlateauConclusion(lift, 'en', 'beginner').body, /^Next time 60 kg/);
+      // The card's "from" is the first stalled session, not a later log.
+      assert.match(buildPlateauDetection(lift, 'en').meta, /4 sessions running/);
+    },
+  },
+  {
     name: 'proInsights: an improving lift is NOT a plateau',
     run() {
       const lifts = history({ weights: [60, 62.5, 65, 67.5, 70] });

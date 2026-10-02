@@ -294,6 +294,58 @@ function sessionsSinceRepBest(run: LiftPoint[]): number {
 }
 
 /**
+ * One point per session, oldest first. A lift logged twice in one workout is
+ * merged the way `sessionsSinceRepBest` judges a gain — on top-set reps OR on
+ * reps per set — so the merged point has the most top-set reps of any of the
+ * session's logs and the per-set reps of the log with the best average. Keeping
+ * one whole entry could drop the one that was the rep best.
+ */
+function collapseBySession(run: LiftPoint[]): LiftPoint[] {
+  const bySession = new Map<string, LiftPoint>();
+  for (const point of run) {
+    const kept = bySession.get(point.sessionId);
+    if (!kept) {
+      bySession.set(point.sessionId, point);
+      continue;
+    }
+    const best = averageReps(point) > averageReps(kept) ? point : kept;
+    bySession.set(point.sessionId, {
+      ...kept,
+      topSetReps: Math.max(kept.topSetReps, point.topSetReps),
+      setReps: best.setReps,
+      setCount: best.setCount,
+      totalReps: best.totalReps,
+      volumeKg: best.volumeKg,
+    });
+  }
+  return [...bySession.values()];
+}
+
+/**
+ * The points behind `stalledSessions`, oldest first, one per session.
+ * `stalledSessions` counts sessions while `points` has one entry per log, so
+ * slicing `points` by the count would miss entries when a lift was logged twice
+ * in a workout, and counting the logs would weight a duplicated session twice.
+ * Every log of a session shares its date, so the first point still carries the
+ * first stalled session's own date.
+ */
+export function stalledRunPoints(lift: Pick<LiftHistory, 'points' | 'stalledSessions'>): LiftPoint[] {
+  const seen = new Set<string>();
+  let start = lift.points.length;
+  for (let index = lift.points.length - 1; index >= 0; index -= 1) {
+    const id = lift.points[index].sessionId;
+    if (!seen.has(id)) {
+      if (seen.size >= lift.stalledSessions) {
+        break;
+      }
+      seen.add(id);
+    }
+    start = index;
+  }
+  return collapseBySession(lift.points.slice(start));
+}
+
+/**
  * Per-lift trajectories across the given sessions, oldest point first.
  *
  * A lift only produces a point for a session where it was genuinely logged, so
@@ -344,14 +396,17 @@ export function buildLiftHistories(
     const first = points[0];
     const latest = points[points.length - 1];
 
-    let stalledSessions = 1;
-    for (let index = points.length - 2; index >= 0; index -= 1) {
-      if (Math.abs(points[index].topSetWeightKg - latest.topSetWeightKg) >= 0.001) {
-        break;
-      }
-      stalledSessions += 1;
+    // The run at the latest weight, counted in SESSIONS: the same lift logged
+    // twice in one workout is one session, not two (a plateau after two
+    // workouts otherwise). `points` keeps one entry per log for the charts.
+    let runStart = points.length - 1;
+    while (
+      runStart > 0 &&
+      Math.abs(points[runStart - 1].topSetWeightKg - latest.topSetWeightKg) < 0.001
+    ) {
+      runStart -= 1;
     }
-    stalledSessions = sessionsSinceRepBest(points.slice(-stalledSessions));
+    const stalledSessions = sessionsSinceRepBest(collapseBySession(points.slice(runStart)));
 
     histories.push({
       key,

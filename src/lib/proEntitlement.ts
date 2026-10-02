@@ -212,6 +212,9 @@ export function canStartProTrial(preferences: Pick<AppPreferences, 'proTrialStar
  * coach-log deletes this install still owes (lib/aiLogDeletion). It is this
  * phone's errand — a restore must not replace it with another phone's list or
  * an empty one, and a reset, which keeps this whole list, must not drop it.
+ *
+ * And `seenServerNoticeIds`, the server notices this phone's reader has
+ * closed: a restore or a reset that blanked it showed a closed notice again.
  */
 export const DEVICE_ONLY_PREFERENCE_FIELDS = [
   'promoProUntil',
@@ -224,6 +227,7 @@ export const DEVICE_ONLY_PREFERENCE_FIELDS = [
   'coachDemoMomentsUsed',
   'firstLaunchAt',
   'pendingAiLogDeletions',
+  'seenServerNoticeIds',
 ] as const;
 
 export function keepDeviceEntitlement<
