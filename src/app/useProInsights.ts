@@ -83,8 +83,8 @@ export function useProInsights(deps: ProInsightsDeps) {
     [preferences.dismissedPlateauEpisodes],
   );
   const proPlateauLift = useMemo(
-    () => detectPlateau(proLiftHistories, dismissedPlateauEpisodes),
-    [proLiftHistories, dismissedPlateauEpisodes],
+    () => detectPlateau(proLiftHistories, dismissedPlateauEpisodes, preferences.setupCautionFlags),
+    [proLiftHistories, dismissedPlateauEpisodes, preferences.setupCautionFlags],
   );
   const proPlateau = useMemo(
     () =>
@@ -99,10 +99,20 @@ export function useProInsights(deps: ProInsightsDeps) {
     [preferences.appLanguage, preferences.setupLevel, proPlateauLift],
   );
   const proWeeklyRead = useMemo(
-    () => buildWeeklyRead(proLiftHistories, proFatigue, preferences.appLanguage, preferences.setupLevel),
-    [preferences.appLanguage, preferences.setupLevel, proFatigue, proLiftHistories],
+    () =>
+      buildWeeklyRead(
+        proLiftHistories,
+        proFatigue,
+        preferences.appLanguage,
+        preferences.setupLevel,
+        preferences.setupCautionFlags,
+      ),
+    [preferences.appLanguage, preferences.setupCautionFlags, preferences.setupLevel, proFatigue, proLiftHistories],
   );
-  const proCompletionLift = useMemo(() => pickCompletionLift(proLiftHistories), [proLiftHistories]);
+  const proCompletionLift = useMemo(
+    () => pickCompletionLift(proLiftHistories, preferences.setupCautionFlags),
+    [preferences.setupCautionFlags, proLiftHistories],
+  );
   const proCompletionMoment = useMemo(
     () =>
       proCompletionLift

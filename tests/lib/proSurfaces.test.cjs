@@ -821,7 +821,7 @@ module.exports = [
       // dismissed episode is skipped rather than trusted straight from
       // proLiftHistories.
       assert.match(appSource, /dismissedPlateauEpisodes/);
-      assert.match(appSource, /detectPlateau\(proLiftHistories, dismissedPlateauEpisodes\)/);
+      assert.match(appSource, /detectPlateau\(proLiftHistories, dismissedPlateauEpisodes, preferences\.setupCautionFlags\)/);
       assert.match(appSource, /episodeKey: plateauEpisodeKey\(proPlateauLift\)/);
       // Dismissing writes the episode key, appended — never a wholesale
       // replace that could drop another lift's earlier dismissal.
@@ -839,7 +839,7 @@ module.exports = [
       // The in-workout reminder is a SEPARATE read of the same lifts, by
       // name, that does not consult the dismiss list at all — dismissing
       // Home's card must not silence it.
-      assert.match(appSource, /findPlateauDetection\(proLiftHistories, exerciseName, preferences\.appLanguage\)/);
+      assert.match(appSource, /findPlateauDetection\(\s*proLiftHistories, exerciseName, preferences\.appLanguage, preferences\.setupCautionFlags,?\s*\)/);
       assert.doesNotMatch(
         appSource,
         /findPlateauDetection\([^)]*dismissedPlateauEpisodes[^)]*\)/,

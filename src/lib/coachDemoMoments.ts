@@ -1,7 +1,8 @@
 import { FatigueSignal } from './fatigueModel';
 import { I18nKey } from './i18n';
-import { PLATEAU_STALL_SESSIONS } from './proInsights';
+import { isLiftPlateaued } from './proInsights';
 import { LiftHistory } from './trainingHistory';
+import type { SetupCautionFlag } from '../types/models';
 
 /**
  * The three coach answers a free reader gets, at moments the app chooses.
@@ -76,6 +77,8 @@ export interface CoachDemoMomentInput {
   lifts: readonly LiftHistory[];
   /** The fatigue read, when the model is confident enough to have one. */
   fatigueSignal: FatigueSignal | null;
+  /** Flagged body areas: a lift held for one is not a stall to ask about. */
+  cautionFlags?: SetupCautionFlag[] | null;
   now?: Date;
 }
 
@@ -98,10 +101,13 @@ export function daysSince(fromIso: string, now: Date): number {
 }
 
 /** The stalled lift worth asking about, or null when nothing has stalled. */
-function stalledLift(lifts: readonly LiftHistory[]): LiftHistory | null {
+function stalledLift(
+  lifts: readonly LiftHistory[],
+  cautionFlags?: SetupCautionFlag[] | null,
+): LiftHistory | null {
   let best: LiftHistory | null = null;
   for (const lift of lifts) {
-    if (lift.stalledSessions < PLATEAU_STALL_SESSIONS || lift.latest.topSetWeightKg <= 0) {
+    if (!isLiftPlateaued(lift, cautionFlags)) {
       continue;
     }
     if (!best || lift.stalledSessions > best.stalledSessions) {
@@ -124,7 +130,7 @@ function decliningLift(lifts: readonly LiftHistory[]): LiftHistory | null {
  */
 export function pickDemoQuestion(
   key: CoachDemoMomentKey,
-  input: Pick<CoachDemoMomentInput, 'lifts' | 'fatigueSignal'>,
+  input: Pick<CoachDemoMomentInput, 'lifts' | 'fatigueSignal' | 'cautionFlags'>,
 ): CoachDemoMoment {
   if (key === 'week1') {
     // Nothing has a trend yet at a week. The question that pays off here is
@@ -135,7 +141,7 @@ export function pickDemoQuestion(
   }
 
   if (key === 'month1') {
-    const stalled = stalledLift(input.lifts);
+    const stalled = stalledLift(input.lifts, input.cautionFlags);
     if (stalled) {
       // The strongest one available: this is the exact conclusion the reader
       // has been seeing blurred on Home and Progress for a month.
