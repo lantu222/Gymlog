@@ -67,12 +67,22 @@ export function createFinishExits(deps: FinishExitsDeps) {
    * Clearing after navigating does not fix it: the clear would still be the
    * urgent half. They have to be the same update.
    */
-  function leaveFinishedWorkout(nextRoute: AppRoute) {
+  function leaveFinishedScreen(nextRoute: AppRoute) {
     startTransition(() => {
       setCompletionSummary(null);
       setFinishSaveState({ status: 'idle', sessionId: null });
       setNavigationState({ route: nextRoute, history: [] });
     });
+  }
+
+  /**
+   * The Done button's way out: the single transition above, then the rating
+   * ask. The hardware Back key on the summary takes `leaveFinishedScreen`
+   * alone — the same exit, without the ask: Back is the reader leaving, not
+   * the moment they tapped "done" on how it went.
+   */
+  function leaveFinishedWorkout(nextRoute: AppRoute) {
+    leaveFinishedScreen(nextRoute);
     maybeAskForRating();
   }
 
@@ -107,5 +117,5 @@ export function createFinishExits(deps: FinishExitsDeps) {
     void updatePreferences((current) => ({ ratingPrompt: recordRatingAsked(current.ratingPrompt, Date.now()) }));
   }
 
-  return { leaveFinishedWorkout };
+  return { leaveFinishedWorkout, leaveFinishedScreen };
 }

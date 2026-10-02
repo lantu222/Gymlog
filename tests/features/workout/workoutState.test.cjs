@@ -894,4 +894,43 @@ module.exports = [
       assert.equal(nextState.activeSession.exercises.length, 1);
     },
   },
+  {
+    // #bugs 2026-10-02: two lifts added from one walk-up intro. The screen now
+    // anchors the second on the first; the reducer splices right behind its
+    // anchor, so the order is the order of adding.
+    name: 'adding two lifts, the second anchored on the first, keeps the order they were added in',
+    run() {
+      const bench = createExercise({ slotId: 'slot_bench', exerciseName: 'Bench Press', orderIndex: 0 });
+      const row = createExercise({ slotId: 'slot_row', exerciseName: 'Barbell Row', orderIndex: 1 });
+      const activeSession = createCompletedSession({ status: 'active', completedAt: undefined, exercises: [bench, row] });
+      const input = (name) => ({
+        exerciseName: name,
+        trackingMode: 'load_and_reps',
+        sets: 3,
+        repsMin: 10,
+        repsMax: 12,
+        restSecondsMin: 60,
+        restSecondsMax: 60,
+        substitutionGroup: name,
+        libraryItemId: name,
+      });
+      const afterFirst = workoutReducer(
+        { ...workoutInitialState, activeSession },
+        { type: 'exercise/insertAfter', payload: { afterSlotId: 'slot_bench', exercise: input('Cable Curl') } },
+      );
+      const curlSlot = afterFirst.activeSession.exercises[1].slotId;
+      const afterSecond = workoutReducer(afterFirst, {
+        type: 'exercise/insertAfter',
+        payload: { afterSlotId: curlSlot, exercise: input('Pushdown') },
+      });
+      assert.deepEqual(
+        afterSecond.activeSession.exercises.map((exercise) => exercise.exerciseName),
+        ['Bench Press', 'Cable Curl', 'Pushdown', 'Barbell Row'],
+      );
+      assert.deepEqual(
+        afterSecond.activeSession.exercises.map((exercise) => exercise.orderIndex),
+        [0, 1, 2, 3],
+      );
+    },
+  },
 ];

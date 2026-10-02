@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import { t } from '../lib/i18n';
+import { createRestActionBus, type RestAction, type RestActionListener } from '../lib/restActionBus';
 import { formatEndsAt } from '../lib/restSchedule';
 import type { AppLanguage } from '../types/models';
 import {
@@ -127,27 +128,22 @@ export function useRestEndAlert(language: AppLanguage, options: RestAlertOptions
 /* Lock-screen actions → the screen that owns the rest                         */
 /* ------------------------------------------------------------------------- */
 
-export type RestAction =
-  | { kind: 'extend'; seconds: number }
-  | { kind: 'skip' }
-  | { kind: 'finish' }
-  | { kind: 'logSet' };
-
-type RestActionListener = (action: RestAction) => void;
-const listeners = new Set<RestActionListener>();
+export type { RestAction } from '../lib/restActionBus';
 
 /**
  * Tiny bus from the notification response (which lands in App) to whichever
  * screen holds the running rest. The rest lives in screen state on two of the
- * three loggers, so App cannot act on it directly.
+ * three loggers, so App cannot act on it directly. An action emitted while no
+ * screen is listening — the cold start — is held and handed to the first
+ * screen that subscribes (lib/restActionBus).
  */
-export function subscribeRestActions(listener: RestActionListener): () => void {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
+const restActionBus = createRestActionBus();
+
+/** `sessionId`: the session this screen belongs to, so a held action meant for another is not applied. */
+export function subscribeRestActions(listener: RestActionListener, sessionId?: string | null): () => void {
+  return restActionBus.subscribe(listener, sessionId);
 }
 
-export function emitRestAction(action: RestAction): void {
-  listeners.forEach((listener) => listener(action));
+export function emitRestAction(action: RestAction, sessionId?: string | null): void {
+  restActionBus.emit(action, sessionId);
 }

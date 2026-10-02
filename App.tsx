@@ -476,7 +476,7 @@ function VinhaApp() {
     );
   }
 
-  const { leaveFinishedWorkout } = createFinishExits({
+  const { leaveFinishedWorkout, leaveFinishedScreen } = createFinishExits({
     preferences,
     database,
     updatePreferences,
@@ -686,8 +686,7 @@ function VinhaApp() {
     legalConsentDueRef,
     resetToRoute,
     navigateBack,
-    setCompletionSummary,
-    setFinishSaveState,
+    leaveFinishedScreen,
     workoutRef,
     summaryExitRouteRef,
   });
