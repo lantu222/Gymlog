@@ -66,6 +66,9 @@ export function useSessionNotifications(deps: SessionNotificationsDeps) {
 
   const activeSessionId = workout.activeSession?.sessionId ?? null;
   const activeSessionStatus = workout.activeSession?.status ?? null;
+  /** Read by the lock-screen action closure below, which is built once. */
+  const activeSessionIdRef = useRef<string | null>(activeSessionId);
+  activeSessionIdRef.current = activeSessionId;
   const navigateToActiveWorkoutRef = useRef<() => boolean>(() => false);
   const finishFromNotificationRef = useRef<() => void>(() => {});
   /**
@@ -87,14 +90,22 @@ export function useSessionNotifications(deps: SessionNotificationsDeps) {
     // Bring the session to the front first; the screen that owns the rest
     // mounts its bus listener on render.
     navigateToActiveWorkoutRef.current();
+    // The rest actions go over the bus at once, not after a timer: on a cold
+    // start the screen that owns the rest mounts only after the launch
+    // screens and the splash (~4.5 s), long after any fixed delay, and the
+    // bus holds the action for it (lib/restActionBus). A screen that is
+    // already mounted gets it immediately. Tagged with the session, so a held
+    // action never lands on a different one.
+    const sessionId = activeSessionIdRef.current;
+    if (action === ACTION_EXTEND_30) {
+      emitRestAction({ kind: 'extend', seconds: 30 }, sessionId);
+    } else if (action === ACTION_EXTEND_60) {
+      emitRestAction({ kind: 'extend', seconds: 60 }, sessionId);
+    } else if (action === ACTION_SKIP_REST) {
+      emitRestAction({ kind: 'skip' }, sessionId);
+    }
     setTimeout(() => {
-      if (action === ACTION_EXTEND_30) {
-        emitRestAction({ kind: 'extend', seconds: 30 });
-      } else if (action === ACTION_EXTEND_60) {
-        emitRestAction({ kind: 'extend', seconds: 60 });
-      } else if (action === ACTION_SKIP_REST) {
-        emitRestAction({ kind: 'skip' });
-      } else if (action === ACTION_FINISH) {
+      if (action === ACTION_FINISH) {
         finishFromNotificationRef.current();
       } else if (action === ACTION_STILL_GOING) {
         setActivityTick((tick) => tick + 1);

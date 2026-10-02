@@ -179,16 +179,18 @@ module.exports = [
       // the swap, anchored on the lift on screen.
       assert.match(
         playerSource,
-        /label=\{t\(language, 'guided\.walk\.add'\)\}\s*onPress=\{\(\) => \{[\s\S]{0,320}setAddExerciseAfterSlot\(\{\s*anchor:\s*guidedBlockLastSlotId\(/,
+        /label=\{t\(language, 'guided\.walk\.add'\)\}\s*onPress=\{\(\) => \{[\s\S]{0,700}setAddExerciseAfterSlot\(\{\s*anchor:\s*resolveWalkAddAnchor\(\s*guidedBlockLastSlotId\([^)]*\),\s*step\.slotId,\s*walkAdded\[step\.slotId\],/,
       );
       // After that lift, not at the end; and no jump — the pending-insert
       // ref, which drives the jump, is set only on the cooldown path.
       assert.match(
         playerSource,
-        /if \(afterCurrent && addExerciseAfterSlot\) \{\s*\/\/[^\n]*\n\s*setWalkAdded\(\{ introSlotId: addExerciseAfterSlot\.intro, name: exerciseNameLabel\(language, item\.name\) \}\);\s*\} else \{\s*pendingInsertKnownSlotsRef\.current = new Set/,
+        /if \(afterCurrent && addExerciseAfterSlot\) \{\s*\/\/[^\n]*\n\s*const introSlotId = addExerciseAfterSlot\.intro;\s*walkInsertRef\.current = \{ introSlotId, known: new Set\([^\n]*\n\s*setWalkAdded\([\s\S]{0,400}\} else \{\s*pendingInsertKnownSlotsRef\.current = new Set/,
       );
       // And it says where the lift went, under the buttons of that lift only.
-      assert.match(playerSource, /walkAdded && walkAdded\.introSlotId === step\.slotId \?/);
+      // Every lift added from it, joined — not only the last one's name.
+      assert.match(playerSource, /walkAdded\[step\.slotId\]\?\.names\.length \?/);
+      assert.match(playerSource, /name: walkAdded\[step\.slotId\]\.names\.join\(', '\)/);
     },
   },
   {

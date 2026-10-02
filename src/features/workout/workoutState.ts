@@ -1901,6 +1901,12 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
         set.autoProgressedFromReps = undefined;
         set.rampTargetReps = undefined;
         set.prefilledFromPerformedAt = historical ? swappedInEntry?.performedAt : undefined;
+        // A set the reader added was theirs only while it carried the weight
+        // of the set before it. Re-resolved from the new lift's history it
+        // holds a number the app chose (or none), and the log must say so:
+        // `borrowed` or `none`, not "the reader's own" (lib/loggedSetPlan).
+        // A set added after the swap is added afresh and stays `added`.
+        set.addedMidSession = undefined;
       });
       session.ui.swapSheetSlotId = null;
       session.updatedAt = new Date().toISOString();

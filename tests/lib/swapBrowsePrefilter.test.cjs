@@ -94,4 +94,27 @@ module.exports = [
       assert.match(player, /orderSwapCandidates\(pool, swapCurrentLibraryItem, popular\)/);
     },
   },
+  {
+    /**
+     * Regression from the always-on chips: swapping a barbell squat (default
+     * chip quadriceps) and typing "hip thrust" / "pull up" / "calf raise"
+     * answered "No exercise matches that" because the default chip filtered
+     * the typed query too. The default narrows the unsearched list only.
+     */
+    name: 'a typed swap query searches the whole library unless the reader tapped a chip',
+    run() {
+      const { effectiveSwapBodyPart } = require('../../.test-dist/lib/swapBrowsePrefilter.js');
+      // Unsearched: the lift's own body part, nearest first.
+      assert.equal(effectiveSwapBodyPart(null, 'quadriceps', ''), 'quadriceps');
+      assert.equal(effectiveSwapBodyPart(null, 'quadriceps', '   '), 'quadriceps');
+      // Typing with the default chip: everything, and the chip row reads All.
+      assert.equal(effectiveSwapBodyPart(null, 'quadriceps', 'hip thrust'), 'all');
+      assert.equal(effectiveSwapBodyPart(null, 'quadriceps', ' pull up '), 'all');
+      // An explicit pick is the reader's choice and composes with the query.
+      assert.equal(effectiveSwapBodyPart('back', 'quadriceps', 'pull up'), 'back');
+      assert.equal(effectiveSwapBodyPart('back', 'quadriceps', ''), 'back');
+      // Tapping All explicitly stays All with no query.
+      assert.equal(effectiveSwapBodyPart('all', 'quadriceps', ''), 'all');
+    },
+  },
 ];

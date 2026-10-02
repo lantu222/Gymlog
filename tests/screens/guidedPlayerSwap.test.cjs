@@ -816,7 +816,10 @@ module.exports = [
     run() {
       const source = playerSource.replace(/\r\n/g, '\n');
       assert.match(source, /useState<BodyPartFilter \| null>\(null\);/);
-      assert.match(source, /const swapBodyPart: BodyPartFilter = swapBodyPartFilter \?\? swapBrowsePrefilter;/);
+      assert.match(
+        source,
+        /const swapBodyPart: BodyPartFilter = effectiveSwapBodyPart\(swapBodyPartFilter, swapBrowsePrefilter, swapQuery\);/,
+      );
       assert.match(source, /matchesBodyPartFilter\(item, swapBodyPart\),/);
       assert.match(source, /const selected = swapBodyPart === option;/);
       // No link in front of the chips any more, and no key for it.

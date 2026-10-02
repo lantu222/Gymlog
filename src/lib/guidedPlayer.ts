@@ -1576,3 +1576,39 @@ export function guidedBlockLastSlotId(
   }
   return last;
 }
+
+/** What a walk-up intro has had added to it so far, in the order they went in. */
+export interface WalkAddedLifts {
+  /** The names as shown, for the note under the intro's buttons. */
+  names: string[];
+  /** The slots they got. A lift's slot is known a render after it is dispatched. */
+  slotIds: string[];
+}
+
+/**
+ * The slot the next lift added from a walk-up intro goes after.
+ *
+ * The first add anchors on the block on screen (`blockLastSlotId`) and the
+ * reducer splices right behind it. Every add anchored there again put the
+ * second lift BEFORE the first — Bench, Pushdown, Curl, Row with the curl
+ * added first (#bugs 2026-10-02) — so a later add goes after the last lift
+ * already added from this intro. A lift added earlier that has since left the
+ * list no longer counts.
+ */
+export function resolveWalkAddAnchor(
+  blockLastSlotId: string | null,
+  introSlotId: string,
+  added: WalkAddedLifts | undefined,
+  slotOrder: readonly string[],
+): string {
+  let anchor: string | null = null;
+  let anchorAt = -1;
+  for (const slotId of added?.slotIds ?? []) {
+    const at = slotOrder.indexOf(slotId);
+    if (at > anchorAt) {
+      anchor = slotId;
+      anchorAt = at;
+    }
+  }
+  return anchor ?? blockLastSlotId ?? introSlotId;
+}

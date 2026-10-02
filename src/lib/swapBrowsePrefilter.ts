@@ -61,3 +61,27 @@ export function orderSwapCandidates<T extends SwapCandidate>(
       (popularOrder.get(left.id) ?? 1e6) - (popularOrder.get(right.id) ?? 1e6),
   );
 }
+
+/**
+ * The chip actually in force on the swap sheet.
+ *
+ * The lift's own body part is a default for the unsearched list — the
+ * nearest lifts first. It must not narrow a typed query: swapping a barbell
+ * squat (default chip "Etureidet") and typing "hip thrust", "pull up" or
+ * "calf raise" answered "No exercise matches that" because the default chip
+ * filtered the search too (#235 regression). A reader who types is looking
+ * for a name, so the search covers the whole library — and the chip row
+ * reads "All" meanwhile, so the highlighted chip does not claim a filter
+ * that is not applied. A chip the reader tapped themselves is their choice
+ * and still composes with the query, like the library screen's own chips.
+ */
+export function effectiveSwapBodyPart(
+  picked: BodyPartFilter | null,
+  prefilter: BodyPartFilter,
+  query: string,
+): BodyPartFilter {
+  if (picked !== null) {
+    return picked;
+  }
+  return query.trim() ? 'all' : prefilter;
+}

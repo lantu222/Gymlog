@@ -4,7 +4,6 @@ import { BackHandler } from 'react-native';
 import { type LegalDocumentId } from '../lib/legalDocuments';
 import { AppRoute } from '../navigation/routes';
 import { backSkipsHistory, getBackRoute } from './backRoute';
-import { type CompletionSummaryState } from './workoutCompletionState';
 
 /**
  * The shell's two Android back listeners: the route-level one, and the one
@@ -34,11 +33,8 @@ export interface RouteBackDeps {
   legalConsentDueRef: { current: boolean };
   resetToRoute: (route: AppRoute) => void;
   navigateBack: (fallback?: AppRoute | null) => void;
-  setCompletionSummary: (value: CompletionSummaryState | null) => void;
-  setFinishSaveState: (value: {
-    status: 'idle' | 'saving' | 'error';
-    sessionId: string | null;
-  }) => void;
+  /** Leave the summary the way Done does: data and route in one transition (finishExits). */
+  leaveFinishedScreen: (nextRoute: AppRoute) => void;
   /** The workout context, through the ref that always holds the latest one. */
   workoutRef: { current: { clearCompletedWorkout: () => void } };
   summaryExitRouteRef: { current: AppRoute | null };
@@ -58,8 +54,7 @@ export function useRouteBack(deps: RouteBackDeps): void {
     legalConsentDueRef,
     resetToRoute,
     navigateBack,
-    setCompletionSummary,
-    setFinishSaveState,
+    leaveFinishedScreen,
     workoutRef,
     summaryExitRouteRef,
   } = deps;
@@ -143,10 +138,19 @@ export function useRouteBack(deps: RouteBackDeps): void {
       }
 
       if (route.tab === 'workout' && route.screen === 'summary') {
-        setCompletionSummary(null);
-        setFinishSaveState({ status: 'idle', sessionId: null });
+        // The same exit as the Done button: the summary's data and the route
+        // leave in ONE transition, and the history is reset. The clear used
+        // to be urgent and the pop a transition, so a frame showed the
+        // summary route with its data gone (the exercise browser flashed),
+        // and the pop then landed on whatever the history held — often the
+        // finished workout's own player — while the route guard raced it to
+        // Home with the old history kept (#bugs 2026-10-02).
         workoutRef.current.clearCompletedWorkout();
-        navigateBack(summaryExitRouteRef.current ?? workoutHomeRoute);
+        const exitRoute = summaryExitRouteRef.current ?? workoutHomeRoute;
+        // Consumed here, as the route guard consumes it, so a later summary
+        // cannot inherit this one's exit.
+        summaryExitRouteRef.current = null;
+        leaveFinishedScreen(exitRoute);
         return true;
       }
 

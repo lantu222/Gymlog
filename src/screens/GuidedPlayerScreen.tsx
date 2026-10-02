@@ -56,6 +56,8 @@ import {
   formatGuidedTarget,
   getGuidedBackTargetIndex,
   guidedBlockLastSlotId,
+  resolveWalkAddAnchor,
+  type WalkAddedLifts,
   getGuidedInitials,
   buildGuidedRunSheet,
   getGuidedNextName,
@@ -135,7 +137,7 @@ import {
   filterBrowsableExercises,
   matchesBodyPartFilter,
 } from '../lib/exerciseBrowseFilter';
-import { orderSwapCandidates, resolveSwapBrowsePrefilter } from '../lib/swapBrowsePrefilter';
+import { effectiveSwapBodyPart, orderSwapCandidates, resolveSwapBrowsePrefilter } from '../lib/swapBrowsePrefilter';
 import { useKeepScreenAwake } from '../utils/keepAwake';
 import { queryReduceMotion } from '../utils/reduceMotion';
 import {
@@ -1699,7 +1701,12 @@ function GuidedPlayer({
         } else if (action.kind === 'skip') {
           advanceRef.current();
         }
-      }),
+      }, session?.sessionId ?? null),
+    // The session's id is fixed for the screen's life; the listener reads
+    // everything else through refs. Subscribed on mount, which is also where
+    // an action held since the cold start arrives (lib/restActionBus) — the
+    // screen has opened on the rest step by then, from the stored anchor.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
@@ -1751,8 +1758,14 @@ function GuidedPlayer({
    * which differ inside a superset (the intro names the first lift).
    */
   const [addExerciseAfterSlot, setAddExerciseAfterSlot] = useState<{ anchor: string; intro: string } | null>(null);
-  /** Said under the intro's buttons once the lift is in: the sheet closes on it. */
-  const [walkAdded, setWalkAdded] = useState<{ introSlotId: string; name: string } | null>(null);
+  /**
+   * Said under the intro's buttons once the lift is in: the sheet closes on
+   * it. Per intro, and every lift added from it — the note named only the
+   * last one, and a second add landed before the first (#bugs 2026-10-02).
+   */
+  const [walkAdded, setWalkAdded] = useState<Record<string, WalkAddedLifts>>({});
+  /** The slots that existed before a walk-up add, so the one it creates can be found. */
+  const walkInsertRef = useRef<{ introSlotId: string; known: Set<string> } | null>(null);
   /**
    * One insert per open of the sheet.
    *
@@ -2356,8 +2369,12 @@ function GuidedPlayer({
     () => resolveSwapBrowsePrefilter(swapCurrentLibraryItem),
     [swapCurrentLibraryItem],
   );
-  /** The chip in force: the reader's, or else the lift's own body part. */
-  const swapBodyPart: BodyPartFilter = swapBodyPartFilter ?? swapBrowsePrefilter;
+  /**
+   * The chip in force: the reader's, or else the lift's own body part — and
+   * "All" while they type with no chip of their own, so a search covers the
+   * whole library (effectiveSwapBodyPart).
+   */
+  const swapBodyPart: BodyPartFilter = effectiveSwapBodyPart(swapBodyPartFilter, swapBrowsePrefilter, swapQuery);
 
   /**
    * Everything else the library holds.
@@ -2512,6 +2529,28 @@ function GuidedPlayer({
     }
   }, [exercises, steps]);
 
+  // The slot a walk-up add created, found the way the cooldown add finds its
+  // own: the one slot that was not there before. The next add from the same
+  // intro goes behind it (resolveWalkAddAnchor).
+  useEffect(() => {
+    const pending = walkInsertRef.current;
+    if (!pending) {
+      return;
+    }
+    const insertedSlotId = exercises.map((exercise) => exercise.slotId).find((slotId) => !pending.known.has(slotId));
+    if (!insertedSlotId) {
+      return;
+    }
+    walkInsertRef.current = null;
+    setWalkAdded((current) => {
+      const entry = current[pending.introSlotId] ?? { names: [], slotIds: [] };
+      return {
+        ...current,
+        [pending.introSlotId]: { ...entry, slotIds: [...entry.slotIds, insertedSlotId] },
+      };
+    });
+  }, [exercises]);
+
   /**
    * "Lisää liike" on the cooldown intro: the escape the reader asked for
    * (2026-09-29) when there was one more lift in them and the app had already
@@ -2554,7 +2593,12 @@ function GuidedPlayer({
     );
     if (afterCurrent && addExerciseAfterSlot) {
       // Stays on this lift: no jump, and the intro says where it went.
-      setWalkAdded({ introSlotId: addExerciseAfterSlot.intro, name: exerciseNameLabel(language, item.name) });
+      const introSlotId = addExerciseAfterSlot.intro;
+      walkInsertRef.current = { introSlotId, known: new Set(exercises.map((exercise) => exercise.slotId)) };
+      setWalkAdded((current) => {
+        const entry = current[introSlotId] ?? { names: [], slotIds: [] };
+        return { ...current, [introSlotId]: { ...entry, names: [...entry.names, exerciseNameLabel(language, item.name)] } };
+      });
     } else {
       pendingInsertKnownSlotsRef.current = new Set(exercises.map((exercise) => exercise.slotId));
     }
@@ -3636,13 +3680,16 @@ function GuidedPlayer({
                       onPress={() => {
                         // After the whole block on screen: a superset's intro
                         // names its first lift, and inserting there split the pair.
+                        // And after anything already added from this intro, so
+                        // the second add does not land before the first.
+                        const slotOrder = exercises.map((exercise) => exercise.slotId);
                         setAddExerciseAfterSlot({
-                          anchor:
-                            guidedBlockLastSlotId(
-                              steps,
-                              step.groupIndex,
-                              exercises.map((exercise) => exercise.slotId),
-                            ) ?? step.slotId,
+                          anchor: resolveWalkAddAnchor(
+                            guidedBlockLastSlotId(steps, step.groupIndex, slotOrder),
+                            step.slotId,
+                            walkAdded[step.slotId],
+                            slotOrder,
+                          ),
                           intro: step.slotId,
                         });
                         setAddExerciseOpen(true);
@@ -3650,9 +3697,9 @@ function GuidedPlayer({
                     />
                   </View>
                 </View>
-                {walkAdded && walkAdded.introSlotId === step.slotId ? (
+                {walkAdded[step.slotId]?.names.length ? (
                   <Text style={styles.walkAddedNote}>
-                    {t(language, 'guided.walk.added', { name: walkAdded.name })}
+                    {t(language, 'guided.walk.added', { name: walkAdded[step.slotId].names.join(', ') })}
                   </Text>
                 ) : null}
                 <BigBtn

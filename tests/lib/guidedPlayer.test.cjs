@@ -1294,4 +1294,26 @@ module.exports = [
       assert.equal(guidedBlockLastSlotId(steps, 999, order), null);
     },
   },
+  {
+    // #bugs 2026-10-02: two adds from one walk-up intro both anchored on the
+    // block's last lift, so the second landed before the first.
+    name: 'resolveWalkAddAnchor: a later add goes after the last lift already added from the intro',
+    run() {
+      const { resolveWalkAddAnchor } = require('../../.test-dist/lib/guidedPlayer.js');
+      const order = ['bench', 'curl', 'pushdown', 'row'];
+      // First add: the block on screen.
+      assert.equal(resolveWalkAddAnchor('bench', 'bench', undefined, order), 'bench');
+      assert.equal(resolveWalkAddAnchor('bench', 'bench', { names: [], slotIds: [] }, order), 'bench');
+      // Second add: behind the first added, whichever order they were recorded in.
+      assert.equal(resolveWalkAddAnchor('bench', 'bench', { names: ['Curl'], slotIds: ['curl'] }, order), 'curl');
+      assert.equal(
+        resolveWalkAddAnchor('bench', 'bench', { names: ['Curl', 'Pushdown'], slotIds: ['curl', 'pushdown'] }, order),
+        'pushdown',
+      );
+      // An added lift that has since left the plan no longer anchors anything.
+      assert.equal(resolveWalkAddAnchor('bench', 'bench', { names: ['Gone'], slotIds: ['gone'] }, order), 'bench');
+      // No block found: the intro's own slot, as before.
+      assert.equal(resolveWalkAddAnchor(null, 'bench', undefined, order), 'bench');
+    },
+  },
 ];
