@@ -109,6 +109,13 @@ export type SignInOutcome =
 /** How an operation the reader started ended. 'cancelled': sign-out or Reset overtook it. */
 export type AccountOperationResult = 'done' | 'failed' | 'cancelled';
 
+/**
+ * Delete account's own: 'ended' is the account having been deleted elsewhere
+ * (or its sign-in over) — this phone is signed out, nothing was deleted by this
+ * request, and the reader is told exactly that.
+ */
+export type DeleteAccountResult = AccountOperationResult | 'ended';
+
 export interface AccountBackupApi {
   available: boolean;
   /** The sign-ins this build offers, in display order (accountAuth). */
@@ -137,7 +144,7 @@ export interface AccountBackupApi {
    * Deletes the cloud copy and the server's sign-in for this account, then
    * signs this phone out. The phone's training data stays.
    */
-  deleteAccount: () => Promise<AccountOperationResult>;
+  deleteAccount: () => Promise<DeleteAccountResult>;
 }
 
 export interface AccountBackupInput {
@@ -966,7 +973,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
    * forgotten the account. A failure at the server leaves the reader signed in
    * and able to try again; nothing here says "deleted" before that.
    */
-  const deleteAccount = useCallback(async (): Promise<AccountOperationResult> => {
+  const deleteAccount = useCallback(async (): Promise<DeleteAccountResult> => {
     if (!available || !accountRef.current) {
       return 'failed';
     }
@@ -999,25 +1006,44 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       if (token.status !== 'ok') {
         return 'failed';
       }
+      // Written BEFORE sending, cleared by any answer that settles it: if the
+      // answer is slow or lost, the retry meets a session the server has by
+      // then ended, and this is how that retry knows its own try went through.
+      const triedBefore = Boolean(current.deleteAccountPendingAt);
+      await persistAccount({ ...(accountRef.current ?? current), deleteAccountPendingAt: new Date().toISOString() });
+      ensureCurrent(generation);
       const answer = await deleteBackup(token.idToken, { account: true });
       ensureCurrent(generation);
-      // An earlier try that the phone never heard back from (the answer was slow
-      // or lost) did delete: its marker is why this session is refused now, and
-      // the copy went before the marker was written. The account is gone, so
-      // this is the answer the reader asked for — not a sign-out in silence.
-      if (!answer.ok && answer.error === SESSION_REVOKED && token.idToken.startsWith(APPLE_SESSION_PREFIX)) {
+      if (answer.ok) {
+        // The server has deleted; now this phone forgets the account. Sign-out
+        // ends whatever else is running, clears the Google or Apple session and
+        // the pending record with the account record.
         await signOut();
         return 'done';
       }
-      const result = await screenSession(token.idToken, answer);
-      ensureCurrent(generation);
-      if (!result.ok) {
-        return 'failed';
+      if (
+        token.idToken.startsWith(APPLE_SESSION_PREFIX) &&
+        (answer.error === SESSION_REVOKED || answer.error === SESSION_EXPIRED)
+      ) {
+        // The session is over, whichever way. It is "done" only if THIS phone
+        // sent a delete earlier whose answer it never got: that one deleted
+        // (the copy goes before the marker is written). Any other phone is
+        // being told the account was deleted elsewhere — maybe by a phone that
+        // has since signed in again and backed up, whose copy is alive — and
+        // says only that, never "deleted".
+        await signOut();
+        return answer.error === SESSION_REVOKED && triedBefore ? 'done' : 'ended';
       }
-      // The server has deleted; now this phone forgets the account. Sign-out
-      // ends whatever else is running and clears the Google or Apple session.
-      await signOut();
-      return 'done';
+      if (answer.definite) {
+        // The server said no: nothing was deleted by this request, so there is
+        // nothing to remember. (A 5xx or no answer keeps the record — it may
+        // have gone through.)
+        const latest = accountRef.current;
+        if (latest) {
+          await persistAccount({ ...latest, deleteAccountPendingAt: null });
+        }
+      }
+      return 'failed';
     } catch (error) {
       if (error instanceof Superseded) {
         return 'cancelled';

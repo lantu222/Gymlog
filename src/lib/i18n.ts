@@ -1678,6 +1678,9 @@ const EN = {
   'account.deleteAccount.done.title': 'Account deleted',
   'account.deleteAccount.done.body': 'Your cloud backup is deleted and you are signed out. Your training data is still on this phone.',
   'account.deleteAccount.failed': 'Could not delete the account. Check your connection and try again.',
+  'account.deleteAccount.ended.title': 'Signed out',
+  'account.deleteAccount.ended.body':
+    'This account was already deleted from another phone, or its sign-in had ended, so you are now signed out. Sign in again if you want to delete it.',
   'account.count.workouts': '{count} workouts',
   'account.count.workouts.one': '1 workout',
   'account.count.programs': '{count} programs',
@@ -4816,6 +4819,9 @@ const FI: Record<I18nKey, string> = {
   'account.deleteAccount.done.title': 'Tili poistettu',
   'account.deleteAccount.done.body': 'Pilvivarmuuskopio on poistettu ja olet kirjautunut ulos. Treenitietosi ovat edelleen tässä puhelimessa.',
   'account.deleteAccount.failed': 'Tiliä ei voitu poistaa. Tarkista yhteys ja yritä uudelleen.',
+  'account.deleteAccount.ended.title': 'Kirjauduit ulos',
+  'account.deleteAccount.ended.body':
+    'Tämä tili oli jo poistettu toiselta puhelimelta tai sen kirjautuminen oli päättynyt, joten sinut kirjattiin ulos. Kirjaudu uudelleen, jos haluat poistaa sen.',
   'account.count.workouts': '{count} treeniä',
   'account.count.workouts.one': '1 treeni',
   'account.count.programs': '{count} ohjelmaa',

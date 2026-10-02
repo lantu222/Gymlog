@@ -127,7 +127,7 @@ export async function downloadBackup(idToken: string): Promise<BackupDownloadRes
 export async function deleteBackup(
   idToken: string,
   options: { account?: boolean } = {},
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; definite?: boolean }> {
   if (!BACKUP_API_URL) {
     return { ok: false };
   }
@@ -148,10 +148,13 @@ export async function deleteBackup(
     // The server turning the sign-in itself away — SESSION_REVOKED, SESSION_EXPIRED
     // or INVALID_TOKEN; the hook signs an Apple session out on the first two — is
     // told apart from a store that could not answer.
+    // `definite`: the server answered and it was not a failure of its own (a
+    // 4xx). A 5xx or no answer at all leaves it open whether the delete went
+    // through, which is what "Delete account" has to remember.
     if (response.status === 401 && typeof body?.error === 'string') {
-      return { ok: false, error: body.error };
+      return { ok: false, error: body.error, definite: true };
     }
-    return { ok: response.ok && body?.ok === true };
+    return { ok: response.ok && body?.ok === true, ...(response.status < 500 ? { definite: true } : {}) };
   } catch {
     return { ok: false };
   } finally {

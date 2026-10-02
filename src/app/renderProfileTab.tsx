@@ -755,6 +755,14 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
                                   t(preferences.appLanguage, 'account.deleteAccount.done.title'),
                                   t(preferences.appLanguage, 'account.deleteAccount.done.body'),
                                 );
+                              } else if (result === 'ended') {
+                                // Signed out because the account was deleted
+                                // elsewhere or its sign-in had ended: nothing was
+                                // deleted by this tap, and the words say so.
+                                Alert.alert(
+                                  t(preferences.appLanguage, 'account.deleteAccount.ended.title'),
+                                  t(preferences.appLanguage, 'account.deleteAccount.ended.body'),
+                                );
                               } else if (result === 'failed') {
                                 showToast(t(preferences.appLanguage, 'account.deleteAccount.failed'));
                               }

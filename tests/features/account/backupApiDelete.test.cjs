@@ -45,8 +45,8 @@ module.exports = [
     async run() {
       for (const code of ['SESSION_REVOKED', 'SESSION_EXPIRED', 'INVALID_TOKEN']) {
         await withApi({ status: 401, body: { ok: false, error: code } }, async (api) => {
-          assert.deepEqual(await api.deleteBackup('vs1.x.y'), { ok: false, error: code });
-          assert.deepEqual(await api.deleteBackup('vs1.x.y', { account: true }), { ok: false, error: code });
+          assert.deepEqual(await api.deleteBackup('vs1.x.y'), { ok: false, error: code, definite: true });
+          assert.deepEqual(await api.deleteBackup('vs1.x.y', { account: true }), { ok: false, error: code, definite: true });
         });
       }
     },
@@ -61,16 +61,21 @@ module.exports = [
         });
       }
       await withApi({ status: 200, body: { ok: false } }, async (api) => {
-        assert.deepEqual(await api.deleteBackup('vs1.x.y'), { ok: false }, 'a 2xx that is not the server’s yes counted');
+        assert.deepEqual(await api.deleteBackup('vs1.x.y'), { ok: false, definite: true }, 'a 2xx that is not the server’s yes counted');
       });
       await withApi({ status: 401, body: null }, async (api) => {
-        assert.deepEqual(await api.deleteBackup('vs1.x.y'), { ok: false }, 'a 401 with no body carried a code');
+        assert.deepEqual(await api.deleteBackup('vs1.x.y'), { ok: false, definite: true }, 'a 401 with no body carried a code');
       });
       await withApi(new Error('offline'), async (api) => {
         assert.deepEqual(await api.deleteBackup('vs1.x.y'), { ok: false });
       });
       await withApi({ status: 200, body: { ok: true } }, async (api) => {
-        assert.deepEqual(await api.deleteBackup('vs1.x.y'), { ok: true });
+        assert.deepEqual(await api.deleteBackup('vs1.x.y'), { ok: true, definite: true });
+      });
+      // 4xx settles the request; a 5xx or no answer at all leaves it open whether the delete went through
+      // ("Delete account" keeps its pending record on those, and clears it on the others).
+      await withApi({ status: 400, body: { ok: false, error: 'BAD_VERSION' } }, async (api) => {
+        assert.deepEqual(await api.deleteBackup('vs1.x.y'), { ok: false, definite: true });
       });
     },
   },

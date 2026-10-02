@@ -50,6 +50,14 @@ export interface StoredAccount {
    * not send versions yet — and then the next backup reads the copy first.
    */
   cloudVersion: string | null;
+  /**
+   * Set (to the time) just before this phone sends "Delete account", and
+   * cleared by any answer that settles it. A phone that still has it later
+   * meets "session ended" knowing why: its own delete went through and the
+   * answer was lost, so the account IS deleted. A phone without it meets the
+   * same answer because the account was deleted elsewhere, and says that.
+   */
+  deleteAccountPendingAt?: string | null;
 }
 
 /** The stored record, repaired: an account written by an older build lacks the newer fields. */
@@ -72,6 +80,9 @@ export function normalizeStoredAccount(parsed: Partial<StoredAccount> | null | u
     // Absent on every account stored before versions were kept: unknown,
     // which reads the copy once rather than trusting a version never seen.
     cloudVersion: typeof parsed.cloudVersion === 'string' && parsed.cloudVersion ? parsed.cloudVersion : null,
+    ...(typeof parsed.deleteAccountPendingAt === 'string' && Number.isFinite(Date.parse(parsed.deleteAccountPendingAt))
+      ? { deleteAccountPendingAt: parsed.deleteAccountPendingAt }
+      : {}),
   };
 }
 

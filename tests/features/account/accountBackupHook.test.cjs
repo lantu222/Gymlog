@@ -92,7 +92,7 @@ async function withHook({ local, stored = null, cloud = null }, scenario) {
   const runtime = createHookRuntime();
   const listeners = new Set();
   const calls = { upload: 0, download: 0, delete: 0, deleteOptions: [], signedOut: 0, restoreDatabase: 0, restoreHistory: 0, restored: 0, expected: [] };
-  const server = Object.assign(versionedStore(cloud), { uploadError: null, downloadError: null, deleteOk: true, deleteError: null, gates: {} });
+  const server = Object.assign(versionedStore(cloud), { uploadError: null, downloadError: null, deleteOk: true, deleteError: null, deleteLost: false, gates: {} });
   const google = {
     silent: { status: 'ok', idToken: 'token' },
     signIn: { status: 'signed_in', account: { sub: 'sub-1', email: 'reader@example.com', name: 'Reader', idToken: 'token' } },
@@ -148,7 +148,13 @@ async function withHook({ local, stored = null, cloud = null }, scenario) {
         calls.deleteOptions.push(options);
         await pass(server.gates, 'delete');
         if (server.deleteError) {
-          return { ok: false, error: server.deleteError };
+          // 4xx answers settle the request; a 5xx (STORE_UNAVAILABLE…) does not — api/backup.ts.
+          return { ok: false, error: server.deleteError, definite: ['INVALID_TOKEN', 'SESSION_REVOKED', 'SESSION_EXPIRED'].includes(server.deleteError) };
+        }
+        if (server.deleteLost) {
+          // The server did it; the answer never reached the phone.
+          server.blob = null;
+          return { ok: false };
         }
         if (!server.deleteOk) {
           return { ok: false };
@@ -897,9 +903,9 @@ module.exports = [
             } else {
               env.server.deleteError = code;
               const outcome = await env.api[operation === 'delete' ? 'deleteRemoteBackup' : 'deleteAccount']();
-              // A retried "Delete account" whose first try did delete (the answer never arrived) is the
-              // account being gone: done, and the reader is told so. An expired session deleted nothing.
-              assert.equal(outcome, operation === 'deleteAccount' && code === 'SESSION_REVOKED' ? 'done' : 'cancelled', label);
+              // "Delete account" on a phone that never tried before is told the account was deleted
+              // elsewhere (or its sign-in ended) — never "deleted": nothing was deleted by this tap.
+              assert.equal(outcome, operation === 'deleteAccount' ? 'ended' : 'cancelled', label);
             }
             await env.settle();
             assert.equal(env.store.account, null, `${label}: the account record stayed`);
@@ -970,6 +976,84 @@ module.exports = [
           assert.equal(env.calls.signedOut, 0);
         });
       }
+    },
+  },
+  {
+    name: 'account hook: a Delete account whose answer was lost reads as done on retry — and another phone is told only that the account was deleted elsewhere',
+    async run() {
+      const local = database({ workoutSessions: [workout('a')] });
+      const apple = { status: 'ok', idToken: 'vs1.session.mac' };
+      const fresh = () => syncedAccount(local);
+
+      // Phone A: the server deleted, the answer never arrived.
+      await withHook({ local, stored: fresh(), cloud: cloudCopy(local) }, async (env) => {
+        env.google.silent = apple;
+        env.server.deleteLost = true;
+        assert.equal(await env.api.deleteAccount(), 'failed');
+        await env.settle();
+        assert.equal(env.server.blob, null, 'the fake did not delete');
+        assert.equal(typeof env.store.account.deleteAccountPendingAt, 'string', 'no record of a delete that may have gone through');
+        assert.equal(env.api.state.status, 'signed_in', 'a lost answer signed the reader out');
+        // The retry meets the session the server has by now ended.
+        env.server.deleteLost = false;
+        env.server.deleteError = 'SESSION_REVOKED';
+        assert.equal(await env.api.deleteAccount(), 'done', 'the phone that did delete was not told so');
+        await env.settle();
+        assert.equal(env.api.state.status, 'signed_out');
+        assert.equal(env.calls.signedOut, 1);
+        assert.equal(env.store.account, null, 'the pending record outlived the account');
+      });
+
+      // The same, with a 5xx: the server may have stamped one marker and failed the next.
+      await withHook({ local, stored: fresh(), cloud: cloudCopy(local) }, async (env) => {
+        env.google.silent = apple;
+        env.server.deleteError = 'STORE_UNAVAILABLE';
+        assert.equal(await env.api.deleteAccount(), 'failed');
+        await env.settle();
+        assert.equal(typeof env.store.account.deleteAccountPendingAt, 'string', 'a 5xx cleared the record');
+        env.server.deleteError = 'SESSION_REVOKED';
+        assert.equal(await env.api.deleteAccount(), 'done');
+      });
+
+      // Phone B never sent one. The account was deleted by A, who may have signed in again and backed up:
+      // B is signed out and told that — "deleted" would be false while A's new copy lives.
+      await withHook({ local, stored: fresh(), cloud: cloudCopy(local) }, async (env) => {
+        env.google.silent = apple;
+        env.server.deleteError = 'SESSION_REVOKED';
+        assert.equal(await env.api.deleteAccount(), 'ended');
+        await env.settle();
+        assert.equal(env.api.state.status, 'signed_out');
+        assert.equal(env.calls.signedOut, 1);
+        assert.equal(env.store.account, null);
+        assert.equal(env.app.database.workoutSessions.length, 1, 'signing out touched the phone’s data');
+      });
+
+      // A try the server definitely refused leaves nothing pending: a later "session ended" is the
+      // other phone's doing, not this one's.
+      await withHook({ local, stored: fresh(), cloud: cloudCopy(local) }, async (env) => {
+        env.google.silent = apple;
+        env.server.deleteError = 'INVALID_TOKEN';
+        assert.equal(await env.api.deleteAccount(), 'failed');
+        await env.settle();
+        assert.ok(!env.store.account.deleteAccountPendingAt, 'a refused try left a record that would later read as a delete');
+        env.server.deleteError = 'SESSION_REVOKED';
+        assert.equal(await env.api.deleteAccount(), 'ended');
+      });
+
+      // An expired session deleted nothing, whatever this phone tried before.
+      await withHook({ local, stored: syncedAccount(local, { deleteAccountPendingAt: '2026-10-02T08:00:00.000Z' }), cloud: cloudCopy(local) }, async (env) => {
+        env.google.silent = apple;
+        env.server.deleteError = 'SESSION_EXPIRED';
+        assert.equal(await env.api.deleteAccount(), 'ended');
+      });
+
+      // A Google account keeps no record that matters: its token is checked with Google, never "revoked".
+      await withHook({ local, stored: fresh(), cloud: cloudCopy(local) }, async (env) => {
+        env.server.deleteError = 'SESSION_REVOKED';
+        assert.equal(await env.api.deleteAccount(), 'failed');
+        await env.settle();
+        assert.equal(env.api.state.status, 'signed_in');
+      });
     },
   },
   {
@@ -1380,6 +1464,11 @@ module.exports = [
       assert.equal(odd.autoBackupPaused, false);
       assert.equal(odd.cloudVersion, null);
       assert.equal(normalizeStoredAccount({ sub: 's', cloudVersion: '' }).cloudVersion, null);
+      // The pending "Delete account" record: kept when it is a date, dropped (not turned into a field of nulls) when not.
+      assert.equal(normalizeStoredAccount({ sub: 's', deleteAccountPendingAt: '2026-10-02T08:00:00.000Z' }).deleteAccountPendingAt, '2026-10-02T08:00:00.000Z');
+      for (const bad of ['', 'yesterday', 7, true, {}]) {
+        assert.equal('deleteAccountPendingAt' in normalizeStoredAccount({ sub: 's', deleteAccountPendingAt: bad }), false, JSON.stringify(bad));
+      }
       assert.equal(normalizeStoredAccount({ sub: 's', cloudVersion: '"v7"' }).cloudVersion, '"v7"');
       assert.equal(odd.lastBackupItemCount, null);
       assert.equal(odd.lastBackupHistoryCount, null);

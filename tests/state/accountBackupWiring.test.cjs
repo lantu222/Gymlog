@@ -78,7 +78,7 @@ module.exports = [
 
       const client = read('src', 'features', 'account', 'backupApi.ts');
       const del = client.slice(client.indexOf('export async function deleteBackup'));
-      assert.match(del, /return \{ ok: response\.ok && body\?\.ok === true \};/);
+      assert.match(del, /return \{ ok: response\.ok && body\?\.ok === true, \.\.\.\(response\.status < 500 \? \{ definite: true \} : \{\}\) \};/);
     },
   },
   {
@@ -103,6 +103,9 @@ module.exports = [
       const done = handler.indexOf("'account.deleteAccount.done.title'");
       assert.ok(call > 0 && done > call, 'the done message is shown before the delete is asked for');
       assert.match(handler.slice(call, done), /\.then\(\(result\) => \{\s*if \(result === 'done'\) \{\s*Alert\.alert\(\s*t\(preferences\.appLanguage,\s*$/);
+      // The phone signed out because the account was deleted elsewhere: told that, not "deleted".
+      assert.match(handler, /result === 'ended'\) \{[\s\S]*?'account\.deleteAccount\.ended\.title'[\s\S]*?'account\.deleteAccount\.ended\.body'/);
+      assert.ok(handler.indexOf("'account.deleteAccount.done.title'") < handler.indexOf("'account.deleteAccount.ended.title'"));
       assert.match(handler, /result === 'failed'\) \{\s*showToast\(t\(preferences\.appLanguage, 'account\.deleteAccount\.failed'\)\)/);
 
       // The hook: the server first, then sign-out, and the request names the account.
@@ -113,7 +116,10 @@ module.exports = [
           body.indexOf("deleteBackup(token.idToken, { account: true })") < body.indexOf('await signOut();'),
         'the phone signs out before the server has deleted',
       );
-      assert.match(body, /if \(!result\.ok\) \{\s*return 'failed';\s*\}/);
+      assert.match(body, /if \(answer\.ok\) \{\s*await signOut\(\);\s*return 'done';\s*\}/);
+      // The pending record is written before the request goes out, never after.
+      const marked = body.indexOf('deleteAccountPendingAt: new Date()');
+      assert.ok(marked > 0 && marked < body.indexOf('deleteBackup(token.idToken, { account: true })'), 'the pending record is not written before the request');
       const client = read('src', 'features', 'account', 'backupApi.ts');
       assert.match(client, /options\.account \? \{ 'x-backup-action': 'delete-account' \} : \{\}/);
     },

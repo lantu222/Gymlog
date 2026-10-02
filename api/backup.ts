@@ -299,7 +299,9 @@ const REVOCATION_WRITE_OPTIONS = {
  * a marker that cannot be parsed. The SDK's `uploadedAt` is always a date: the
  * store's Last-Modified, or the moment of the read when the store sends none.
  */
-async function readRevocationMarker(pathname: string): Promise<{ revokedAtMs: number | null; uploadedAtMs: number } | null> {
+async function readRevocationMarker(
+  pathname: string,
+): Promise<{ revokedAtMs: number | null; uploadedAtMs: number; etag: string | null } | null> {
   let stored;
   try {
     stored = await get(pathname, { access: 'private', useCache: false });
@@ -322,7 +324,11 @@ async function readRevocationMarker(pathname: string): Promise<{ revokedAtMs: nu
     // Unreadable: the caller resolves it.
   }
   const uploadedAtMs = new Date(stored.blob.uploadedAt).getTime();
-  return { revokedAtMs, uploadedAtMs: Number.isFinite(uploadedAtMs) ? uploadedAtMs : Date.now() };
+  return {
+    revokedAtMs,
+    uploadedAtMs: Number.isFinite(uploadedAtMs) ? uploadedAtMs : Date.now(),
+    etag: stored.blob.etag || null,
+  };
 }
 
 /**
@@ -335,6 +341,13 @@ async function readRevocationMarker(pathname: string): Promise<{ revokedAtMs: nu
  * answer and a sign-in made after it works. Read on its own each time, a store
  * that sends no Last-Modified would say "now" on every read and refuse every
  * session for ever. If the rewrite fails the answer is a 502, not a guess.
+ *
+ * The rewrite is conditional on the corrupt copy it read (`ifMatch`): a
+ * deletion that stamps the marker at the same moment wins, and its valid
+ * marker is read back and used — the rewrite can never move a valid time
+ * backwards. A stamp landing between the read and the write makes the write
+ * fail its condition, and that is handled the same way. (The window that stays
+ * open is the store's own: `ifMatch` is the only atomicity there is.)
  */
 async function revokedAtOf(sub: string, secret: string): Promise<number | null> {
   const pathname = revocationPathname(sub, secret);
@@ -346,11 +359,26 @@ async function revokedAtOf(sub: string, secret: string): Promise<number | null> 
   if (revokedAtMs === null) {
     revokedAtMs = marker.uploadedAtMs;
     try {
-      await put(pathname, JSON.stringify({ revokedAtMs }), REVOCATION_WRITE_OPTIONS);
-    } catch {
-      throw new StoreUnavailable();
+      await put(pathname, JSON.stringify({ revokedAtMs }), {
+        ...REVOCATION_WRITE_OPTIONS,
+        ...(marker.etag ? { ifMatch: marker.etag } : {}),
+      });
+      console.error('backup revocation marker was unreadable: rewritten as revoked at its write time');
+    } catch (error) {
+      if (!(error instanceof BlobPreconditionFailedError)) {
+        throw new StoreUnavailable();
+      }
+      // Written by someone else since it was read — most likely a deletion's
+      // own stamp. Whatever is there now is the answer, never an older time.
+      const current = await readRevocationMarker(pathname);
+      if (!current) {
+        return null;
+      }
+      if (current.revokedAtMs === null) {
+        throw new StoreUnavailable();
+      }
+      revokedAtMs = current.revokedAtMs;
     }
-    console.error('backup revocation marker was unreadable: rewritten as revoked at its write time');
   }
   if (revokedAtMs + REVOCATION_KEPT_MS < Date.now()) {
     // Removing it is housekeeping: failing to is not worth failing a request.
@@ -365,26 +393,56 @@ const SWEEP_PAGE_SIZE = 100;
 const SWEEP_MAX_PAGES = 5;
 const SWEEP_BUDGET_MS = 1500;
 
-async function sweepRevocations(): Promise<void> {
-  let cursor: string | undefined;
-  for (let page = 0; page < SWEEP_MAX_PAGES; page += 1) {
-    const result = await list({ prefix: 'revoked/', limit: SWEEP_PAGE_SIZE, cursor });
-    for (const blob of result.blobs) {
-      if (new Date(blob.uploadedAt).getTime() + REVOCATION_KEPT_MS >= Date.now()) {
-        continue;
-      }
-      // Read again before removing: a marker written to this path since the
-      // listing (a new deletion of the same account) is not the stale one.
-      const marker = await readRevocationMarker(blob.pathname).catch(() => null);
-      if (marker && (marker.revokedAtMs ?? marker.uploadedAtMs) + REVOCATION_KEPT_MS < Date.now()) {
-        await del(blob.pathname).catch(() => undefined);
-      }
+/** Removes the markers of a listing that are stale, each one re-read first. */
+async function sweepListed(blobs: Array<{ pathname: string; uploadedAt: Date }>): Promise<void> {
+  for (const blob of blobs) {
+    if (new Date(blob.uploadedAt).getTime() + REVOCATION_KEPT_MS >= Date.now()) {
+      continue;
     }
+    // Read again before removing: a marker written to this path since the
+    // listing (a new deletion of the same account) is not the stale one.
+    const marker = await readRevocationMarker(blob.pathname).catch(() => null);
+    if (marker && (marker.revokedAtMs ?? marker.uploadedAtMs) + REVOCATION_KEPT_MS < Date.now()) {
+      await del(blob.pathname).catch(() => undefined);
+    }
+  }
+}
+
+/**
+ * One run: the first page of the whole listing — which is all of it while there
+ * are 100 markers or fewer, the usual case — and, when there are more, the rest
+ * of the page budget on a random one of the sixteen hex digits marker names
+ * start with, going round. Five pages from the start of the listing each time
+ * would never reach a marker past the 500th; started somewhere else each run,
+ * every marker is reached over enough runs.
+ */
+async function sweepRevocations(): Promise<void> {
+  const first = await list({ prefix: 'revoked/', limit: SWEEP_PAGE_SIZE });
+  await sweepListed(first.blobs);
+  if (!first.hasMore) {
+    return;
+  }
+  let pages = 1;
+  const start = Math.floor(Math.random() * 16);
+  for (let step = 0; step < 16 && pages < SWEEP_MAX_PAGES; step += 1) {
+    pages = await sweepPrefix(`revoked/${((start + step) % 16).toString(16)}`, pages);
+  }
+}
+
+/** Sweeps one prefix by cursor; returns the pages used so far, never past SWEEP_MAX_PAGES. */
+async function sweepPrefix(prefix: string, pagesUsed: number): Promise<number> {
+  let cursor: string | undefined;
+  let pages = pagesUsed;
+  while (pages < SWEEP_MAX_PAGES) {
+    const result = await list({ prefix, limit: SWEEP_PAGE_SIZE, cursor });
+    pages += 1;
+    await sweepListed(result.blobs);
     if (!result.hasMore || !result.cursor) {
-      return;
+      return pages;
     }
     cursor = result.cursor;
   }
+  return pages;
 }
 
 /**
@@ -738,7 +796,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       // Deleting the account, not just the copy: the Apple sessions this
       // server has issued for it are refused from now on, this phone's
       // included. (A phone holding one learns of it at its next request, when
-      // the 401 INVALID_TOKEN signs it out — useAccountBackup.) Written
+      // the 401 SESSION_REVOKED signs it out — useAccountBackup.) Written
       // AFTER the copy is gone, so a failure here leaves the session alive and
       // the reader able to ask again — the other order would lock them out of
       // a copy they were deleting. A Google account has no session of ours to
