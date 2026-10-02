@@ -294,28 +294,40 @@ function sessionsSinceRepBest(run: LiftPoint[]): number {
 }
 
 /**
- * One point per session, oldest first: a lift logged twice in one workout keeps
- * its stronger entry (more top-set reps, then more per set).
+ * One point per session, oldest first. A lift logged twice in one workout is
+ * merged the way `sessionsSinceRepBest` judges a gain — on top-set reps OR on
+ * reps per set — so the merged point has the most top-set reps of any of the
+ * session's logs and the per-set reps of the log with the best average. Keeping
+ * one whole entry could drop the one that was the rep best.
  */
 function collapseBySession(run: LiftPoint[]): LiftPoint[] {
   const bySession = new Map<string, LiftPoint>();
   for (const point of run) {
     const kept = bySession.get(point.sessionId);
-    if (
-      !kept ||
-      point.topSetReps > kept.topSetReps ||
-      (point.topSetReps === kept.topSetReps && averageReps(point) > averageReps(kept))
-    ) {
+    if (!kept) {
       bySession.set(point.sessionId, point);
+      continue;
     }
+    const best = averageReps(point) > averageReps(kept) ? point : kept;
+    bySession.set(point.sessionId, {
+      ...kept,
+      topSetReps: Math.max(kept.topSetReps, point.topSetReps),
+      setReps: best.setReps,
+      setCount: best.setCount,
+      totalReps: best.totalReps,
+      volumeKg: best.volumeKg,
+    });
   }
   return [...bySession.values()];
 }
 
 /**
- * The points behind `stalledSessions`, oldest first. `stalledSessions` counts
- * sessions while `points` has one entry per log, so slicing `points` by the
- * count would miss entries when a lift was logged twice in a workout.
+ * The points behind `stalledSessions`, oldest first, one per session.
+ * `stalledSessions` counts sessions while `points` has one entry per log, so
+ * slicing `points` by the count would miss entries when a lift was logged twice
+ * in a workout, and counting the logs would weight a duplicated session twice.
+ * Every log of a session shares its date, so the first point still carries the
+ * first stalled session's own date.
  */
 export function stalledRunPoints(lift: Pick<LiftHistory, 'points' | 'stalledSessions'>): LiftPoint[] {
   const seen = new Set<string>();
@@ -330,7 +342,7 @@ export function stalledRunPoints(lift: Pick<LiftHistory, 'points' | 'stalledSess
     }
     start = index;
   }
-  return lift.points.slice(start);
+  return collapseBySession(lift.points.slice(start));
 }
 
 /**

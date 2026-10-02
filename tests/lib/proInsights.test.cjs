@@ -140,6 +140,43 @@ module.exports = [
     },
   },
   {
+    name: 'proInsights: a duplicate log does not weigh a session twice in the fade rule',
+    run() {
+      // 8/8/8, then 8/6/5 logged twice, 8/6/5, 8/8/8: two of four sessions
+      // fade, not "most". Counting logs made it three of five: recovery.
+      const reps = [[[8, 8, 8]], [[8, 6, 5], [8, 6, 5]], [[8, 6, 5]], [[8, 8, 8]]];
+      const sessions = [];
+      const logs = [];
+      reps.forEach((entries, index) => {
+        sessions.push({
+          id: `s${index}`,
+          workoutTemplateId: 'tpl',
+          workoutNameSnapshot: 'Push',
+          performedAt: at((reps.length - 1 - index) * 4),
+          durationMinutes: 50,
+        });
+        entries.forEach((repsPerSet, order) => {
+          logs.push({
+            id: `s${index}-${order}`,
+            sessionId: `s${index}`,
+            exerciseTemplateId: null,
+            exerciseNameSnapshot: 'Bench Press',
+            weight: 60,
+            repsPerSet,
+            tracked: true,
+            orderIndex: order,
+          });
+        });
+      });
+      const lift = detectPlateau(buildLiftHistories(sessions, logs));
+      assert.ok(lift);
+      assert.equal(lift.stalledSessions, 4);
+      assert.match(buildPlateauConclusion(lift, 'en', 'beginner').body, /^Next time 60 kg/);
+      // The card's "from" is the first stalled session, not a later log.
+      assert.match(buildPlateauDetection(lift, 'en').meta, /4 sessions running/);
+    },
+  },
+  {
     name: 'proInsights: an improving lift is NOT a plateau',
     run() {
       const lifts = history({ weights: [60, 62.5, 65, 67.5, 70] });

@@ -72,9 +72,28 @@ module.exports = [
         log('s2', 'Bench Press', 60, [8, 8, 8]),
       ])[0];
       assert.equal(three.stalledSessions, 3);
-      // The run's points cover every log of those three sessions.
-      assert.equal(stalledRunPoints(three).length, 4);
-      assert.equal(stalledRunPoints(two).length, 3);
+      // The run's points are one per session, the first on the first
+      // stalled session's own date (the plateau card's "from").
+      assert.equal(stalledRunPoints(three).length, 3);
+      assert.equal(stalledRunPoints(two).length, 2);
+      assert.equal(stalledRunPoints(three)[0].sessionId, 's0');
+      assert.equal(stalledRunPoints(three)[0].performedAt, three.points[0].performedAt);
+    },
+  },
+  {
+    name: 'two logs of one workout merge the way a rep gain is judged: top reps or reps per set',
+    run() {
+      // s0 8/6/6 (top 8, average 6.7). s1 logs 8/5/5 and 7/7/7: the second has
+      // the better average, a gain, so the stall counts from s1 — keeping only
+      // the log with more top-set reps dropped it and read as three stalled.
+      const sessions = [0, 1, 2].map((index) => session(`s${index}`, 'Push', at((2 - index) * 4), 3000));
+      const lift = buildLiftHistories(sessions, [
+        log('s0', 'Bench Press', 60, [8, 6, 6]),
+        log('s1', 'Bench Press', 60, [8, 5, 5], { id: 's1-a' }),
+        log('s1', 'Bench Press', 60, [7, 7, 7], { id: 's1-b', orderIndex: 1 }),
+        log('s2', 'Bench Press', 60, [7, 7, 7]),
+      ])[0];
+      assert.equal(lift.stalledSessions, 2);
     },
   },
   {
