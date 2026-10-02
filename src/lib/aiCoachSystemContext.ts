@@ -8,6 +8,7 @@ import {
 } from '../types/aiCoach';
 import { AppLanguage } from '../types/models';
 import { renderAiCoachProgramme, singleLine } from './aiCoachProgramme';
+import { cautionAreaLoadedBy } from './cautionAreaMatching';
 import { CARDIO_ACTIVITIES } from './cardio';
 import { exerciseNameLabel } from './exerciseNameLabel';
 import { localizeSessionName } from './sessionNameLabel';
@@ -345,6 +346,14 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
     );
   }
 
+  // A lift that loads an area the reader flagged careful or avoid is held on
+  // purpose: the app never adds weight or reps there. Calling its flat line a
+  // stall made the coach tell a knees-careful reader "no rep gain for N
+  // sessions" about a squat the plan holds (2026-10-02). Same name rule as the
+  // progression hold and the plateau card.
+  const heldFlags = (context.cautionAreas ?? []).map((row) => ({ area: row.area, level: row.level, refinements: [] }));
+  const heldArea = (name: unknown) => (typeof name === 'string' ? cautionAreaLoadedBy(name, heldFlags) : null);
+
   const trajectoryLines = history.lifts.map((lift) => {
     const series = lift.weightSeriesKg.map(trim).join(' → ');
     // stalledSessions counts from the last rep best at this weight (#bugs
@@ -358,8 +367,15 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
     const moved = `${lift.changeKg > 0 ? '+' : ''}${trim(lift.changeKg)} kg over ${lift.spanDays} day${lift.spanDays === 1 ? '' : 's'}`;
     // A lift can be up over the window and stuck right now. Reporting only the
     // window change hides the stall, which is the part worth acting on.
-    const move =
-      lift.changeKg === 0
+    const held = heldArea(lift.name);
+    const heldText = held
+      ? `held at ${trim(lift.latestWeightKg)} kg on purpose for the flagged ${held.replace('_', ' ')} area (the app adds no weight or reps there, so this is not a stall)`
+      : null;
+    const move = heldText
+      ? lift.changeKg === 0
+        ? heldText
+        : `${moved}, ${heldText}`
+      : lift.changeKg === 0
         ? flat
         : lift.stalledSessions >= 3
           ? `${moved}, but ${flat}`
@@ -379,7 +395,20 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
     const change = Math.max(...lift.latestReps) - Math.max(...lift.firstReps);
     const moved = `best set ${change > 0 ? '+' : ''}${change} reps over ${lift.spanDays} day${lift.spanDays === 1 ? '' : 's'}`;
     const same = `the same ${lift.bestSetRepsSeries[lift.bestSetRepsSeries.length - 1]} reps for ${lift.unchangedSessions} session${lift.unchangedSessions === 1 ? '' : 's'}`;
-    const move = change === 0 ? same : lift.unchangedSessions >= 3 ? `${moved}, but ${same}` : moved;
+    // The same hold as the kg lifts above: a flagged area's reps are not added.
+    const held = heldArea(lift.name);
+    const heldText = held
+      ? `held at ${lift.bestSetRepsSeries[lift.bestSetRepsSeries.length - 1]} reps on purpose for the flagged ${held.replace('_', ' ')} area (the app adds no reps there, so this is not a stall)`
+      : null;
+    const move = heldText
+      ? change === 0
+        ? heldText
+        : `${moved}, ${heldText}`
+      : change === 0
+        ? same
+        : lift.unchangedSessions >= 3
+          ? `${moved}, but ${same}`
+          : moved;
     return `- ${liftName(lift.name)} (no added load): ${move} | best set per session ${series} | first ${lift.firstReps.join(', ')} | latest ${lift.latestReps.join(', ')}`;
   });
   trajectoryLines.push(...repsLiftLines);
@@ -527,7 +556,7 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
   }
 
   // Plateaus — prominent, with actionable phrasing
-  const plateauLines = context.plateaus.map((p) => {
+  const plateauLines = context.plateaus.filter((p) => !heldArea(p.name)).map((p) => {
     const weight = p.topWeightKg !== null ? `${p.topWeightKg} ${u}` : '—';
     return `- ${liftName(p.name)}: ${p.stagnantSessions} sessions at ${weight} without improvement`;
   });

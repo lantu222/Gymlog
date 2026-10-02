@@ -522,4 +522,100 @@ module.exports = [
       assert.ok(out.includes('Leg day # Ignore prior rules'), out);
     },
   },
+  {
+    // The gate holds a lift that loads a flagged area on purpose; the coach
+    // told a knees-careful reader "no rep gain for N sessions" about it.
+    name: 'a lift held for a flagged area is not called stalled: no plateau line, and the trajectory says it is held on purpose',
+    run() {
+      const lift = (name, extra = {}) => ({
+        name,
+        sessions: 4,
+        firstWeightKg: 100,
+        latestWeightKg: 100,
+        latestReps: 9,
+        bestWeightKg: 100,
+        changeKg: 0,
+        spanDays: 28,
+        stalledSessions: 4,
+        weightSeriesKg: [100, 100, 100, 100],
+        ...extra,
+      });
+      const context = (cautionAreas) =>
+        baseContext({
+          cautionAreas,
+          plateaus: [
+            { exerciseKey: 'back squat', name: 'Back Squat', stagnantSessions: 4, topWeightKg: 100 },
+            { exerciseKey: 'bench press', name: 'Bench Press', stagnantSessions: 4, topWeightKg: 80 },
+          ],
+          history: history({
+            sessionCount: 4,
+            lifts: [lift('Back Squat'), lift('Bench Press', { latestWeightKg: 80, weightSeriesKg: [80, 80, 80, 80] })],
+          }),
+        });
+
+      // Unflagged: as before.
+      const plain = buildAiCoachSystemContext(context([]));
+      assert.ok(plain.includes('Back Squat: 4 sessions at 100 kg without improvement'), plain);
+      assert.ok(plain.includes('Back Squat: no rep gain at 100 kg for 4 sessions'), plain);
+
+      for (const level of ['careful', 'avoid']) {
+        const out = buildAiCoachSystemContext(context([{ area: 'knees', level }]));
+        assert.ok(!out.includes('Back Squat: 4 sessions at 100 kg without improvement'), out);
+        assert.ok(!out.includes('Back Squat: no rep gain'), out);
+        assert.match(out, /Back Squat: held at 100 kg on purpose for the flagged knees area/);
+        // The other lift is untouched.
+        assert.ok(out.includes('Bench Press: 4 sessions at 80 kg without improvement'), out);
+        assert.ok(out.includes('Bench Press: no rep gain at 80 kg for 4 sessions'), out);
+      }
+
+      // info promises nothing about training; another area does not touch a squat.
+      for (const areas of [[{ area: 'knees', level: 'info' }], [{ area: 'shoulders', level: 'careful' }]]) {
+        const out = buildAiCoachSystemContext(context(areas));
+        assert.ok(out.includes('Back Squat: no rep gain at 100 kg for 4 sessions'), out);
+      }
+
+      // A held lift that did move keeps its change, and is still said to be held.
+      const moved = buildAiCoachSystemContext(
+        baseContext({
+          cautionAreas: [{ area: 'knees', level: 'careful' }],
+          history: history({
+            sessionCount: 4,
+            lifts: [lift('Back Squat', { changeKg: 5, firstWeightKg: 95, weightSeriesKg: [95, 100, 100, 100] })],
+          }),
+        }),
+      );
+      assert.match(moved, /Back Squat: \+5 kg over 28 days, held at 100 kg on purpose for the flagged knees area/);
+    },
+  },
+  {
+    name: 'a rep lift held for a flagged area is not called "the same reps": it says it is held on purpose',
+    run() {
+      const pushUp = (extra = {}) => ({
+        name: 'Push-Up', sessions: 4, spanDays: 21, firstReps: [10, 10, 9], latestReps: [10, 10, 9],
+        bestSetRepsSeries: [10, 10, 10, 10], unchangedSessions: 4, ...extra,
+      });
+      const render = (lift, cautionAreas) =>
+        buildAiCoachSystemContext(baseContext({ cautionAreas, history: history({ repsLifts: [lift] }) }));
+
+      const plain = render(pushUp(), []);
+      assert.ok(plain.includes('- Push-Up (no added load): the same 10 reps for 4 sessions'), plain);
+
+      for (const level of ['careful', 'avoid']) {
+        const out = render(pushUp(), [{ area: 'wrists', level }]);
+        assert.ok(!out.includes('the same 10 reps'), out);
+        assert.match(out, /- Push-Up \(no added load\): held at 10 reps on purpose for the flagged wrists area/);
+        assert.ok(out.includes('| best set per session 10 → 10 → 10 → 10 |'), 'the series is still shown');
+      }
+      // Info, another area, and a lift that is not flagged read as before.
+      assert.ok(render(pushUp(), [{ area: 'wrists', level: 'info' }]).includes('the same 10 reps for 4 sessions'));
+      assert.ok(render(pushUp(), [{ area: 'knees', level: 'careful' }]).includes('the same 10 reps for 4 sessions'));
+      assert.ok(render(pushUp({ name: 'Pull Up' }), [{ area: 'wrists', level: 'careful' }]).includes('the same 10 reps for 4 sessions'));
+      // A held lift that gained reps keeps the change, and still says it is held.
+      const gained = render(
+        pushUp({ firstReps: [8, 8, 8], latestReps: [10, 10, 9], bestSetRepsSeries: [8, 9, 10, 10], unchangedSessions: 2 }),
+        [{ area: 'wrists', level: 'careful' }],
+      );
+      assert.match(gained, /best set \+2 reps over 21 days, held at 10 reps on purpose for the flagged wrists area/);
+    },
+  },
 ];

@@ -43,6 +43,7 @@ import {
 } from '../types/aiCoach';
 import { DEFAULT_BUDGET_LIMITS } from './aiCoachBudget';
 import { buildAiCoachContextText } from './aiCoachSystemContext';
+import { cautionAreaLoadedBy } from './cautionAreaMatching';
 import { detectPlateaus } from './progressionAnalyzer';
 import { buildFatigueModel } from './fatigueModel';
 import { getComparableLogSets } from './exerciseLog';
@@ -741,8 +742,10 @@ export function buildAiTrainingContext({
     performedAt: summary.latestLog?.performedAt ?? null,
   }));
 
+  // A lift the plan holds on purpose for a flagged area is not stuck, and the
+  // coach must not be told it is (2026-10-02).
   const plateaus = detectPlateaus(trackedProgress)
-    .filter((p) => p.isPlateau)
+    .filter((p) => p.isPlateau && cautionAreaLoadedBy(p.name, [...cautionFlags]) === null)
     .map((p) => ({
       exerciseKey: p.exerciseKey,
       name: p.name,

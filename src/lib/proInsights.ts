@@ -1,3 +1,4 @@
+import { cautionAreaLoadedBy } from './cautionExerciseFilter';
 import { FatigueResult } from './fatigueModel';
 import { WorkoutSlotHistoryEntry } from '../features/workout/workoutTypes';
 import { formatShortDate, formatWeight } from './format';
@@ -5,7 +6,7 @@ import { exerciseNameLabel } from './exerciseNameLabel';
 import { t } from './i18n';
 import { PROGRESSION_LEVEL_PARAMS, getProgressionTier } from './progressionGate';
 import { LiftHistory, normalizedName, stalledRunPoints } from './trainingHistory';
-import { AppLanguage, SetupLevel } from '../types/models';
+import { AppLanguage, SetupCautionFlag, SetupLevel } from '../types/models';
 
 /**
  * The paywall-moments layer (design: Vinha Paywall Moments).
@@ -120,9 +121,30 @@ function stallReason(lift: LiftHistory): 'recovery' | 'reps_hold' {
   return sessions.length >= 2 && fading.length * 2 > sessions.length ? 'recovery' : 'reps_hold';
 }
 
-/** Is this lift, right now, the plateau the paywall moments would find? */
-export function isLiftPlateaued(lift: LiftHistory): boolean {
-  return lift.stalledSessions >= PLATEAU_STALL_SESSIONS && lift.latest.topSetWeightKg > 0;
+/**
+ * A lift that loads an area the reader flagged careful or avoid is held on
+ * purpose: the progression gate never adds weight or reps there (onboarding's
+ * promise). Its flat line is the plan working, so none of the stall surfaces —
+ * the card, the in-workout reminder, the completion lock, the weekly stall row
+ * — may call it stuck and tell the reader to move up.
+ */
+export function isLiftHeldForCaution(
+  lift: LiftHistory,
+  cautionFlags?: SetupCautionFlag[] | null,
+): boolean {
+  return cautionAreaLoadedBy(lift.name, cautionFlags) !== null;
+}
+
+/**
+ * Is this lift, right now, the plateau the paywall moments would find?
+ * Never one the plan holds on purpose, when the flags are given.
+ */
+export function isLiftPlateaued(lift: LiftHistory, cautionFlags?: SetupCautionFlag[] | null): boolean {
+  return (
+    lift.stalledSessions >= PLATEAU_STALL_SESSIONS &&
+    lift.latest.topSetWeightKg > 0 &&
+    !isLiftHeldForCaution(lift, cautionFlags)
+  );
 }
 
 /**
@@ -144,10 +166,11 @@ export function plateauEpisodeKey(lift: LiftHistory): string {
 export function detectPlateau(
   lifts: LiftHistory[],
   dismissedEpisodeKeys?: ReadonlySet<string>,
+  cautionFlags?: SetupCautionFlag[] | null,
 ): LiftHistory | null {
   let best: LiftHistory | null = null;
   for (const lift of lifts) {
-    if (!isLiftPlateaued(lift)) {
+    if (!isLiftPlateaued(lift, cautionFlags)) {
       continue;
     }
     if (dismissedEpisodeKeys?.has(plateauEpisodeKey(lift))) {
@@ -175,9 +198,10 @@ export function findPlateauDetection(
   lifts: LiftHistory[],
   exerciseName: string,
   language: AppLanguage,
+  cautionFlags?: SetupCautionFlag[] | null,
 ): PlateauDetection | null {
   const key = normalizedName(exerciseName);
-  const lift = lifts.find((candidate) => candidate.key === key && isLiftPlateaued(candidate));
+  const lift = lifts.find((candidate) => candidate.key === key && isLiftPlateaued(candidate, cautionFlags));
   return lift ? buildPlateauDetection(lift, language) : null;
 }
 
@@ -362,8 +386,16 @@ export function buildNextSessionMoment(
  * history to say something about the next session. Null when nothing honest
  * can be said (fresh users see no lock at all).
  */
-export function pickCompletionLift(lifts: LiftHistory[]): LiftHistory | null {
-  const candidates = lifts.filter((lift) => lift.points.length >= 2 && lift.latest.topSetWeightKg > 0);
+export function pickCompletionLift(
+  lifts: LiftHistory[],
+  cautionFlags?: SetupCautionFlag[] | null,
+): LiftHistory | null {
+  // A held lift has no next weight to offer: the lock names the next
+  // lift in line instead.
+  const candidates = lifts.filter(
+    (lift) =>
+      lift.points.length >= 2 && lift.latest.topSetWeightKg > 0 && !isLiftHeldForCaution(lift, cautionFlags),
+  );
   return candidates[0] ?? null;
 }
 
@@ -394,6 +426,7 @@ export function buildWeeklyRead(
   fatigue: FatigueResult | null,
   language: AppLanguage,
   level: SetupLevel | null | undefined,
+  cautionFlags?: SetupCautionFlag[] | null,
 ): WeeklyReadRow[] {
   const rows: WeeklyReadRow[] = [];
 
@@ -403,7 +436,10 @@ export function buildWeeklyRead(
     }
     const bars = normalizedBars(lastBars(lift.points.map((point) => point.topSetWeightKg)));
     const name = exerciseNameLabel(language, lift.name);
-    if (lift.stalledSessions >= PLATEAU_STALL_SESSIONS) {
+    // A lift held for a flagged area is not "stalled" and gets no "move up"
+    // fix; its status is still read from the weights, as for any other lift.
+    const held = isLiftHeldForCaution(lift, cautionFlags);
+    if (!held && lift.stalledSessions >= PLATEAU_STALL_SESSIONS) {
       rows.push({
         key: lift.key,
         tone: 'amber',
@@ -436,7 +472,7 @@ export function buildWeeklyRead(
           change: formatWeight(Math.abs(lift.weightChangeKg), 'kg'),
         }),
         bars,
-        locked: buildPlateauConclusion(lift, language, level),
+        locked: held ? null : buildPlateauConclusion(lift, language, level),
       });
     } else {
       rows.push({

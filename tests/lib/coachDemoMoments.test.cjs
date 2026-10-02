@@ -122,6 +122,14 @@ module.exports = [
       assert.equal(stalled.questionKey, 'coach.demo.month1.stalled');
       assert.equal(stalled.vars.lift, 'Back Squat');
 
+      // A squat the plan holds on purpose (knees flagged) is not a stall to ask about.
+      const heldSquat = pickDemoQuestion('month1', {
+        lifts: [lift({ stalledSessions: 4 })],
+        fatigueSignal: null,
+        cautionFlags: [{ area: 'knees', level: 'careful', refinements: [] }],
+      });
+      assert.equal(heldSquat.questionKey, 'coach.demo.month1.pace');
+
       // Nothing stalled and nothing falling: asking "why has it stalled" here
       // would be embarrassing, and each of these happens once ever.
       const climbing = pickDemoQuestion('month1', { lifts: [lift()], fatigueSignal: null });

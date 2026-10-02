@@ -1,7 +1,10 @@
 import { WorkoutTemplateExercise } from '../features/workout/workoutTypes';
 import { SetupCautionArea, SetupCautionFlag, SetupFocusArea } from '../types/models';
 import { trackingModeAfterSwap } from './catalogExercisePools';
+import { exerciseHitsCautionArea, findPhrase, normalize, phraseWords, words } from './cautionAreaMatching';
 import { isHoldExerciseName } from './holdExercises';
+
+export { cautionAreaLoadedBy, exerciseHitsCautionArea } from './cautionAreaMatching';
 
 /**
  * Caution flags become real training changes (onboarding truth plan P2).
@@ -13,8 +16,9 @@ import { isHoldExerciseName } from './holdExercises';
  * - flagged area picked as a FOCUS on step 6 (careful only) — that area's
  *   exercises swap to bodyweight variants instead (the step-6 promise).
  *
- * Everything is exercise-NAME based (lowercased substring match), grounded in
- * the catalog's names, so composed and custom programs behave the same.
+ * Everything is exercise-NAME based, so composed and custom programs behave the
+ * same; how a name is matched to an area (whole words, exclusions) lives in
+ * cautionAreaMatching. Swaps use the same word rule.
  */
 
 /** Caution areas → the focus areas they touch (mirrors the onboarding UI). */
@@ -29,48 +33,6 @@ export const CAUTION_TO_FOCUS_AREAS: Record<SetupCautionArea, SetupFocusArea[]> 
   ankles: ['calves'],
 };
 
-// Broad per-area stress patterns. `avoid` removes every match.
-const AREA_AVOID_PATTERNS: Record<SetupCautionArea, string[]> = {
-  shoulders: [
-    'overhead press',
-    'shoulder press',
-    'push press',
-    'arnold press',
-    'upright row',
-    'lateral raise',
-    'rear delt',
-    'handstand',
-    'dip',
-  ],
-  lower_back: [
-    'deadlift',
-    'romanian',
-    'good morning',
-    'bent-over',
-    'barbell row',
-    'pendlay',
-    'back extension',
-    'kettlebell swing',
-    'clean',
-    'snatch',
-  ],
-  knees: [
-    'squat',
-    'lunge',
-    'leg press',
-    'leg extension',
-    'step-up',
-    'pistol',
-    'box jump',
-    'wall sit',
-  ],
-  elbows: ['curl', 'skull crusher', 'triceps', 'close-grip', 'pushdown', 'dip'],
-  wrists: ['barbell curl', 'push-up', 'front squat', 'handstand', 'wrist'],
-  hips: ['hip thrust', 'sumo', 'adductor', 'abductor', 'bulgarian', 'pistol'],
-  neck: ['shrug', 'neck', 'behind-the-neck'],
-  ankles: ['calf raise', 'jump', 'skipping', 'sprint', 'run', 'treadmill', 'stride'],
-};
-
 // `careful` swaps: first matching pattern wins; unmatched exercises keep their
 // place (there is no honest generic swap for every movement).
 // Exposed (with AREA_BODYWEIGHT_SWAPS below) so a test can sweep every swap
@@ -82,9 +44,11 @@ export const AREA_CAREFUL_SWAPS: Record<SetupCautionArea, Array<[string, string]
     ['push press', 'Landmine Press'],
     ['arnold press', 'Landmine Press'],
     ['upright row', 'Lateral Raise'],
+    ['upright barbell row', 'Lateral Raise'],
     ['incline bench press', 'Machine Chest Press'],
     ['bench press', 'Machine Chest Press'],
     ['dip', 'Machine Chest Press'],
+    ['dippi', 'Machine Chest Press'],
   ],
   lower_back: [
     ['romanian deadlift', 'Hip Thrust'],
@@ -156,41 +120,10 @@ export const AREA_BODYWEIGHT_SWAPS: Record<SetupCautionArea, Array<[string, stri
   ankles: [],
 };
 
-function normalize(name: string) {
-  return name.trim().toLowerCase();
-}
-
-export function exerciseHitsCautionArea(exerciseName: string, area: SetupCautionArea): boolean {
-  const normalized = normalize(exerciseName);
-  return AREA_AVOID_PATTERNS[area].some((pattern) => normalized.includes(pattern));
-}
-
-/**
- * The flagged area a lift loads, for the progression hold, or null.
- *
- * Only `careful` and `avoid` count — `info` promises nothing about training.
- * An `avoid` match normally never reaches a session (the filter removes it),
- * but a lift the reader added by hand can, and it is held the same way. The
- * same name patterns as the filter decide "loads this area", so a swap the
- * filter picked because it spares the area (Leg Press -> Hip Thrust for knees)
- * progresses normally, and one that still loads it (Box Squat) is held.
- */
-export function cautionAreaLoadedBy(
-  exerciseName: string,
-  flags: SetupCautionFlag[] | null | undefined,
-): SetupCautionArea | null {
-  for (const flag of flags ?? []) {
-    if (flag.level !== 'info' && exerciseHitsCautionArea(exerciseName, flag.area)) {
-      return flag.area;
-    }
-  }
-  return null;
-}
-
 function findSwap(exerciseName: string, table: Array<[string, string]>): string | null {
-  const normalized = normalize(exerciseName);
+  const nameWords = words(exerciseName);
   for (const [pattern, replacement] of table) {
-    if (normalized.includes(pattern)) {
+    if (findPhrase(nameWords, phraseWords(pattern)) !== -1) {
       return replacement;
     }
   }

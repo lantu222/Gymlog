@@ -428,6 +428,8 @@ function resolveNamedHistoryDraft(
     trackingMode: exercise.trackingMode,
     automatedProgressionEnabled: options.automatedProgressionEnabled ?? false,
     nowMs: options.nowMs ?? Date.now(),
+    cautionArea: cautionAreaLoadedBy(exercise.exerciseName, options.cautionFlags),
+    fatigueSignal: options.fatigueSignal,
   });
 
   return {
@@ -549,6 +551,8 @@ function resolveHistoricalSetDraft(
         trackingMode: exercise.trackingMode,
         automatedProgressionEnabled: options.automatedProgressionEnabled ?? false,
         nowMs: options.nowMs ?? Date.now(),
+        cautionArea,
+        fatigueSignal: options.fatigueSignal,
       });
 
   // Prefill the weight so the user usually just adjusts it with the console

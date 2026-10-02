@@ -443,4 +443,65 @@ module.exports = [
       );
     },
   },
+  {
+    // The progression gate holds a lift that loads a flagged area on purpose
+    // (#244). Reporting that hold as a stall, then telling the reader to move
+    // up, contradicts it (2026-10-02).
+    name: 'a lift held for a flagged area is not a plateau: no card, reminder, completion lock or weekly stall row',
+    run() {
+      const knees = [{ area: 'knees', level: 'careful', refinements: [] }];
+      const avoidKnees = [{ area: 'knees', level: 'avoid', refinements: [] }];
+      const infoKnees = [{ area: 'knees', level: 'info', refinements: [] }];
+      const shoulders = [{ area: 'shoulders', level: 'careful', refinements: [] }];
+      const squat = history({ name: 'Barbell Back Squat', weights: [100, 100, 100, 100], reps: [[9, 9, 9], [9, 9, 9], [9, 9, 9], [9, 9, 9]] });
+
+      // Unflagged: the plateau as before, and its card says to move up.
+      assert.ok(detectPlateau(squat));
+      assert.match(buildPlateauConclusion(squat[0], 'en', 'beginner').body, /102\.5 kg/);
+
+      // Flagged (careful or avoid): nothing to report.
+      assert.equal(detectPlateau(squat, undefined, knees), null);
+      assert.equal(detectPlateau(squat, undefined, avoidKnees), null);
+      // info promises nothing about training; another area does not touch it.
+      assert.ok(detectPlateau(squat, undefined, infoKnees));
+      assert.ok(detectPlateau(squat, undefined, shoulders));
+      assert.ok(detectPlateau(squat, undefined, []));
+      assert.ok(detectPlateau(squat, undefined, null));
+
+      // The in-workout reminder is the same finding.
+      assert.ok(findPlateauDetection(squat, 'Barbell Back Squat', 'en'));
+      assert.equal(findPlateauDetection(squat, 'Barbell Back Squat', 'en', knees), null);
+
+      // The completion lock never offers a next weight for a held lift; the
+      // next lift in line is used instead.
+      const bench = history({ name: 'Barbell Bench Press', weights: [60, 62.5, 65] });
+      assert.equal(pickCompletionLift(squat, knees), null);
+      assert.ok(pickCompletionLift(squat));
+      assert.equal(pickCompletionLift([...squat, ...bench], knees).name, 'Barbell Bench Press');
+      // The conclusion for a lift that did get picked is unchanged.
+      assert.match(buildCompletionConclusion(squat[0], 'en', 'beginner').body, /move up to/);
+
+      // The weekly read keeps the status honest and drops the stalled/fix row.
+      const rows = (flags) => buildWeeklyRead([...squat, ...bench], null, 'en', 'beginner', flags);
+      const stalledRow = rows(undefined).find((row) => row.key === squat[0].key);
+      assert.equal(stalledRow.status, 'Stalled');
+      assert.ok(stalledRow.locked);
+      const heldRow = rows(knees).find((row) => row.key === squat[0].key);
+      assert.notEqual(heldRow.status, 'Stalled');
+      assert.equal(heldRow.locked, null);
+      assert.equal(rows(knees).find((row) => row.tone === 'amber'), undefined);
+    },
+  },
+  {
+    name: 'a held lift that went down keeps its declining status but not the "move up" fix',
+    run() {
+      const knees = [{ area: 'knees', level: 'careful', refinements: [] }];
+      const declining = history({ name: 'Barbell Back Squat', weights: [100, 95, 90] });
+      const free = buildWeeklyRead(declining, null, 'en', 'beginner');
+      const held = buildWeeklyRead(declining, null, 'en', 'beginner', knees);
+      assert.equal(free[0].status, held[0].status);
+      assert.ok(free[0].locked);
+      assert.equal(held[0].locked, null);
+    },
+  },
 ];

@@ -85,8 +85,9 @@ export function useRecordsAndMilestones(deps: RecordsAndMilestonesDeps) {
    * 2026-09-29, "muistutus kun seuraavalla kerralla on sumo").
    */
   const plateauNotice = useMemo(
-    () => (exerciseName: string) => findPlateauDetection(proLiftHistories, exerciseName, preferences.appLanguage),
-    [proLiftHistories, preferences.appLanguage],
+    () => (exerciseName: string) =>
+      findPlateauDetection(proLiftHistories, exerciseName, preferences.appLanguage, preferences.setupCautionFlags),
+    [proLiftHistories, preferences.appLanguage, preferences.setupCautionFlags],
   );
   const personalRecords = useMemo(
     () => ({
