@@ -1,6 +1,22 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { execFileSync, spawnSync } = require('node:child_process');
 
 const guard = require('../../scripts/releaseGuard.cjs');
+
+/** What `expo prebuild` writes into android/app/build.gradle, trimmed. */
+const GRADLE_FIXTURE = (code, name) => `android {
+    namespace "app.vinha"
+    defaultConfig {
+        applicationId "app.vinha"
+        minSdkVersion rootProject.ext.minSdkVersion
+        versionCode ${code}
+        versionName "${name}"
+    }
+}
+`;
 
 module.exports = [
   {
@@ -43,40 +59,119 @@ module.exports = [
   },
   {
     /**
-     * `npm run release:android` is a local Gradle build, which takes
-     * android.versionCode from app.json as it stands (constant 1 for as long as
-     * nobody edits it). EAS autoIncrement never runs for it, so the guard
-     * cannot promise a rising build number there — it has to check one.
+     * `npm run release:android` is a local Gradle build. EAS autoIncrement
+     * never runs for it, so the guard cannot promise a rising build number
+     * there — it has to check one.
      */
     name: 'release guard: an Android build needs a versionCode above the last released one',
     run() {
-      const base = { platform: 'android', version: '1.2.0', tags: ['android-v1.1.0'] };
+      const base = {
+        platform: 'android',
+        version: '1.2.0',
+        tags: ['android-v1.1.0'],
+        gradle: { versionCode: 4, versionName: '1.2.0' },
+      };
+      const at = (code, taggedCodes, extra = {}) =>
+        guard.decide({ ...base, versionCode: code, gradle: { versionCode: code, versionName: '1.2.0' }, taggedCodes, ...extra });
 
       // Released with code 3: 3 is the same build number again, 4 is next.
-      const same = guard.decide({ ...base, versionCode: 3, releasedCodes: [3] });
+      const same = at(3, { '1.1.0': 3 });
       assert.equal(same.ok, false);
       assert.match(same.reason, /versionCode/);
       assert.match(same.reason, /4/, 'it says what to set');
-      assert.equal(guard.decide({ ...base, versionCode: 2, releasedCodes: [3] }).ok, false);
-      assert.equal(guard.decide({ ...base, versionCode: 4, releasedCodes: [3] }).ok, true);
-      // The highest recorded code counts, whatever order the tags come in.
-      assert.equal(guard.decide({ ...base, versionCode: 4, releasedCodes: [5, 3] }).ok, false);
+      assert.equal(at(2, { '1.1.0': 3 }).ok, false);
+      assert.equal(at(4, { '1.1.0': 3 }).ok, true);
 
-      // An older tag with no number: all that is known is that something was
-      // released, and app.json has said 1 since before the first build.
-      const unknown = guard.decide({ ...base, versionCode: 1, releasedCodes: [] });
-      assert.equal(unknown.ok, false);
-      assert.match(unknown.reason, /android-v1\.1\.0/);
-      assert.equal(guard.decide({ ...base, versionCode: 2, releasedCodes: [] }).ok, true);
+      // The highest recorded code counts, whatever order the tags come in.
+      const two = { tags: ['android-v1.0.0', 'android-v1.1.0'] };
+      assert.equal(at(4, { '1.0.0': 5, '1.1.0': 3 }, two).ok, false);
+      assert.equal(at(6, { '1.0.0': 5, '1.1.0': 3 }, two).ok, true);
 
       // Before the first Android release any positive code goes, 1 included.
-      assert.equal(guard.decide({ platform: 'android', version: '1.1.0', tags: [], versionCode: 1, releasedCodes: [] }).ok, true);
+      assert.equal(at(1, {}, { tags: [] }).ok, true);
       // A malformed code is refused rather than compared.
       for (const bad of [undefined, 0, -1, 1.5, '2', null]) {
-        assert.equal(guard.decide({ ...base, tags: [], versionCode: bad, releasedCodes: [] }).ok, false, String(bad));
+        assert.equal(guard.decide({ ...base, tags: [], versionCode: bad, taggedCodes: {} }).ok, false, String(bad));
       }
       // iOS build numbers belong to EAS: the code is not looked at.
       assert.equal(guard.decide({ platform: 'ios', version: '1.2.0', tags: ['ios-v1.1.0'] }).ok, true);
+    },
+  },
+  {
+    /**
+     * The newest tag is the release the next build follows. If it records no
+     * number (an older tag, or a lightweight one set by hand) the floor cannot
+     * be read off an OLDER tag instead: that one may be far below what shipped.
+     * The operator says what the code was, once.
+     */
+    name: 'release guard: when the newest Android release records no versionCode, the operator has to give it',
+    run() {
+      const base = { platform: 'android', version: '1.3.0', tags: ['android-v1.1.0', 'android-v1.2.0'] };
+      const at = (code, taggedCodes, declaredCode) =>
+        guard.decide({
+          ...base,
+          versionCode: code,
+          gradle: { versionCode: code, versionName: '1.3.0' },
+          taggedCodes,
+          declaredCode,
+        });
+
+      // Newest (1.2.0) is bare, the older one says 5: not "above 5".
+      const bare = at(6, { '1.1.0': 5, '1.2.0': null });
+      assert.equal(bare.ok, false);
+      assert.match(bare.reason, /android-v1\.2\.0/);
+      assert.match(bare.reason, /--released-code/);
+      // Only bare tags.
+      assert.equal(at(2, { '1.1.0': null, '1.2.0': null }).ok, false);
+      // Declared: the code that build shipped, and the build goes above it.
+      assert.equal(at(6, { '1.1.0': 5, '1.2.0': null }, 9).ok, false);
+      assert.equal(at(10, { '1.1.0': 5, '1.2.0': null }, 9).ok, true);
+      assert.equal(at(2, { '1.1.0': null, '1.2.0': null }, 1).ok, true);
+      assert.equal(at(1, { '1.1.0': null, '1.2.0': null }, 1).ok, false);
+      // A recorded newest tag needs no declaration; an older bare one does not matter.
+      assert.equal(at(6, { '1.1.0': null, '1.2.0': 5 }).ok, true);
+    },
+  },
+  {
+    /**
+     * Gradle does not read app.json: android/ is generated by `expo prebuild`,
+     * which writes versionCode and versionName into android/app/build.gradle,
+     * and the release build only runs gradlew. Bumping app.json and building
+     * ships the old code, which Play rejects after the build is done.
+     */
+    name: 'release guard: the Android build must come from a prebuild of the current app.json',
+    run() {
+      assert.deepEqual(guard.parseGradleVersion(GRADLE_FIXTURE(7, '1.2.0')), { versionCode: 7, versionName: '1.2.0' });
+      assert.deepEqual(guard.parseGradleVersion('android { }'), { versionCode: null, versionName: null });
+      assert.deepEqual(guard.parseGradleVersion(GRADLE_FIXTURE(7, '1.2.0').replace(/\n/g, '\r\n')), {
+        versionCode: 7,
+        versionName: '1.2.0',
+      });
+
+      const base = { platform: 'android', version: '1.2.0', tags: [], versionCode: 4, taggedCodes: {} };
+      assert.equal(guard.decide({ ...base, gradle: { versionCode: 4, versionName: '1.2.0' } }).ok, true);
+
+      // app.json bumped, prebuild not re-run.
+      const stale = guard.decide({ ...base, gradle: { versionCode: 3, versionName: '1.2.0' } });
+      assert.equal(stale.ok, false);
+      assert.match(stale.reason, /3/);
+      assert.match(stale.reason, /4/);
+      assert.match(stale.reason, /expo prebuild --clean/);
+      const renamed = guard.decide({ ...base, gradle: { versionCode: 4, versionName: '1.1.0' } });
+      assert.equal(renamed.ok, false);
+      assert.match(renamed.reason, /1\.1\.0/);
+      assert.match(renamed.reason, /expo prebuild --clean/);
+      // An unreadable file is as good as none.
+      assert.equal(guard.decide({ ...base, gradle: { versionCode: null, versionName: null } }).ok, false);
+
+      // No android/ folder at all.
+      const missing = guard.decide({ ...base, gradle: null });
+      assert.equal(missing.ok, false);
+      assert.match(missing.reason, /expo prebuild --clean/);
+      assert.match(missing.reason, /android\//);
+
+      // The line the guard prints no longer claims app.json is what Gradle reads.
+      assert.doesNotMatch(guard.buildLine({ platform: 'android', version: '1.2.0', versionCode: 4 }), /luetaan app\.jsonista/);
     },
   },
   {
@@ -87,7 +182,7 @@ module.exports = [
       const android = guard.buildLine({ platform: 'android', version: '1.1.0', versionCode: 4 });
       assert.doesNotMatch(android, /automaattisesti/, 'Gradle does not raise it');
       assert.match(android, /versionCode 4/);
-      assert.match(android, /app\.json/);
+      assert.match(android, /prebuild/);
     },
   },
   {
@@ -111,44 +206,13 @@ module.exports = [
      */
     name: 'release guard --mark: a tag whose push failed is pushed on the next run, or the run fails',
     run() {
-      const fs = require('node:fs');
-      const os = require('node:os');
-      const path = require('node:path');
-      const { execFileSync, spawnSync } = require('node:child_process');
-
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'release-guard-'));
+      const { dir, git, remote, work, setApp, run, cleanup } = makeRepo();
       try {
-        const git = (cwd, ...args) =>
-          execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
-        const remote = path.join(dir, 'remote.git');
         const broken = path.join(dir, 'does-not-exist.git');
-        const work = path.join(dir, 'work');
-        git(dir, 'init', '--bare', '--quiet', remote);
-        fs.mkdirSync(path.join(work, 'scripts'), { recursive: true });
-        fs.copyFileSync(path.join(__dirname, '../../scripts/releaseGuard.cjs'), path.join(work, 'scripts', 'releaseGuard.cjs'));
-        const setApp = (versionCode) =>
-          fs.writeFileSync(
-            path.join(work, 'app.json'),
-            JSON.stringify({ expo: { version: '1.2.0', android: { versionCode } } }),
-          );
-        setApp(4);
-        git(work, 'init', '--quiet');
-        git(work, 'config', 'user.name', 'Test');
-        git(work, 'config', 'user.email', 'test@example.com');
-        git(work, 'config', 'commit.gpgsign', 'false');
-        git(work, 'config', 'tag.gpgsign', 'false');
+        setApp('1.2.0', 4);
         git(work, 'add', '.');
         git(work, 'commit', '--quiet', '-m', 'First');
         git(work, 'remote', 'add', 'origin', broken);
-
-        const run = (...args) => {
-          const result = spawnSync(process.execPath, [path.join(work, 'scripts', 'releaseGuard.cjs'), ...args], {
-            cwd: work,
-            encoding: 'utf8',
-            env: { ...process.env, CI: '1', GIT_TERMINAL_PROMPT: '0' },
-          });
-          return { code: result.status, out: `${result.stdout}${result.stderr}` };
-        };
 
         // The push fails: the tag is made, the run says it is not finished.
         const first = run('--platform', 'android', '--mark');
@@ -174,25 +238,118 @@ module.exports = [
         assert.match(fourth.out, /on jo merkitty/);
 
         // The guard reads the released code back from that tag.
-        const sameCode = run('--platform', 'android');
-        assert.notEqual(sameCode.code, 0, sameCode.out);
-        // 1.2.0 is released, so a new version is needed too: bump both.
-        fs.writeFileSync(
-          path.join(work, 'app.json'),
-          JSON.stringify({ expo: { version: '1.3.0', android: { versionCode: 4 } } }),
-        );
+        setApp('1.3.0', 4);
         const stale = run('--platform', 'android');
         assert.notEqual(stale.code, 0, stale.out);
         assert.match(stale.out, /versionCode/);
-        fs.writeFileSync(
-          path.join(work, 'app.json'),
-          JSON.stringify({ expo: { version: '1.3.0', android: { versionCode: 5 } } }),
-        );
+        setApp('1.3.0', 5);
         const fresh = run('--platform', 'android');
         assert.equal(fresh.code, 0, fresh.out);
+
+        // A tag made on another commit while origin held its own is not "already
+        // marked": the two disagree about what the release was.
+        const originCommit = git(work, 'rev-parse', '--short', 'android-v1.2.0^{commit}');
+        setApp('1.2.0', 4);
+        fs.writeFileSync(path.join(work, 'notes.txt'), 'later');
+        git(work, 'add', '.');
+        git(work, 'commit', '--quiet', '-m', 'Second');
+        git(work, 'tag', '-d', 'android-v1.2.0');
+        git(work, 'tag', '-a', 'android-v1.2.0', '-m', 'versionCode=4');
+        const here = git(work, 'rev-parse', '--short', 'HEAD');
+        assert.notEqual(here, originCommit);
+        const diverged = run('--platform', 'android', '--mark');
+        assert.notEqual(diverged.code, 0, diverged.out);
+        assert.doesNotMatch(diverged.out, /on jo merkitty/);
+        assert.ok(diverged.out.includes(originCommit), diverged.out);
+        assert.ok(diverged.out.includes(here), diverged.out);
       } finally {
-        fs.rmSync(dir, { recursive: true, force: true });
+        cleanup();
+      }
+    },
+  },
+  {
+    /**
+     * Reads the tags the way the guard does: a message of several paragraphs
+     * (the tested parser accepts one), and a newest tag that records nothing.
+     */
+    name: 'release guard: the tag annotations are read whole, and a bare newest tag needs the code declared',
+    run() {
+      const { git, work, setApp, run, cleanup } = makeRepo();
+      try {
+        setApp('1.1.0', 7);
+        git(work, 'add', '.');
+        git(work, 'commit', '--quiet', '-m', 'First');
+        git(work, 'tag', '-a', 'android-v1.0.0', '-m', 'Release 1.0.0', '-m', 'Shipped on Tuesday.', '-m', 'versionCode=7');
+
+        // The code sits in the third paragraph; reading only the subject loses it.
+        const same = run('--platform', 'android');
+        assert.notEqual(same.code, 0, same.out);
+        assert.match(same.out, /versionCode on 7/);
+        setApp('1.1.0', 8);
+        const next = run('--platform', 'android');
+        assert.equal(next.code, 0, next.out);
+
+        // A lightweight tag set by hand is the newest; the older annotated one
+        // (7) is no longer the floor.
+        git(work, 'tag', 'android-v1.1.0');
+        setApp('1.2.0', 8);
+        const bare = run('--platform', 'android');
+        assert.notEqual(bare.code, 0, bare.out);
+        assert.match(bare.out, /android-v1\.1\.0/);
+        assert.match(bare.out, /--released-code/);
+        const low = run('--platform', 'android', '--released-code', '8');
+        assert.notEqual(low.code, 0, low.out);
+        setApp('1.2.0', 9);
+        const declared = run('--platform', 'android', '--released-code', '8');
+        assert.equal(declared.code, 0, declared.out);
+
+        // The gradle file is checked on the real run too.
+        const gradle = path.join(work, 'android', 'app', 'build.gradle');
+        fs.writeFileSync(gradle, GRADLE_FIXTURE(8, '1.2.0'));
+        const unbuilt = run('--platform', 'android', '--released-code', '8');
+        assert.notEqual(unbuilt.code, 0, unbuilt.out);
+        assert.match(unbuilt.out, /expo prebuild --clean/);
+        fs.rmSync(path.join(work, 'android'), { recursive: true, force: true });
+        const none = run('--platform', 'android', '--released-code', '8');
+        assert.notEqual(none.code, 0, none.out);
+        assert.match(none.out, /expo prebuild --clean/);
+      } finally {
+        cleanup();
       }
     },
   },
 ];
+
+/** A throwaway repo with the guard copied in, and a bare remote beside it. */
+function makeRepo() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'release-guard-'));
+  const git = (cwd, ...args) =>
+    execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  const remote = path.join(dir, 'remote.git');
+  const work = path.join(dir, 'work');
+  git(dir, 'init', '--bare', '--quiet', remote);
+  fs.mkdirSync(path.join(work, 'scripts'), { recursive: true });
+  fs.copyFileSync(path.join(__dirname, '../../scripts/releaseGuard.cjs'), path.join(work, 'scripts', 'releaseGuard.cjs'));
+  git(work, 'init', '--quiet');
+  git(work, 'config', 'user.name', 'Test');
+  git(work, 'config', 'user.email', 'test@example.com');
+  git(work, 'config', 'commit.gpgsign', 'false');
+  git(work, 'config', 'tag.gpgsign', 'false');
+  // app.json is tracked; android/ is generated and ignored, as in the app.
+  fs.writeFileSync(path.join(work, '.gitignore'), 'android/\nrelease-notes/\n');
+  const setApp = (version, versionCode) => {
+    fs.writeFileSync(path.join(work, 'app.json'), JSON.stringify({ expo: { version, android: { versionCode } } }));
+    fs.mkdirSync(path.join(work, 'android', 'app'), { recursive: true });
+    fs.writeFileSync(path.join(work, 'android', 'app', 'build.gradle'), GRADLE_FIXTURE(versionCode, version));
+  };
+  const run = (...args) => {
+    const result = spawnSync(process.execPath, [path.join(work, 'scripts', 'releaseGuard.cjs'), ...args], {
+      cwd: work,
+      encoding: 'utf8',
+      env: { ...process.env, CI: '1', GIT_TERMINAL_PROMPT: '0' },
+    });
+    return { code: result.status, out: `${result.stdout}${result.stderr}` };
+  };
+  const cleanup = () => fs.rmSync(dir, { recursive: true, force: true });
+  return { dir, git, remote, work, setApp, run, cleanup };
+}
