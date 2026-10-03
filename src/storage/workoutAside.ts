@@ -25,7 +25,6 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { chunkIndexOf } from '../lib/storageChunks';
 import { getLargeItem, MissingPartsError, removeLargeItem, setLargeItem } from './largeItem';
 import {
   LEGACY_WORKOUT_STORAGE_KEY,
@@ -97,19 +96,25 @@ async function readStoredBundle(): Promise<{ text: string | null; legacy: string
 /** Whether the stored bundle holds something to put aside. False when it cannot be read. */
 export async function hasWorkoutToPutAside(): Promise<boolean> {
   try {
-    const { text } = await readStoredBundle();
+    // The pre-rename row is read only when there is no live one: a failing
+    // read of it must not hide the action over a live bundle that is fine.
+    const text = (await readLarge(WORKOUT_STORAGE_KEY)) ?? (await AsyncStorage.getItem(LEGACY_WORKOUT_STORAGE_KEY));
     return text !== null && !isEmptyBundleText(text);
   } catch {
     return false;
   }
 }
 
-/** The base keys of every aside copy: the first slot and the numbered ones. */
+/**
+ * The slot heads of every aside copy: the first slot and the numbered ones.
+ * The parts of a split slot (`…/1#0`) are not heads; removeLargeItem sweeps
+ * them with their head.
+ */
 async function asideKeys(): Promise<string[]> {
+  const numbered = `${WORKOUT_ASIDE_STORAGE_KEY}/`;
   return (await AsyncStorage.getAllKeys()).filter(
     (key) =>
-      chunkIndexOf(WORKOUT_ASIDE_STORAGE_KEY, key) === null &&
-      (key === WORKOUT_ASIDE_STORAGE_KEY || key.startsWith(`${WORKOUT_ASIDE_STORAGE_KEY}/`)),
+      key === WORKOUT_ASIDE_STORAGE_KEY || (key.startsWith(numbered) && /^\d+$/.test(key.slice(numbered.length))),
   );
 }
 

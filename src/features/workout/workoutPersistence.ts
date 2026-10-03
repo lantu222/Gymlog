@@ -302,8 +302,11 @@ export async function saveWorkoutBundle(bundle: WorkoutPersistenceBundle) {
 export async function clearWorkoutBundle() {
   await removeLargeItem(STORAGE_KEY);
   await removeLargeItem(CORRUPT_STORAGE_KEY);
-  // Reset means reset: the crash screen's set-aside copies are not a copy
-  // somebody who asked for their data to be erased wanted to survive.
-  await removeWorkoutAsideCopies();
+  // Before the sweep below, which lists keys and can reject: a failed reset
+  // must not leave the pre-rename bundle to load again.
   await AsyncStorage.removeItem(LEGACY_STORAGE_KEY);
+  // Reset means reset: the crash screen's set-aside copies are not a copy
+  // somebody who asked for their data to be erased wanted to survive. A sweep
+  // that fails fails the reset, which the UI reports.
+  await removeWorkoutAsideCopies();
 }

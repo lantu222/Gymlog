@@ -149,6 +149,7 @@ module.exports = [
       assert.equal(await hasWorkoutToPutAside(), false, 'an empty bundle offers nothing to put aside');
       await setWorkoutBundleAside();
       assert.equal(fake.rows.get(ASIDE), bundle, 'the only copy of the real workout was overwritten');
+      assert.equal(fake.rows.has(`${ASIDE}/1`), false, 'an empty bundle was copied to a slot of its own');
       assert.equal(fake.rows.has(LIVE), false);
     },
   },
@@ -224,6 +225,27 @@ module.exports = [
       }
       assert.equal(isEmptyBundleText('vinha-chunks:3:70'), false);
       assert.equal(isEmptyBundleText('[]'), false);
+    },
+  },
+  {
+    name: 'workout aside: a reset whose key listing fails still removes the pre-rename bundle, and fails loudly',
+    async run() {
+      const fake = createFakeAsyncStorage();
+      const { persistence } = loadAgainstFake(fake, (requireDist) => ({
+        persistence: requireDist('features/workout/workoutPersistence.js'),
+      }));
+      fake.rows.set(LEGACY, bundle);
+      fake.getAllKeys = async () => {
+        throw new Error('getAllKeys failed');
+      };
+      const warn = console.warn;
+      console.warn = () => {};
+      try {
+        await assert.rejects(persistence.clearWorkoutBundle(), /getAllKeys failed/);
+      } finally {
+        console.warn = warn;
+      }
+      assert.equal(fake.rows.has(LEGACY), false, 'the old bundle would load again after a failed reset');
     },
   },
 ];
