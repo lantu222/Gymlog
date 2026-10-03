@@ -382,16 +382,23 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
    * answers: a Google token's 401, INVALID_TOKEN (a session that does not
    * verify) and a 502 (the store could not answer) never sign anyone out.
    * Throws SessionEnded (a Superseded), like any operation that sign-out
-   * overtakes — the callers answer 'ended', not silence.
+   * overtakes — the callers answer 'ended', not silence. Takes the calling
+   * operation's generation: see below.
    */
   const signOutRef = useRef<() => Promise<void>>(async () => undefined);
   const screenSession = useCallback(
-    async <R extends { ok: boolean; error?: string }>(idToken: string, result: R): Promise<R> => {
+    async <R extends { ok: boolean; error?: string }>(idToken: string, result: R, generation: number): Promise<R> => {
       if (
         !result.ok &&
         (result.error === SESSION_REVOKED || result.error === SESSION_EXPIRED) &&
         idToken.startsWith(APPLE_SESSION_PREFIX)
       ) {
+        // An answer to a request of an operation sign-out has overtaken is
+        // about the account that has left, not about the phone's account now:
+        // a late answer to A's request signed B out the moment B had signed in,
+        // and one after the reader's own sign-out signed out twice and left a
+        // notice (hunt 3, 2026-10-03). Superseded, like every other late step.
+        ensureCurrent(generation);
         await signOutRef.current();
         throw new SessionEnded();
       }
@@ -457,7 +464,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         };
         await persistAccount(sync);
         ensureCurrent(generation);
-        const result = await screenSession(idToken, await uploadBackup(idToken, payload, version));
+        const result = await screenSession(idToken, await uploadBackup(idToken, payload, version), generation);
         ensureCurrent(generation);
         if (!result.ok) {
           if (result.error !== BACKUP_CHANGED) {
@@ -472,7 +479,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
           // phone sent (its answer lost): then nothing was written by anyone
           // else, and this upload goes onto it. Any other copy is another
           // phone's — rows, settings and the name book included — and asked about.
-          const remote = await screenSession(idToken, await downloadBackup(idToken));
+          const remote = await screenSession(idToken, await downloadBackup(idToken), generation);
           ensureCurrent(generation);
           if (
             !remote.ok ||
@@ -507,6 +514,13 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
           autoBackupPaused: false,
           cloudVersion: result.version,
         });
+        // A sign-out that landed during the closing write is the next thing
+        // this phone's callers must hear about: each of them forgets the
+        // signed-out marks on 'done', and the mark that sign-out had just
+        // written for this account is exactly what that would erase (hunt 3,
+        // 2026-10-03: the next account's first backup then went out with this
+        // account's data and no question).
+        ensureCurrent(generation);
         return 'done';
       }
     },
@@ -591,6 +605,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       base: StoredAccount,
       payload: AccountBackupPayload,
       version: string | null,
+      generation: number,
       localFromOtherAccount = false,
     ): Promise<SignInOutcome> => {
       const pendingAccount = { ...base, ...syncCounts(countBackup(payload.database, payload.workoutHistory)) };
@@ -603,6 +618,10 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         localFromOtherAccount,
       );
       await persistAccount(pendingAccount);
+      // A sign-out during the write took the question away (it empties the
+      // pending refs): handing it out anyway left a dialog whose answer could
+      // only report "restore failed" / "backup failed" (hunt 3, 2026-10-03).
+      ensureCurrent(generation);
       return { kind: 'choice', summary };
     },
     [persistAccount],
@@ -631,7 +650,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
           const fromOtherAccount =
             uploadNeedsConsent({ signedOutSubs, sub: base.sub, localWorthKeeping: true }) &&
             !phoneDataIsInCopy(latestRef.current.database, remote.payload.database, latestRef.current.liveSession);
-          return await askRestoreOrKeep(idToken, base, remote.payload, remote.version, fromOtherAccount);
+          return await askRestoreOrKeep(idToken, base, remote.payload, remote.version, generation, fromOtherAccount);
         }
         // The phone is empty: the account signed out of earlier has nothing
         // left here to protect.
@@ -764,7 +783,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         cloudVersion: null,
       };
 
-      const remote = await screenSession(result.account.idToken, await downloadBackup(result.account.idToken));
+      const remote = await screenSession(result.account.idToken, await downloadBackup(result.account.idToken), generation);
       ensureCurrent(generation);
       return await settleWithRemote(result.account.idToken, base, remote, generation);
     } catch (error) {
@@ -818,6 +837,8 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
             autoBackupPaused: false,
             cloudVersion: pending.version,
           });
+          // As at the end of uploadCurrent: not over a sign-out's mark.
+          ensureCurrent(generation);
           clearPause();
           // The phone now holds this account's own backup: whose data it was
           // is settled.
@@ -960,7 +981,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         // restored, or — after a look — the one it has just read.
         let expectedVersion = current.cloudVersion;
         if (plan === 'look') {
-          const remote = await screenSession(idToken, await downloadBackup(idToken));
+          const remote = await screenSession(idToken, await downloadBackup(idToken), generation);
           ensureCurrent(generation);
           if (
             remote.ok &&
@@ -1010,7 +1031,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
             // would replace, or finding a copy another phone wrote: the
             // reader decides, with both counts in front of them, instead of
             // the upload deciding for them.
-            return await askRestoreOrKeep(idToken, current, remote.payload, remote.version);
+            return await askRestoreOrKeep(idToken, current, remote.payload, remote.version, generation);
           }
           if (decision === 'hold' && remote.ok) {
             // The copy is this phone's own (another phone's fails above), so
@@ -1071,10 +1092,10 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
           return { kind: 'failed' };
         }
         // "Back up now": the look this phone would have done had it known.
-        const remote = await screenSession(idToken, await downloadBackup(idToken));
+        const remote = await screenSession(idToken, await downloadBackup(idToken), generation);
         ensureCurrent(generation);
         if (remote.ok) {
-          return await askRestoreOrKeep(idToken, current, remote.payload, remote.version);
+          return await askRestoreOrKeep(idToken, current, remote.payload, remote.version, generation);
         }
         if (remote.error === 'NO_BACKUP') {
           // Deleted from the other phone since. The reader asked for a
@@ -1203,7 +1224,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       if (token.status !== 'ok') {
         return 'failed';
       }
-      const result = await screenSession(token.idToken, await deleteBackup(token.idToken));
+      const result = await screenSession(token.idToken, await deleteBackup(token.idToken), generation);
       ensureCurrent(generation);
       if (!result.ok) {
         return 'failed';
