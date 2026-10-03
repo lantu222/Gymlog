@@ -6,13 +6,15 @@ const { createEmptyDatabase } = require('../../.test-dist/data/seed.js');
 const { resolveGuidedSaveTarget, mergeStoredWorkoutLogs } = require('../../.test-dist/lib/emptyWorkoutSession.js');
 const { persistCompletedWorkoutSessionToDatabase } = require('../../.test-dist/state/completedWorkoutPersistence.js');
 const { workoutReducer, workoutInitialState } = require('../../.test-dist/features/workout/workoutState.js');
+const { normalizeWorkoutBundle } = require('../../.test-dist/features/workout/workoutPersistence.js');
+const { adaptCompletedWorkoutSessionForAppDatabase } = require('../../.test-dist/features/workout/workoutAppAdapter.js');
 
 /**
  * Finishing a guided session whose id a stored workout already holds (bug hunt 2026-10-03).
  *
  * The save lands before the clear; a lost clear brings the session back active, and the reader can add
- * sets, correct one or take one back, and Finish again. It is the same workout: merged with what is
- * stored under the same id, so no stored set is lost and none is counted twice. (Until 2026-10-03 a finish
+ * sets, correct one, take one back, swap or skip a lift, and Finish again. It is the same workout: merged
+ * with what is stored under the same id, so no stored set is lost and none is counted twice. (Until 2026-10-03 a finish
  * lacking a stored set was saved beside it under `<id>_b`, every shared set counted twice.)
  */
 
@@ -54,27 +56,20 @@ const doneOf = (logs) =>
     .flatMap((log) => log.sets.filter((s) => s.status === 'completed').map((s) => `${log.exerciseNameSnapshot}:${s.reps}@${s.weight}`));
 const setsOf = (database, sessionId) => doneOf(database.exerciseLogs.filter((log) => log.sessionId === sessionId));
 const storedLogs = (database) => database.exerciseLogs.filter((log) => log.sessionId === 'session_a');
-const merge = (database, logs) => doneOf(mergeStoredWorkoutLogs(storedLogs(database), logs));
+const merge = (database, logs, takenBackAt = []) => doneOf(mergeStoredWorkoutLogs(storedLogs(database), logs, takenBackAt));
 
 module.exports = [
   {
-    name: 'guided finish under a stored id: the same sets are saved already, anything else merges with the stored workout under the same id',
+    name: 'guided finish under a stored id: always merged into it under the same id, a free id is an ordinary save',
     run() {
       const first = [lift('Bench Press', 0, [set(8, 80, 0), set(8, 80, 1)])];
       const database = saved(first);
-      assert.deepEqual(resolveGuidedSaveTarget(database, 'session_new', first), { alreadySaved: false, mergeStored: false }, 'a free id is used as it is');
-      assert.deepEqual(resolveGuidedSaveTarget(database, 'session_a', first), { alreadySaved: true, mergeStored: true }, 'the finish that landed');
-      const more = [lift('Bench Press', 0, [set(8, 80, 0), set(8, 80, 1), set(6, 85, 2)])];
-      assert.deepEqual(resolveGuidedSaveTarget(database, 'session_a', more), { alreadySaved: false, mergeStored: true }, 'sets added');
-      const corrected = [lift('Bench Press', 0, [set(8, 80, 0), set(8, 82.5, 1), set(6, 85, 2)])];
-      assert.deepEqual(resolveGuidedSaveTarget(database, 'session_a', corrected), { alreadySaved: false, mergeStored: true }, 'a set corrected: the same id, never an id of its own');
-      // The returned session came from a bundle written before the second set: it knows only the first.
-      const stale = [lift('Bench Press', 0, [set(8, 80, 0), pending(1)])];
-      assert.deepEqual(resolveGuidedSaveTarget(database, 'session_a', stale), { alreadySaved: true, mergeStored: true }, 'a finish that knows less than is stored adds nothing');
+      assert.deepEqual(resolveGuidedSaveTarget(database, 'session_new'), { mergeStored: false }, 'a free id is used as it is');
+      assert.deepEqual(resolveGuidedSaveTarget(database, 'session_a'), { mergeStored: true }, 'a stored id is this workout, finished again');
     },
   },
   {
-    name: 'the merge: a correction replaces its set, a stored set the finish lacks is kept, a new set is added, and nothing is counted twice',
+    name: 'the merge: a set is the moment it was logged - a correction replaces it, a stored set the session never knew stays, one taken back goes, nothing is counted twice',
     run() {
       const database = saved([
         lift('Bench Press', 0, [set(8, 80, 0), set(8, 80, 1), set(8, 80, 2)]),
@@ -97,19 +92,92 @@ module.exports = [
       assert.equal(merged[1].exerciseNameSnapshot, 'Row');
       assert.equal(merged[1].slotId, 'row');
       assert.deepEqual(merged[1].sets.map((s) => `${s.reps}@${s.weight}`), ['10@60']);
-      // Taken back and logged again is a new moment: another set. Both are kept (the two cannot be told from a set
-      // the bundle never knew of).
+      // Taken back and logged again (a typo fixed by undo): the stored set's moment is on record as taken back, so it
+      // goes, and the new one is the set. Taken back alone: it goes, and nothing stands in for it.
+      const rest = lift('Row', 1, [set(10, 60, 0, 10)]);
       assert.deepEqual(
-        merge(database, [lift('Bench Press', 0, [set(8, 80, 0), set(8, 80, 1), set(9, 80, 2, 40)]), lift('Row', 1, [set(10, 60, 0, 10)])]),
-        ['Bench Press:8@80', 'Bench Press:8@80', 'Bench Press:8@80', 'Bench Press:9@80', 'Row:10@60'],
+        merge(database, [lift('Bench Press', 0, [set(8, 80, 0), set(8, 80, 1), set(9, 80, 2, 40)]), rest], [at(2)]),
+        ['Bench Press:8@80', 'Bench Press:8@80', 'Bench Press:9@80', 'Row:10@60'],
       );
-      // The same lift in another slot is another row: its sets are not taken for this one's.
       assert.deepEqual(
-        merge(database, [lift('Bench Press', 0, [set(8, 80, 0)], 'other_slot'), lift('Row', 1, [set(10, 60, 0, 10)])]),
-        ['Bench Press:8@80', 'Bench Press:8@80', 'Bench Press:8@80', 'Bench Press:8@80', 'Row:10@60'],
+        merge(database, [lift('Bench Press', 0, [set(8, 80, 0), set(8, 80, 1), pending(2)]), rest], [at(2)]),
+        ['Bench Press:8@80', 'Bench Press:8@80', 'Row:10@60'],
+      );
+      // Without that record a set the session lacks is one it never knew of, and stays.
+      assert.deepEqual(
+        merge(database, [lift('Bench Press', 0, [set(8, 80, 0), set(8, 80, 1), pending(2)]), rest]),
+        ['Bench Press:8@80', 'Bench Press:8@80', 'Bench Press:8@80', 'Row:10@60'],
       );
       // The stored rows are not touched by a merge.
       assert.deepEqual(setsOf(database, 'session_a'), ['Bench Press:8@80', 'Bench Press:8@80', 'Bench Press:8@80', 'Row:10@60']);
+    },
+  },
+  {
+    name: 'the merge holds across a swap that renumbers the slot, a lift skipped since, a slot id rewritten on load, and a stored set with no moment',
+    run() {
+      // Bench set 0 left open, sets 1 and 2 done; in the returned session the slot is swapped to a dumbbell press. A slot
+      // that held two lifts is saved lift by lift, each numbered from 0 (lib/liftSegments): bench's sets come back as
+      // 0 and 1. The same two sets, by their moments: nothing added, nothing counted twice.
+      const swapped = saved([lift('Bench Press', 0, [pending(0), set(8, 80, 1), set(8, 80, 2)], 'press')]);
+      const afterSwap = [
+        { ...lift('Dumbbell Press', 0, [pending(0)], 'press'), swappedFrom: 'Bench Press' },
+        lift('Bench Press', 0, [set(8, 80, 0, 1), set(8, 80, 1, 2)], 'press'),
+      ];
+      assert.deepEqual(merge(swapped, afterSwap), ['Bench Press:8@80', 'Bench Press:8@80']);
+
+      // Squat's two sets were logged after the bundle the session came back from; there the reader skipped Squat. A
+      // skipped row counts nowhere, so the kept sets take a row of their own instead of disappearing into it.
+      const squat = saved([lift('Squat', 0, [set(5, 100, 0), set(5, 100, 1)]), lift('Row', 1, [set(10, 60, 0, 10)])]);
+      const skippedSquat = { ...lift('Squat', 0, [{ ...pending(0), status: 'skipped', outcome: 'skipped' }]), skipped: true, status: 'skipped' };
+      const kept = mergeStoredWorkoutLogs(storedLogs(squat), [skippedSquat, lift('Row', 1, [set(10, 60, 0, 10), set(10, 60, 1, 11)])]);
+      const doneSquat = kept.filter((log) => log.exerciseNameSnapshot === 'Squat' && !log.skipped && log.status !== 'skipped');
+      assert.equal(doneSquat.length, 1, 'one row of its own, not skipped');
+      assert.deepEqual(doneSquat[0].sets.map((s) => `${s.reps}@${s.weight}`), ['5@100', '5@100']);
+      const written = persistCompletedWorkoutSessionToDatabase(squat, input([skippedSquat, lift('Row', 1, [set(10, 60, 0, 10), set(10, 60, 1, 11)])], { mergeStored: true }));
+      assert.equal(written.database.workoutSessions[0].setsCompleted, 4, 'the squat sets still count');
+      assert.equal(written.database.workoutSessions[0].totalVolumeKg, 2 * 500 + 2 * 600);
+
+      // A slot id rewritten when the stored session was repaired on load: the moment is the set, not the slot.
+      const renamed = saved([lift('Bench Press', 0, [set(8, 80, 0)], 'old_slot')]);
+      assert.deepEqual(merge(renamed, [lift('Bench Press', 0, [set(8, 80, 0), set(8, 80, 1)], 'tpl:day:press')]), ['Bench Press:8@80', 'Bench Press:8@80']);
+
+      // A stored set with no moment (an older save) is matched by its lift and value.
+      const legacy = saved([lift('Bench Press', 0, [{ ...set(8, 80, 0), completedAt: null }, { ...set(8, 80, 1), completedAt: null }])]);
+      assert.deepEqual(merge(legacy, [lift('Bench Press', 0, [set(8, 80, 0), set(8, 80, 1)])]), ['Bench Press:8@80', 'Bench Press:8@80']);
+      assert.deepEqual(merge(legacy, [lift('Bench Press', 0, [set(8, 80, 0), set(8, 80, 1), set(6, 85, 2)])]), ['Bench Press:8@80', 'Bench Press:8@80', 'Bench Press:6@85']);
+    },
+  },
+  {
+    name: 'a merge that changes nothing writes nothing; one that changes anything the reader can change is written, never reported as saved and dropped',
+    run() {
+      const first = [lift('Bench Press', 0, [set(8, 80, 0), set(8, 80, 1)])];
+      const database = saved(first);
+      const same = persistCompletedWorkoutSessionToDatabase(database, input(first, { mergeStored: true }));
+      assert.equal(same.didPersist, false, 'the same finish again');
+      assert.equal(same.wasStored, true);
+      const stale = persistCompletedWorkoutSessionToDatabase(database, input([lift('Bench Press', 0, [set(8, 80, 0), pending(1)])], { mergeStored: true }));
+      assert.equal(stale.didPersist, false, 'a finish that knows less than is stored adds nothing');
+      assert.equal(stale.database, database);
+      // ... also as the player saves it: the lift still open there, for the set it did not know was done.
+      const done = saved([{ ...first[0], status: 'completed' }]);
+      const open = persistCompletedWorkoutSessionToDatabase(done, input([{ ...lift('Bench Press', 0, [set(8, 80, 0), pending(1)]), status: 'active' }], { mergeStored: true }));
+      assert.equal(open.didPersist, false, 'the lift is done again once the set is back in its place');
+
+      const changes = {
+        'a note': [{ ...first[0], notes: 'elbow felt off' }],
+        'an effort': [lift('Bench Press', 0, [set(8, 80, 0), { ...set(8, 80, 1), effort: 'hard' }])],
+        'an inserted lift with nothing logged': [...first, { ...lift('Face Pull', 1, []), sessionInserted: true }],
+        'a skip of a lift with nothing logged': [...first, { ...lift('Row', 1, [{ ...pending(0), status: 'skipped', outcome: 'skipped' }]), skipped: true, status: 'skipped' }],
+      };
+      for (const [what, logs] of Object.entries(changes)) {
+        const result = persistCompletedWorkoutSessionToDatabase(database, input(logs, { mergeStored: true }));
+        assert.equal(result.didPersist, true, `${what} is written`);
+        assert.equal(result.database.workoutSessions.length, 1, `${what}: one workout`);
+        assert.deepEqual(setsOf(result.database, 'session_a'), ['Bench Press:8@80', 'Bench Press:8@80'], `${what}: the sets as they were`);
+      }
+      const noted = persistCompletedWorkoutSessionToDatabase(database, input(changes['a note'], { mergeStored: true }));
+      assert.equal(noted.database.exerciseLogs.find((log) => log.sessionId === 'session_a').notes, 'elbow felt off');
+      assert.equal(noted.database.workoutSessions[0].noteCount, 1);
     },
   },
   {
@@ -175,7 +243,7 @@ module.exports = [
       const decided = saved([lift('Bench Press', 0, [set(8, 80, 0), set(8, 80, 1)])]);
       const written = saved([lift('Bench Press', 0, [set(8, 80, 0), set(8, 80, 1), set(7, 80, 2)])]);
       const finish = [lift('Bench Press', 0, [set(8, 80, 0), set(8, 80, 1), set(6, 85, 3)])];
-      assert.equal(resolveGuidedSaveTarget(decided, 'session_a', finish).mergeStored, true);
+      assert.equal(resolveGuidedSaveTarget(decided, 'session_a').mergeStored, true);
       const result = persistCompletedWorkoutSessionToDatabase(written, input(finish, { mergeStored: true }));
       assert.equal(result.summary.sessionId, 'session_a', 'the same id');
       assert.deepEqual(setsOf(result.database, 'session_a'), ['Bench Press:8@80', 'Bench Press:8@80', 'Bench Press:7@80', 'Bench Press:6@85']);
@@ -242,6 +310,35 @@ module.exports = [
       const after = workoutReducer(state, { type: 'session/adoptSessionId', payload: { sessionId: 'session_c' } });
       assert.equal(after, state, 'a finished session keeps its id: it is its history\'s key');
       assert.equal(workoutReducer(workoutInitialState, { type: 'session/adoptSessionId', payload: { sessionId: 'x' } }), workoutInitialState, 'no session, nothing to re-id');
+    },
+  },
+  {
+    name: 'a set taken back is on record by the moment it was logged, through a relaunch and into the save',
+    run() {
+      const ex = { id: 'e1', exerciseName: 'Bench Press', slotId: 'press', role: 'primary', progressionPriority: 'high', trackingMode: 'load_and_reps', sets: 3, repsMin: 6, repsMax: 8, restSecondsMin: 90, restSecondsMax: 120, substitutionGroup: 'press' };
+      const template = { id: 'tpl', name: 'Day', defaultScheduleMode: 'weekly', sessions: [{ id: 'day', name: 'Day', orderIndex: 0, exercises: [ex] }] };
+      let state = workoutReducer({ ...workoutInitialState, hydrated: true }, { type: 'session/startFromRuntimeTemplate', payload: { template, sessionOrderIndex: 0, unitPreference: 'kg' } });
+      const slotId = state.activeSession.exercises[0].slotId;
+      const loggedAt = Date.parse('2026-10-03T09:10:00.000Z');
+      state = workoutReducer(state, { type: 'set/updateDraft', payload: { slotId, setIndex: 0, patch: { loadText: '80', repsText: '8' } } });
+      state = workoutReducer(state, { type: 'set/complete', payload: { slotId, setIndex: 0, nowMs: loggedAt, unitPreference: 'kg' } });
+      assert.equal(state.activeSession.takenBackAt, undefined, 'nothing taken back yet');
+      state = workoutReducer(state, { type: 'set/undo', payload: { slotId, setIndex: 0 } });
+      assert.deepEqual(state.activeSession.takenBackAt, [new Date(loggedAt).toISOString()]);
+      // A pending set taken back is nothing taken back.
+      const again = workoutReducer(state, { type: 'set/undo', payload: { slotId, setIndex: 1 } });
+      assert.deepEqual(again.activeSession.takenBackAt, [new Date(loggedAt).toISOString()]);
+
+      const reloaded = normalizeWorkoutBundle(JSON.parse(JSON.stringify({ activeSession: state.activeSession, history: state.history })));
+      assert.deepEqual(reloaded.activeSession.takenBackAt, [new Date(loggedAt).toISOString()], 'kept through the bundle');
+      const junk = normalizeWorkoutBundle(JSON.parse(JSON.stringify({ activeSession: { ...state.activeSession, takenBackAt: [3, null, 'x'] }, history: state.history })));
+      assert.deepEqual(junk.activeSession.takenBackAt, ['x'], 'what is not a moment is dropped on load');
+      const none = normalizeWorkoutBundle(JSON.parse(JSON.stringify({ activeSession: { ...state.activeSession, takenBackAt: 'x' }, history: state.history })));
+      assert.equal(none.activeSession.takenBackAt, undefined);
+
+      assert.deepEqual(adaptCompletedWorkoutSessionForAppDatabase(state.activeSession).takenBackAt, [new Date(loggedAt).toISOString()], 'handed to the save');
+      const source = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'app', 'finishSaves.tsx'), 'utf8');
+      assert.match(source, /saveCompletedWorkoutSession\(\{\s*\.\.\.adaptedSession,/, 'the guided save passes the adapted session whole, takenBackAt with it');
     },
   },
 ];

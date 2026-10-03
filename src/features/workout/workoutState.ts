@@ -175,7 +175,7 @@ export type WorkoutAction =
   | { type: 'session/openFinishSummary' }
   | { type: 'session/finishWorkout'; payload?: { performedAt?: string } }
   | { type: 'session/discardWorkout' }
-  /** The running session takes another id (a Finish whose id a stored workout holds): see resolveGuidedSaveTarget. */
+  /** The running session takes another id: the one its save was filed under, when the write found its own taken. */
   | { type: 'session/adoptSessionId'; payload: { sessionId: string } }
   | { type: 'session/clearCompletedSession' }
   /** "Reset all data": nothing of the training record survives, not even the per-slot history. */
@@ -1565,6 +1565,11 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
         return state;
       }
 
+      // The moment goes on record as taken back: a merge with the stored workout drops the stored set
+      // it names rather than keep it as one this session never knew of (mergeStoredWorkoutLogs).
+      if (set.status === 'completed' && set.completedAt) {
+        session.takenBackAt = [...(session.takenBackAt ?? []), set.completedAt];
+      }
       set.status = 'pending';
       set.actualLoadKg = undefined;
       set.actualReps = undefined;

@@ -143,8 +143,12 @@ function repairSessionShape(input: Record<string, unknown>): WorkoutSessionRunti
     return null;
   }
   const ui = isObject(input.ui) ? input.ui : {};
+  const takenBackAt = Array.isArray(input.takenBackAt)
+    ? input.takenBackAt.filter((moment): moment is string => typeof moment === 'string')
+    : undefined;
   return {
     ...input,
+    takenBackAt,
     exercises,
     restTimer: { ...IDLE_REST_TIMER, ...(isObject(input.restTimer) ? input.restTimer : {}) },
     ui: {

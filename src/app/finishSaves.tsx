@@ -162,7 +162,7 @@ export function createFinishSaves(deps: FinishSavesDeps) {
     // saved under an id of its own beside the stored one whenever it lacked a stored set, and every
     // set the two shared counted twice.) Read from the database as it stands now, not this render's
     // snapshot.
-    const saveTarget = resolveGuidedSaveTarget(getDatabase(), adaptedFromSession.sessionId, adaptedFromSession.logs);
+    const saveTarget = resolveGuidedSaveTarget(getDatabase(), adaptedFromSession.sessionId);
     let adaptedSession = adaptedFromSession;
     // A merge keeps the stored row's name (a rename made since is the reader's), so the summary
     // names the workout the way History will: when the write did merge, and not when it filed the
@@ -272,7 +272,10 @@ export function createFinishSaves(deps: FinishSavesDeps) {
         // The tile counts lifts that were done: the save's own count, by the
         // rule History reads the same logs with (lib/sessionTotals), so this
         // tile and the session's History row cannot disagree. The cards below
-        // agree too — a card with a completed set is a log the rule counts.
+        // agree too — a card with a completed set is a log the rule counts —
+        // except after a merge that kept stored sets this session never knew
+        // of (mergeStoredWorkoutLogs): the tiles count those, the cards are
+        // this session's.
         // Not summary.exercisesLogged, which is every persisted entry, skipped
         // included: "6 LIIKETTÄ" above five rows of "0 sarjaa" was that number.
         exercisesLogged: summary.exercisesCompleted,

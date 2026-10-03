@@ -1,6 +1,6 @@
 import { createId } from '../lib/ids';
 import { normalizeExerciseLogDraft } from '../lib/exerciseLog';
-import { mergedIsStored, mergeStoredWorkoutLogs, resolveFreestyleSaveTarget } from '../lib/emptyWorkoutSession';
+import { mergeStoredWorkoutLogs, resolveFreestyleSaveTarget, sameSavedLogs } from '../lib/emptyWorkoutSession';
 import { getSessionTotals } from '../lib/sessionTotals';
 import { exerciseLogRepository, workoutSessionRepository } from '../storage/repositories';
 import { AppDatabase, ExerciseLog, ExerciseLogDraft, WorkoutSession } from '../types/models';
@@ -51,6 +51,8 @@ export interface PersistCompletedWorkoutInput {
    * row afterwards (a note, a rename, the feel) stays.
    */
   mergeStored?: boolean;
+  /** The moments of the sets taken back in the session, for the merge (WorkoutSessionRuntime.takenBackAt). */
+  takenBackAt?: string[];
 }
 
 export interface PersistCompletedWorkoutResult {
@@ -236,11 +238,16 @@ export function persistCompletedWorkoutSessionToDatabase(
     // Merged with the database this write writes, not the one the caller decided on: a set stored
     // in between is kept all the same.
     const storedLogs = database.exerciseLogs.filter((log) => log.sessionId === input.sessionId);
-    const merged = buildCompletedWorkoutRecord({ ...input, logs: mergeStoredWorkoutLogs(storedLogs, input.logs) }, createIdFn);
+    const merged = buildCompletedWorkoutRecord(
+      { ...input, logs: mergeStoredWorkoutLogs(storedLogs, input.logs, input.takenBackAt ?? []) },
+      createIdFn,
+    );
     if (!merged) {
       return { database, didPersist: false, summary: createEmptySummary() };
     }
-    if (mergedIsStored(storedLogs, input.logs)) {
+    // Nothing to write only when the merge is the stored rows field for field: a note, an effort or
+    // an inserted lift is written, not reported as saved and dropped.
+    if (sameSavedLogs(storedLogs, merged.logs)) {
       return { database, didPersist: false, summary: merged.summary, wasStored: true };
     }
     const replaced: WorkoutSession = {

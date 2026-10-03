@@ -357,7 +357,8 @@ const FINISH_SAVES = (() => {
  * A snapshot of it is taken whenever a bundle write is issued; the last write
  * that landed is what a launch must restore.
  */
-const cloneSession = (session) => (session ? { sessionId: session.sessionId, sets: new Map(session.sets) } : null);
+const cloneSession = (session) =>
+  session ? { sessionId: session.sessionId, sets: new Map(session.sets), takenBack: new Set(session.takenBack ?? []) } : null;
 const snapshotOf = (current) => ({
   session: cloneSession(current.shadow.session),
   cardio: current.shadow.cardio,
@@ -383,6 +384,8 @@ function freshWorld() {
     pendingExpectation: [],
     /** The guided finish's sets by identity (slot|set|moment logged), for a merge with what is stored under its id. */
     pendingByIdentity: new Map(),
+    /** The moments the finishing session took back (set/undo). */
+    pendingTakenBack: new Set(),
     /** What the database must hold under the id the finish landed under: its sets, or the merge with what was stored. */
     pendingSaved: [],
     pendingLifts: null,
@@ -713,10 +716,14 @@ function checkSessionSanity(session) {
 
 const setMultiset = (sets) => sets.map((set) => `${set.reps}@${set.kg}`).sort();
 
-/** The completed sets a saved session's logs hold, as reps@kg, sorted. */
+/**
+ * The completed sets a saved session's logs hold, as reps@kg, sorted. Not in a skipped log: totals, records and
+ * History count none of a skipped log's sets, so a set saved there is a set lost (the player never puts a done set
+ * in one: a lift with a set logged is not skipped).
+ */
 function savedSets(database, sessionId) {
   return database.exerciseLogs
-    .filter((log) => log.sessionId === sessionId)
+    .filter((log) => log.sessionId === sessionId && log.skipped !== true && log.status !== 'skipped')
     .flatMap((log) => log.sets)
     .filter((set) => set.status === 'completed' || set.outcome === 'completed')
     .map((set) => `${set.reps}@${set.weight}`)
@@ -1008,9 +1015,17 @@ function finishDeps(proc, ev) {
             // its latest value (a correction keeps its moment, so it is the stored set, once); a stored set the
             // finish lacks stays (it was logged before the bundle the session came back from, or taken back); a new
             // one is added. checkDatabase then holds the stored rows to exactly this: nothing lost, nothing twice.
-            const merged = new Map(prior.byIdentity ?? prior.sets.map((value, index) => [`stored|${index}`, value]));
+            if (!prior.byIdentity) {
+              fail('2', `a guided finish was merged into ${landedAs}, which no guided save wrote`);
+            }
+            const merged = new Map(prior.byIdentity);
+            for (const identity of merged.keys()) {
+              if (world.pendingTakenBack.has(merged.get(identity).at) && !world.pendingByIdentity.has(identity)) {
+                merged.delete(identity);
+              }
+            }
             world.pendingByIdentity.forEach((value, identity) => merged.set(identity, value));
-            const sets = prior.byIdentity ? setMultiset([...merged.values()]) : [...prior.sets, ...expected].sort();
+            const sets = setMultiset([...merged.values()]);
             world.pendingSaved = sets;
             world.expectedDb.set(landedAs, { sets, lifts: world.pendingLifts, byIdentity: merged });
           }
@@ -1111,7 +1126,14 @@ async function finishGuided(ev) {
   }
   const expectedLogged = world.shadow.session?.sets ?? new Map();
   world.pendingExpectation = setMultiset([...expectedLogged.values()]);
-  world.pendingByIdentity = new Map([...expectedLogged].map(([key, value]) => [`${key}|${value.at}`, value]));
+  // A set is the moment it was logged (two in one moment told apart by a count).
+  world.pendingByIdentity = new Map();
+  for (const value of expectedLogged.values()) {
+    let n = 0;
+    while (world.pendingByIdentity.has(`${value.at}#${n}`)) n += 1;
+    world.pendingByIdentity.set(`${value.at}#${n}`, value);
+  }
+  world.pendingTakenBack = new Set(world.shadow.session?.takenBack ?? []);
   world.pendingSaved = world.pendingExpectation;
   world.pendingLifts = null;
   world.lastSave = null;
@@ -1470,7 +1492,7 @@ const HANDLERS = {
             fail('4', `session id ${next.activeSession.sessionId} was issued twice`);
           }
           world.seenSessionIds.add(next.activeSession.sessionId);
-          world.shadow.session = { sessionId: next.activeSession.sessionId, sets: new Map() };
+          world.shadow.session = { sessionId: next.activeSession.sessionId, sets: new Map(), takenBack: new Set() };
         },
       );
     } catch (error) {
@@ -1584,6 +1606,8 @@ const HANDLERS = {
     }
     const key = pick(stream(ev.r), [...shadow.sets.keys()]);
     const [slotId, setIndex] = key.split('|');
+    // Taken back: the moment it was logged is on record, so a merge with a stored copy drops that copy.
+    (shadow.takenBack ??= new Set()).add(shadow.sets.get(key).at);
     shadow.sets.delete(key);
     dispatch(proc, { type: 'set/undo', payload: { slotId, setIndex: Number(setIndex) } });
     count('set unticked');
@@ -2265,10 +2289,14 @@ module.exports = [
         ['sets added, the save failing, then the retry', [...begin, ev('log', { r: 3 }), ev('finish', { saveFail: true }), ev('finish')], 1],
         ['sets added, a kill, the board restored, Finish', [...begin, ev('log', { r: 3 }), ev('kill'), ev('finish')], 1],
         ['sets added, and the preferences write refused after the save', [...begin, ev('log', { r: 3 }), ev('finish', { prefFail: true })], 1],
-        ['a stored set undone and another logged: merged, the undone set kept', [...begin, ev('undo', { r: 5 }), ev('log', { r: 6 }), ev('finish')], 1],
+        ['a stored set taken back and another logged: the taken-back set goes, the new one is saved', [...begin, ev('undo', { r: 5 }), ev('log', { r: 6 }), ev('finish')], 1],
         ['the same, the save failing, then the retry', [...begin, ev('undo', { r: 5 }), ev('log', { r: 6 }), ev('finish', { saveFail: true }), ev('finish')], 1],
         ['the same, the failed save killed and relaunched, then finished', [...begin, ev('undo', { r: 5 }), ev('log', { r: 6 }), ev('finish', { saveFail: true }), ev('kill'), ev('finish')], 1],
         ['a stored set corrected: saved once, corrected', [...begin, ev('edit', { r: 4 }), ev('finish')], 1],
+        ['a stored set taken back, nothing else: it goes', [...begin, ev('undo', { r: 5 }), ev('finish')], 1],
+        ['the slot swapped after the relaunch, a set logged as the new lift', [...begin, ev('swap', { r: 1 }), ev('log', { r: 3 }), ev('finish')], 1],
+        ['the slot swapped after the relaunch, nothing logged', [...begin, ev('swap', { r: 2 }), ev('finish')], 1],
+        ['a lift skipped after the relaunch, a set logged elsewhere', [...begin, ev('skip', { r: 1 }), ev('log', { r: 3 }), ev('finish')], 1],
         ['a stored set corrected and one added, the save failing, then the retry', [...begin, ev('edit', { r: 4 }), ev('log', { r: 3 }), ev('finish', { saveFail: true }), ev('finish')], 1],
         ['a discard whose preferences write is refused still discards', [...begin, ev('discard', { prefFail: true })], 1],
       ];
