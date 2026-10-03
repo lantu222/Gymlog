@@ -100,10 +100,50 @@ module.exports = [
       assert.equal(store.databaseRef.current.cardioSessions[0].feel, 'hard');
       assert.equal(store.databaseRef.current.cardioSessions.length, 1);
 
-      // The pure half: not longer is not merged.
-      const stored = { id: 'c', activityType: 'run', startedAt: 'x', performedAt: 'y', durationSec: 100, distanceKm: 1, feel: null };
-      assert.equal(mergeContinuedCardioRun(stored, { ...stored, durationSec: 100, distanceKm: 2 }), stored);
-      assert.equal(mergeContinuedCardioRun(stored, { ...stored, durationSec: 99 }), stored);
+      // The pure half: nothing new is nothing written.
+      const stored = { id: 'c', activityType: 'run', startedAt: '2026-10-03T08:00:00.000Z', performedAt: '2026-10-03T08:10:00.000Z', durationSec: 100, distanceKm: 1, feel: null };
+      assert.equal(mergeContinuedCardioRun(stored, { ...stored }), stored);
+      assert.equal(mergeContinuedCardioRun(stored, { ...stored, durationSec: 99, distanceKm: null }), stored);
+    },
+  },
+  {
+    name: 'cardio: a re-Complete of the same length keeps the distance and feel entered on it',
+    async run() {
+      const store = fakeStore();
+      // The first save had no distance and no feel; the clear was lost; the run came back paused, the same length.
+      const first = await store.save({ ...RUN, distanceKm: null, feel: null });
+      assert.equal(first.distanceKm, null);
+      const again = await store.save({ ...RUN, distanceKm: 5, feel: 'good' });
+      const rows = store.databaseRef.current.cardioSessions;
+      assert.equal(rows.length, 1, 'one row');
+      assert.equal(again.id, first.id);
+      assert.equal(rows[0].distanceKm, 5);
+      assert.equal(rows[0].feel, 'good');
+      assert.equal(rows[0].durationSec, 1920, 'the time is the stored time');
+      assert.equal(store.commits, 2, 'written once for the entry');
+      // And again with nothing new: nothing written.
+      await store.save({ ...RUN, distanceKm: 5, feel: 'good' });
+      assert.equal(store.commits, 2);
+    },
+  },
+  {
+    name: 'cardio: a run still running at Complete does not extend the stored run with the time the app was dead',
+    async run() {
+      const store = fakeStore();
+      const first = await store.save({ ...RUN, distanceKm: null });
+      // Its pause was lost with the clear: it came back running, and its clock counted the dead hours.
+      await store.save({ ...RUN, endedAt: '2026-10-03T14:00:00.000Z', durationSec: 21600, distanceKm: 6, running: true });
+      const row = store.databaseRef.current.cardioSessions[0];
+      assert.equal(store.databaseRef.current.cardioSessions.length, 1);
+      assert.equal(row.durationSec, first.durationSec, 'the stored time stays');
+      assert.equal(row.performedAt, first.performedAt, 'and its end');
+      assert.equal(row.distanceKm, 6, 'what the reader entered is merged all the same');
+      // Paused at Complete, the longer reading is a run that was run further.
+      await store.save({ ...RUN, endedAt: '2026-10-03T08:52:00.000Z', durationSec: 3120, running: false });
+      assert.equal(store.databaseRef.current.cardioSessions[0].durationSec, 3120);
+      // A longer reading that ended before the stored end is not further either.
+      await store.save({ ...RUN, endedAt: '2026-10-03T08:20:00.000Z', durationSec: 4000 });
+      assert.equal(store.databaseRef.current.cardioSessions[0].durationSec, 3120);
     },
   },
   {
@@ -119,16 +159,19 @@ module.exports = [
       assert.equal(again.id, first.id, 'the stored run is handed back');
       assert.equal(store.databaseRef.current.cardioSessions.length, 1, 'one run, one row');
       assert.equal(store.commits, 1, 'nothing was written');
-      // An older or shorter reading never shortens it.
-      await store.save({ ...RUN, durationSec: 1000, distanceKm: 3 });
+      // An older or shorter reading never shortens it, nor moves its end.
+      await store.save({ ...RUN, endedAt: '2026-10-03T08:10:00.000Z', durationSec: 1000 });
       assert.deepEqual(store.databaseRef.current.cardioSessions[0], first, 'a shorter finish leaves the stored run as it is');
       assert.equal(store.commits, 1);
+      await store.save({ ...RUN, durationSec: 1000, distanceKm: 3 });
+      assert.equal(store.databaseRef.current.cardioSessions[0].durationSec, 1920, 'the time is not shortened');
+      assert.equal(store.databaseRef.current.cardioSessions[0].distanceKm, 3, 'what was entered on this finish is kept');
 
       // Different runs still save: another start, and another activity at the same instant.
       await store.save({ ...RUN, startedAt: '2026-10-04T08:00:00.000Z' });
       await store.save({ ...RUN, activityType: 'walk' });
       assert.equal(store.databaseRef.current.cardioSessions.length, 3);
-      assert.equal(store.commits, 3);
+      assert.equal(store.commits, 4, 'the first save, the distance entered on a re-Complete, and the two new runs');
     },
   },
 ];

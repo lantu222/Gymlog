@@ -190,6 +190,8 @@ interface AppContextValue {
     durationSec: number;
     distanceKm?: number | null;
     feel?: CardioFeel | null;
+    /** The clock was still running at Complete: its time is not trusted to extend a stored run. */
+    running?: boolean;
   }) => Promise<CardioSession>;
   /** The reader's own lift names, learned one import correction at a time. */
   exerciseNameBook: AppDatabase['exerciseNameBook'];
@@ -959,7 +961,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
         await commit(result.database);
       }
 
-      return result.summary;
+      return result.wasStored ? { ...result.summary, wasStored: true } : result.summary;
     });
   }
 
@@ -1133,6 +1135,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     durationSec: number;
     distanceKm?: number | null;
     feel?: CardioFeel | null;
+    running?: boolean;
   }): Promise<CardioSession> {
     return runExclusive(async () => {
       const current = databaseRef.current;
@@ -1157,7 +1160,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       // never shortened by it.
       const stored = findSavedCardioRun(current.cardioSessions ?? [], input);
       if (stored) {
-        const merged = mergeContinuedCardioRun(stored, session);
+        const merged = mergeContinuedCardioRun(stored, session, { running: input.running });
         if (merged === stored) {
           return stored;
         }

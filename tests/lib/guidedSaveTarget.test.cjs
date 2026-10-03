@@ -68,8 +68,15 @@ module.exports = [
       const more = [lift('Bench Press', 0, [set(8, 80, 0), set(8, 80, 1), set(6, 85, 2)])];
 
       const withoutFlag = persistCompletedWorkoutSessionToDatabase(database, input(more));
-      assert.equal(withoutFlag.didPersist, false, 'without the flag a taken id is a duplicate: dropped');
-      assert.deepEqual(setsOf(withoutFlag.database, 'session_a'), setsOf(database, 'session_a'));
+      // Without the flag a taken id is never replaced: other sets are a workout of their own under another id (they
+      // used to be dropped as a duplicate, with the save reported as done), and the same sets are the save again.
+      assert.equal(withoutFlag.didPersist, true);
+      assert.equal(withoutFlag.summary.sessionId, 'session_a_b');
+      assert.deepEqual(setsOf(withoutFlag.database, 'session_a'), setsOf(database, 'session_a'), 'the stored workout is untouched');
+      assert.equal(withoutFlag.wasStored, undefined);
+      const same = persistCompletedWorkoutSessionToDatabase(database, input(first));
+      assert.equal(same.didPersist, false);
+      assert.equal(same.wasStored, true, 'the same finish again was already stored');
 
       const replaced = persistCompletedWorkoutSessionToDatabase(database, input(more, { replaceStored: true }));
       assert.equal(replaced.didPersist, true);
@@ -81,6 +88,7 @@ module.exports = [
       assert.equal(row.sessionNotes, 'felt strong');
       assert.equal(row.feel, 'hard');
       assert.equal(replaced.summary.setsCompleted, 3);
+      assert.equal(replaced.wasStored, true, 'a stored workout finished further was counted when it first landed');
 
       const noStored = persistCompletedWorkoutSessionToDatabase(createEmptyDatabase('en'), input(more, { replaceStored: true }));
       assert.equal(noStored.database.workoutSessions.length, 1, 'the flag with nothing stored is an ordinary save');
@@ -102,6 +110,8 @@ module.exports = [
       // The same sets already stored under the walked id are not written again.
       const again = persistCompletedWorkoutSessionToDatabase(result.database, input(finish, { replaceStored: true }));
       assert.equal(again.didPersist, false);
+      assert.equal(again.wasStored, true, 'found already stored under the walked id: not counted again');
+      assert.equal(result.wasStored, undefined, 'a workout of its own is a first save');
       assert.equal(again.summary.sessionId, 'session_a_b');
       assert.equal(again.database.workoutSessions.length, 2);
     },
@@ -111,8 +121,8 @@ module.exports = [
     run() {
       const source = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'app', 'finishSaves.tsx'), 'utf8').replace(/\r\n/g, '\n');
       const fn = source.slice(source.indexOf('async function handleConfirmFinishWorkout()'), source.indexOf('const finishLoggedWorkoutSave = async'));
-      // Counted at the first save only.
-      assert.match(fn, /const alreadyCounted =\s*saveTarget\.alreadySaved \|\| \(saveTarget\.replaceStored && summary\.sessionId === adaptedSession\.sessionId\);/);
+      // Counted at the first save only, as the write reports it (it read the database it wrote).
+      assert.match(fn, /const alreadyCounted = summary\.wasStored === true;/);
       assert.match(fn, /if \(!alreadyCounted\) \{\s*countWorkoutCompleted\(adaptedSession\.sessionId\);\s*\}/);
       // The insight, the record cards and the volume delta read the history without this session's own earlier version.
       assert.match(fn, /allPriorSessions: priorSessions,\s*allPriorExerciseLogs: priorExerciseLogs,/);
@@ -121,8 +131,23 @@ module.exports = [
       assert.doesNotMatch(fn, /allPriorSessions: database\.workoutSessions/);
       // A replace keeps the stored name, and the summary shows it.
       assert.match(fn, /workoutName: shownName,/);
+      // ... but only when the write did replace it, not when it fell back to an id of its own.
+      assert.match(fn, /const shownName = keptName !== undefined && summary\.sessionId === keptNameId \? keptName : /);
       // The id the write filed the sets under is the session's before anything is stamped.
       assert.ok(fn.indexOf('workout.adoptSessionId(summary.sessionId)') < fn.indexOf('workout.finishWorkout('));
+    },
+  },
+  {
+    name: 'a fresh id the write finds taken by other sets is walked on, not dropped as a duplicate',
+    run() {
+      // The decision saw a free id; by the write another workout's sets sit under it.
+      const other = saved([lift('Squat', 0, [set(5, 100, 0)])]);
+      const finish = [lift('Bench Press', 0, [set(8, 80, 0)])];
+      const result = persistCompletedWorkoutSessionToDatabase(other, input(finish));
+      assert.equal(result.didPersist, true, 'written, not reported as saved and dropped');
+      assert.equal(result.summary.sessionId, 'session_a_b', 'under the id it walked to, which the summary reports');
+      assert.deepEqual(setsOf(result.database, 'session_a'), ['Squat:5@100']);
+      assert.deepEqual(setsOf(result.database, 'session_a_b'), ['Bench Press:8@80']);
     },
   },
   {

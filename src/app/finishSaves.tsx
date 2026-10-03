@@ -179,11 +179,12 @@ export function createFinishSaves(deps: FinishSavesDeps) {
         ? adaptedFromSession
         : { ...adaptedFromSession, sessionId: saveTarget.sessionId };
     // A replace keeps the stored row's name (a rename made since is the reader's), so the summary
-    // names the workout the way History will.
+    // names the workout the way History will: when the write did replace it, and not when it fell
+    // back to an id of its own (below).
     const keptName = saveTarget.replaceStored
       ? getDatabase().workoutSessions.find((row) => row.id === adaptedSession.sessionId)?.workoutNameSnapshot
       : undefined;
-    const shownName = keptName ?? adaptedSession.workoutNameSnapshot;
+    const keptNameId = adaptedSession.sessionId;
 
     finishInFlightRef.current = true;
     setFinishSaveState({
@@ -203,10 +204,10 @@ export function createFinishSaves(deps: FinishSavesDeps) {
       if (!summary.sessionId || !summary.performedAt) {
         throw new Error('Workout save did not produce a valid summary');
       }
-      // Counted at its first save only: a workout found stored under its id (a finish that landed
-      // and whose clear was lost, or one finished further) was counted when it first landed.
-      const alreadyCounted =
-        saveTarget.alreadySaved || (saveTarget.replaceStored && summary.sessionId === adaptedSession.sessionId);
+      // Counted at its first save only: a workout the write found already stored (a finish that landed
+      // and whose clear was lost, one finished further, or the same sets found under the id it walked
+      // to) was counted when it first landed. The write says which, since it read the database it wrote.
+      const alreadyCounted = summary.wasStored === true;
       // The write read the database itself and may have filed these sets under another id than the
       // decision did (the stored workout changed in between): the session takes that id before
       // anything below stamps the history or opens the summary.
@@ -215,6 +216,7 @@ export function createFinishSaves(deps: FinishSavesDeps) {
         adaptedSession = { ...adaptedSession, sessionId: summary.sessionId };
         setFinishSaveState({ status: 'saving', sessionId: summary.sessionId });
       }
+      const shownName = keptName !== undefined && summary.sessionId === keptNameId ? keptName : adaptedSession.workoutNameSnapshot;
       // Once per session. A write after this one can fail — the preferences
       // below — and the retry saves again, which hands back the session
       // already stored: counted on every pass, one workout was two
@@ -380,10 +382,12 @@ export function createFinishSaves(deps: FinishSavesDeps) {
       // written, so a failed save or a kill leaves these sets under an id of their own.
       adoptSessionId?.(sessionId);
     }
+    // The id the sets are stored under, which the write may have walked on from the one asked for.
+    let landedAs = sessionId;
     if (!alreadySaved) {
       const workoutTemplateId = await upsertWorkoutTemplate(draft);
       try {
-        await saveCompletedWorkoutSession({
+        const landed = await saveCompletedWorkoutSession({
           sessionId,
           workoutTemplateId,
           workoutNameSnapshot: summary.workoutName,
@@ -391,6 +395,7 @@ export function createFinishSaves(deps: FinishSavesDeps) {
           startedAt: summary.startedAt,
           performedAt: summary.performedAt,
         });
+        landedAs = landed.sessionId ?? sessionId;
       } catch (error) {
         // The template is written first so the session can name it. A session
         // that did not land must not leave the template behind — the retry made
@@ -401,7 +406,7 @@ export function createFinishSaves(deps: FinishSavesDeps) {
         throw error;
       }
       // Counted once it is on disk, by the guided path's own rule.
-      countWorkoutCompleted(sessionId);
+      countWorkoutCompleted(landedAs);
       /**
        * Remembered for the next time these lifts come up.
        *
@@ -415,7 +420,7 @@ export function createFinishSaves(deps: FinishSavesDeps) {
        */
       workout.recordLoggedWorkout({
         performedAt: summary.performedAt,
-        sessionId,
+        sessionId: landedAs,
         templateName: summary.workoutName,
         exercises: summary.logs.map((log) => ({
           exerciseName: log.exerciseNameSnapshot,
@@ -432,7 +437,7 @@ export function createFinishSaves(deps: FinishSavesDeps) {
     }
     setCompletionSummary({
       ...summary,
-      sessionId,
+      sessionId: landedAs,
       // Freestyle sessions have no plan identity: no previous-session
       // comparison, and muscle focus comes from the logged drafts.
       volumeDeltaKg: null,

@@ -170,17 +170,32 @@ export function findSavedCardioRun<T extends Pick<CardioSession, 'activityType' 
  * save landing again, or an older reading, and the stored row stays as it is. A distance or feel the
  * new finish left empty stays what was stored.
  */
-export function mergeContinuedCardioRun(stored: CardioSession, incoming: CardioSession): CardioSession {
-  if (!(incoming.durationSec > stored.durationSec)) {
-    return stored;
-  }
-  return {
+export function mergeContinuedCardioRun(
+  stored: CardioSession,
+  incoming: CardioSession,
+  options: { running?: boolean } = {},
+): CardioSession {
+  // The time and the end move together, and only forward: a longer reading that ended after the stored
+  // one. A run that was still running at Complete counted the time the app was dead (its pause was lost
+  // with the clear), so its longer reading is not taken; a paused one is a run that was run further.
+  const longer =
+    options.running !== true &&
+    incoming.durationSec > stored.durationSec &&
+    Date.parse(incoming.performedAt) > Date.parse(stored.performedAt);
+  // What the reader entered on this finish is theirs whether or not the time moved: a re-Complete of the
+  // same length that now has a distance or a feel must keep them.
+  const next: CardioSession = {
     ...stored,
-    performedAt: incoming.performedAt,
-    durationSec: incoming.durationSec,
+    ...(longer ? { performedAt: incoming.performedAt, durationSec: incoming.durationSec } : {}),
     distanceKm: incoming.distanceKm ?? stored.distanceKm ?? null,
     feel: incoming.feel ?? stored.feel ?? null,
   };
+  const changed =
+    next.performedAt !== stored.performedAt ||
+    next.durationSec !== stored.durationSec ||
+    next.distanceKm !== (stored.distanceKm ?? null) ||
+    next.feel !== (stored.feel ?? null);
+  return changed ? next : stored;
 }
 
 /**
