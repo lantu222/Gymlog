@@ -849,6 +849,8 @@ module.exports = [
         ['a form that cannot be matched', () => 'some-other-scheme', false],
       ]) {
         await withEndpoint(async ({ call, exchange, blobs, clock, store }) => {
+          const logged = []; // withEndpoint puts the real console.error back afterwards
+          console.error = (...args) => logged.push(args.join(' '));
           const session = (await exchange(appleToken())).body.sessionToken;
           clock.advance(5);
           const path = pathOf('apple-user-1');
@@ -859,6 +861,13 @@ module.exports = [
           const dels = store.delCalls.filter((entry) => entry.pathname === path);
           assert.equal(dels.length, removed ? 1 : 0, label);
           assert.ok(dels.every((entry) => entry.ifMatch), `${label}: unconditional del`);
+          // Forms that cannot be matched leave a trace — shapes only, no value.
+          const traces = logged.filter((line) => line.includes('stale marker etag forms differ'));
+          assert.equal(traces.length, removed ? 0 : 1, `${label}: the log line`);
+          if (!removed) {
+            assert.match(traces[0], /get=strong-bare-len\d+ head=strong-quoted-len\d+$/);
+            assert.ok(!traces[0].includes('some-other-scheme'), 'the log line carries an ETag value');
+          }
         });
       }
     },

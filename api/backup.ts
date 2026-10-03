@@ -387,12 +387,21 @@ async function removeStaleMarker(pathname: string, readEtag: string | null): Pro
   try {
     const current = (await head(pathname)).etag;
     if (!current || etagCore(current) !== etagCore(readEtag)) {
+      // The marker moved since it was read — or the two forms can never match, and then no stale
+      // marker would ever go. Said once per attempt, as shapes only (no value, no id).
+      console.error(`backup stale marker etag forms differ: get=${etagShape(readEtag)} head=${etagShape(current)}`);
       return;
     }
     await del(pathname, { ifMatch: current });
   } catch {
     // BlobPreconditionFailedError (written since), not found, or a store error: kept.
   }
+}
+
+/** What an ETag looks like, never its value: for the log line that says two forms differ. */
+function etagShape(etag: string | undefined): string {
+  const text = (etag ?? '').trim();
+  return `${text.startsWith('W/') ? 'weak' : 'strong'}-${/^(W\/)?".*"$/.test(text) ? 'quoted' : 'bare'}-len${text.length}`;
 }
 
 /** An ETag without its quotes and weak prefix, for comparing the API's form with a response header's. */
@@ -445,7 +454,7 @@ async function revocationOf(
       if (!(error instanceof BlobPreconditionFailedError)) {
         throw new StoreUnavailable();
       }
-      // Written by someone else since it was read � most likely a deletion's
+      // Written by someone else since it was read — most likely a deletion's
       // own stamp. Whatever is there now is the answer, never an older time.
       const current = await readRevocationMarker(pathname);
       if (!current) {
@@ -866,8 +875,15 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         // The copy the store holds now rides along, so a phone whose own
         // write was retried by the SDK after the first attempt had already
         // committed (and so fails against its own copy) can recognise it.
-        const current = await storedVersion(pathname).catch(() => null);
-        res.status(412).json({ ok: false, error: 'BACKUP_CHANGED', version: current });
+        // `null` means there is truly no copy; when the store cannot say,
+        // the field is left out rather than claiming that.
+        const body: { ok: false; error: 'BACKUP_CHANGED'; version?: string | null } = { ok: false, error: 'BACKUP_CHANGED' };
+        try {
+          body.version = await storedVersion(pathname);
+        } catch {
+          // Unknown: no `version`.
+        }
+        res.status(412).json(body);
         return;
       }
       // Success is reported only after the store accepted the write — the

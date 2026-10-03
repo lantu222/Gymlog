@@ -185,11 +185,15 @@ may be written differently from the content response's header `get` reads
 (quotes, `W/`); it is fetched with `head`, must equal (normalised) the one read
 with the content, and is the one the `del` names. Anything else — the marker
 moved, the forms do not match, the condition fails, the store errors — keeps the
-marker, and never fails the request.
+marker, and never fails the request. A mismatch between the two forms logs one
+line (`backup stale marker etag forms differ: get=<shape> head=<shape>`, shapes
+like `strong-quoted-len34`, never the value), so forms that can never match —
+and stale markers that therefore never go — leave a trace.
 
 **412 BACKUP_CHANGED** now also carries `version`, the copy the store holds at
-that moment (null when none), so a phone whose own write was retried by the SDK
-after the first attempt committed can recognise its own copy.
+that moment (`null` only when there is truly no copy; left out when the store
+could not say), so a phone whose own write was retried by the SDK after the
+first attempt committed can recognise its own copy.
 
 **What the phone is told.** A refused Apple session is answered `401` with
 `SESSION_REVOKED` (the marker) or `SESSION_EXPIRED`; a session that does not
