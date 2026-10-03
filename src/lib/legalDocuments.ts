@@ -79,7 +79,7 @@ function publisher(language: AppLanguage): string {
 }
 
 /** Bumped whenever the wording changes in a way a user should re-read. */
-export const LEGAL_LAST_UPDATED = '2026-10-05';
+export const LEGAL_LAST_UPDATED = '2026-10-06';
 
 export type LegalDocumentId = 'privacy' | 'terms';
 
@@ -269,7 +269,7 @@ const privacyEn = (p: LegalPlatform): LegalSection[] => [
       'No advertising profile. The app does tailor programmes and suggestions from your answers and your log, but that happens on your phone, and nothing is decided about you automatically in a way that has legal or similar effects.',
       'No selling, renting or sharing of your data with anyone, beyond the providers named above who work for us.',
       'No account needed. Sign-in exists only to key the optional cloud backup.',
-      'No cookies. The app is not a web page and does not open one inside itself, so none are set and none are read.',
+      'No cookies in the app. The app is not a web page and does not open one inside itself, so none are set and none are read. The web page for deleting an account without the app (above) is the one exception: its Sign in with Google button is Google’s own, loaded from Google when the page opens, and Google can set and read its own cookies for that sign-in under Google’s privacy policy. We set none there either.',
     ],
   },
   {
@@ -534,7 +534,7 @@ const privacyFi = (p: LegalPlatform): LegalSection[] => [
       'Ei mainosprofiilia. Sovellus kyllä räätälöi ohjelmia ja ehdotuksia vastaustesi ja lokisi perusteella, mutta se tapahtuu puhelimessasi, eikä sinusta päätetä automaattisesti mitään, millä olisi oikeudellisia tai vastaavia vaikutuksia.',
       'Ei tietojesi myyntiä, vuokrausta eikä jakamista kenellekään — lukuun ottamatta yllä nimettyjä palveluntarjoajia, jotka työskentelevät meille.',
       'Ei tilipakkoa. Kirjautuminen on olemassa vain vapaaehtoista pilvivarmuuskopiota varten.',
-      'Ei evästeitä. Sovellus ei ole verkkosivu eikä avaa sellaista sisäänsä, joten evästeitä ei aseteta eikä lueta.',
+      'Sovelluksessa ei evästeitä. Sovellus ei ole verkkosivu eikä avaa sellaista sisäänsä, joten evästeitä ei aseteta eikä lueta. Ainoa poikkeus on yllä mainittu verkkosivu, jolla tilin voi poistaa ilman sovellusta: sen Kirjaudu Googlella -painike on Googlen oma ja ladataan Googlelta, kun sivu avautuu, ja Google voi asettaa ja lukea kirjautumista varten omia evästeitään Googlen tietosuojakäytännön mukaisesti. Me emme aseta evästeitä sielläkään.',
     ],
   },
   {

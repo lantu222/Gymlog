@@ -198,7 +198,8 @@ function webDeletionForm(language, doc, clientId) {
       say(C.text.signInFailed);
       return;
     }
-    $('confirm-text').textContent = C.text.confirm.replace('{email}', email);
+    // A function, not the string: a replacement string reads $& and $' in the address as patterns.
+    $('confirm-text').textContent = C.text.confirm.replace('{email}', function () { return email; });
     $('gsi-button').hidden = true;
     $('confirm').hidden = false;
     say('');
@@ -219,7 +220,7 @@ function webDeletionForm(language, doc, clientId) {
           var deleted = email;
           reset();
           $('gsi-button').hidden = true;
-          say(C.text.done.replace('{email}', deleted));
+          say(C.text.done.replace('{email}', function () { return deleted; }));
           return;
         }
         reset();

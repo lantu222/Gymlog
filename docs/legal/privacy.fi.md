@@ -1,6 +1,6 @@
 # Tietosuojaseloste
 
-*Päivitetty 5.10.2026*
+*Päivitetty 6.10.2026*
 
 Mitä Vinha tallentaa, mikä lähtee puhelimestasi ja mitä voit sille tehdä.
 
@@ -140,7 +140,7 @@ Tietosuoja-asetus (GDPR) vaatii jokaiselle käsittelylle laillisen perusteen. Me
 - Ei mainosprofiilia. Sovellus kyllä räätälöi ohjelmia ja ehdotuksia vastaustesi ja lokisi perusteella, mutta se tapahtuu puhelimessasi, eikä sinusta päätetä automaattisesti mitään, millä olisi oikeudellisia tai vastaavia vaikutuksia.
 - Ei tietojesi myyntiä, vuokrausta eikä jakamista kenellekään — lukuun ottamatta yllä nimettyjä palveluntarjoajia, jotka työskentelevät meille.
 - Ei tilipakkoa. Kirjautuminen on olemassa vain vapaaehtoista pilvivarmuuskopiota varten.
-- Ei evästeitä. Sovellus ei ole verkkosivu eikä avaa sellaista sisäänsä, joten evästeitä ei aseteta eikä lueta.
+- Sovelluksessa ei evästeitä. Sovellus ei ole verkkosivu eikä avaa sellaista sisäänsä, joten evästeitä ei aseteta eikä lueta. Ainoa poikkeus on yllä mainittu verkkosivu, jolla tilin voi poistaa ilman sovellusta: sen Kirjaudu Googlella -painike on Googlen oma ja ladataan Googlelta, kun sivu avautuu, ja Google voi asettaa ja lukea kirjautumista varten omia evästeitään Googlen tietosuojakäytännön mukaisesti. Me emme aseta evästeitä sielläkään.
 
 ## Luvat, joita sovellus pyytää
 

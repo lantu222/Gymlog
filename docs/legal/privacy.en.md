@@ -1,6 +1,6 @@
 # Privacy policy
 
-*Updated 5 October 2026*
+*Updated 6 October 2026*
 
 What Vinha stores, what leaves your phone, and what you can do about it.
 
@@ -140,7 +140,7 @@ The GDPR requires a lawful basis for each kind of processing. These are ours.
 - No advertising profile. The app does tailor programmes and suggestions from your answers and your log, but that happens on your phone, and nothing is decided about you automatically in a way that has legal or similar effects.
 - No selling, renting or sharing of your data with anyone, beyond the providers named above who work for us.
 - No account needed. Sign-in exists only to key the optional cloud backup.
-- No cookies. The app is not a web page and does not open one inside itself, so none are set and none are read.
+- No cookies in the app. The app is not a web page and does not open one inside itself, so none are set and none are read. The web page for deleting an account without the app (above) is the one exception: its Sign in with Google button is Google’s own, loaded from Google when the page opens, and Google can set and read its own cookies for that sign-in under Google’s privacy policy. We set none there either.
 
 ## Permissions the app asks for
 

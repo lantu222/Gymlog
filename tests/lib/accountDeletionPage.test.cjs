@@ -3,6 +3,7 @@ const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const vm = require('node:vm');
 
 const { APPLE_DELETION_MARKER_DAYS, buildAccountDeletionPage } = require('../../.test-dist/lib/accountDeletionPage.js');
 const { ANALYTICS_RETENTION_MONTHS } = require('../../.test-dist/lib/analyticsRetention.js');
@@ -124,6 +125,72 @@ module.exports = [
         }
         const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
         assert.ok(index.includes('delete-account.fi.html') && index.includes('delete-account.en.html'));
+      } finally {
+        fs.rmSync(out, { recursive: true, force: true });
+      }
+    },
+  },
+  {
+    // Bug hunt 5 (2026-10-03): the page said "removed after 180 days", the policy that the clean-up runs on an
+    // Apple sign-in and can take a little longer (api/backup.ts sweeps only then). Both say the second now.
+    name: 'account deletion page: the Apple marker is removed by the clean-up once its days have passed, which can take longer, as the policy says',
+    run() {
+      const backup = fs.readFileSync(path.join(root, 'api', 'backup.ts'), 'utf8');
+      // The markers are swept from the Apple sign-in exchange alone, not on a timer: if a cron ever sweeps them, the
+      // "can take a little longer" in both texts can go.
+      assert.equal(backup.split('await purgeOldRevocations()').length - 1, 1, 'swept from one request path');
+      const crons = JSON.parse(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8')).crons ?? [];
+      assert.ok(!crons.some((cron) => /backup/.test(cron.path)), 'no cron reaches the backup endpoint');
+      const wording = {
+        en: { page: /The server’s routine clean-up removes it once 180 days have passed; that clean-up runs when someone signs in with Apple, so it can take a little longer\./, policy: /removes it once 180 days have passed[^.]*\. That clean-up runs when someone signs in with Apple, so it can take a little longer\./ },
+        fi: { page: /Palvelimen rutiinisiivous poistaa sen, kun 180 päivää on kulunut; siivous ajetaan, kun joku kirjautuu Applella, joten siinä voi mennä hieman pidempään\./, policy: /poistaa sen, kun 180 päivää on kulunut[^.]*\. Siivous ajetaan, kun joku kirjautuu Applella, joten siinä voi mennä hieman pidempään\./ },
+      };
+      for (const language of LANGUAGES) {
+        const text = pageText(buildAccountDeletionPage(language));
+        assert.match(text, wording[language].page, `${language}: the page`);
+        assert.match(policyText(language), wording[language].policy, `${language}: the policy`);
+        assert.ok(!/removed after \d+ days|poistuu \d+ päivän jälkeen/.test(text), `${language}: no flat "after N days"`);
+      }
+    },
+  },
+  {
+    // Bug hunt 5 (2026-10-03): String.replace with a string reads $& and $' in the replacement as patterns, so
+    // an address holding them (legal in an email's local part) was shown mangled in the confirm and done lines.
+    name: 'account deletion page: the signed-in address is shown as it is, whatever characters it holds',
+    async run() {
+      const out = fs.mkdtempSync(path.join(os.tmpdir(), 'legal-site-'));
+      try {
+        execFileSync(process.execPath, [path.join(root, 'scripts', 'build-legal-site.cjs')], {
+          env: { ...process.env, LEGAL_SITE_OUT_DIR: out, GOOGLE_WEB_CLIENT_ID: 'test-web-client' },
+          stdio: 'pipe',
+        });
+        for (const language of LANGUAGES) {
+          const html = fs.readFileSync(path.join(out, `delete-account.${language}.html`), 'utf8');
+          const script = /<script>\n([\s\S]*?)<\/script>/.exec(html)[1];
+          const elements = {};
+          const element = (id) =>
+            (elements[id] ??= { id, hidden: false, disabled: false, textContent: '', listeners: {}, addEventListener(type, fn) { this.listeners[type] = fn; } });
+          const page = {};
+          const context = {
+            window: page,
+            document: { getElementById: element },
+            atob: (text) => Buffer.from(text, 'base64').toString('binary'),
+            TextDecoder,
+            Uint8Array,
+            JSON,
+            google: { accounts: { id: { initialize(options) { page.signedIn = options.callback; }, renderButton() {} } } },
+            fetch: () => Promise.resolve({ ok: true, status: 200 }),
+          };
+          vm.createContext(context);
+          vm.runInContext(script, context);
+          page.vinhaGoogleLoaded();
+          const email = "a$&b$'c$`d$$e@example.com";
+          page.signedIn({ credential: `x.${Buffer.from(JSON.stringify({ email })).toString('base64url')}.y` });
+          assert.ok(elements['confirm-text'].textContent.includes(email), `${language}: confirm line ${elements['confirm-text'].textContent}`);
+          elements['confirm-yes'].listeners.click();
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          assert.ok(elements.status.textContent.includes(email), `${language}: done line ${elements.status.textContent}`);
+        }
       } finally {
         fs.rmSync(out, { recursive: true, force: true });
       }
