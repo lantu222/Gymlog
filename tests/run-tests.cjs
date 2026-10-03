@@ -499,6 +499,7 @@ const suites = [
   ...require('./screens/audit3DeadScreens.test.cjs'),
   ...require('./lib/sessionTotals.test.cjs'),
   ...require('./storage/loaderSessionTotals.test.cjs'),
+  ...require('./storage/storageLoadInvariant.test.cjs'),
   ...require('./screens/oneCount.test.cjs'),
   ...require('./lib/themeContrast.test.cjs'),
   ...require('./lib/accessibilityLabels.test.cjs'),
