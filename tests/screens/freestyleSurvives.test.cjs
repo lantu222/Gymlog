@@ -56,7 +56,7 @@ module.exports = [
         1,
         'every discard goes through discardDraft, which is the one place that clears',
       );
-      assert.match(screen, /await onSave\(draft, summary\);\s*\/\/[^\n]*\n\s*discardDraft\(\);/, 'finishing must clear the draft, after the save');
+      assert.match(screen, /await onSave\(draft, summary, adoptSessionId\);\s*\/\/[^\n]*\n\s*discardDraft\(\);/, 'finishing must clear the draft, after the save');
       assert.match(screen, /setConfirmingLeave\(false\);\s*discardDraft\(\);\s*leaveGuardRef\.current\.onBack\(\);/, 'a confirmed leave must discard the draft');
       // And the app stands down for this route, so the screen's listener is
       // the one that answers. This listener registers once on mount, and
@@ -106,6 +106,22 @@ module.exports = [
       );
       // A discard still takes the timer first, so there is nothing to flush.
       assert.match(screen, /const discardDraft = \(\) => \{\s*if \(draftTimerRef\.current !== null\) \{\s*clearTimeout\(draftTimerRef\.current\);\s*draftTimerRef\.current = null;/);
+    },
+  },
+  {
+    // Review of the free workout save, 2026-10-03: a set ticked while Finish was saving was in neither the save
+    // nor the board (cleared the moment the save landed), and silently lost.
+    name: 'freestyle: the board is locked while Finish is saving, and the save can hand the board a new session id',
+    run() {
+      const screen = read('src', 'screens', 'EmptyWorkoutScreen.tsx');
+      for (const name of ['addExercises', 'removeExercise', 'patchSet', 'addSet', 'toggleSetDone', 'toggleSupersetLink']) {
+        const at = screen.indexOf(`const ${name} = `);
+        assert.ok(at > 0, `${name} is gone`);
+        const head = screen.slice(at, at + 700);
+        assert.match(head, /if \(finishingRef\.current\) \{\s*return;\s*\}/, `${name} must refuse edits while Finish is saving`);
+      }
+      assert.match(screen, /await onSave\(draft, summary, adoptSessionId\);/, 'the save is handed the way to give the board its new id');
+      assert.match(screen, /const adoptSessionId = \(id: string\) => \{\s*sessionIdRef\.current = id;/, 'the board keeps the id the save filed under');
     },
   },
 ];

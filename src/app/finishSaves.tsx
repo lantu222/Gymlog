@@ -285,7 +285,11 @@ export function createFinishSaves(deps: FinishSavesDeps) {
   // Shared finish path for logged one-off sessions (freestyle + editor):
   // template first, then the completed session, and only then the summary
   // screen — a failed save must leave the logger open with its sets intact.
-  const finishLoggedWorkoutSave = async (draft: WorkoutTemplateDraft, summary: FreestyleFinishSummary) => {
+  const finishLoggedWorkoutSave = async (
+    draft: WorkoutTemplateDraft,
+    summary: FreestyleFinishSummary,
+    adoptSessionId?: (sessionId: string) => void,
+  ) => {
     // The board's own id (FreestyleDraftSnapshot.sessionId), not one per attempt, so a retry of a
     // finish that already landed saves nothing and goes on to the summary. Only a true retry: a
     // stored session under this id with other sets gets these sets a new id, never a summary
@@ -295,6 +299,11 @@ export function createFinishSaves(deps: FinishSavesDeps) {
       summary.sessionId ?? createId('session'),
       summary.logs,
     );
+    if (summary.sessionId && sessionId !== summary.sessionId) {
+      // The board's id was taken by another workout: the board takes the new one before anything is
+      // written, so a failed save or a kill leaves these sets under an id of their own.
+      adoptSessionId?.(sessionId);
+    }
     if (!alreadySaved) {
       const workoutTemplateId = await upsertWorkoutTemplate(draft);
       try {

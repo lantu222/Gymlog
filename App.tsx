@@ -1952,10 +1952,7 @@ function VinhaApp() {
       database,
       workout,
       // A draft whose workout is already saved is a lost clear's leftover, not a board to come back to.
-      freestyleDraft: discardSavedFreestyleDraft(
-        workout.freestyleDraft,
-        database.workoutSessions.map((session) => session.id),
-      ),
+      freestyleDraft: discardSavedFreestyleDraft(workout.freestyleDraft, database),
       saveFreestyleDraft: workout.saveFreestyleDraft,
       clearFreestyleDraft: workout.clearFreestyleDraft,
       customWorkoutRuntimeMap,

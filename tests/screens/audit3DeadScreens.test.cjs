@@ -326,7 +326,7 @@ module.exports = [
        * one shape, one of them on a screen nobody could open.
        */
       // The whole shell: the save leaves VinhaApp in the phase-C split (2026-10-01).
-      assert.match(shell(), /finishLoggedWorkoutSave = async \(draft: WorkoutTemplateDraft, summary: FreestyleFinishSummary\)/);
+      assert.match(shell(), /finishLoggedWorkoutSave = async \(\s*draft: WorkoutTemplateDraft,\s*summary: FreestyleFinishSummary,/);
       assert.doesNotMatch(shell(), /WorkoutEditorFinishSummary/);
 
       const lib = read('src', 'lib', 'emptyWorkoutSession.ts');

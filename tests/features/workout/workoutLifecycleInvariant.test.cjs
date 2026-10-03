@@ -372,6 +372,8 @@ function freshWorld() {
     toasts: [],
     lastSave: null,
     pendingExpectation: [],
+    pendingLifts: null,
+    duringSave: null,
     unhandled: [],
     violation: null,
   };
@@ -453,7 +455,7 @@ async function settle(proc) {
 const retryOptions = { isCancelled: () => false, onError: () => undefined, wait: async () => undefined };
 
 /** App launch: WorkoutProvider's hydrate and AppProvider's, as written (loadWithRetry, then the state lands). */
-async function launch() {
+async function launch(options = {}) {
   const proc = newProc();
   world.proc = proc;
   const rowsBefore = new Map(storage.inner.rows);
@@ -493,21 +495,35 @@ async function launch() {
         fail('1', `a launch whose ${kind} read failed wrote to storage`);
       }
     }
-  } else if (bundle.value.freestyleDraft && !emptyWorkout.discardSavedFreestyleDraft(bundle.value.freestyleDraft, proc.dbRef.current.workoutSessions.map((session) => session.id))) {
-    // App.tsx hands the screen no draft for a saved workout; its mount effect clears the empty board's draft.
-    count('leftover board dropped');
-    world.fsAtDraft = null;
-    dispatch(proc, { type: 'freestyle/clear' });
-    await settle(proc);
   } else if (bundle.value.freestyleDraft) {
     const draft = bundle.value.freestyleDraft;
-    proc.fs = {
-      exercises: JSON.parse(JSON.stringify(draft.exercises)),
-      startedAtMs: emptyWorkout.resolveFreestyleDraftStart(draft, world.now),
-      lastEditMs: 0,
-      dirty: false,
-      sessionId: emptyWorkout.resolveFreestyleSessionId(draft),
-    };
+    // App.tsx hands the screen what discardSavedFreestyleDraft leaves of it; options.stale is a draft that
+    // reached the screen unfiltered (a database read behind the draft's), the save layer's own case.
+    const kept = options.stale ? draft : emptyWorkout.discardSavedFreestyleDraft(draft, proc.dbRef.current);
+    if (!kept) {
+      // Dropped: every set the draft holds as done must be in the saved session it names.
+      const saved = world.expectedDb.get(draft.sessionId);
+      const lost = saved ? subtractSets(doneSetsOfBoard(draft.exercises), saved.sets) : doneSetsOfBoard(draft.exercises);
+      if (lost.length > 0) {
+        fail('1', `a restored free workout board was dropped with ${lost.length} done sets (${lost.join(' ')}) that no saved workout holds`);
+      }
+      count('leftover board dropped');
+      world.fsAtDraft = null;
+      dispatch(proc, { type: 'freestyle/clear' });
+      await settle(proc);
+    } else {
+      proc.fs = {
+        exercises: JSON.parse(JSON.stringify(kept.exercises)),
+        startedAtMs: emptyWorkout.resolveFreestyleDraftStart(kept, world.now),
+        // The screen's mount effect hands a board it was given under a new id to the provider after 400 ms.
+        lastEditMs: world.now,
+        dirty: kept.sessionId !== draft.sessionId,
+        sessionId: emptyWorkout.resolveFreestyleSessionId(kept),
+      };
+      if (kept.sessionId !== draft.sessionId) {
+        count('restored board kept under a new id');
+      }
+    }
   }
   return proc;
 }
@@ -526,6 +542,42 @@ function loggedSetsOf(session) {
     }
   }
   return logged;
+}
+
+/** The done, loggable sets of a board as reps@kg, sorted. */
+function doneSetsOfBoard(exercises) {
+  const found = [];
+  for (const exercise of exercises) {
+    for (const set of exercise.sets) {
+      if (set.done && emptyWorkout.isLoggableFreestyleSet(set)) {
+        found.push(`${parseNumberInput(set.reps)}@${parseNumberInput(set.kg) ?? 0}`);
+      }
+    }
+  }
+  return found.sort();
+}
+
+/** Lift by lift, in order: "name:reps@kg,reps@kg" for each lift with a done set (the save compares exactly this). */
+function liftSignatureOf(exercises) {
+  return exercises
+    .map((exercise) => {
+      const sets = exercise.sets
+        .filter((set) => set.done && emptyWorkout.isLoggableFreestyleSet(set))
+        .map((set) => `${parseNumberInput(set.reps)}@${parseNumberInput(set.kg) ?? 0}`);
+      return sets.length > 0 ? `${exercise.name.trim().toLowerCase()}:${sets.join(',')}` : null;
+    })
+    .filter(Boolean);
+}
+
+/** `all` less `some`, as multisets of strings: what of `all` is not in `some`. */
+function subtractSets(all, some) {
+  const pool = new Map();
+  some.forEach((key) => pool.set(key, (pool.get(key) ?? 0) + 1));
+  return all.filter((key) => {
+    const left = pool.get(key) ?? 0;
+    pool.set(key, left - 1);
+    return left <= 0;
+  });
 }
 
 function pendingSetsOf(session) {
@@ -906,6 +958,11 @@ function finishDeps(proc, ev) {
       return undefined;
     },
     saveCompletedWorkoutSession: async (input) => {
+      if (world.duringSave) {
+        const interleave = world.duringSave;
+        world.duringSave = null;
+        await interleave();
+      }
       const expected = world.pendingExpectation;
       const attempt = { sessionId: input.sessionId, outcome: null };
       world.lastSave = attempt;
@@ -913,7 +970,7 @@ function finishDeps(proc, ev) {
         const summary = await proc.part.persistCompletedWorkoutSession(input);
         attempt.outcome = 'resolved';
         if (summary.sessionId && !world.expectedDb.has(input.sessionId)) {
-          world.expectedDb.set(input.sessionId, { sets: expected });
+          world.expectedDb.set(input.sessionId, { sets: expected, lifts: world.pendingLifts });
         }
         return summary;
       } catch (error) {
@@ -1005,6 +1062,7 @@ async function finishGuided(ev) {
   }
   const expectedLogged = world.shadow.session?.sets ?? new Map();
   world.pendingExpectation = setMultiset([...expectedLogged.values()]);
+  world.pendingLifts = null;
   world.lastSave = null;
   world.toasts = [];
   if (ev.saveFail) {
@@ -1124,7 +1182,19 @@ function fsNewLift(rnd) {
   };
 }
 
+/** The screen refuses every edit while Finish is saving (finishingRef); a refused edit is not an edit. */
+const fsLocked = () => {
+  if (world.proc.fsFinishing) {
+    count('board edit refused while saving');
+    return true;
+  }
+  return false;
+};
+
 function fsTouch(proc) {
+  if (proc.fsFinishing) {
+    fail('1', 'a board edit was accepted while Finish was saving: it is in neither the save nor the board, and the board is cleared once the save lands');
+  }
   proc.fs.lastEditMs = world.now;
   proc.fs.dirty = true;
   if (proc.fs.exercises.length === 0) {
@@ -1168,6 +1238,12 @@ async function finishFreestyle(ev) {
     }
   }
   world.pendingExpectation = setMultiset(doneSets);
+  world.pendingLifts = liftSignatureOf(board.exercises);
+  if (ev.during) {
+    world.duringSave = async () => {
+      await HANDLERS[ev.during]({ t: ev.during, dt: 0, r: ev.r2 ?? 3, valid: true });
+    };
+  }
   const templatesBefore = proc.dbRef.current.workoutTemplates.length;
   if (ev.saveFail) {
     storage.fault.writeDb = 1;
@@ -1184,15 +1260,27 @@ async function finishFreestyle(ev) {
     sessionId: board.sessionId,
   });
   // A true retry: a session already saved under this board's id with exactly these sets. Anything else must be written.
-  const priorSave = world.expectedDb.get(board.sessionId);
-  const repeated = Boolean(priorSave) && JSON.stringify(setMultiset(doneSets)) === JSON.stringify(priorSave.sets);
-  const idHeld = world.expectedDb.has(board.sessionId);
+  const startId = board.sessionId;
+  const priorSave = world.expectedDb.get(startId);
+  const repeated = Boolean(priorSave?.lifts) && JSON.stringify(liftSignatureOf(board.exercises)) === JSON.stringify(priorSave.lifts);
+  const idHeld = world.expectedDb.has(startId);
   const sessionsBefore = proc.dbRef.current.workoutSessions.length;
   let saved = false;
   try {
     // renderWorkoutTab's onSave: the template is named by date and flagged freestyle, and a failure toasts and rethrows.
     try {
-      await saves.finishLoggedWorkoutSave({ ...draft, name: `${draft.name.trim()} 3.10.`, origin: 'freestyle' }, summary);
+      // EmptyWorkoutScreen.adoptSessionId: the board keeps the id the save files under, and hands it over at once.
+      const adopt = (id) => {
+        board.sessionId = id;
+        board.dirty = false;
+        world.fsAtDraft = fsMapOf(board.exercises);
+        dispatch(proc, {
+          type: 'freestyle/save',
+          payload: { snapshot: { exercises: JSON.parse(JSON.stringify(board.exercises)), startedAtMs: board.startedAtMs, rest: null, sessionId: id, savedAtMs: world.now } },
+        });
+        count('board adopted a new id');
+      };
+      await saves.finishLoggedWorkoutSave({ ...draft, name: `${draft.name.trim()} 3.10.`, origin: 'freestyle' }, summary, adopt);
     } catch (error) {
       world.toasts.push(saveFailedToast());
       throw error;
@@ -1215,7 +1303,7 @@ async function finishFreestyle(ev) {
       if (!world.lastSave || world.lastSave.outcome !== 'resolved' || proc.dbRef.current.workoutSessions.length !== sessionsBefore + 1) {
         fail('2', `the free workout's ${doneSets.length} sets were shown as saved and never written${idHeld ? ' (the board still wore the id of an earlier saved workout)' : ''}`);
       }
-      if (idHeld && world.lastSave.sessionId === board.sessionId) {
+      if (idHeld && world.lastSave.sessionId === startId) {
         fail('2', 'a second workout was saved under the id of an earlier one');
       }
     }
@@ -1237,6 +1325,9 @@ async function finishFreestyle(ev) {
     }
     if (!proc.fs) {
       fail('2', 'a free workout whose save failed lost its board');
+    }
+    if (idHeld && !repeated && proc.fs.sessionId === startId) {
+      fail('2', 'the save filed these sets under another id and the board still wears the taken one: a kill now would read them as saved');
     }
   } finally {
     storage.fault.writeDb = 0;
@@ -1617,6 +1708,9 @@ const HANDLERS = {
   },
 
   async fsAdd(ev) {
+    if (fsLocked()) {
+      return;
+    }
     const proc = world.proc;
     if (!proc.fs) {
       proc.fs = { exercises: [], startedAtMs: world.now, lastEditMs: 0, dirty: false, sessionId: emptyWorkout.resolveFreestyleSessionId(null) };
@@ -1626,6 +1720,9 @@ const HANDLERS = {
   },
 
   async fsType(ev) {
+    if (fsLocked()) {
+      return;
+    }
     const board = world.proc.fs;
     if (!board || board.exercises.length === 0) {
       return;
@@ -1638,6 +1735,9 @@ const HANDLERS = {
   },
 
   async fsTick(ev) {
+    if (fsLocked()) {
+      return;
+    }
     const board = world.proc.fs;
     if (!board) {
       return;
@@ -1656,6 +1756,9 @@ const HANDLERS = {
   },
 
   async fsUntick(ev) {
+    if (fsLocked()) {
+      return;
+    }
     const board = world.proc.fs;
     if (!board) {
       return;
@@ -1669,6 +1772,9 @@ const HANDLERS = {
   },
 
   async fsAddSet(ev) {
+    if (fsLocked()) {
+      return;
+    }
     const board = world.proc.fs;
     if (!board || board.exercises.length === 0) {
       return;
@@ -1680,6 +1786,9 @@ const HANDLERS = {
   },
 
   async fsRemove(ev) {
+    if (fsLocked()) {
+      return;
+    }
     const board = world.proc.fs;
     if (!board || board.exercises.length === 0) {
       return;
@@ -1719,7 +1828,7 @@ const HANDLERS = {
 
 async function relaunch(ev) {
   storage.fault = { writeBundle: 0, writeDb: 0, dbSkip: 0, readBundle: ev.rb ?? 0, readDb: ev.rd ?? 0 };
-  const proc = await launch();
+  const proc = await launch({ stale: ev.stale });
   storage.fault.readBundle = 0;
   storage.fault.readDb = 0;
   if (isDown(proc)) {
@@ -1730,7 +1839,7 @@ async function relaunch(ev) {
   compareLogged(loggedSetsOf(proc.state.activeSession), durable.session?.sets ?? new Map(), 'after the launch');
   checkDatabase(proc.dbRef.current, 'after the launch (database as stored)');
   checkSessionSanity(proc.state.activeSession);
-  if (proc.fs && world.expectedDb.has(proc.fs.sessionId)) {
+  if (!ev.stale && proc.fs && world.expectedDb.has(proc.fs.sessionId)) {
     fail('2', `a free workout board came back under the id of a workout that is already saved (${proc.fs.sessionId})`);
   }
 }
@@ -1799,6 +1908,10 @@ function generate(rnd) {
         event.saveFail = true;
         event.failAt = int(rnd, 2);
       }
+      if (rnd() < 0.3) {
+        event.during = pick(rnd, ['fsTick', 'fsType', 'fsAddSet', 'fsAdd', 'fsRemove']);
+        event.r2 = int(rnd, 1 << 30);
+      }
     } else if (t === 'discard') {
       if (rnd() < 0.15) {
         event.prefFail = true;
@@ -1809,6 +1922,9 @@ function generate(rnd) {
       }
       if (rnd() < 0.12) {
         event.rb = 1 + int(rnd, 3);
+      }
+      if (rnd() < 0.1) {
+        event.stale = true;
       }
       if (rnd() < 0.06) {
         event.rd = 1 + int(rnd, 3);
@@ -2010,12 +2126,33 @@ module.exports = [
         'remove every lift, log a new workout': [...saved, ev('fsRemove'), ...another],
         'keep the rows, add and correct sets': [...saved, ev('fsAddSet'), ev('fsType', { valid: true }), ev('fsTick'), ev('wait', { dt: 1500 }), ev('fsFinish', { dt: 1500 }), ...another],
       };
+      // A draft that reaches the screen under a saved id with more sets (a database read behind the draft's):
+      // the save layer is what stands between those sets and a summary over a write that never happened.
+      cases['a stale board under a saved id, sets added: written under another id'] = [
+        ev('fsAdd'), ev('fsType', { valid: true }), ev('fsTick'), ev('wait', { dt: 1500 }), ev('fsFinish', { dt: 1500 }), ev('kill', { early: true, stale: true }),
+        ev('fsAddSet'), ev('fsType', { valid: true, r: 11 }), ev('fsTick'), ev('wait', { dt: 1500 }), ev('fsFinish', { dt: 1500 }),
+      ];
+      cases['the same stale board, the new save failing and the app killed: the sets are not dropped as saved'] = [
+        ev('fsAdd'), ev('fsType', { valid: true }), ev('fsTick'), ev('wait', { dt: 1500 }), ev('fsFinish', { dt: 1500 }), ev('kill', { early: true, stale: true }),
+        ev('fsAddSet'), ev('fsType', { valid: true, r: 11 }), ev('fsTick'), ev('wait', { dt: 1500 }), ev('fsFinish', { dt: 1500, saveFail: true, failAt: 1 }), ev('kill'), ev('fsFinish', { dt: 1500 }),
+      ];
+      // The same board, carried on after the stale launch and handed to the provider, then a plain launch: a draft
+      // with sets the saved workout lacks is not the saved workout, and must not be dropped as if it were.
+      cases['a board with sets the saved workout lacks survives the next launch'] = [
+        ev('fsAdd'), ev('fsType', { valid: true }), ev('fsTick'), ev('wait', { dt: 1500 }), ev('fsFinish', { dt: 1500 }), ev('kill', { early: true, stale: true }),
+        ev('fsAddSet'), ev('fsType', { valid: true, r: 11 }), ev('fsTick'), ev('kill', { dt: 1500 }), ev('fsFinish', { dt: 1500 }),
+      ];
+      // Edits tried while the save awaits are refused, and the board stays what was saved.
+      cases['a tick while Finish is saving'] = [
+        ev('fsAdd'), ev('fsType', { valid: true }), ev('fsTick'), ev('fsAddSet'), ev('fsType', { valid: true, r: 5 }), ev('fsTick'), ev('wait', { dt: 1500 }),
+        ev('fsFinish', { dt: 1500, during: 'fsTick', r2: 3 }), ev('kill', { early: true }),
+      ];
       await withEnvironment(async () => {
         for (const [name, events] of Object.entries(cases)) {
           const failure = await runSequence(events, SEED);
           assert.equal(failure, null, `${name}: ${failure?.message} (at step ${failure ? failure.step + 1 : 0} of ${events.map(describe).join(', ')})`);
           const saves = [...world.expectedDb.keys()].length;
-          assert.ok(saves >= 2, `${name}: expected the first workout and the next one saved, saw ${saves}`);
+          assert.ok(saves >= 1, `${name}: expected the first workout and the next one saved, saw ${saves}`);
         }
       });
     },
