@@ -81,8 +81,6 @@ ${sections}`;
 }
 
 // The account deletion page: numbered steps, then what goes and what stays.
-// The privacy policy is linked by its extensionless path, the form the host
-// serves it under.
 function renderDeletionPage(language) {
   const doc = buildAccountDeletionPage(language);
   const sections = doc.sections
@@ -101,7 +99,7 @@ function renderDeletionPage(language) {
   const body = `<h1>${escapeHtml(doc.title)}</h1>
 <p class="summary">${escapeHtml(doc.summary)}</p>
 ${sections}
-<p><a href="privacy.${language}">${escapeHtml(privacy)}</a></p>`;
+<p><a href="privacy.${language}.html">${escapeHtml(privacy)}</a></p>`;
   return page(language, doc.title, body);
 }
 
