@@ -327,7 +327,7 @@ module.exports = [
       // these paths", under a field that reads as something Claude answered.
       const handler = source.slice(source.indexOf('export default async function handler('));
       const keptChat = handler.slice(handler.indexOf("kind: 'chat',"), handler.indexOf("kind: 'chat',") + 400);
-      assert.match(keptChat, /answer: result\.ok \? result\.answer : null,/);
+      assert.match(keptChat, /answer: result\.ok === true \? result\.answer : null,/);
       assert.doesNotMatch(keptChat, /result\.fallback/);
     },
   },
