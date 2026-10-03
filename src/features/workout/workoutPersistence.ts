@@ -281,12 +281,10 @@ export async function loadWorkoutBundle() {
   } catch {
     // Set aside before the empty bundle takes its place: the provider saves
     // what it loaded straight away, and this held every lift's "last time".
-    // Same rule as the database's quarantine.
-    try {
-      await setLargeItem(CORRUPT_STORAGE_KEY, raw);
-    } catch {
-      // Out of space, most likely. Opening the app still matters more.
-    }
+    // Same rule as the database's quarantine, including its failure: a copy
+    // that could not be written fails the load, and the rows stay as they are,
+    // because the save that follows an empty bundle would sweep them.
+    await setLargeItem(CORRUPT_STORAGE_KEY, raw);
     return { activeSession: null, history: createEmptyWorkoutHistory(), activeCardio: null } satisfies WorkoutPersistenceBundle;
   }
 }

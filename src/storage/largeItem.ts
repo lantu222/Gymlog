@@ -15,7 +15,7 @@ import {
   chunkKey,
   describeIncompleteChunks,
   encodeChunkManifest,
-  isDamagedChunkManifest,
+  looksLikeStoredValue,
   joinStoredChunks,
   readChunkManifest,
   splitStoredText,
@@ -79,22 +79,17 @@ async function readLargeItem(key: string): Promise<string | null> {
   }
   const manifest = readChunkManifest(head);
   if (!manifest) {
-    if (isDamagedChunkManifest(head)) {
-      // The head is damaged but the parts may all be there. Handing the head
-      // on as the value kept one line under the corrupt key and let the empty
-      // value that replaces it sweep every part. Instead the head and every
-      // part found on disk go out as the readable remains, so the caller's
-      // quarantine keeps every byte before that sweep runs.
-      const keys = await AsyncStorage.getAllKeys();
-      const indexes = keys
-        .map((candidate) => chunkIndexOf(key, candidate))
-        .filter((index): index is number => index !== null)
-        .sort((left, right) => left - right);
-      const found: Array<string | null> = [];
-      for (const index of indexes) {
-        found[index] = await AsyncStorage.getItem(chunkKey(key, index));
+    if (!looksLikeStoredValue(head)) {
+      // Not a manifest and not a value: if parts of this key are on disk the
+      // head is a damaged manifest, and returning it as the value would keep
+      // one line under the corrupt key while the empty value saved after it
+      // sweeps every part. The head and every part found go out as the
+      // readable remains instead, so the caller's quarantine keeps every byte
+      // before that sweep runs. With no parts on disk it is just a bad row.
+      const found = await readPartsOnDisk(key);
+      if (found.length > 0) {
+        throw new MissingPartsError(key, describeIncompleteChunks(head, found));
       }
-      throw new MissingPartsError(key, describeIncompleteChunks(head, Array.from(found, (part) => part ?? null)));
     }
     return head;
   }
@@ -110,6 +105,21 @@ async function readLargeItem(key: string): Promise<string | null> {
     throw new MissingPartsError(key, describeIncompleteChunks(head, parts));
   }
   return joined;
+}
+
+/** Every part of `key` that is on disk, by index; a gap reads as missing. */
+async function readPartsOnDisk(key: string): Promise<Array<string | null>> {
+  const indexes = (await AsyncStorage.getAllKeys())
+    .map((candidate) => chunkIndexOf(key, candidate))
+    .filter((index): index is number => index !== null);
+  if (indexes.length === 0) {
+    return [];
+  }
+  const found: Array<string | null> = [];
+  for (let index = 0; index <= Math.max(...indexes); index += 1) {
+    found.push(indexes.includes(index) ? await AsyncStorage.getItem(chunkKey(key, index)) : null);
+  }
+  return found;
 }
 
 /**

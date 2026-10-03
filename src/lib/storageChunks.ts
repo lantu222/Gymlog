@@ -161,22 +161,22 @@ export function readChunkManifest(head: string): ChunkManifest | null {
 }
 
 /**
- * A head that claims to be a manifest, whether or not it reads as one.
+ * Whether a head row can be a stored value rather than a manifest or wreckage.
  *
- * Every value stored here is JSON and starts with `{`, so a head beginning
- * with the prefix was written as a manifest and later damaged. It is never the
- * value itself: handed on as one it fails to parse, the caller sets that one
- * line aside, and the empty value it then saves sweeps the parts the line
- * used to name.
+ * Every value kept under these keys is a JSON object, so it starts with `{`
+ * (after a byte-order mark or blank space, which a parser forgives). A manifest
+ * is read by `readChunkManifest`. A head that is neither is a manifest that
+ * was damaged — empty, cut short, one byte flipped, something appended — and
+ * handed on as the value it fails to parse, the caller sets that one line
+ * aside, and the empty value it then saves sweeps the parts the head used to
+ * name. The caller looks for parts before letting such a head through.
  *
- * A manifest is one short line. The remains `describeIncompleteChunks` keeps
- * under a corrupt key also start with the prefix, on purpose, and run on over
- * many lines: those are stored values like any other and read back as such.
+ * The remains `describeIncompleteChunks` keeps under a corrupt key start with
+ * the manifest prefix on purpose. They fail this test too, and are told apart
+ * by having no parts on disk: they are one row, stored whole.
  */
-export function isDamagedChunkManifest(head: string): boolean {
-  return (
-    head.startsWith(MANIFEST_PREFIX) && head.length <= 64 && !/[\r\n]/.test(head) && readChunkManifest(head) === null
-  );
+export function looksLikeStoredValue(head: string): boolean {
+  return /^[\uFEFF\s]*\{/.test(head);
 }
 
 /**

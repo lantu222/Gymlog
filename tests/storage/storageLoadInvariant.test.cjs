@@ -145,6 +145,36 @@ function compareCollection(name, rawList, loadedList, onlyIds) {
   return problems;
 }
 
+/**
+ * Every preference the release stored, as it was stored. The preferences key
+ * (from 2026-08-18) wins over the blob's own copy, so it is the source when
+ * the fixture has one. A flipped onboardingCompleted sends the reader back to
+ * onboarding, so nothing here is a field to be lenient about.
+ */
+// Fields a later release took out on purpose: the old theme switch, the premium
+// unlock, the tracked-lift list, the free-coach quota, the mock-subscription
+// cancel flag, the own-warmup switch and the per-lift bar choice.
+const RETIRED_PREFERENCES = new Set(['theme', 'adaptiveCoachPremiumUnlocked', 'trackedExerciseLibraryItemIds', 'aiCoachFreeQuota', 'mockSubscriptionCancelled', 'alwaysOwnWarmup', 'barChoiceByExercise']);
+
+/** Every key of `raw` is in `loaded` with the same value; `loaded` may carry more. */
+function holds(raw, loaded) {
+  if (raw && loaded && typeof raw === 'object' && typeof loaded === 'object' && !Array.isArray(raw) && !Array.isArray(loaded)) {
+    return Object.entries(raw).every(([key, value]) => holds(value, loaded[key]));
+  }
+  return same(raw, loaded);
+}
+
+function comparePreferences(rawPreferences, loadedPreferences) {
+  const problems = [];
+  for (const [field, value] of Object.entries(rawPreferences || {})) {
+    if (RETIRED_PREFERENCES.has(field)) continue;
+    if (!holds(value, loadedPreferences[field])) {
+      problems.push(`preferences.${field} ${plainDescribe(value)} became ${plainDescribe(loadedPreferences[field])}`);
+    }
+  }
+  return problems;
+}
+
 function compareDatabase(raw, loaded, protectedIds) {
   const problems = [];
   for (const name of Object.keys(DB_COLLECTIONS)) {
@@ -247,7 +277,12 @@ async function checkFixture(fixture) {
   const quarantined = [DB_CORRUPT, WK_CORRUPT].filter((key) => app.fake.rows.has(key));
   assert.deepEqual(quarantined, [], `${fixture.name}: readable data was set aside as corrupt`);
 
-  const problems = [...compareDatabase(rawDb, db), ...compareBundle(rawWk, wk)];
+  const prefsRow = rows.get('@vinha/preferences/v1');
+  const problems = [
+    ...compareDatabase(rawDb, db),
+    ...compareBundle(rawWk, wk),
+    ...comparePreferences(prefsRow ? JSON.parse(prefsRow) : rawDb.preferences, db.preferences),
+  ];
   assert.deepEqual(problems, [], `${fixture.name} (${fixture.subject}) lost stored data:\n  ${problems.join('\n  ')}`);
 
   // Counts, not just ids: nothing is merged away either.
@@ -392,7 +427,7 @@ const VALUE_REPLACEMENTS = [
   ['unknown-enum', 'zz_unknown'],
   ['empty-string', ''],
   ['nul-char', 'a\u0000b'],
-  ['bom-string', '﻿name'],
+  ['bom-string', '\ufeffname'],
   ['rtl', 'abc‮def'],
   ['float-index', 1.5],
   ['date-garbage', '2026-13-45T99:99:99Z'],
@@ -474,7 +509,7 @@ function serialize(root) {
 const TEXT_OPS = [
   ['truncate', (text, random) => text.slice(0, Math.floor(random() * text.length))],
   ['truncate-tail', (text) => text.slice(0, text.length - 1)],
-  ['bom-prefix', (text) => `﻿${text}`],
+  ['bom-prefix', (text) => `\ufeff${text}`],
   ['garbage-suffix', (text) => `${text}}}garbage`],
   ['nan-literal', (text) => text.replace(/:\s*(\d+)/, ':NaN')],
   ['double-write', (text) => text + text],
@@ -732,7 +767,6 @@ async function chunkFaults(rows) {
     ['delete-last-part', (map) => map.delete(`@vinha/database/v1#${parts.length - 1}`)],
     ['truncate-part', (map) => map.set('@vinha/database/v1#1', map.get('@vinha/database/v1#1').slice(0, 1000))],
     ['garbled-part-same-length', (map) => map.set('@vinha/database/v1#1', [...map.get('@vinha/database/v1#1')].reverse().join(''))],
-    ['corrupt-manifest', (map) => map.set('@vinha/database/v1', 'vinha-chunks:3:abc')],
     ['manifest-names-more-parts', (map) => map.set('@vinha/database/v1', map.get('@vinha/database/v1').replace(/^vinha-chunks:(\d+):/, (_, count) => `vinha-chunks:${Number(count) + 2}:`))],
   ];
   for (const [label, fault] of faults) {
@@ -763,19 +797,122 @@ async function chunkFaults(rows) {
       problems.push({ label, problem: `opened empty; ${survivingParts.length} surviving parts were swept and the corrupt copy holds none of their sessions` });
     }
   }
-  // The workout bundle reads through the same writer: a damaged head, intact
-  // parts, and its first save must not take the parts with it.
-  {
-    const map = new Map(rows);
-    map.set('@vinha/workout/v1', 'vinha-chunks:3:abc');
-    const app = open([...map.entries()]);
-    const loaded = await app.workout.loadWorkoutBundle();
-    await app.workout.saveWorkoutBundle(loaded);
-    const kept = await app.large.getLargeItem(WK_CORRUPT);
-    if (loaded.history.sessions.length > 0) {
-      problems.push({ label: 'corrupt-manifest-workout', problem: 'a damaged manifest loaded as if whole' });
-    } else if (kept === null || (kept.match(/wk_long_/g) || []).length === 0) {
-      problems.push({ label: 'corrupt-manifest-workout', problem: 'the workout parts were swept and the corrupt copy holds none of their sessions' });
+  // A head that is no longer a manifest, parts intact, on either key: the
+  // load must keep head and parts under the corrupt key before the first save
+  // sweeps them. Not only the exact prefix: the empty head reads as "nothing
+  // stored" and a flipped byte as no manifest at all.
+  const heads = {
+    'damaged-manifest': 'vinha-chunks:3:abc',
+    'empty-head': '',
+    'cut-prefix': 'vinha-ch',
+    'flipped-prefix-byte': 'vinha-chunkz:9:2000123',
+    'manifest-plus-junk': 'vinha-chunks:9:2000123xyz',
+    'manifest-plus-cr': 'vinha-chunks:9:2000123\r',
+    'manifest-plus-nuls': `vinha-chunks:9:2000123${'\u0000'.repeat(80)}`,
+    'bom-manifest': '\ufeffvinha-chunks:9:2000123',
+    'whitespace-head': '   ',
+    'garbage-head': 'not json at all',
+  };
+  const stores = [
+    ['database', '@vinha/database/v1', DB_CORRUPT, 'session_long_', (app) => app.database.loadDatabase().then((loaded) => loaded.workoutSessions.length)],
+    [
+      'workout bundle',
+      '@vinha/workout/v1',
+      WK_CORRUPT,
+      'wk_long_',
+      async (app) => {
+        const loaded = await app.workout.loadWorkoutBundle();
+        // The provider saves what it loaded straight away.
+        await app.workout.saveWorkoutBundle(loaded);
+        return loaded.history.sessions.length;
+      },
+    ],
+  ];
+  for (const [store, key, corruptKey, marker, load] of stores) {
+    for (const [name, head] of Object.entries(heads)) {
+      const label = `${name}-${store}`;
+      const map = new Map(rows);
+      map.set(key, head);
+      const app = open([...map.entries()]);
+      let count;
+      try {
+        count = await load(app);
+      } catch (error) {
+        problems.push({ label, problem: `load threw: ${error.message}` });
+        continue;
+      }
+      const kept = await app.large.getLargeItem(corruptKey);
+      if (count > 0) {
+        problems.push({ label, problem: 'a damaged head loaded as if whole' });
+      } else if (kept === null || (kept.match(new RegExp(marker, 'g')) || []).length === 0) {
+        problems.push({ label, problem: 'the parts were swept and the corrupt copy holds none of their sessions' });
+      }
+    }
+    // No parts on disk: an empty head is simply nothing stored, as it was.
+    const bare = open([[key, '']]);
+    try {
+      await load(bare);
+    } catch (error) {
+      problems.push({ label: `empty-head-without-parts-${store}`, problem: `load threw: ${error.message}` });
+    }
+  }
+  return problems;
+}
+
+/**
+ * A quarantine that could not be written leaves the stored rows exactly as
+ * they were. The load fails (the providers retry, then show the storage error
+ * screen) rather than opening on an empty value whose save would sweep the
+ * only copy there is. Both keys, a small unreadable value and a split one.
+ */
+async function failedQuarantineKeepsRows(rows) {
+  const problems = [];
+  const stores = [
+    ['database', '@vinha/database/v1', DB_CORRUPT, (app) => app.database.loadDatabase()],
+    [
+      'workout bundle',
+      '@vinha/workout/v1',
+      WK_CORRUPT,
+      async (app) => {
+        const loaded = await app.workout.loadWorkoutBundle();
+        await app.workout.saveWorkoutBundle(loaded);
+      },
+    ],
+  ];
+  for (const [store, key, corruptKey, load] of stores) {
+    const splitDamaged = new Map(rows);
+    splitDamaged.set(key, 'vinha-chunks:3:abc');
+    const small = new Map([[key, '{"workoutSessions":[{"id":']]);
+    const smallSplitLess = new Map([[key, '{"history":{"sessions":[{"sessionId":']]);
+    for (const [shape, map] of [
+      ['split', splitDamaged],
+      ['small', store === 'database' ? small : smallSplitLess],
+    ]) {
+      const label = `quarantine-write-fails-${shape}-${store}`;
+      const app = open([...map.entries()]);
+      const before = new Map(app.fake.rows);
+      // A split copy is written by multiSet, a small one by setItem; refuse
+      // whichever the corrupt key's write uses, and only that key's.
+      app.fake.faults.multiSet = 1;
+      const setItem = app.fake.setItem;
+      app.fake.setItem = async (rowKey, value) => {
+        if (rowKey === corruptKey) throw new Error('database or disk is full');
+        return setItem.call(app.fake, rowKey, value);
+      };
+      let threw = false;
+      try {
+        await load(app);
+      } catch {
+        threw = true;
+      }
+      if (!threw) {
+        problems.push({ label, problem: 'the load succeeded although the unreadable value could not be kept' });
+      }
+      const after = app.fake.rows;
+      const changed = [...before.keys()].filter((rowKey) => after.get(rowKey) !== before.get(rowKey));
+      if (changed.length > 0 || after.size !== before.size) {
+        problems.push({ label, problem: `stored rows changed after a failed quarantine: ${changed.slice(0, 3).join(', ') || 'a row appeared'}` });
+      }
     }
   }
   return problems;
@@ -854,6 +991,10 @@ module.exports = [
       assert.ok(fixtures.length >= 10, 'the corpus spans at least ten releases');
       assert.ok(fixtures.some((f) => f.date < '2026-05-01'), 'the corpus holds the oldest release available');
       assert.ok(fixtures.some((f) => f.date >= '2026-09-28'), 'the corpus reaches the newest releases');
+      assert.ok(
+        fixtures.filter((fixture) => '@vinha/preferences/v1' in fixture.rows).length >= 8,
+        'the releases that write the preferences key have it in the corpus',
+      );
       const failures = [];
       for (const fixture of fixtures) {
         try {
@@ -877,7 +1018,7 @@ module.exports = [
     async run() {
       const fixtures = loadFixtures();
       const rows = await checkLongHistory(fixtures[fixtures.length - 1]);
-      const problems = [...(await chunkFaults(rows)), ...(await shortenedHistoryNeverParses())];
+      const problems = [...(await chunkFaults(rows)), ...(await shortenedHistoryNeverParses()), ...(await failedQuarantineKeepsRows(rows))];
       assert.deepEqual(problems, [], problems.map((entry) => `${entry.label}: ${entry.problem}`).join('\n'));
     },
   },

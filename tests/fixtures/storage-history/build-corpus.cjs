@@ -14,6 +14,8 @@
  *   normalizeDatabase / normalizeWorkoutBundle run over the filled data, and
  *   its own saveDatabase / saveWorkoutBundle write the rows (so the key names
  *   and the JSON layout are that release's, not ours).
+ *   Releases from 2026-08-18 also write the preferences key through their own
+ *   savePreferences, after a blob carrying older preferences.
  * - MODELLED: the sessions, logs, sets, cardio, bodyweight, measurements,
  *   name book, preferences and the active session are built here, in the
  *   newest shape, then cut down to the fields that release's type files
@@ -387,7 +389,7 @@ function fillDatabase(base, typesText) {
     setupCurrentWeightKg: 81.5,
     setupHeightCm: 180,
     setupAge: 34,
-    setupEquipment: 'full_gym',
+    setupEquipment: 'gym',
     setupFocusAreas: ['chest', 'back'],
     setupEquipmentItems: ['barbell', 'dumbbell'],
     proTrialStartedAt: iso(2, 9, 0),
@@ -636,7 +638,16 @@ async function buildOne(sha) {
   const base = seed.createSeedDatabase();
   const filled = fillDatabase(base, typesText);
   const normalised = database.normalizeDatabase ? database.normalizeDatabase(filled) : filled;
-  await database.saveDatabase(normalised);
+  if (database.savePreferences) {
+    // From 2026-08-18 the preferences also live on a key of their own, and the
+    // load lays it over the blob's copy. The blob here is written before a
+    // later preference change, the key after it, so the row is what wins.
+    const stale = { ...normalised.preferences, defaultRestSeconds: 60, darkThemeEnabled: false };
+    await database.saveDatabase({ ...normalised, preferences: stale });
+    await database.savePreferences(normalised.preferences);
+  } else {
+    await database.saveDatabase(normalised);
+  }
 
   const usesScoped = /buildScopedSlotId/.test(show(sha, 'src/features/workout/workoutPersistence.ts'));
   const bundle = fillBundle(catalog, usesScoped);
