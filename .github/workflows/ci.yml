@@ -11,6 +11,10 @@ on:
     branches: ['**']
   pull_request:
 
+# Checkout is all the job does with the token; nothing here writes back.
+permissions:
+  contents: read
+
 env:
   TZ: Europe/Helsinki
 
