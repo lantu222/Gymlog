@@ -189,7 +189,7 @@ function webDeletionForm(language, doc, clientId) {
     google.accounts.id.initialize({ client_id: C.clientId, callback: onCredential, auto_select: false });
     google.accounts.id.renderButton($('gsi-button'), { theme: 'outline', size: 'large', text: 'signin_with', locale: C.language });
   };
-  window.vinhaGoogleFailed = function () { say(C.text.failed); };
+  window.vinhaGoogleFailed = function () { say(C.text.signInFailed); };
 })();
 </script>
 <script src="https://accounts.google.com/gsi/client" async onload="vinhaGoogleLoaded()" onerror="vinhaGoogleFailed()"></script>`;
