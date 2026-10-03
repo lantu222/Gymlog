@@ -1378,12 +1378,13 @@ export async function loadDatabase() {
     // half-written blob or one bad field cost them the lot with nothing left to
     // read afterwards. Set the key aside and the loss is recoverable by hand;
     // the app still opens either way, which is what the overwrite was for.
-    try {
-      await setLargeItem(CORRUPT_STORAGE_KEY, raw);
-    } catch {
-      // Out of space, most likely — the same condition that truncated the
-      // write in the first place. Opening the app still matters more.
-    }
+    //
+    // Unless the copy could not be written. Out of space, most likely — the
+    // same condition that truncated the blob — and opening anyway meant the
+    // empty save below swept the only copy there was. The failure goes up
+    // instead: the rows stay as they are, and the load fails the way an
+    // unreadable disk does (loadWithRetry, then the storage error screen).
+    await setLargeItem(CORRUPT_STORAGE_KEY, raw);
     // The preferences are a row of their own and the blob's corruption is
     // not in them. Opened on defaults instead, the app lost the theme, the
     // notification choices, the trial's start and the coach's counters, and
