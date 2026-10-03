@@ -71,9 +71,27 @@ export interface ConfirmUploadCopy {
  * its data as this account's first backup (break round, 2026-09-28).
  */
 export function confirmUploadCopy(
-  input: { email: string | null; local: BackupContents & { workoutInProgress?: boolean } },
+  input: {
+    /** 'copy_deleted': the account's cloud copy was deleted on the web page or from another phone. */
+    reason?: 'other_account' | 'copy_deleted';
+    email: string | null;
+    local: BackupContents & { workoutInProgress?: boolean };
+  },
   language: AppLanguage,
 ): ConfirmUploadCopy {
+  if (input.reason === 'copy_deleted') {
+    return {
+      title: t(language, 'account.confirmUpload.deleted.title'),
+      body: t(language, 'account.confirmUpload.deleted.body', {
+        localContents: contentsList(input.local, language),
+        account: input.email
+          ? t(language, 'account.confirmUpload.namedAccount', { email: input.email })
+          : t(language, 'account.confirmUpload.thisAccount'),
+      }),
+      upload: t(language, 'account.confirmUpload.deleted.upload'),
+      skip: t(language, 'account.confirmUpload.skip'),
+    };
+  }
   return {
     title: t(language, 'account.confirmUpload.title'),
     body: t(language, 'account.confirmUpload.body', {

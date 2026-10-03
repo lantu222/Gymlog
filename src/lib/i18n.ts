@@ -1665,6 +1665,8 @@ const EN = {
   'account.backupNow': 'Back up now',
   'account.backupPaused.otherPhone': 'Backup paused — your cloud copy changed on another phone. Tap Back up now to choose.',
   'account.backupPaused.smallerPhone': 'Backup paused — this phone holds far less than your cloud copy. Tap Back up now to choose.',
+  'account.backupPaused.copyDeleted':
+    'Your cloud copy was deleted, on the web or on another phone. Nothing is backed up until you tap Back up now.',
   'account.backupFailed': 'Backup failed — your data is safe on this device',
   'account.signInFailed': 'Sign-in failed',
   'account.signInUnavailable': 'Sign-in needs an app update',
@@ -1734,6 +1736,11 @@ const EN = {
   'account.confirmUpload.namedAccount': '{email}',
   'account.confirmUpload.upload': 'Back it up',
   'account.confirmUpload.skip': 'Not now',
+  // The account's copy was deleted on the web page or from another phone (bug hunt 5, 2026-10-03).
+  'account.confirmUpload.deleted.title': 'Make a new cloud copy?',
+  'account.confirmUpload.deleted.body':
+    'Your cloud copy was deleted, on the web or on another phone. Back up this phone’s data ({localContents}) to {account} as a new copy?',
+  'account.confirmUpload.deleted.upload': 'Make a new copy',
   'account.prompt.title': 'Keep your training safe',
   'account.prompt.body':
     'Sign in and your workouts survive a lost or new phone. Optional — everything works without it.',
@@ -4819,6 +4826,8 @@ const FI: Record<I18nKey, string> = {
   'account.backupNow': 'Varmuuskopioi nyt',
   'account.backupPaused.otherPhone': 'Varmuuskopiointi tauolla — pilvikopio muuttui toisella puhelimella. Valitse napauttamalla Varmuuskopioi nyt.',
   'account.backupPaused.smallerPhone': 'Varmuuskopiointi tauolla — tällä puhelimella on paljon vähemmän tietoa kuin pilvikopiossa. Valitse napauttamalla Varmuuskopioi nyt.',
+  'account.backupPaused.copyDeleted':
+    'Pilvikopiosi poistettiin verkossa tai toisella puhelimella. Mitään ei varmuuskopioida, ennen kuin napautat Varmuuskopioi nyt.',
   'account.backupFailed': 'Varmuuskopiointi epäonnistui — datasi on tallessa tällä laitteella',
   'account.signInFailed': 'Kirjautuminen epäonnistui',
   'account.signInUnavailable': 'Kirjautuminen vaatii sovelluspäivityksen',
@@ -4882,6 +4891,10 @@ const FI: Record<I18nKey, string> = {
   'account.confirmUpload.namedAccount': 'tilille {email}',
   'account.confirmUpload.upload': 'Varmuuskopioi',
   'account.confirmUpload.skip': 'Ei nyt',
+  'account.confirmUpload.deleted.title': 'Tehdäänkö uusi pilvikopio?',
+  'account.confirmUpload.deleted.body':
+    'Pilvikopiosi poistettiin verkossa tai toisella puhelimella. Varmuuskopioidaanko tämän puhelimen tiedot ({localContents}) uudeksi kopioksi {account}?',
+  'account.confirmUpload.deleted.upload': 'Tee uusi kopio',
   'account.prompt.title': 'Pidä treenisi tallessa',
   'account.prompt.body':
     'Kirjaudu sisään, niin treenisi säilyvät vaikka puhelin katoaisi tai vaihtuisi. Vapaaehtoinen — kaikki toimii ilmankin.',

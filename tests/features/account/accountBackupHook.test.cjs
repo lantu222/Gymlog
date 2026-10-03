@@ -1479,6 +1479,100 @@ module.exports = [
       assert.equal(normalizeStoredAccount({ sub: 's', lastBackupFingerprint: 'abc', autoBackupPaused: true }).autoBackupPaused, true);
       assert.equal(normalizeStoredAccount({ sub: '' }), null);
       assert.equal(normalizeStoredAccount(null), null);
+      // "Your cloud copy was deleted": kept when it is a date, dropped when not.
+      assert.equal(normalizeStoredAccount({ sub: 's', cloudCopyDeletedAt: '2026-10-03T20:00:00.000Z' }).cloudCopyDeletedAt, '2026-10-03T20:00:00.000Z');
+      for (const bad of ['', 'yesterday', 7, true, {}, null]) {
+        assert.equal('cloudCopyDeletedAt' in normalizeStoredAccount({ sub: 's', cloudCopyDeletedAt: bad }), false, JSON.stringify(bad));
+      }
+    },
+  },
+  {
+    // Bug hunt 5 (2026-10-03): a phone still signed in after its account's copy was deleted on the web page (#291) met
+    // a refused upload, paused saying the copy "changed on another phone", and "Back up now" re-uploaded the whole
+    // history as a first backup without a word.
+    name: 'account hook: a cloud copy deleted elsewhere is said so, nothing is sent unattended, and "Back up now" asks before a new copy',
+    async run() {
+      const { confirmUploadCopy } = require(path.join(DIST, 'lib', 'accountBackupCopy.js'));
+      const local = database({ workoutSessions: workouts(3) });
+      await withHook({ local, stored: syncedAccount(local), cloud: cloudCopy(local) }, async (env) => {
+        // Deleted on the web page.
+        env.server.blob = null;
+        await env.edit((db) => ({ ...db, workoutSessions: [...db.workoutSessions, workout('mine')] }));
+        await env.advance(QUIET_MS);
+        assert.equal(env.server.blob, null, 'the automatic backup made the deleted copy again');
+        assert.equal(env.calls.upload, 1, 'one refused upload');
+        assert.equal(env.api.state.backupPaused, 'copy_deleted', 'the row says the copy was deleted, not that it changed');
+        assert.equal(env.api.state.lastBackupAt, null, 'a backup time over a copy that is gone');
+        assert.ok(env.store.account.cloudCopyDeletedAt, 'remembered on the account, so a relaunch says it too');
+        assert.equal(env.store.account.autoBackupPaused, true);
+        assert.equal(env.store.account.cloudVersion, null);
+
+        // Nothing more is sent unattended.
+        await env.edit((db) => ({ ...db, preferences: { ...db.preferences, profileName: 'Sanna' } }));
+        await env.advance(QUIET_MS);
+        await env.foreground();
+        await env.advance(QUIET_MS);
+        assert.equal(env.calls.upload, 1);
+        assert.equal(env.server.blob, null);
+
+        // "Back up now" asks, saying why; "Not now" sends nothing and keeps the mark.
+        const asked = await env.api.backUpOrAsk();
+        assert.equal(asked.kind, 'confirm_upload', '"Back up now" re-made the deleted copy without asking');
+        assert.equal(asked.reason, 'copy_deleted');
+        assert.equal(env.server.blob, null);
+        for (const language of ['en', 'fi']) {
+          const copy = confirmUploadCopy(asked, language);
+          assert.match(copy.body, language === 'en' ? /was deleted, on the web or on another phone/ : /poistettiin verkossa tai toisella puhelimella/);
+          assert.match(copy.body, /reader@example\.com/);
+        }
+        await env.settle();
+        assert.equal(await env.api.resolveUploadChoice('skip'), 'done');
+        await env.settle();
+        assert.equal(env.server.blob, null);
+        assert.equal(env.api.state.backupPaused, 'copy_deleted');
+
+        // A yes makes the new copy, lifts the mark and turns the automatic backup back on.
+        assert.equal((await env.api.backUpOrAsk()).kind, 'confirm_upload');
+        await env.settle();
+        assert.equal(await env.api.resolveUploadChoice('upload'), 'done');
+        await env.settle();
+        assert.equal(env.server.blob.database.workoutSessions.length, 4);
+        assert.equal(env.api.state.backupPaused, null);
+        assert.equal(env.store.account.cloudCopyDeletedAt, null);
+        await env.edit((db) => ({ ...db, preferences: { ...db.preferences, profileName: 'Sanna K' } }));
+        await env.advance(QUIET_MS);
+        assert.equal(env.server.blob.database.preferences.profileName, 'Sanna K');
+      });
+
+      // Pressed before any automatic backup noticed, and on an account from before versions (which looks first):
+      // asked all the same.
+      for (const extra of [{}, { cloudVersion: null }]) {
+        await withHook({ local, stored: syncedAccount(local, extra), cloud: cloudCopy(local) }, async (env) => {
+          env.server.blob = null;
+          const outcome = await env.api.backUpOrAsk();
+          assert.equal(outcome.kind, 'confirm_upload', JSON.stringify(extra));
+          assert.equal(outcome.reason, 'copy_deleted');
+          assert.equal(env.server.blob, null);
+          await env.settle();
+          assert.equal(env.api.state.backupPaused, 'copy_deleted');
+        });
+        await withHook({ local, stored: syncedAccount(local, extra), cloud: cloudCopy(local) }, async (env) => {
+          env.server.blob = null;
+          await env.edit((db) => ({ ...db, workoutSessions: [...db.workoutSessions, workout('mine')] }));
+          await env.advance(QUIET_MS);
+          assert.equal(env.server.blob, null, `unattended, ${JSON.stringify(extra)}`);
+          assert.equal(env.api.state.backupPaused, 'copy_deleted');
+        });
+      }
+
+      // A copy another phone wrote is still that question, not this one.
+      await withHook({ local, stored: syncedAccount(local), cloud: cloudCopy(local) }, async (env) => {
+        env.server.blob = cloudCopy(database({ workoutSessions: workouts(5) }));
+        await env.edit((db) => ({ ...db, workoutSessions: [...db.workoutSessions, workout('mine')] }));
+        await env.advance(QUIET_MS);
+        assert.equal(env.api.state.backupPaused, 'other_phone');
+        assert.equal(env.store.account.cloudCopyDeletedAt ?? null, null);
+      });
     },
   },
   {

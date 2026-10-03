@@ -98,11 +98,13 @@ export interface AccountBackupState {
    * changed on another phone since this one last saw it. 'smaller_phone': this
    * phone holds far less than the cloud copy (the shrink guard). The row says
    * so — a green timestamp over backups that were silently not happening.
+   * 'copy_deleted': the cloud copy this phone had was deleted on the web page
+   * or from another phone (StoredAccount.cloudCopyDeletedAt).
    */
   backupPaused: BackupPauseReason | null;
 }
 
-export type BackupPauseReason = 'other_phone' | 'smaller_phone';
+export type BackupPauseReason = 'other_phone' | 'smaller_phone' | 'copy_deleted';
 
 export type SignInOutcome =
   | { kind: 'unavailable' }
@@ -132,9 +134,16 @@ export type SignInOutcome =
   | { kind: 'choice'; summary: RestoreChoiceSummary }
   /**
    * A new account with no cloud copy, on a phone last signed in to another
-   * one: its data is not uploaded unasked. Call resolveUploadChoice.
+   * one (`reason` 'other_account'), or an account whose copy was deleted on
+   * the web page or from another phone ('copy_deleted'): this phone's data is
+   * not uploaded unasked. Call resolveUploadChoice.
    */
-  | { kind: 'confirm_upload'; email: string | null; local: BackupContents & { workoutInProgress: boolean } };
+  | {
+      kind: 'confirm_upload';
+      reason: 'other_account' | 'copy_deleted';
+      email: string | null;
+      local: BackupContents & { workoutInProgress: boolean };
+    };
 
 /**
  * How an operation the reader started ended. 'cancelled': sign-out or Reset
@@ -436,7 +445,9 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
    * Uploads this phone's data over the copy `expectedVersion` names — null:
    * the first backup, onto no copy at all. 'changed' is the server refusing
    * because the cloud holds a copy this phone has not seen; nothing was
-   * written, and the caller must not say "backed up".
+   * written, and the caller must not say "backed up". 'gone' is the same
+   * refusal over a copy this phone named and the cloud no longer has: deleted
+   * on the web page or from another phone (see copyWasDeleted).
    */
   const uploadCurrent = useCallback(
     async (
@@ -444,7 +455,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       base: StoredAccount,
       generation: number,
       expectedVersion: string | null,
-    ): Promise<'done' | 'failed' | 'changed'> => {
+    ): Promise<'done' | 'failed' | 'changed' | 'gone'> => {
       let version = expectedVersion;
       let sync = base;
       // At most one silent retry: a second refusal is a real race.
@@ -481,6 +492,9 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
           // phone's — rows, settings and the name book included — and asked about.
           const remote = await screenSession(idToken, await downloadBackup(idToken), generation);
           ensureCurrent(generation);
+          if (!remote.ok && remote.error === 'NO_BACKUP' && version !== null) {
+            return 'gone';
+          }
           if (
             !remote.ok ||
             remote.version === null ||
@@ -512,6 +526,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
           // The reader's own backup (or restore, or sign-in) is what lifts a
           // delete's pause.
           autoBackupPaused: false,
+          cloudCopyDeletedAt: null,
           cloudVersion: result.version,
         });
         // A sign-out that landed during the closing write is the next thing
@@ -627,6 +642,55 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
     [persistAccount],
   );
 
+  /** The question before a first backup this phone's data may not make unasked (resolveUploadChoice answers it). */
+  const confirmUpload = (reason: 'other_account' | 'copy_deleted', account: StoredAccount): SignInOutcome => ({
+    kind: 'confirm_upload',
+    reason,
+    email: account.email,
+    local: {
+      ...countBackupContents(latestRef.current.database),
+      workoutInProgress: latestRef.current.liveSession,
+    },
+  });
+
+  /** "Back up now" on an account whose cloud copy was deleted elsewhere: a new copy only on a yes. */
+  const askToBackUpAgain = async (idToken: string, account: StoredAccount): Promise<SignInOutcome> => {
+    pendingUploadRef.current = { idToken, account };
+    return confirmUpload('copy_deleted', account);
+  };
+
+  /**
+   * The cloud copy this phone had is gone: deleted on the web page (no app
+   * needed) or from another phone. Remembered on the account as "no backup" —
+   * the copy is not there — with the automatic backup held, so nothing is sent
+   * until the reader says so; the row says why. Unattended, that is all.
+   * "Back up now" asks before making a new copy. It used to upload the whole
+   * history as a first backup, and the automatic backup paused saying the copy
+   * had "changed on another phone" (bug hunt 5, 2026-10-03).
+   */
+  const copyWasDeleted = useCallback(
+    async (idToken: string, current: StoredAccount, interactive: boolean, generation: number): Promise<SignInOutcome> => {
+      const marked: StoredAccount = {
+        ...current,
+        lastBackupAt: null,
+        lastBackupItemCount: null,
+        lastBackupHistoryCount: null,
+        lastBackupFingerprint: null,
+        autoBackupPaused: true,
+        cloudVersion: null,
+        uploadInFlightFingerprints: [],
+        cloudCopyDeletedAt: current.cloudCopyDeletedAt ?? new Date().toISOString(),
+      };
+      // Not "changed on another phone": the account's own mark says what happened.
+      clearPause();
+      await persistAccount(marked);
+      ensureCurrent(generation);
+      return interactive ? await askToBackUpAgain(idToken, marked) : { kind: 'failed' };
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [persistAccount],
+  );
+
   /**
    * What this phone does once it has seen the cloud's answer: ask when both
    * sides hold data, restore onto an empty phone, upload as the first backup
@@ -687,6 +751,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
           // a copy another phone wrote), the row showed a fresh backup time
           // while nothing was ever backed up again.
           autoBackupPaused: false,
+          cloudCopyDeletedAt: null,
           // The copy this phone now holds, and so the one its next upload
           // may replace.
           cloudVersion: remote.version,
@@ -707,6 +772,10 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       // backup with "backed up" on screen (break round, 2026-09-28). Asked
       // instead; until answered, signed in and nothing sent — the automatic
       // backup held too, or it would send it a few seconds later anyway.
+      if (base.cloudCopyDeletedAt) {
+        // "Back up now" after the copy was deleted elsewhere (copyWasDeleted): still asked.
+        return await askToBackUpAgain(idToken, base);
+      }
       const signedOutSubs = await loadSignedOutAccounts();
       ensureCurrent(generation);
       if (
@@ -719,14 +788,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         const held = { ...base, autoBackupPaused: true };
         pendingUploadRef.current = { idToken, account: held };
         await persistAccount(held);
-        return {
-          kind: 'confirm_upload',
-          email: base.email,
-          local: {
-            ...countBackupContents(latestRef.current.database),
-            workoutInProgress: latestRef.current.liveSession,
-          },
-        };
+        return confirmUpload('other_account', base);
       }
       await forgetSignedOutAccount();
       // The payload is read once the upload starts: a sign-out (Reset) during
@@ -835,6 +897,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
             lastBackupAt: pending.payload.exportedAt,
             lastBackupFingerprint: fingerprint,
             autoBackupPaused: false,
+            cloudCopyDeletedAt: null,
             cloudVersion: pending.version,
           });
           // As at the end of uploadCurrent: not over a sign-out's mark.
@@ -1020,6 +1083,9 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
             local: countBackup(latestRef.current.database, latestRef.current.workoutHistory),
             unseen: remote.ok && !isCloudCopyThisPhones(current, remote),
           });
+          if (decision === 'gone') {
+            return await copyWasDeleted(idToken, current, interactive, generation);
+          }
           if (decision === 'settle') {
             // The reader is here to answer, so they get sign-in's question —
             // otherwise nothing but signing out and in again would ever lift
@@ -1081,6 +1147,9 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
           // invariant fix, 2026-09-28).
           await forgetSignedOutAccount();
         }
+        if (uploaded === 'gone') {
+          return await copyWasDeleted(idToken, current, interactive, generation);
+        }
         if (uploaded !== 'changed') {
           return uploaded === 'done' ? { kind: 'backed_up' } : { kind: 'failed' };
         }
@@ -1098,11 +1167,8 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
           return await askRestoreOrKeep(idToken, current, remote.payload, remote.version, generation);
         }
         if (remote.error === 'NO_BACKUP') {
-          // Deleted from the other phone since. The reader asked for a
-          // backup, so this is the first one again.
-          return (await uploadCurrent(idToken, current, generation, null)) === 'done'
-            ? { kind: 'backed_up' }
-            : { kind: 'failed' };
+          // Another phone wrote a copy and it has been deleted since: no copy now, and this phone had one.
+          return await copyWasDeleted(idToken, current, interactive, generation);
         }
         return { kind: 'failed' };
       } catch (error) {
@@ -1123,7 +1189,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [askRestoreOrKeep, available, persistAccount, settleWithRemote, uploadCurrent],
+    [askRestoreOrKeep, available, copyWasDeleted, persistAccount, settleWithRemote, uploadCurrent],
   );
 
   /**
@@ -1466,7 +1532,8 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       name: account.name,
       lastBackupAt: account.lastBackupAt,
       provider: account.sub.startsWith(APPLE_ACCOUNT_PREFIX) ? 'apple' : 'google',
-      backupPaused,
+      // Held across launches on the account: the copy stays deleted until the reader backs up again.
+      backupPaused: backupPaused ?? (account.cloudCopyDeletedAt ? 'copy_deleted' : null),
     };
   }, [account, available, backupPaused, loaded]);
 

@@ -53,6 +53,15 @@ export interface StoredAccount {
    */
   cloudVersion: string | null;
   /**
+   * Set (to the time) when the cloud copy this phone last wrote or restored was
+   * found gone: deleted on the web page or from another phone. The automatic
+   * backup holds (autoBackupPaused), the row says the copy was deleted, and
+   * "Back up now" asks before it makes a new one — re-uploading the whole
+   * history as a first backup without a word undid the deletion the reader had
+   * just made (bug hunt 5, 2026-10-03). Cleared by any upload or restore that lands.
+   */
+  cloudCopyDeletedAt?: string | null;
+  /**
    * Set (to the time) just before this phone sends "Delete account", and
    * cleared by any answer that settles it. A phone that still has it later
    * meets "session ended" knowing why: its own delete went through and the
@@ -101,6 +110,9 @@ export function normalizeStoredAccount(parsed: Partial<StoredAccount> | null | u
       ? { deleteAccountPendingAt: parsed.deleteAccountPendingAt }
       : {}),
     ...(isDeleteRequestId(parsed.deleteRequestId) ? { deleteRequestId: parsed.deleteRequestId } : {}),
+    ...(typeof parsed.cloudCopyDeletedAt === 'string' && Number.isFinite(Date.parse(parsed.cloudCopyDeletedAt))
+      ? { cloudCopyDeletedAt: parsed.cloudCopyDeletedAt }
+      : {}),
     ...(Array.isArray(parsed.uploadInFlightFingerprints) &&
     parsed.uploadInFlightFingerprints.some((entry) => typeof entry === 'string' && entry)
       ? {

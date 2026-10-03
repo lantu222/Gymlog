@@ -72,7 +72,7 @@ interface SettingsScreenProps {
      * (useAccountBackup). A green time over backups that are not happening
      * was the row saying everything was fine.
      */
-    backupPaused?: 'other_phone' | 'smaller_phone' | null;
+    backupPaused?: 'other_phone' | 'smaller_phone' | 'copy_deleted' | null;
     busy: boolean;
     /** The sign-ins this build offers (accountAuth): Apple on iPhone, Google where configured. */
     providers: SignInProvider[];
@@ -528,7 +528,9 @@ export function SettingsScreen({
                           language,
                           account.backupPaused === 'other_phone'
                             ? 'account.backupPaused.otherPhone'
-                            : 'account.backupPaused.smallerPhone',
+                            : account.backupPaused === 'copy_deleted'
+                              ? 'account.backupPaused.copyDeleted'
+                              : 'account.backupPaused.smallerPhone',
                         )}
                       </Text>
                     ) : null}
