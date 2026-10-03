@@ -511,16 +511,20 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
    * for hours and a Google ID token lasts about one: the one captured when it
    * was asked is a 401 by the time the reader taps "Use this phone's data".
    * A fresh one when there is one; the captured one when the lookup only failed
-   * (offline — the upload will say so); null when Google has no session left,
-   * which the next backup handles.
+   * (offline — the upload will say so). When the provider has no session
+   * left, signed out the full way and said so, like every other operation.
    */
-  const tokenForAnswer = useCallback(async (captured: string, generation: number): Promise<string | null> => {
-    const token = await getFreshIdToken();
+  const tokenForAnswer = useCallback(async (captured: string, sub: string, generation: number): Promise<string> => {
+    const token = await getFreshIdToken(sub);
     ensureCurrent(generation);
     if (token.status === 'ok') {
       return token.idToken;
     }
-    return token.status === 'signed_out' ? null : captured;
+    if (token.status === 'signed_out') {
+      await signOutRef.current();
+      throw new SessionEnded();
+    }
+    return captured;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -809,10 +813,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         // other: one written since then is refused, and the next "Back up
         // now" asks about that one.
         enterPhase('backing_up');
-        const idToken = await tokenForAnswer(pending.idToken, generation);
-        if (idToken === null) {
-          return 'failed';
-        }
+        const idToken = await tokenForAnswer(pending.idToken, current.sub, generation);
         const kept = await uploadCurrent(idToken, current, generation, pending.version);
         if (kept === 'done') {
           await forgetSignedOutAccount();
@@ -854,10 +855,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         enterPhase('backing_up');
         // uploadCurrent lifts the hold when the upload lands. Only a landed
         // upload settles whose data this is; a failed one asks again.
-        const idToken = await tokenForAnswer(pending.idToken, generation);
-        if (idToken === null) {
-          return 'failed';
-        }
+        const idToken = await tokenForAnswer(pending.idToken, pending.account.sub, generation);
         const uploaded = await uploadCurrent(idToken, pending.account, generation, null);
         if (uploaded === 'done') {
           await forgetSignedOutAccount();

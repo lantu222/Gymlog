@@ -539,12 +539,12 @@ module.exports = [
         assert.equal(await env.api.resolveRestoreChoice('keep_local'), 'done');
         assert.deepEqual(env.calls.uploadTokens, ['token']);
       });
-      // Google has no session left: nothing is sent.
+      // Google has no session left: nothing is sent, and the phone is signed out the full way and says so.
       await withHook({ local: phone, cloud: cloudCopy(database({ workoutSessions: workouts(4) })) }, async (env) => {
         assert.equal((await env.api.signIn()).kind, 'choice');
         env.google.silent = { status: 'signed_out' };
         await env.settle();
-        assert.equal(await env.api.resolveRestoreChoice('keep_local'), 'failed');
+        assert.equal(await env.api.resolveRestoreChoice('keep_local'), 'ended');
         assert.equal(env.calls.upload, 0);
       });
     },
