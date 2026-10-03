@@ -147,9 +147,11 @@ export function useRouteBack(deps: RouteBackDeps): void {
         // Home with the old history kept (#bugs 2026-10-02).
         workoutRef.current.clearCompletedWorkout();
         const exitRoute = summaryExitRouteRef.current ?? workoutHomeRoute;
-        // Consumed here, as the route guard consumes it, so a later summary
-        // cannot inherit this one's exit.
-        summaryExitRouteRef.current = null;
+        // Not consumed here: the transition has not committed, so a second
+        // Back before it does would read null and fall to the Programs tab.
+        // Every path into the summary sets the ref just before it routes
+        // there (finishSaves), so a later summary cannot inherit this exit;
+        // the route guard clears it when it takes the exit itself.
         leaveFinishedScreen(exitRoute);
         return true;
       }

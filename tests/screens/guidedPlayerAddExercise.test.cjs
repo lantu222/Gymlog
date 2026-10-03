@@ -194,6 +194,24 @@ module.exports = [
     },
   },
   {
+    name: 'the walk-up add records the slot it created, and the next anchor reads the real slot order',
+    run() {
+      // The effect that finds the one new slot appends it through the tested
+      // helper; without it slotIds stays empty and every add anchors on the
+      // block again, landing before the previous one.
+      assert.match(
+        playerSource,
+        /const pending = walkInsertRef\.current;[\s\S]{0,500}walkInsertRef\.current = null;\s*setWalkAdded\(\(current\) => recordWalkAddedSlot\(current, pending\.introSlotId, insertedSlotId\)\);/,
+      );
+      assert.match(playerSource, /^\s*recordWalkAddedSlot,$/m);
+      // The anchor is resolved against the live slot order, not an empty list.
+      assert.match(
+        playerSource,
+        /const slotOrder = exercises\.map\(\(exercise\) => exercise\.slotId\);\s*setAddExerciseAfterSlot\(\{\s*anchor: resolveWalkAddAnchor\(\s*guidedBlockLastSlotId\(steps, step\.groupIndex, slotOrder\),\s*step\.slotId,\s*walkAdded\[step\.slotId\],\s*slotOrder,\s*\),/,
+      );
+    },
+  },
+  {
     name: "the sheet's own single-select guard is unchanged — the fix is the caller's, not a shared component's",
     run() {
       // Other callers of AddExerciseSheet DO pass selectedIds and rely on

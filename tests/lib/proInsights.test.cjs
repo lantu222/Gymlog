@@ -140,6 +140,44 @@ module.exports = [
     },
   },
   {
+    name: 'proInsights: a lighter log of the first stalled session is not weighed in the fade rule',
+    run() {
+      // S1 also has 100 kg 10/8/6 earlier in the workout. The run at 102.5 kg
+      // is 6/6/6, 6/6/6, 6/5/4: one fading session of three, not recovery.
+      const reps = [
+        [[100, [10, 8, 6]], [102.5, [6, 6, 6]]],
+        [[102.5, [6, 6, 6]]],
+        [[102.5, [6, 5, 4]]],
+      ];
+      const sessions = [];
+      const logs = [];
+      reps.forEach((entries, index) => {
+        sessions.push({
+          id: `s${index}`,
+          workoutTemplateId: 'tpl',
+          workoutNameSnapshot: 'Push',
+          performedAt: at((reps.length - 1 - index) * 4),
+          durationMinutes: 50,
+        });
+        entries.forEach(([weight, repsPerSet], order) => {
+          logs.push({
+            id: `s${index}-${order}`,
+            sessionId: `s${index}`,
+            exerciseTemplateId: null,
+            exerciseNameSnapshot: 'Bench Press',
+            weight,
+            repsPerSet,
+            tracked: true,
+            orderIndex: order,
+          });
+        });
+      });
+      const lift = buildLiftHistories(sessions, logs)[0];
+      assert.equal(lift.stalledSessions, 3);
+      assert.doesNotMatch(buildPlateauConclusion(lift, 'en', 'beginner').body, /later sets fade/);
+    },
+  },
+  {
     name: 'proInsights: a duplicate log does not weigh a session twice in the fade rule',
     run() {
       // 8/8/8, then 8/6/5 logged twice, 8/6/5, 8/8/8: two of four sessions

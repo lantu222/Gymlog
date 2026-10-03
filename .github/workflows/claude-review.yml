@@ -317,8 +317,15 @@ jobs:
           # plan cannot use and a provider incident all read as "is_error: true"
           # (2026-10-01/02: nine reds in a row with nothing else to go on).
           if [ "$(echo "$summary" | jq -r '.is_error // false')" = "true" ]; then
+            # Every printed line is prefixed. This text is the model's and the
+            # provider's, not ours, and the runner reads any line that STARTS
+            # with `::` as a workflow command (`::warning::`, `::error::`,
+            # `::add-mask::`, `::stop-commands::`): a result of "::error::..."
+            # would raise an annotation, or switch commands off for the rest of
+            # the job. A prefix means no line starts with it; carriage returns
+            # go too, so a bare CR cannot start a fresh line.
             echo "Error text from the run:"
-            jq -rs '[.[] | .. | objects | (.result? // empty), (.error? | if type == "string" then . elif type == "object" then tojson else empty end), (select(.type? == "assistant") | .message.content[]? | .text? // empty)] | map(select(type == "string" and length > 0)) | unique | .[] | .[0:500]' "$EXECUTION_FILE" 2>/dev/null || echo "(could not read it)"
+            { jq -rs '[.[] | .. | objects | (.result? // empty), (.error? | if type == "string" then . elif type == "object" then tojson else empty end), (select(.type? == "assistant") | .message.content[]? | .text? // empty)] | map(select(type == "string" and length > 0)) | unique | .[] | .[0:500]' "$EXECUTION_FILE" 2>/dev/null || echo "(could not read it)"; } | tr -d '\r' | sed 's/^/  | /'
           fi
           # The file holds the SDK's raw result, where denials are an array.
           # A count field exists only in the summary the action prints, so
@@ -392,7 +399,7 @@ jobs:
           if [ "$denials" -gt 0 ] && [ $((denials * 2)) -ge "${turns//[!0-9]/0}" ]; then
             echo "::warning::The review was denied $denials tool calls in $turns turns, which is a workflow problem, not a finding. Read the list above: refused reads of the PR mean the allowlist in .github/workflows/claude-review.yml, refused runs of code mean the reviewer needs telling in .claude/commands/ci-review.md."
           elif [ "$turns" = "1" ]; then
-            echo "::warning::The review errored on its first turn with no tool denials, so the model never got going: upstream refused the request. That is a usage limit OR a provider incident, and the two look identical from here — check status.anthropic.com before concluding anything about budget. Either way this PR has NOT been reviewed; re-run the job."
+            echo "::warning::The review errored on its first turn with no tool denials, so the model never got going: upstream refused the request. Read the error text above for which: a rejected credential (\"401 OAuth access token is invalid\", 1-2 Oct 2026: regenerate CLAUDE_CODE_OAUTH_TOKEN with claude setup-token), a usage limit, or a provider incident (check status.anthropic.com). They all look the same by turn count alone. Either way this PR has NOT been reviewed; re-run the job once it is fixed."
           else
             echo "::warning::The review errored after $turns turns. Read the step log above for what it was doing."
           fi
