@@ -53,6 +53,8 @@ export interface AdaptedCompletedWorkoutSession {
   exercises: AdaptedCompletedWorkoutExercise[];
   logs: ExerciseLogDraft[];
   legacyShapeMismatches: LegacyWorkoutDataMismatch[];
+  /** The moments of the sets taken back in the session (WorkoutSessionRuntime.takenBackAt). */
+  takenBackAt: string[];
 }
 
 /**
@@ -304,6 +306,7 @@ export function adaptCompletedWorkoutSessionForAppDatabase(
     exercises,
     logs: buildExerciseLogDraftsFromWorkoutSession(session),
     legacyShapeMismatches: collectLegacyShapeMismatches(exercises),
+    takenBackAt: session.takenBackAt ?? [],
   };
 }
 

@@ -319,6 +319,13 @@ export interface WorkoutSessionRuntime {
    * Absent on sessions started before this was kept.
    */
   pausedMsAtLastSet?: number;
+  /**
+   * The moments of the sets taken back (set/undo), each as it was logged. A session whose save landed
+   * and whose clear was lost comes back active and can be finished again, merged with the stored
+   * workout (lib/emptyWorkoutSession mergeStoredWorkoutLogs): a stored set this session lacks stays,
+   * unless its moment is here, which says the reader took it back. Absent: none taken back.
+   */
+  takenBackAt?: string[];
   activePlanMode: DefaultScheduleMode;
   exercises: WorkoutExerciseInstance[];
   restTimer: WorkoutRestTimerState;

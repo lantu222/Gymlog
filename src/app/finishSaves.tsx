@@ -156,32 +156,18 @@ export function createFinishSaves(deps: FinishSavesDeps) {
     // A session whose save landed and whose clear was lost comes back active on the next launch
     // (the bundle write behind the finish is not awaited), and the reader can add sets to it and
     // Finish again. The database refuses a second row under the same id and says nothing, so those
-    // sets were shown as saved and never written (bug hunt 2026-10-03). The same question the free
-    // workout board asks (#277), with one more answer (resolveGuidedSaveTarget): exactly these sets
-    // under the id is the finish that landed; sets only added since replace that row in place; a
-    // stored set these lack (corrected, removed) means these are saved under an id of their own,
-    // since a duplicate beats a loss. Read from the database as it stands now, not this render's
+    // sets were shown as saved and never written (bug hunt 2026-10-03). It is the same workout, so
+    // it is merged with the stored one under the same id (resolveGuidedSaveTarget): no stored set
+    // lost, none counted twice, and nothing to write when the merge is what is stored. (It used to be
+    // saved under an id of its own beside the stored one whenever it lacked a stored set, and every
+    // set the two shared counted twice.) Read from the database as it stands now, not this render's
     // snapshot.
-    const saveTarget = resolveGuidedSaveTarget(
-      getDatabase(),
-      adaptedFromSession.sessionId,
-      adaptedFromSession.logs,
-    );
-    // A new id is the session's own before anything is saved: the finish state below, the route
-    // guard (which resets a finish state whose id is not the running session's), the slot history
-    // finishing stamps and the stored row all have to name one id, and a failed save has to leave
-    // the session under the id its retry will use.
-    if (saveTarget.sessionId !== adaptedFromSession.sessionId) {
-      workout.adoptSessionId(saveTarget.sessionId);
-    }
-    let adaptedSession =
-      saveTarget.sessionId === adaptedFromSession.sessionId
-        ? adaptedFromSession
-        : { ...adaptedFromSession, sessionId: saveTarget.sessionId };
-    // A replace keeps the stored row's name (a rename made since is the reader's), so the summary
-    // names the workout the way History will: when the write did replace it, and not when it fell
-    // back to an id of its own (below).
-    const keptName = saveTarget.replaceStored
+    const saveTarget = resolveGuidedSaveTarget(getDatabase(), adaptedFromSession.sessionId);
+    let adaptedSession = adaptedFromSession;
+    // A merge keeps the stored row's name (a rename made since is the reader's), so the summary
+    // names the workout the way History will: when the write did merge, and not when it filed the
+    // sets under an id of its own (below).
+    const keptName = saveTarget.mergeStored
       ? getDatabase().workoutSessions.find((row) => row.id === adaptedSession.sessionId)?.workoutNameSnapshot
       : undefined;
     const keptNameId = adaptedSession.sessionId;
@@ -199,7 +185,7 @@ export function createFinishSaves(deps: FinishSavesDeps) {
       const summary = await saveCompletedWorkoutSession({
         ...adaptedSession,
         performedAt: adaptedSession.performedAt,
-        replaceStored: saveTarget.replaceStored,
+        mergeStored: saveTarget.mergeStored,
       });
       if (!summary.sessionId || !summary.performedAt) {
         throw new Error('Workout save did not produce a valid summary');
@@ -286,7 +272,10 @@ export function createFinishSaves(deps: FinishSavesDeps) {
         // The tile counts lifts that were done: the save's own count, by the
         // rule History reads the same logs with (lib/sessionTotals), so this
         // tile and the session's History row cannot disagree. The cards below
-        // agree too — a card with a completed set is a log the rule counts.
+        // agree too — a card with a completed set is a log the rule counts —
+        // except after a merge that kept stored sets this session never knew
+        // of (mergeStoredWorkoutLogs): the tiles count those, the cards are
+        // this session's.
         // Not summary.exercisesLogged, which is every persisted entry, skipped
         // included: "6 LIIKETTÄ" above five rows of "0 sarjaa" was that number.
         exercisesLogged: summary.exercisesCompleted,

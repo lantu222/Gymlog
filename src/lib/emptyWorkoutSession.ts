@@ -11,6 +11,7 @@ import { createId } from './ids';
 import { REPS_DIAL } from './weightDial';
 import { isLiftableWeight } from './weightLimits';
 import { isExerciseDone } from './sessionTotals';
+import { normalizeExerciseLog } from './exerciseLog';
 import { beatsBest, heaviestOfSets } from './personalRecords';
 import {
   ExercisePrLookup,
@@ -20,7 +21,7 @@ import {
 } from './workoutCompletionSummary';
 import { buildPersistedSessionNames } from './workoutEditorNaming';
 import { buildSupersetRuns, isSupersetLinked, normalizeSupersetGroups } from './supersetGrouping';
-import { AppDatabase, ExerciseBodyPart, ExerciseLogDraft, WorkoutTemplateDraft } from '../types/models';
+import { AppDatabase, ExerciseBodyPart, ExerciseLog, ExerciseLogDraft, ExerciseLogSet, WorkoutTemplateDraft } from '../types/models';
 
 // ── add-sheet muscle filter ──────────────────────────────────────────────
 
@@ -266,48 +267,179 @@ export function resolveFreestyleSaveTarget(
 }
 
 /**
- * Which session a guided Finish writes, when its id may already name a stored workout.
+ * Whether a guided Finish writes into a workout already stored under its id.
  *
  * The guided session's save lands before its clear, and the clear (a bundle write nobody awaits)
  * can be lost: the session then returns active under an id the database already holds, and the
- * reader can add sets and Finish again (bug hunt 2026-10-03). Three answers, none of which drops
- * a set:
- *  - the stored workout holds exactly these sets: it is the finish that landed, nothing to write;
- *  - the stored workout's sets are all among these (sets were only added): the same workout,
- *    finished further, so its rows are replaced in place under the same id. Nothing stored is lost
- *    and nothing is counted twice;
- *  - the stored workout holds a set these do not (one was corrected or removed since): replacing
- *    it would lose that set, so these are saved under an id of their own (a duplicate beats a
- *    loss), which the caller hands to the session before writing.
+ * reader can add sets, correct one, take one back, swap or skip a lift, and Finish again (bug hunt
+ * 2026-10-03). It is the same workout, so it is saved under the same id, merged with what is stored
+ * (mergeStoredWorkoutLogs): no stored set lost, none counted twice. The write decides whether the
+ * merge changes anything, against the database it writes.
+ *
+ * It used to save a finish that lacked a stored set under an id of its own, the stored workout
+ * beside it: no set was lost, but every set the two shared was counted twice in volume, records
+ * and the week.
  */
-export function resolveGuidedSaveTarget(
-  database: SavedSessions,
-  sessionId: string,
-  logs: ReadonlyArray<CountedLog>,
-): { sessionId: string; alreadySaved: boolean; replaceStored: boolean } {
-  if (canReplaceStoredWorkout(database, sessionId, logs)) {
-    return { sessionId, alreadySaved: false, replaceStored: true };
-  }
-  return { ...resolveFreestyleSaveTarget(database, sessionId, logs), replaceStored: false };
+export function resolveGuidedSaveTarget(database: SavedSessions, sessionId: string): { mergeStored: boolean } {
+  return { mergeStored: database.workoutSessions.some((session) => session.id === sessionId) };
 }
 
 /**
- * Whether the workout stored under `sessionId` can be replaced by these logs without losing a set:
- * every set it holds is among them (and they are more than it holds). The decision above asks it of
- * the database it read; the write asks it again of the database it is about to write, because the
- * two reads can differ, and a replace that is no longer lossless is saved under an id of its own.
+ * Whether two sets of saved rows are the same rows: every field the reader can change, set by set,
+ * read the way the loader reads them. A merge that comes out the same as what is stored has nothing
+ * to write; anything else (a note, an inserted lift, a swap, an effort) is written, so a save is
+ * never reported for a change that was dropped.
  */
-export function canReplaceStoredWorkout(
-  database: SavedSessions,
-  sessionId: string,
-  logs: ReadonlyArray<CountedLog>,
-): boolean {
-  if (!database.workoutSessions.some((session) => session.id === sessionId)) {
-    return false;
-  }
-  const saving = liftsOf(logs);
-  const stored = liftsOf(database.exerciseLogs.filter((log) => log.sessionId === sessionId));
-  return !sameLifts(stored, saving) && liftsContained(stored, saving);
+export function sameSavedLogs(a: ReadonlyArray<ExerciseLog>, b: ReadonlyArray<ExerciseLog>): boolean {
+  const rowsOf = (logs: ReadonlyArray<ExerciseLog>) =>
+    logs
+      .map((log) => normalizeExerciseLog(log))
+      .filter((log): log is NonNullable<typeof log> => Boolean(log))
+      .map((log) =>
+        JSON.stringify([
+          log.exerciseNameSnapshot,
+          log.exerciseTemplateId ?? null,
+          log.slotId ?? null,
+          log.templateSlotId ?? null,
+          log.templateExerciseId ?? null,
+          log.tracked,
+          log.orderIndex,
+          log.skipped === true,
+          log.sessionInserted === true,
+          log.status ?? null,
+          log.notes ?? null,
+          log.swappedFrom ?? null,
+          (log.sets ?? []).map((set) => [
+            set.orderIndex,
+            set.weight,
+            set.reps,
+            set.kind,
+            set.outcome ?? null,
+            set.status ?? null,
+            set.effort ?? null,
+            set.completedAt ?? null,
+            set.skippedReason ?? null,
+            set.planned ?? null,
+          ]),
+        ]),
+      )
+      .sort();
+  const left = rowsOf(a);
+  const right = rowsOf(b);
+  return left.length === right.length && left.every((row, index) => row === right[index]);
+}
+
+/** Earlier first; a set with no moment after those with one. */
+const byMoment = (a: string | null | undefined, b: string | null | undefined) =>
+  a && b ? a.localeCompare(b) : a ? -1 : b ? 1 : 0;
+
+const sameLiftName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+const isSkippedLog = (log: Pick<ExerciseLogDraft, 'skipped' | 'status'>) => log.skipped === true || log.status === 'skipped';
+
+/**
+ * A guided Finish of a workout already stored under its id, merged with it (resolveGuidedSaveTarget).
+ *
+ * A done set is the moment it was logged: the player stamps one per set logged, a correction keeps
+ * it (set/editLogged), and a set taken back and logged again gets a new one. Not its slot or its
+ * place: a swap renumbers a slot's sets lift by lift (lib/liftSegments), and a slot's id can be
+ * rewritten when a stored session is repaired on load. So:
+ *  - a set the finish holds is saved as the finish holds it: a correction replaces its stored set,
+ *    once;
+ *  - a stored set the finish lacks was either taken back in the returned session (its moment is in
+ *    `takenBackAt`, which set/undo keeps) and goes, or never known to it (the bundle it came back
+ *    from was written before that set) and stays. It joins its own lift's row in set order, or
+ *    keeps a row of its own when the finish has none for it, or only a skipped one (a skipped row
+ *    counts nowhere, and these sets were done);
+ *  - a stored set with no moment (an older save) is matched by its lift and value instead.
+ *
+ * A stored set the session never knew of showed there as open, and a reader who logs it again has
+ * two sets in that place, both kept: the place is not the set (a swap renumbers it), and dropping
+ * either could lose one that was lifted. Rare: it needs the bundle to have missed that set too.
+ */
+export function mergeStoredWorkoutLogs(
+  stored: ReadonlyArray<ExerciseLog>,
+  logs: ReadonlyArray<ExerciseLogDraft>,
+  takenBackAt: ReadonlyArray<string> = [],
+): ExerciseLogDraft[] {
+  const heldMoments = new Map<string, number>();
+  const heldValues = new Map<string, number>();
+  const valueKey = (name: string, set: ExerciseLogSet) => `${name.trim().toLowerCase()}|${set.reps}@${set.weight}`;
+  logs.forEach((log) =>
+    (log.sets ?? []).forEach((set) => {
+      if (!isDoneSet(set)) {
+        return;
+      }
+      if (set.completedAt) {
+        heldMoments.set(set.completedAt, (heldMoments.get(set.completedAt) ?? 0) + 1);
+      }
+      const value = valueKey(log.exerciseNameSnapshot, set);
+      heldValues.set(value, (heldValues.get(value) ?? 0) + 1);
+    }),
+  );
+  const take = (pool: Map<string, number>, key: string) => {
+    const left = pool.get(key) ?? 0;
+    pool.set(key, left - 1);
+    return left > 0;
+  };
+  const takenBack = new Set(takenBackAt);
+  const merged: ExerciseLogDraft[] = logs.map((log) => ({ ...log, sets: [...(log.sets ?? [])] }));
+  const extra: ExerciseLogDraft[] = [];
+  [...stored]
+    .sort((a, b) => a.orderIndex - b.orderIndex)
+    .forEach((storedLog) => {
+      const kept = (storedLog.sets ?? []).filter((set) => {
+        if (!isDoneSet(set)) {
+          return false;
+        }
+        if (set.completedAt) {
+          return !take(heldMoments, set.completedAt) && !takenBack.has(set.completedAt);
+        }
+        return !take(heldValues, valueKey(storedLog.exerciseNameSnapshot, set));
+      });
+      if (kept.length === 0) {
+        return;
+      }
+      const sameLift = (log: ExerciseLogDraft) =>
+        (log.slotId ?? null) === (storedLog.slotId ?? null) && sameLiftName(log.exerciseNameSnapshot, storedLog.exerciseNameSnapshot);
+      // A row skipped with nothing done in it was skipped by a session that did not know these sets were
+      // done: it is done after all, the way a lift skipped after a set is (exercise/skip). A skipped row
+      // that held a done set is not one the player writes, and is left alone.
+      const skippedHome = merged.find((log) => sameLift(log) && isSkippedLog(log) && !log.sets.some((set) => isDoneSet(set)));
+      if (skippedHome) {
+        skippedHome.skipped = false;
+        skippedHome.status = 'completed';
+      }
+      const home = merged.find((log) => sameLift(log) && !isSkippedLog(log));
+      if (home) {
+        // A kept set takes its place back from a set the finish holds there undone: the returned session
+        // showed it open because it never knew it was done.
+        const places = new Set(kept.map((set) => set.orderIndex));
+        home.sets = [...home.sets.filter((set) => isDoneSet(set) || !places.has(set.orderIndex)), ...kept].sort(
+          (a, b) => a.orderIndex - b.orderIndex || byMoment(a.completedAt, b.completedAt),
+        );
+        // Open only for the sets it did not know were done: with none left open, it is done.
+        if (home.status === 'active' && home.sets.every((set) => isDoneSet(set))) {
+          home.status = 'completed';
+        }
+        return;
+      }
+      extra.push({
+        exerciseTemplateId: storedLog.exerciseTemplateId,
+        exerciseNameSnapshot: storedLog.exerciseNameSnapshot,
+        sets: kept,
+        tracked: storedLog.tracked,
+        orderIndex: storedLog.orderIndex,
+        skipped: false,
+        sessionInserted: storedLog.sessionInserted === true,
+        status: storedLog.status === 'skipped' ? 'completed' : storedLog.status,
+        slotId: storedLog.slotId ?? null,
+        templateSlotId: storedLog.templateSlotId ?? null,
+        templateExerciseId: storedLog.templateExerciseId ?? null,
+        notes: storedLog.notes ?? null,
+        swappedFrom: storedLog.swappedFrom ?? null,
+      });
+    });
+  return [...merged, ...extra];
 }
 
 /**
