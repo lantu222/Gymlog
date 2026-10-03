@@ -12,6 +12,8 @@ const {
   freestyleVolumeKg,
   matchesMuscleFilter,
   carryForwardFreestyleSet,
+  normalizeFreestyleDraftSnapshot: normalizeDraftForSessionId,
+  resolveFreestyleSessionId,
 } = require('../../.test-dist/lib/emptyWorkoutSession.js');
 
 const emptyPrLookup = { byLibraryItemId: {}, byName: {} };
@@ -529,6 +531,28 @@ module.exports = [
         now,
         'a draft saved in the future says nothing about how long ago that was',
       );
+    },
+  },
+  {
+    name: 'a free workout board keeps one session id: kept with the draft, carried into the save, made once for an old draft',
+    run() {
+      const lift = { localKey: 'a', name: 'Bench Press', sets: [{ localKey: 's1', kg: '60', reps: '8', done: true }] };
+      assert.equal(normalizeDraftForSessionId({ exercises: [lift], sessionId: 'session_abc' }).sessionId, 'session_abc', 'the id comes back with the draft');
+      assert.equal(normalizeDraftForSessionId({ exercises: [lift] }).sessionId, null, 'a draft an older build wrote has none');
+      assert.equal(normalizeDraftForSessionId({ exercises: [lift], sessionId: 42 }).sessionId, null, 'a junk id is none');
+      assert.equal(resolveFreestyleSessionId({ sessionId: 'session_abc' }), 'session_abc', 'a board brought back from a draft saves under its id');
+      assert.match(resolveFreestyleSessionId(null), /^session_/, 'a new board makes one');
+      assert.match(resolveFreestyleSessionId({ sessionId: null }), /^session_/, 'an old draft gets one when its board opens');
+      const { summary } = buildFreestyleFinish({
+        exercises: [makeExercise()],
+        workoutName: 'Free workout',
+        startedAtIso: '2026-10-03T10:00:00.000Z',
+        performedAtIso: '2026-10-03T10:30:00.000Z',
+        elapsedSeconds: 1800,
+        exercisePrLookup: emptyPrLookup,
+        sessionId: 'session_abc',
+      });
+      assert.equal(summary.sessionId, 'session_abc', 'the save is handed the id of the board');
     },
   }
 ];

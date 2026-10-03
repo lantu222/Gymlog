@@ -80,14 +80,16 @@ const { createFakeAsyncStorage, loadAgainstFake } = require('../../storage/fakeA
  *  6. A summary is shown, and the session marked finished, only once the write
  *     has landed on disk.
  *
- * KNOWN GAPS: see KNOWN_GAPS below; each is let through here and has a STRICT
- * switch that makes it an invariant.
+ * The first runs (2026-10-03) found two things on main, both fixed since and held here as
+ * invariants: a finished guided session left as the activeSession blocked every Start (and
+ * toasted "save failed" over a saved workout when the preferences write after the save was
+ * refused), and a free workout board returning after a lost clear was saved a second time
+ * under a second session id.
  *
  * Reproduce a failure: WORKOUT_INVARIANT_SEED=<seed> WORKOUT_INVARIANT_SEQUENCES=<n>
  * node tests/run-tests.cjs; the failing sequence is printed, already shrunk.
  * WORKOUT_INVARIANT_REPLAY runs one sequence given by hand (see parseEvents),
- * WORKOUT_INVARIANT_STATS=1 prints what the sequences reached,
- * WORKOUT_INVARIANT_STRICT=<gap>[,<gap>] (or `all`) enforces known gaps.
+ * WORKOUT_INVARIANT_STATS=1 prints what the sequences reached.
  */
 
 const ROOT = path.join(__dirname, '..', '..', '..');
@@ -98,30 +100,8 @@ const dist = (relative) => require(path.join(DIST, relative));
 const SEQUENCES = Number(process.env.WORKOUT_INVARIANT_SEQUENCES) || 2000;
 const SEED = Number(process.env.WORKOUT_INVARIANT_SEED) || 20261003;
 const REPLAY = process.env.WORKOUT_INVARIANT_REPLAY;
-const STRICT = new Set(String(process.env.WORKOUT_INVARIANT_STRICT ?? '').split(',').filter(Boolean));
 const STATS = process.env.WORKOUT_INVARIANT_STATS ? new Map() : null;
 const count = (key) => STATS?.set(key, (STATS.get(key) ?? 0) + 1);
-
-/**
- * What the first runs found on main (2026-10-03) and this test lets through.
- * Each is a real behaviour, found by the driver and kept visible by name; with
- * WORKOUT_INVARIANT_STRICT=<id> (or `all`) the invariant is enforced and the
- * run fails on it with the shortest sequence.
- *
- *  completed-session-blocks-start: a finished-and-saved guided session stays the
- *    activeSession (status 'completed') until clearCompletedWorkout, which runs
- *    after an awaited preferences write. A kill in that gap, or that write
- *    failing, leaves it there, and every Start goes through
- *    navigateToActiveWorkout (App.tsx:744), which answers true for ANY
- *    activeSession: the Start opens the finished workout's player instead of
- *    starting. Recoverable (Finish there files it idempotently and clears it).
- *  freestyle-board-saved-twice: finishLoggedWorkoutSave mints a new session id
- *    per attempt and the free workout's board is cleared by a bundle write
- *    nobody awaits. If that write is lost (kill, refused disk) the board returns
- *    after launch with the sets that are already saved, and Finish saves the
- *    same board a second time.
- */
-const strict = (gap) => STRICT.has(gap) || STRICT.has('all');
 
 // ---------------------------------------------------------------------------
 // Randomness and small helpers
@@ -331,6 +311,16 @@ const compileAppProviderPart = (() => {
   return new Function(`'use strict';\n${js}\nreturn __part;`)();
 })();
 
+const APP_SHELL = fs.readFileSync(path.join(ROOT, 'App.tsx'), 'utf8').replace(/\r\n/g, '\n');
+const NAVIGATE_SOURCE = liftFunction(APP_SHELL, 'function navigateToActiveWorkout(options?: { message?: string; resume?: boolean }) {');
+
+/** App.tsx's navigateToActiveWorkout, the door every Start goes through, run as written. */
+const compileDoor = (() => {
+  const wrapped = `function __door(__scope) {\n  const { workout, showToast, navigateToGuidedWorkout } = __scope;\n${NAVIGATE_SOURCE}\n  return navigateToActiveWorkout;\n}`;
+  const js = ts.transpileModule(wrapped, { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.None } }).outputText;
+  return new Function(`'use strict';\n${js}\nreturn __door;`)();
+})();
+
 const FINISH_SAVES = (() => {
   const file = path.join(SRC, 'app', 'finishSaves.tsx');
   const js = ts.transpileModule(fs.readFileSync(file, 'utf8'), {
@@ -511,6 +501,7 @@ async function launch() {
       startedAtMs: emptyWorkout.resolveFreestyleDraftStart(draft, world.now),
       lastEditMs: 0,
       dirty: false,
+      sessionId: emptyWorkout.resolveFreestyleSessionId(draft),
     };
   }
   return proc;
@@ -1070,11 +1061,13 @@ async function finishGuided(ev) {
     fail('4', `Finish threw ${thrown instanceof Error ? thrown.message : thrown}`);
   }
   if (ev.prefFail) {
-    // The save is on disk and the reader is told it failed; the session stays, finished, for a retry.
-    count('saved but told failed');
-  } else if (world.toasts.length > 0) {
-    fail('4', `Finish saved and then said "${world.toasts[0]}"`);
-  } else if (proc.state.activeSession) {
+    // The save is on disk and the preferences write behind it was refused: not a reason to say the save failed.
+    count('saved, preferences refused');
+  }
+  if (world.toasts.length > 0) {
+    fail('2', `Finish saved the workout and then said "${world.toasts[0]}"`);
+  }
+  if (proc.state.activeSession) {
     fail('2', 'a save that resolved left the session live');
   }
 }
@@ -1146,7 +1139,7 @@ function pumpDebounce(proc) {
   world.fsAtDraft = fsMapOf(board.exercises);
   dispatch(proc, {
     type: 'freestyle/save',
-    payload: { snapshot: { exercises: JSON.parse(JSON.stringify(board.exercises)), startedAtMs: board.startedAtMs, rest: null, savedAtMs: world.now } },
+    payload: { snapshot: { exercises: JSON.parse(JSON.stringify(board.exercises)), startedAtMs: board.startedAtMs, rest: null, sessionId: board.sessionId, savedAtMs: world.now } },
   });
 }
 
@@ -1181,7 +1174,10 @@ async function finishFreestyle(ev) {
     performedAtIso: new Date(world.now).toISOString(),
     elapsedSeconds: 600,
     exercisePrLookup: { byLibraryItemId: {}, byName: {} },
+    sessionId: board.sessionId,
   });
+  const repeated = doneSets.some((set) => world.savedFsKeys.has(set.key));
+  const sessionsBefore = proc.dbRef.current.workoutSessions.length;
   let saved = false;
   try {
     // renderWorkoutTab's onSave: the template is named by date and flagged freestyle, and a failure toasts and rethrows.
@@ -1198,11 +1194,12 @@ async function finishFreestyle(ev) {
     world.fsAtDraft = null;
     dispatch(proc, { type: 'freestyle/clear' });
     proc.fs = null;
-    if (doneSets.some((set) => world.savedFsKeys.has(set.key))) {
-      if (strict('freestyle-board-saved-twice')) {
+    if (repeated) {
+      // The board came back after a save that landed: the same session, so nothing is saved again.
+      if (world.lastSave || proc.dbRef.current.workoutSessions.length !== sessionsBefore) {
         fail('2', 'the free workout board was saved a second time: a session with these sets is already in the database');
       }
-      count('gap: free workout board saved twice');
+      count('free workout board finished again, saved once');
     }
     doneSets.forEach((set) => world.savedFsKeys.add(set.key));
     count('free workout saved');
@@ -1229,7 +1226,7 @@ async function finishFreestyle(ev) {
     storage.fault.dbSkip = 0;
     proc.fsFinishing = false;
   }
-  if (saved && proc.dbRef.current.workoutTemplates.length !== templatesBefore + 1) {
+  if (saved && proc.dbRef.current.workoutTemplates.length !== templatesBefore + (repeated ? 0 : 1)) {
     fail('2', 'a free workout that saved did not leave exactly its one template');
   }
   await settle(proc);
@@ -1244,15 +1241,27 @@ const HANDLERS = {
     const proc = world.proc;
     const rnd = stream(ev.r);
     const active = proc.state.activeSession;
-    // navigateToActiveWorkout (App.tsx:744): any session at all sends the Start to that session instead.
-    if (active) {
-      dispatch(proc, { type: 'session/resume', payload: { nowMs: world.now } });
-      if (active.status === 'completed' && world.expectedDb.has(active.sessionId)) {
-        if (strict('completed-session-blocks-start')) {
-          fail('3', `Start opened the finished workout ${active.sessionId} instead of starting one (a saved session is still the activeSession)`);
-        }
-        count('gap: start blocked by a finished session');
+    // Every Start goes through navigateToActiveWorkout first; a session in progress takes the Start back to it.
+    const door = compileDoor({
+      workout: {
+        get activeSession() {
+          return proc.state.activeSession;
+        },
+        resumeWorkout() {
+          dispatch(proc, { type: 'session/resume', payload: { nowMs: world.now } });
+        },
+      },
+      showToast: () => undefined,
+      navigateToGuidedWorkout: () => undefined,
+    });
+    if (door({ resume: false })) {
+      if (active.status === 'completed') {
+        fail('3', `Start opened the finished workout ${active.sessionId} instead of starting one`);
       }
+      return;
+    }
+    // WorkoutProvider.startCustomWorkout's own guard.
+    if (proc.state.activeSession && proc.state.activeSession.status === 'active') {
       return;
     }
     const template = rnd() < 0.5 ? readyDay(rnd) : randomCustomTemplate(rnd);
@@ -1278,8 +1287,11 @@ const HANDLERS = {
       }
       fail('3', `Start threw on "${template.name}": ${error instanceof Error ? error.stack.split('\n').slice(0, 3).join(' | ') : error}`);
     }
+    if (active && proc.state.activeSession.sessionId === active.sessionId) {
+      fail('3', `Start left the finished session ${active.sessionId} in place`);
+    }
     probeSaveable(proc.state.activeSession, `Start "${template.name}"`);
-    count('start');
+    count(active ? 'start over a finished session' : 'start');
   },
 
   async log(ev) {
@@ -1532,6 +1544,33 @@ const HANDLERS = {
     count('discard');
   },
 
+  /** Everything that would change a finished session's sets, tried on one: none of it may land. */
+  async poke(ev) {
+    const proc = world.proc;
+    const before = proc.state.activeSession;
+    if (!before || before.status !== 'completed') {
+      return;
+    }
+    const rnd = stream(ev.r);
+    const exercise = pick(rnd, before.exercises);
+    const set = pick(rnd, exercise.sets);
+    const slotId = exercise.slotId;
+    for (const action of [
+      { type: 'session/pause' },
+      { type: 'set/updateDraft', payload: { slotId, setIndex: set.setIndex, patch: { repsText: '5', loadText: '20' } } },
+      { type: 'set/complete', payload: { slotId, setIndex: set.setIndex, nowMs: world.now, unitPreference: 'kg' } },
+      { type: 'set/undo', payload: { slotId, setIndex: set.setIndex } },
+      { type: 'exercise/addSet', payload: { slotId } },
+      { type: 'exercise/skip', payload: { slotId } },
+    ]) {
+      dispatch(proc, action);
+      if (proc.state.activeSession !== before) {
+        fail('1', `${action.type} changed a session that was finished and saved`);
+      }
+    }
+    count('finished session poked');
+  },
+
   async wait() {
     // Time only.
   },
@@ -1563,7 +1602,7 @@ const HANDLERS = {
   async fsAdd(ev) {
     const proc = world.proc;
     if (!proc.fs) {
-      proc.fs = { exercises: [], startedAtMs: world.now, lastEditMs: 0, dirty: false };
+      proc.fs = { exercises: [], startedAtMs: world.now, lastEditMs: 0, dirty: false, sessionId: emptyWorkout.resolveFreestyleSessionId(null) };
     }
     proc.fs.exercises.push(fsNewLift(stream(ev.r)));
     fsTouch(proc);
@@ -1682,7 +1721,7 @@ async function relaunch(ev) {
 
 const WEIGHTS = [
   ['start', 9], ['log', 30], ['logBad', 3], ['edit', 5], ['undo', 4], ['addSet', 4], ['removeSet', 3], ['insert', 3], ['swap', 4], ['skip', 3],
-  ['pause', 2], ['resume', 2], ['timer', 4], ['step', 2], ['repeat', 3], ['note', 1], ['finish', 7], ['discard', 1], ['wait', 2], ['clock', 3],
+  ['pause', 2], ['resume', 2], ['timer', 4], ['step', 2], ['repeat', 3], ['note', 1], ['finish', 7], ['poke', 2], ['discard', 1], ['wait', 2], ['clock', 3],
   ['writeFail', 4], ['kill', 7], ['cardio', 2], ['fsAdd', 4], ['fsType', 9], ['fsTick', 9], ['fsUntick', 1], ['fsAddSet', 2], ['fsRemove', 1], ['fsFinish', 5], ['fsDiscard', 1],
 ];
 const WEIGHT_TOTAL = WEIGHTS.reduce((sum, [, weight]) => sum + weight, 0);
@@ -1699,7 +1738,7 @@ function scenario(rnd) {
   }
   const sets = Array.from({ length: 1 + int(rnd, 4) }, () => ev('log'));
   const closing = pick(rnd, [{ killMid: true }, { prefFail: true }, {}, { saveFail: true }]);
-  return [ev('start'), ...sets, ev('finish', closing), ev('kill', rnd() < 0.5 ? { early: true } : {}), ev('start'), ev('log'), ev('finish')];
+  return [ev('start'), ...sets, ev('finish', closing), ev('kill', rnd() < 0.5 ? { early: true } : {}), ev('poke'), ev('start'), ev('log'), ev('finish')];
 }
 
 function generate(rnd) {

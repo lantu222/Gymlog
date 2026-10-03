@@ -64,6 +64,6 @@ node tests/run-tests.cjs
 To reproduce a failure the test prints the shortest sequence and the
 `WORKOUT_INVARIANT_SEED` / `WORKOUT_INVARIANT_SEQUENCES` / `WORKOUT_INVARIANT_REPLAY`
 values that rerun it. `WORKOUT_INVARIANT_STATS=1` prints what the sequences
-reached. Behaviours the driver found on main and lets through are named in the
-test (`completed-session-blocks-start`, `freestyle-board-saved-twice`);
-`WORKOUT_INVARIANT_STRICT=<name>` (or `all`) turns one into a failing invariant.
+reached. There are no relaxations: the two behaviours the first run found (a
+finished session blocking Start, and a free workout board saved twice) are
+fixed and held as invariants.

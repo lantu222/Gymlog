@@ -7,6 +7,7 @@
  * summary) handed to App.tsx on save.
  */
 import { parseNumberInput } from './format';
+import { createId } from './ids';
 import { REPS_DIAL } from './weightDial';
 import { isLiftableWeight } from './weightLimits';
 import { isExerciseDone } from './sessionTotals';
@@ -127,6 +128,20 @@ export interface FreestyleDraftSnapshot {
   startedAtMs: number | null;
   rest: { totalSeconds: number; endsAtMs: number; startedAtMs: number } | null;
   savedAtMs: number;
+  /**
+   * The id the session is saved under, made when the board starts and kept with
+   * the draft. A save that landed while the write clearing the board did not
+   * (a kill, a refused disk) brings the board back, and its second Finish used
+   * to mint a second id and save the same workout twice; with the id kept, the
+   * database's duplicate guard makes it the same session. Null on a draft an
+   * older build wrote.
+   */
+  sessionId: string | null;
+}
+
+/** The session id of a board: its draft's, or a new one when it starts. */
+export function resolveFreestyleSessionId(draft: { sessionId?: string | null } | null | undefined): string {
+  return draft?.sessionId ? draft.sessionId : createId('session');
 }
 
 /**
@@ -248,6 +263,7 @@ export function normalizeFreestyleDraftSnapshot(input: unknown): FreestyleDraftS
     startedAtMs: typeof raw.startedAtMs === 'number' && Number.isFinite(raw.startedAtMs) ? raw.startedAtMs : null,
     rest,
     savedAtMs: finiteOr(raw.savedAtMs, 0),
+    sessionId: typeof raw.sessionId === 'string' && raw.sessionId ? raw.sessionId : null,
   };
 }
 
@@ -258,6 +274,8 @@ export interface FreestyleFinishInput {
   performedAtIso: string;
   elapsedSeconds: number;
   exercisePrLookup: ExercisePrLookup;
+  /** The board's own session id (see FreestyleDraftSnapshot.sessionId); the save mints one when absent. */
+  sessionId?: string;
 }
 
 /** What a finished freestyle session hands to the save. */
@@ -272,6 +290,8 @@ export interface FreestyleFinishSummary {
   exerciseCards: WorkoutCompletionExerciseCard[];
   prCards: WorkoutCompletionPrCard[];
   logs: ExerciseLogDraft[];
+  /** Carried from the board, so a second Finish of it is the same session. */
+  sessionId?: string;
 }
 
 export interface FreestyleFinishResult {
@@ -542,6 +562,7 @@ export function buildFreestyleFinish({
   performedAtIso,
   elapsedSeconds,
   exercisePrLookup,
+  sessionId,
 }: FreestyleFinishInput): FreestyleFinishResult {
   const named = exercises.filter((exercise) => exercise.name.trim().length > 0);
 
@@ -640,6 +661,7 @@ export function buildFreestyleFinish({
       exerciseCards,
       prCards,
       logs,
+      ...(sessionId ? { sessionId } : {}),
     },
   };
 }

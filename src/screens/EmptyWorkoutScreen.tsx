@@ -49,6 +49,7 @@ import {
   FreestyleDraftSnapshot,
   FreestyleExerciseSnapshot,
   resolveFreestyleDraftStart,
+  resolveFreestyleSessionId,
 } from '../lib/emptyWorkoutSession';
 import { getExerciseTemplateDefaults, getPopularExerciseLibraryItems, getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import { bodyPartLabel, I18nKey, t } from '../lib/i18n';
@@ -537,6 +538,8 @@ export function EmptyWorkoutScreen({
    * brought back from a draft was started when that draft was, and is not
    * started again.
    */
+  /** Made once, kept with the draft: Finish saves under it, so saving the same board twice is one session. */
+  const [sessionId] = useState(() => resolveFreestyleSessionId(freestyleDraft));
   const startCountedRef = useRef(freestyleDraft != null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [rest, setRest] = useState<{ totalSeconds: number; endsAtMs: number; startedAtMs: number } | null>(() =>
@@ -547,7 +550,7 @@ export function EmptyWorkoutScreen({
   /** The write that has not happened yet, so a discard can take it with it. */
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** What that write would save, so leaving can write it now instead. */
-  const pendingDraftRef = useRef<{ exercises: typeof exercises; startedAtMs: typeof startedAtMs; rest: typeof rest } | null>(null);
+  const pendingDraftRef = useRef<{ exercises: typeof exercises; startedAtMs: typeof startedAtMs; rest: typeof rest; sessionId: string } | null>(null);
   /*
    * Leaving without a discard writes the pending edit rather than dropping it.
    *
@@ -576,10 +579,10 @@ export function EmptyWorkoutScreen({
       sink.onClearDraft?.();
       return undefined;
     }
-    pendingDraftRef.current = { exercises, startedAtMs, rest };
+    pendingDraftRef.current = { exercises, startedAtMs, rest, sessionId };
     const timer = setTimeout(() => {
       draftTimerRef.current = null;
-      sink.onSaveDraft?.({ exercises, startedAtMs, rest, savedAtMs: Date.now() });
+      sink.onSaveDraft?.({ exercises, startedAtMs, rest, sessionId, savedAtMs: Date.now() });
     }, 400);
     draftTimerRef.current = timer;
     return () => {
@@ -1018,6 +1021,7 @@ export function EmptyWorkoutScreen({
         performedAtIso: new Date().toISOString(),
         elapsedSeconds,
         exercisePrLookup,
+        sessionId,
       });
       await onSave(draft, summary);
       // On disk: nothing left to resume, and no pending write to put it back.

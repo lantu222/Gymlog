@@ -45,7 +45,7 @@ module.exports = [
       // was nothing to lose, so it left without discarding what the chevron
       // discarded in the same state.
       assert.match(screen, /BackHandler\.addEventListener\('hardwareBackPress', \(\) => \{[\s\S]{0,700}guard\.discardDraft\(\);\s*guard\.onBack\(\);\s*return true;[\s\S]{0,60}\}, \[\]\);/, 'one hardware-back listener, registered always, leaving the way the chevron leaves');
-      assert.match(screen, /const timer = setTimeout\(\(\) => \{\s*draftTimerRef\.current = null;\s*sink\.onSaveDraft\?\.\(\{ exercises, startedAtMs, rest, savedAtMs: Date\.now\(\) \}\);\s*\}, 400\);/, 'the draft must be written back, debounced');
+      assert.match(screen, /const timer = setTimeout\(\(\) => \{\s*draftTimerRef\.current = null;\s*sink\.onSaveDraft\?\.\(\{ exercises, startedAtMs, rest, sessionId, savedAtMs: Date\.now\(\) \}\);\s*\}, 400\);/, 'the draft must be written back, debounced');
       // And a discard takes the pending write with it: the clear is urgent,
       // the route change behind it is a transition, and an edit made inside
       // the last 400 ms fired in that gap and wrote the board back (CI
@@ -95,7 +95,7 @@ module.exports = [
     run() {
       const screen = read('src', 'screens', 'EmptyWorkoutScreen.tsx');
       const flushAt = screen.indexOf('const pending = pendingDraftRef.current;');
-      const debounceAt = screen.indexOf('pendingDraftRef.current = { exercises, startedAtMs, rest };');
+      const debounceAt = screen.indexOf('pendingDraftRef.current = { exercises, startedAtMs, rest, sessionId };');
       assert.ok(flushAt > 0 && debounceAt > 0, 'the flush or the pending copy is gone');
       // Its cleanup must run before the debounce's cancels the timer: React
       // runs a component's effect cleanups in the order they were declared.

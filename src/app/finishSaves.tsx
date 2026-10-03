@@ -146,6 +146,9 @@ export function createFinishSaves(deps: FinishSavesDeps) {
       sessionId: adaptedSession.sessionId,
     });
 
+    // Set once the save has resolved: from then on the workout is in the database, and
+    // nothing that goes wrong after it may say it was not.
+    let saved = false;
     try {
       const summary = await saveCompletedWorkoutSession({
         ...adaptedSession,
@@ -158,6 +161,7 @@ export function createFinishSaves(deps: FinishSavesDeps) {
       // below — and the retry saves again, which hands back the session
       // already stored: counted on every pass, one workout was two
       // (analytics audit, 2026-09-21).
+      saved = true;
       countWorkoutCompleted(adaptedSession.sessionId);
 
       // Only after the database save is verified: finishing flips the session
@@ -185,15 +189,6 @@ export function createFinishSaves(deps: FinishSavesDeps) {
         new Date(summary.performedAt),
       );
 
-      await updatePreferences({
-        trainingFirstRunDismissed: true,
-        ...(insight
-          ? {
-              lastInsightSessionId: adaptedSession.sessionId,
-              lastInsightType: insight.type,
-            }
-          : {}),
-      });
       const completionCards = buildCompletionCardsFromAdaptedSession({
         exercises: adaptedSession.exercises,
         exerciseTemplates: database.exerciseTemplates,
@@ -247,8 +242,32 @@ export function createFinishSaves(deps: FinishSavesDeps) {
       workout.clearCompletedWorkout();
       replaceRoute({ tab: 'workout', screen: 'summary' });
       setFinishSaveState({ status: 'idle', sessionId: null });
+      // Last, and not allowed to undo anything above. It sat between the save and the
+      // clear: a refused write there toasted "save failed" over a saved workout and left
+      // the finished session held, so the next Start opened it instead of starting.
+      try {
+        await updatePreferences({
+          trainingFirstRunDismissed: true,
+          ...(insight
+            ? {
+                lastInsightSessionId: adaptedSession.sessionId,
+                lastInsightType: insight.type,
+              }
+            : {}),
+        });
+      } catch (preferencesError) {
+        console.error('Failed to record the post-session preferences', preferencesError);
+      }
     } catch (error) {
       console.error('Failed to save completed workout', error);
+      if (saved) {
+        // The workout is saved; only what came after failed. Let go of the finished
+        // session and leave quietly, rather than claim the save did not happen.
+        workout.clearCompletedWorkout();
+        setFinishSaveState({ status: 'idle', sessionId: null });
+        navigateBack(getWorkoutLoggerFallbackRoute());
+        return;
+      }
       setFinishSaveState({
         status: 'error',
         sessionId: adaptedSession.sessionId,
@@ -263,54 +282,61 @@ export function createFinishSaves(deps: FinishSavesDeps) {
   // template first, then the completed session, and only then the summary
   // screen — a failed save must leave the logger open with its sets intact.
   const finishLoggedWorkoutSave = async (draft: WorkoutTemplateDraft, summary: FreestyleFinishSummary) => {
-    const workoutTemplateId = await upsertWorkoutTemplate(draft);
-    const sessionId = createId('session');
-    try {
-      await saveCompletedWorkoutSession({
-        sessionId,
-        workoutTemplateId,
-        workoutNameSnapshot: summary.workoutName,
-        logs: summary.logs,
-        startedAt: summary.startedAt,
+    // The board's own id (FreestyleDraftSnapshot.sessionId), not one per attempt: a save that
+    // landed while the write clearing the board did not brings the board back, and its second
+    // Finish used to save the same workout under a second id. Saved already, it saves nothing
+    // and goes on to the summary.
+    const sessionId = summary.sessionId ?? createId('session');
+    const alreadySaved = database.workoutSessions.some((session) => session.id === sessionId);
+    if (!alreadySaved) {
+      const workoutTemplateId = await upsertWorkoutTemplate(draft);
+      try {
+        await saveCompletedWorkoutSession({
+          sessionId,
+          workoutTemplateId,
+          workoutNameSnapshot: summary.workoutName,
+          logs: summary.logs,
+          startedAt: summary.startedAt,
+          performedAt: summary.performedAt,
+        });
+      } catch (error) {
+        // The template is written first so the session can name it. A session
+        // that did not land must not leave the template behind — the retry made
+        // a second one (audit round 4, 2026-09-20). Best effort: the failure
+        // the reader hears about is the save.
+        await deleteWorkoutTemplate(workoutTemplateId).catch(() => undefined);
+        throw error;
+      }
+      // Counted once it is on disk, by the guided path's own rule.
+      countWorkoutCompleted(sessionId);
+      /**
+       * Remembered for the next time these lifts come up.
+       *
+       * The weight a set opens on is read from the workout provider's slot
+       * history, and the only thing that ever wrote to it was the guided
+       * player's own finish — so a lift done here left no trace, and opened at
+       * nothing next time even though the numbers had just been written to the
+       * database ("paino automaattisesti siihen mitä on viimeksi tehnyt", #bugs
+       * 2026-08-27). Only completed sets with both numbers: a row that was put
+       * on the board and not done is not a weight.
+       */
+      workout.recordLoggedWorkout({
         performedAt: summary.performedAt,
+        sessionId,
+        templateName: summary.workoutName,
+        exercises: summary.logs.map((log) => ({
+          exerciseName: log.exerciseNameSnapshot,
+          sets: log.sets
+            .filter((set) => set.outcome === 'completed' && set.reps > 0)
+            .map((set, setIndex) => ({
+              setIndex,
+              loadKg: set.weight,
+              reps: set.reps,
+              completedAt: set.completedAt ?? summary.performedAt,
+            })),
+        })),
       });
-    } catch (error) {
-      // The template is written first so the session can name it. A session
-      // that did not land must not leave the template behind — the retry made
-      // a second one (audit round 4, 2026-09-20). Best effort: the failure
-      // the reader hears about is the save.
-      await deleteWorkoutTemplate(workoutTemplateId).catch(() => undefined);
-      throw error;
     }
-    // Counted once it is on disk, by the guided path's own rule.
-    countWorkoutCompleted(sessionId);
-    /**
-     * Remembered for the next time these lifts come up.
-     *
-     * The weight a set opens on is read from the workout provider's slot
-     * history, and the only thing that ever wrote to it was the guided
-     * player's own finish — so a lift done here left no trace, and opened at
-     * nothing next time even though the numbers had just been written to the
-     * database ("paino automaattisesti siihen mitä on viimeksi tehnyt", #bugs
-     * 2026-08-27). Only completed sets with both numbers: a row that was put
-     * on the board and not done is not a weight.
-     */
-    workout.recordLoggedWorkout({
-      performedAt: summary.performedAt,
-      sessionId,
-      templateName: summary.workoutName,
-      exercises: summary.logs.map((log) => ({
-        exerciseName: log.exerciseNameSnapshot,
-        sets: log.sets
-          .filter((set) => set.outcome === 'completed' && set.reps > 0)
-          .map((set, setIndex) => ({
-            setIndex,
-            loadKg: set.weight,
-            reps: set.reps,
-            completedAt: set.completedAt ?? summary.performedAt,
-          })),
-      })),
-    });
     setCompletionSummary({
       sessionId,
       ...summary,

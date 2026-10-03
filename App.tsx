@@ -742,7 +742,9 @@ function VinhaApp() {
    * overview is what a redirect owes you: the session's name, at the top.
    */
   function navigateToActiveWorkout(options?: { message?: string; resume?: boolean }) {
-    if (!workout.activeSession) {
+    // A finished session still held until its summary clears it is not a workout
+    // to go back to: Start has to start, not open yesterday's player.
+    if (!workout.activeSession || workout.activeSession.status === 'completed') {
       return false;
     }
 
