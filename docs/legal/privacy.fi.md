@@ -1,6 +1,6 @@
 # Tietosuojaseloste
 
-*Päivitetty 4.10.2026*
+*Päivitetty 5.10.2026*
 
 Mitä Vinha tallentaa, mikä lähtee puhelimestasi ja mitä voit sille tehdä.
 
@@ -32,7 +32,7 @@ Kaikki alla oleva on joko sinun syöttämääsi tai sovelluksen laskemaa siitä,
 - Mitä valmentaja on neuvonut sinulle viimeisten kolmen viikon aikana: kunkin vastauksen yhden lauseen tiivistelmä ja päivä, jona se annettiin, enintään kymmenen kappaletta. Se säilytetään, jottei valmentaja toista jo antamaansa neuvoa, se poistuu kolmea viikkoa vanhetessaan, ja se pysyy tässä puhelimessa — alla kuvattu pilvivarmuuskopio ei kanna sitä mukanaan.
 - Asetukset: kieli, yksiköt, teema, ilmoitus- ja ääniasetukset, oletuslepoaika, treenitauot.
 - Pro-tila: onko Pro päällä, milloin se ostettiin tai peruttiin, ja päivät, joihin asti kampanjakoodi tai ilmainen kokeilu pitää sen päällä.
-- Pientä kirjanpitoa: onko arviointipyyntö tai verkkovalmentajan ilmoitus jo näytetty, tiivistelmätiedosto, jota kotinäytön widget lukee, jono lähetystä odottavia käyttötapahtumia, merkintä siitä, että valmentajan muisti pitää yhä tyhjentää palautuksen jälkeen, jos ensimmäinen yritys ei tavoittanut levyä, sekä kopio vaurioituneesta datatiedostosta, jos sovellus sellaisen joskus löytää — se siirretään sivuun eikä poisteta, jotta rikkoutunut tiedosto ei ole menetetty treeniloki.
+- Pientä kirjanpitoa: onko arviointipyyntö tai verkkovalmentajan ilmoitus jo näytetty, tiivistelmätiedosto, jota kotinäytön widget lukee, jono lähetystä odottavia käyttötapahtumia, merkintä siitä, että valmentajan muisti pitää yhä tyhjentää palautuksen jälkeen, jos ensimmäinen yritys ei tavoittanut levyä, kopio vaurioituneesta datatiedostosta, jos sovellus sellaisen joskus löytää, sekä käynnissä oleva treeni ja aiemmista treeneistä muistetut luvut, jos sovellus kaatuilee ja valitset niiden siirtämisen sivuun — ne siirretään sivuun eikä poisteta, jotta rikkoutunut tiedosto ei ole menetetty treeniloki.
 
 ## Androidin oma varmuuskopio
 

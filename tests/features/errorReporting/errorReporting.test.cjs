@@ -521,6 +521,106 @@ module.exports = [
     },
   },
   {
+    name: 'error reporting: a fatal error before the queue loads is written to its own key at once, and the next launch sends it',
+    async run() {
+      await withFetch(async () => {
+        const CRASH_KEY = '@vinha/analytics/crash';
+        const storage = memoryStorage();
+        let client = loadClient(storage);
+        let reporter = loadReporter(client);
+        reporter.resetErrorReportBudget();
+
+        // First moments of a launch: the switch is unknown and no queue is in
+        // memory. No await, no flush: the process may be gone by the next tick.
+        reporter.reportAppError('js_fatal', appError(), { urgent: true });
+        const stored = JSON.parse(storage.items.get(CRASH_KEY));
+        assert.equal(stored.length, 1, 'the event was not written in the same tick');
+        assert.equal(stored[0].props.kind, 'js_fatal');
+        assert.equal(storage.items.has(STORAGE_KEY), false, 'nothing read or wrote the queue first');
+
+        // The process dies. The next launch loads the queue, the switch is on.
+        client = loadClient(storage);
+        reporter = loadReporter(client);
+        reporter.resetErrorReportBudget();
+        client.setUsageStatisticsEnabled(true);
+        await flush();
+        const queue = JSON.parse(storage.items.get(STORAGE_KEY)).queue;
+        assert.deepEqual(queue.map((event) => event.props && event.props.kind), ['js_fatal']);
+        assert.equal(storage.items.has(CRASH_KEY), false, 'a drained crash key is removed');
+        client.setUsageStatisticsEnabled(false);
+        await flush();
+        reporter.resetErrorReportBudget();
+      });
+    },
+  },
+  {
+    name: 'error reporting: the early-crash key keeps every gate — off writes nothing, an off answer erases it, a failed queue write keeps it',
+    async run() {
+      await withFetch(async () => {
+        const CRASH_KEY = '@vinha/analytics/crash';
+
+        // Switch known off: nothing is written, not even the crash key.
+        let storage = memoryStorage();
+        let client = loadClient(storage);
+        let reporter = loadReporter(client);
+        reporter.resetErrorReportBudget();
+        client.setUsageStatisticsEnabled(false);
+        await flush();
+        reporter.reportAppError('js_fatal', appError(), { urgent: true });
+        await flush();
+        assert.equal(storage.items.size, 0);
+        assert.equal(storage.writes, 0);
+
+        // Switch unknown, crash, then the stored answer is no: the crash key goes.
+        storage = memoryStorage();
+        client = loadClient(storage);
+        reporter = loadReporter(client);
+        reporter.resetErrorReportBudget();
+        reporter.reportAppError('js_fatal', appError(), { urgent: true });
+        assert.ok(storage.items.has(CRASH_KEY));
+        client.setUsageStatisticsEnabled(false);
+        await flush();
+        assert.equal(storage.items.size, 0, 'a reader who said no keeps no crash record');
+
+        // A stored crash from the last launch, then the answer is no: dropped.
+        storage = memoryStorage();
+        storage.items.set(CRASH_KEY, JSON.stringify([{ name: 'app_error', at: new Date().toISOString(), props: { kind: 'js_fatal' } }]));
+        client = loadClient(storage);
+        client.setUsageStatisticsEnabled(false);
+        await flush();
+        assert.equal(storage.items.size, 0);
+
+        // Junk under the key is ignored, the queue still loads.
+        storage = memoryStorage();
+        storage.items.set(CRASH_KEY, '{not json');
+        client = loadClient(storage);
+        client.setUsageStatisticsEnabled(true);
+        await flush();
+        assert.deepEqual(JSON.parse(storage.items.get(STORAGE_KEY)).queue, []);
+        client.setUsageStatisticsEnabled(false);
+        await flush();
+
+        // The queue write fails: the crash key stays for the next launch.
+        storage = memoryStorage();
+        storage.items.set(CRASH_KEY, JSON.stringify([{ name: 'app_error', at: new Date().toISOString(), props: { kind: 'js_fatal' } }]));
+        const setItem = storage.setItem;
+        storage.setItem = async (key, value) => {
+          if (key === STORAGE_KEY) {
+            throw new Error('disk full');
+          }
+          return setItem(key, value);
+        };
+        client = loadClient(storage);
+        client.setUsageStatisticsEnabled(true);
+        await flush();
+        assert.ok(storage.items.has(CRASH_KEY), 'the event was lost with a failed write');
+        client.setUsageStatisticsEnabled(false);
+        await flush();
+        reporter.resetErrorReportBudget();
+      });
+    },
+  },
+  {
     name: 'error boundary: a render error shows the recovery screen and reports it, and Try again remounts',
     run() {
       const reported = [];
@@ -534,6 +634,7 @@ module.exports = [
         'expo-splash-screen': { hideAsync: async () => undefined },
         '../storage/deviceLocale': { resolveDeviceLanguage: () => 'fi' },
         './errorReporter': { reportAppError: (...args) => reported.push(args) },
+        '../../storage/workoutAside': { hasWorkoutToPutAside: async () => true, setWorkoutBundleAside: async () => true },
       };
       const cache = new Map();
       const { AppErrorBoundary } = loadTsx(path.join(SRC, 'features', 'errorReporting', 'AppErrorBoundary.tsx'), stubs, cache);
@@ -561,6 +662,8 @@ module.exports = [
       assert.equal(out.type, AppCrashScreen, 'failed: the recovery screen, not the app');
       assert.equal(typeof out.props.onRetry, 'function');
 
+      assert.equal(out.props.aside, undefined, 'the first failure offers Try again alone');
+
       out.props.onRetry();
       out = boundary.render();
       assert.equal(out.type, React.Fragment, 'Try again shows the app again');
@@ -568,7 +671,116 @@ module.exports = [
     },
   },
   {
-    name: 'error boundary: the recovery screen says nothing was deleted, in English and Finnish, and touches no data',
+    name: 'error boundary: the set-aside action appears from the second consecutive failure, and a retry that held resets the count',
+    run() {
+      const stubs = {
+        'react-native': { View: 'View', Text: 'Text', Pressable: 'Pressable', StyleSheet: { create: (styles) => styles } },
+        'expo-splash-screen': { hideAsync: async () => undefined },
+        '../storage/deviceLocale': { resolveDeviceLanguage: () => 'en' },
+        './errorReporter': { reportAppError: () => undefined },
+        '../../storage/workoutAside': { hasWorkoutToPutAside: async () => true, setWorkoutBundleAside: async () => true },
+      };
+      const cache = new Map();
+      const { AppErrorBoundary, CRASH_SETTLE_MS } = loadTsx(path.join(SRC, 'features', 'errorReporting', 'AppErrorBoundary.tsx'), stubs, cache);
+
+      const timers = [];
+      const savedSet = globalThis.setTimeout;
+      const savedClear = globalThis.clearTimeout;
+      globalThis.setTimeout = (fn, ms) => {
+        timers.push({ fn, ms, live: true });
+        return timers.length - 1;
+      };
+      globalThis.clearTimeout = (id) => {
+        if (timers[id]) timers[id].live = false;
+      };
+      try {
+        const boundary = new AppErrorBoundary({ children: 'the app' });
+        boundary.setState = (update) => {
+          boundary.state = { ...boundary.state, ...(typeof update === 'function' ? update(boundary.state) : update) };
+        };
+        const fail = () => {
+          boundary.state = { ...boundary.state, ...AppErrorBoundary.getDerivedStateFromError(new Error('x')) };
+          return boundary.render();
+        };
+
+        let out = fail();
+        assert.equal(out.props.aside, undefined, 'first failure: no second action');
+        out.props.onRetry();
+        out = fail();
+        assert.equal(typeof out.props.aside.run, 'function', 'a retry that failed again offers the second action');
+        assert.equal(typeof out.props.aside.isAvailable, 'function');
+
+        // The settle timer firing while the screen is still failed changes nothing.
+        const firing = timers.filter((timer) => timer.live);
+        assert.ok(firing.length > 0 && firing.every((timer) => timer.ms === CRASH_SETTLE_MS));
+        firing[firing.length - 1].fn();
+        assert.notEqual(boundary.render().props.aside, undefined);
+
+        // A retry that holds past the window: the next failure is a new first one.
+        boundary.render().props.onRetry();
+        const settle = timers.filter((timer) => timer.live).pop();
+        settle.fn();
+        out = fail();
+        assert.equal(out.props.aside, undefined, 'a failure long after a retry that worked is a first failure again');
+
+        // Nothing is persisted: a new boundary starts at the first failure.
+        assert.equal(new AppErrorBoundary({ children: 'the app' }).state.recentlyRetried, false);
+      } finally {
+        globalThis.setTimeout = savedSet;
+        globalThis.clearTimeout = savedClear;
+      }
+    },
+  },
+  {
+    name: 'crash screen: the set-aside action remounts only after the copy resolved, never deletes, and its copy promises no restore',
+    run() {
+      const screen = read('src', 'components', 'AppCrashScreen.tsx');
+      const boundary = read('src', 'features', 'errorReporting', 'AppErrorBoundary.tsx');
+      const aside = read('src', 'storage', 'workoutAside.ts');
+
+      // Success follows the resolved write (CLAUDE.md): onRetry is the resolve
+      // branch of aside.run(), the failure branch only says so.
+      assert.match(
+        screen,
+        /aside\.run\(\)\.then\(\s*\(\) => onRetry\(\),\s*\(\) => \{\s*setMoving\(false\);\s*setMoveFailed\(true\);/,
+      );
+      assert.doesNotMatch(screen, /AsyncStorage|removeItem|multiRemove|workoutAside/, 'the screen deletes nothing itself');
+      // Offered only from the boundary's repeated-failure state, and only when a workout exists.
+      assert.match(boundary, /aside=\{this\.state\.recentlyRetried \? SET_ASIDE : undefined\}/);
+      assert.match(screen, /aside && asideAvailable/);
+      assert.match(screen, /aside\.isAvailable\(\)/);
+      // The copy lands before the live rows go.
+      const body = aside.slice(aside.indexOf('export async function setWorkoutBundleAside'));
+      const copy = body.indexOf('await putCopy(text)');
+      const removal = body.indexOf('await removeLargeItem(WORKOUT_STORAGE_KEY)');
+      assert.ok(copy > 0 && removal > copy, 'the live bundle is removed before, or without, its copy');
+      assert.match(aside, /await setLargeItem\(WORKOUT_ASIDE_STORAGE_KEY, text\)/);
+      assert.doesNotMatch(aside.slice(aside.indexOf('export async function setWorkoutBundleAside')), /catch/, 'a failed copy must not fall through to the removal');
+      // The boundary documents the exception it now is.
+      assert.match(boundary, /one deliberate exception \(user 2026-10-03\)/);
+
+      const { t } = require(path.join(DIST, 'lib', 'i18n.js'));
+      for (const key of ['appCrash.asideHint', 'appCrash.aside', 'appCrash.asideWorking', 'appCrash.asideFailed']) {
+        assert.ok(t('en', key) && t('en', key) !== key, `${key} missing in English`);
+        assert.ok(t('fi', key) && t('fi', key) !== key, `${key} missing in Finnish`);
+        assert.notEqual(t('en', key), t('fi', key));
+        assert.ok(screen.includes(`'${key}'`) || screen.includes('moving ?'), `the screen must use ${key}`);
+      }
+      assert.match(t('en', 'appCrash.asideHint'), /not deleted/);
+      assert.match(t('fi', 'appCrash.asideHint'), /Niitä ei poisteta/);
+      // No screen restores the copy, so no copy may say it can be.
+      for (const language of ['en', 'fi']) {
+        for (const key of ['appCrash.asideHint', 'appCrash.aside', 'appCrash.asideFailed']) {
+          assert.doesNotMatch(t(language, key), /restor|recover|undo|palaut|palauta|peru/i, `${language} ${key} promises a way back`);
+        }
+      }
+      // And the body still says what is true beside it.
+      assert.match(t('en', 'appCrash.body'), /Nothing has been deleted/);
+    },
+  },
+
+  {
+    name: 'error boundary: the recovery screen says nothing was deleted, in English and Finnish, and the screen and boundary themselves touch no storage',
     run() {
       const { t } = require(path.join(DIST, 'lib', 'i18n.js'));
       assert.match(t('en', 'appCrash.body'), /Nothing has been deleted/);
@@ -582,7 +794,8 @@ module.exports = [
       for (const key of ['appCrash.title', 'appCrash.body', 'appCrash.retry']) {
         assert.ok(screen.includes(`'${key}'`), `the screen must use ${key}`);
       }
-      // "Nothing was deleted" must stay true: neither file writes or clears anything.
+      // "Nothing was deleted" must stay true: neither file writes or clears anything
+      // itself. The set-aside action goes through storage/workoutAside, which copies first.
       for (const source of [screen, boundary]) {
         assert.doesNotMatch(source, /AsyncStorage|removeItem|resetAllData|clearWorkoutBundle|deleteDatabase|multiRemove/);
       }

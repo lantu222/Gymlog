@@ -6,8 +6,16 @@
  * holds a manifest naming the parts. Anything smaller is written exactly as
  * before, and a value stored before this existed reads back unchanged. The why
  * and the measurements are in `lib/storageChunks`.
+ *
+ * iOS never splits (hunt 3, 2026-10-03). It has no cursor window — a value over
+ * 1024 characters is its own file, written atomically and read whole — and its
+ * multiSet is not one transaction: see `setLargeItem`. A manifest and parts
+ * there could be torn by a kill between two file writes, so the writer stores
+ * one row at any size. The reader still understands a manifest, which costs
+ * nothing and keeps a value written by the splitting layout readable.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 import { createSerialTaskQueue, RunExclusive } from '../lib/serialTaskQueue';
 import {
@@ -123,11 +131,15 @@ async function readPartsOnDisk(key: string): Promise<Array<string | null>> {
 }
 
 /**
- * `alongside` are small rows that must land in the same transaction as this
+ * `alongside` are small rows meant to land in the same transaction as this
  * value — the preferences key beside the database blob, which the load lays
  * over the blob's own copy. Written as a second call, a kill between the two
  * left a new programme in the blob and the old preferences over it: back to
- * onboarding, the programme stranded (break round, 2026-09-28).
+ * onboarding, the programme stranded (break round, 2026-09-28). On Android one
+ * multiSet is one transaction, so they land together or not at all. On iOS it
+ * is not one — a long value is its own file, written first, and the short rows
+ * reach the index after it — so there the single call narrows the window to
+ * one file write but does not close it.
  */
 export function setLargeItem(
   key: string,
@@ -135,18 +147,33 @@ export function setLargeItem(
   alongside: ReadonlyArray<readonly [string, string]> = [],
 ): Promise<void> {
   return inTurn(key, async () => {
-    const parts = splitStoredText(value);
+    // iOS: one row at any size. Its multiSet writes each value over 1024
+    // characters to its own file at once, in array order, and only the short
+    // rows (the manifest head, the preferences) change an in-memory index that
+    // is written once after the loop — and a failed file write does not stop
+    // that index write. A kill or a full disk between two parts of a split
+    // value left new parts under the old head: a splice of two saves that the
+    // length check could not tell from a whole one, or an empty database after
+    // the quarantine. A single value is a single atomic file write instead.
+    // (RNCAsyncStorage.mm, _writeEntry / multiSet.)
+    const parts = Platform.OS === 'ios' ? [value] : splitStoredText(value);
     if (parts.length === 1) {
       if (alongside.length === 0) {
         await AsyncStorage.setItem(key, value);
       } else {
+        // On Android this is one transaction. On iOS it is not: a long value
+        // is written to its file first and the short `alongside` rows reach
+        // the index afterwards, so a kill between the two still leaves the new
+        // blob under the old preferences (the 2026-09-28 break-round
+        // symptom). One row per key fixes the torn blob, not this pair: that
+        // window remains on iOS, and nothing here closes it.
         await AsyncStorage.multiSet([[key, value], ...alongside]);
       }
     } else {
       // One multiSet is one SQLite transaction on Android, so the manifest and
       // every part it names land together or not at all. A crash mid-write
       // leaves the previous value whole, never a manifest pointing at parts
-      // from two different saves.
+      // from two different saves. (Not true of iOS, which never gets here.)
       await AsyncStorage.multiSet([
         [key, encodeChunkManifest({ count: parts.length, length: value.length })],
         ...parts.map((part, index) => [chunkKey(key, index), part] as const),

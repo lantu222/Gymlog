@@ -1774,6 +1774,13 @@ const EN = {
   'appCrash.title': 'Something went wrong',
   'appCrash.body': 'Vinha hit a problem and had to stop this screen. Nothing has been deleted: your workouts and settings are still on this phone. Try again to pick up where you were.',
   'appCrash.retry': 'Try again',
+  // Offered only after Try again failed again. The bundle is the workout in
+  // progress (or a cardio session or free-workout draft) and the numbers
+  // remembered from earlier workouts; it is copied aside, never deleted.
+  'appCrash.asideHint': 'Still happening? You can put your workout in progress aside, together with the numbers Vinha remembers from earlier workouts. They are not deleted, but Vinha starts without them.',
+  'appCrash.aside': 'Put workout aside',
+  'appCrash.asideWorking': 'Putting it aside…',
+  'appCrash.asideFailed': 'The workout could not be put aside. It is still where it was.',
   'appUpdate.title': 'Update Vinha',
   'appUpdate.body': 'This version of Vinha is too old for our server, so its online features are paused until you update. Logging workouts works without updating.',
   'appUpdate.bodyNoStore': 'This version of Vinha is too old for our server, so its online features are paused until you update it from the App Store. Logging workouts works without updating.',
@@ -4911,6 +4918,10 @@ const FI: Record<I18nKey, string> = {
   'appCrash.title': 'Jokin meni pieleen',
   'appCrash.body': 'Vinhassa tapahtui virhe, ja tämä ruutu piti pysäyttää. Mitään ei ole poistettu: treenisi ja asetuksesi ovat edelleen tässä puhelimessa. Yritä uudelleen, niin pääset jatkamaan siitä, mihin jäit.',
   'appCrash.retry': 'Yritä uudelleen',
+  'appCrash.asideHint': 'Toistuuko virhe? Voit siirtää käynnissä olevan treenin sivuun yhdessä niiden lukujen kanssa, jotka Vinha muistaa aiemmista treeneistä. Niitä ei poisteta, mutta Vinha käynnistyy ilman niitä.',
+  'appCrash.aside': 'Siirrä treeni sivuun',
+  'appCrash.asideWorking': 'Siirretään sivuun…',
+  'appCrash.asideFailed': 'Treeniä ei voitu siirtää sivuun. Se on edelleen entisellä paikallaan.',
   'appUpdate.title': 'Päivitä Vinha',
   'appUpdate.body': 'Tämä Vinhan versio on liian vanha palvelimellemme, joten verkkotoiminnot ovat tauolla, kunnes päivität. Treenien kirjaaminen toimii ilman päivitystäkin.',
   'appUpdate.bodyNoStore': 'Tämä Vinhan versio on liian vanha palvelimellemme, joten verkkotoiminnot ovat tauolla, kunnes päivität sen App Storesta. Treenien kirjaaminen toimii ilman päivitystäkin.',

@@ -35,6 +35,8 @@ const LEGAL_TEXT_VERSIONS = [
   { date: '2026-10-03', fingerprint: 'e5d4d3139906bfd2' },
   // Error reports join the usage statistics (same switch, same retention).
   { date: '2026-10-04', fingerprint: '7444fcea5efd63d0' },
+  // The crash screen's set-aside copy joins the bookkeeping line.
+  { date: '2026-10-05', fingerprint: '4eda7def6d6eb0dc' },
 ];
 
 const IDS = ['privacy', 'terms'];
@@ -196,12 +198,19 @@ module.exports = [
           '@vinha/account/apple/v1',
           '@vinha/account/signedout/v1',
           '@vinha/account/v1',
+          // An urgent error event raised before the usage queue had loaded
+          // (2026-10-03): the same events as the queue, waiting to be sent, and
+          // removed once folded into it. The queue line in the policy covers it.
+          '@vinha/analytics/crash',
           '@vinha/analytics/v1',
           '@vinha/coach/memory/pendingerase/v1',
           '@vinha/coach/memory/v1',
           '@vinha/database/corrupt',
           '@vinha/database/v1',
           '@vinha/preferences/v1',
+          // The workout in progress, put aside from the crash screen when the
+          // reader asks (2026-10-03); the same bookkeeping line names it.
+          '@vinha/workout/aside',
           // The workout bundle's own quarantine slot (2026-09-15). The same
           // "copy of a damaged data file" line in the policy covers it.
           '@vinha/workout/corrupt',

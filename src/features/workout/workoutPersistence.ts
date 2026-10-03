@@ -4,6 +4,12 @@ import { normalizeFreestyleDraftSnapshot } from '../../lib/emptyWorkoutSession';
 import { normalizeActiveCardioSession } from '../../lib/cardio';
 import { scrubImpossibleSessionLoads } from '../../lib/impossibleLoads';
 import { getLargeItem, MissingPartsError, removeLargeItem, setLargeItem } from '../../storage/largeItem';
+import { removeWorkoutAsideCopies } from '../../storage/workoutAside';
+import {
+  LEGACY_WORKOUT_STORAGE_KEY,
+  WORKOUT_CORRUPT_STORAGE_KEY,
+  WORKOUT_STORAGE_KEY,
+} from '../../storage/workoutKeys';
 import { getWorkoutTemplateById } from './workoutCatalog';
 import {
   WorkoutHistoryStore,
@@ -14,11 +20,9 @@ import {
   WorkoutUiState,
 } from './workoutTypes';
 
-const STORAGE_KEY = '@vinha/workout/v1';
-/** Pre-rename key; see the note in storage/database.ts. */
-const LEGACY_STORAGE_KEY = '@gymlog/workout/v1';
-/** Where an unreadable bundle is put before an empty one replaces it. */
-const CORRUPT_STORAGE_KEY = '@vinha/workout/corrupt';
+const STORAGE_KEY = WORKOUT_STORAGE_KEY;
+const LEGACY_STORAGE_KEY = LEGACY_WORKOUT_STORAGE_KEY;
+const CORRUPT_STORAGE_KEY = WORKOUT_CORRUPT_STORAGE_KEY;
 
 export function createEmptyWorkoutHistory(): WorkoutHistoryStore {
   return {
@@ -298,5 +302,11 @@ export async function saveWorkoutBundle(bundle: WorkoutPersistenceBundle) {
 export async function clearWorkoutBundle() {
   await removeLargeItem(STORAGE_KEY);
   await removeLargeItem(CORRUPT_STORAGE_KEY);
+  // Before the sweep below, which lists keys and can reject: a failed reset
+  // must not leave the pre-rename bundle to load again.
   await AsyncStorage.removeItem(LEGACY_STORAGE_KEY);
+  // Reset means reset: the crash screen's set-aside copies are not a copy
+  // somebody who asked for their data to be erased wanted to survive. A sweep
+  // that fails fails the reset, which the UI reports.
+  await removeWorkoutAsideCopies();
 }

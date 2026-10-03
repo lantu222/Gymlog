@@ -72,11 +72,88 @@ function createFakeAsyncStorage() {
   return storage;
 }
 
+/**
+ * AsyncStorage as iOS's RNCAsyncStorage behaves, in memory (the multiSet loop
+ * is `_writeEntry` in node_modules/@react-native-async-storage/async-storage/
+ * ios/RNCAsyncStorage.mm): no cursor window, but `multiSet` is NOT one
+ * transaction. A value over 1024 characters is its own file, written at once in
+ * array order; a short one only changes the in-memory manifest, which is
+ * persisted once after the loop.
+ *
+ * `faults.killAfterFiles = n` ends the process after n file writes of a
+ * multiSet: those files are on disk, the manifest write never happens.
+ */
+const IOS_INLINE_VALUE_CHARS = 1024;
+
+function createFakeIosAsyncStorage() {
+  const files = new Map();
+  const manifest = new Map();
+  const faults = { killAfterFiles: Infinity };
+  const tick = () => Promise.resolve();
+
+  const storage = {
+    files,
+    manifest,
+    faults,
+    /** Every key's value, the way a reader sees it. */
+    get rows() {
+      return new Map([...files, ...manifest]);
+    },
+    async getItem(key) {
+      await tick();
+      return manifest.has(key) ? manifest.get(key) : files.has(key) ? files.get(key) : null;
+    },
+    async setItem(key, value) {
+      return storage.multiSet([[key, value]]);
+    },
+    async removeItem(key) {
+      await tick();
+      manifest.delete(key);
+      files.delete(key);
+    },
+    async multiSet(pairs) {
+      await tick();
+      const inline = [];
+      let written = 0;
+      for (const [key, rawValue] of pairs) {
+        const value = String(rawValue);
+        if (value.length <= IOS_INLINE_VALUE_CHARS) {
+          inline.push([key, value]);
+          continue;
+        }
+        if (written >= faults.killAfterFiles) {
+          throw new Error('process killed');
+        }
+        files.set(key, value);
+        manifest.delete(key);
+        written += 1;
+      }
+      for (const [key, value] of inline) {
+        files.delete(key);
+        manifest.set(key, value);
+      }
+    },
+    async multiRemove(keys) {
+      await tick();
+      for (const key of keys) {
+        manifest.delete(key);
+        files.delete(key);
+      }
+    },
+    async getAllKeys() {
+      await tick();
+      return [...manifest.keys(), ...files.keys()];
+    },
+  };
+  return storage;
+}
+
 const DIST = path.join(__dirname, '..', '..', '.test-dist');
 
 /** Modules that capture AsyncStorage when required, so they load fresh per fake. */
 const STORAGE_MODULES = [
   'storage/largeItem.js',
+  'storage/workoutAside.js',
   'storage/coachAdviceMemoryStore.js',
   'storage/deviceLocale.js',
   'storage/database.js',
@@ -90,6 +167,9 @@ const STORAGE_MODULES = [
  * to the AsyncStorage it was given at require time, so the returned exports
  * keep using the fake after the cache is put back, and no other suite sees it.
  *
+ * `options.platform` is `Platform.OS` ('android' unless told otherwise; the
+ * storage layer writes differently on 'ios').
+ *
  * `options.locale` is the tag the phone reports (storage/deviceLocale); left
  * out, the stub reports none and the language falls to Node's own Intl.
  */
@@ -98,7 +178,7 @@ function loadAgainstFake(fake, load, options = {}) {
   const i18nManager = options.locale ? { getConstants: () => ({ localeIdentifier: options.locale }) } : {};
   const stubs = [
     ['@react-native-async-storage/async-storage', { __esModule: true, default: fake }],
-    ['react-native', { I18nManager: i18nManager, NativeModules: {}, Platform: { OS: 'android' } }],
+    ['react-native', { I18nManager: i18nManager, NativeModules: {}, Platform: { OS: options.platform ?? 'android' } }],
   ];
   const saved = new Map();
   const put = (file, entry) => {
@@ -133,4 +213,4 @@ function loadAgainstFake(fake, load, options = {}) {
   }
 }
 
-module.exports = { createFakeAsyncStorage, loadAgainstFake, CURSOR_WINDOW_BYTES };
+module.exports = { createFakeAsyncStorage, createFakeIosAsyncStorage, loadAgainstFake, CURSOR_WINDOW_BYTES };

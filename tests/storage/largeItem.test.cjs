@@ -1,6 +1,11 @@
 const assert = require('node:assert/strict');
 
-const { createFakeAsyncStorage, loadAgainstFake, CURSOR_WINDOW_BYTES } = require('./fakeAsyncStorage.cjs');
+const {
+  createFakeAsyncStorage,
+  createFakeIosAsyncStorage,
+  loadAgainstFake,
+  CURSOR_WINDOW_BYTES,
+} = require('./fakeAsyncStorage.cjs');
 const { STORAGE_CHUNK_CHARS } = require('../../.test-dist/lib/storageChunks');
 
 /**
@@ -16,6 +21,15 @@ const KEY = '@vinha/database/v1';
 function load() {
   const fake = createFakeAsyncStorage();
   const largeItem = loadAgainstFake(fake, (requireDist) => requireDist('storage/largeItem.js'));
+  return { fake, ...largeItem };
+}
+
+/** The same layer on iOS: Platform.OS 'ios' over a storage whose multiSet is not one transaction. */
+function loadIos() {
+  const fake = createFakeIosAsyncStorage();
+  const largeItem = loadAgainstFake(fake, (requireDist) => requireDist('storage/largeItem.js'), {
+    platform: 'ios',
+  });
   return { fake, ...largeItem };
 }
 
@@ -239,6 +253,84 @@ module.exports = [
       assert.equal(await getLargeItem(KEY), null);
       assert.deepEqual(partKeys(fake), []);
       assert.ok(partKeys(fake, '@vinha/workout/v1').length > 0, 'another key lost its parts');
+    },
+  },
+  {
+    name: 'large items on iOS: a value of any size is one row — no manifest, no parts',
+    async run() {
+      // iOS has no cursor window and its multiSet is not a transaction, so a
+      // split there can be torn by a kill between two part files (hunt 3,
+      // 2026-10-03). The same value on Android is split, which the test above
+      // already holds.
+      const { fake, getLargeItem, setLargeItem } = loadIos();
+      for (const parts of [1, 3, 5]) {
+        const big = parts === 1 ? JSON.stringify({ body: 'x'.repeat(5000) }) : valueOfParts(parts);
+        await setLargeItem(KEY, big);
+        assert.equal(fake.rows.get(KEY), big, `${parts}-part-sized value was not stored as itself`);
+        assert.deepEqual(partKeys(fake), [], `${parts}-part-sized value left parts behind`);
+        assert.equal(await getLargeItem(KEY), big);
+      }
+    },
+  },
+  {
+    name: 'large items on iOS: a save killed mid-way leaves one whole value, never a splice of two saves',
+    async run() {
+      // The hunt's repro (scratchpad hunt3/verify-D/splice.cjs): v1 saved, then
+      // the process dies after k file writes of v2. Split, k = 1 left v2's
+      // first part under v1's head.
+      const { fake, getLargeItem, setLargeItem } = loadIos();
+      const v1 = JSON.stringify({ tag: 'v1', body: '€'.repeat(STORAGE_CHUNK_CHARS * 3) });
+      const v2 = JSON.stringify({ tag: 'v2', body: '€'.repeat(STORAGE_CHUNK_CHARS * 3 + 17) });
+      await setLargeItem(KEY, v1);
+
+      for (const killAfterFiles of [0, 1, 2, 3]) {
+        fake.faults.killAfterFiles = killAfterFiles;
+        await setLargeItem(KEY, v2).catch(() => undefined);
+        fake.faults.killAfterFiles = Infinity;
+        const read = await getLargeItem(KEY);
+        assert.ok(read === v1 || read === v2, `killed after ${killAfterFiles} files: neither save came back whole`);
+        await setLargeItem(KEY, v1);
+      }
+    },
+  },
+  {
+    name: 'large items on iOS: the preferences row still travels in the same call, and an Android-split value still reads',
+    async run() {
+      const { fake, getLargeItem, setLargeItem } = loadIos();
+      const big = valueOfParts(3);
+      await setLargeItem(KEY, big, [['@vinha/preferences/v1', '{"setupCompleted":true}']]);
+      assert.equal(fake.rows.get('@vinha/preferences/v1'), '{"setupCompleted":true}');
+      assert.equal(await getLargeItem(KEY), big);
+
+      // The reader keeps understanding the splitting layout: a manifest and its
+      // parts (written by an Android build, or restored from one) read whole.
+      const android = load();
+      const split = valueOfParts(4);
+      await android.setLargeItem(KEY, split);
+      const ios = loadIos();
+      for (const [key, value] of android.fake.rows) {
+        await ios.fake.setItem(key, value);
+      }
+      assert.match(ios.fake.rows.get(KEY), /^vinha-chunks:4:\d+$/);
+      assert.equal(await ios.getLargeItem(KEY), split);
+    },
+  },
+  {
+    name: 'large items on Android: the long history is still split in parts, in one multiSet with the preferences',
+    async run() {
+      const { fake, getLargeItem, setLargeItem } = load();
+      const big = valueOfParts(4);
+      let calls = 0;
+      const multiSet = fake.multiSet;
+      fake.multiSet = (...args) => {
+        calls += 1;
+        return multiSet.apply(fake, args);
+      };
+      await setLargeItem(KEY, big, [['@vinha/preferences/v1', '{}']]);
+      assert.equal(calls, 1);
+      assert.match(fake.rows.get(KEY), /^vinha-chunks:4:\d+$/);
+      assert.equal(partKeys(fake).length, 4);
+      assert.equal(await getLargeItem(KEY), big);
     },
   },
 ];
