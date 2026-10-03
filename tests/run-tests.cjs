@@ -293,6 +293,7 @@ const suites = [
   ...require('./features/account/signedOutAccounts.test.cjs'),
   ...require('./features/account/accountSession.test.cjs'),
   ...require('./features/account/accountSafetyInvariant.test.cjs'),
+  ...require('./features/account/backupRoundTripInvariant.test.cjs'),
   ...require('./api/backupEndpoint.test.cjs'),
   ...require('./api/backupAppleSession.test.cjs'),
   ...require('./state/accountBackupWiring.test.cjs'),
