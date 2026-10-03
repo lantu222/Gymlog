@@ -179,9 +179,14 @@ async function withEndpoint(scenario) {
   const fetched = [];
   // The session carries the second it was issued in, and a revocation is dated
   // by the second it was recorded in: the test moves time instead of sleeping.
+  // Frozen, not offset from the real clock: whether two steps landed in the
+  // same millisecond (or second) is the test's to say, never the runner's
+  // speed — a session minted in the deletion's own millisecond is refused, and
+  // that once failed CI on a fast runner (2026-10-03).
   const realNow = Date.now;
+  const startMs = realNow();
   let offsetMs = 0;
-  Date.now = () => realNow() + offsetMs;
+  Date.now = () => startMs + offsetMs;
   const clock = { advance: (ms) => (offsetMs += ms) };
   global.fetch = async (url) => {
     fetched.push(String(url));
@@ -892,12 +897,16 @@ module.exports = [
   {
     name: 'apple backup: an identity token issued before Delete account cannot buy a session after it — a new sign-in still can',
     async run() {
-      await withEndpoint(async ({ call, exchange, clock, store }) => {
+      const { createHmac } = require('node:crypto');
+      await withEndpoint(async ({ call, exchange, blobs, clock, store }) => {
         const early = appleToken(); // issued now, and good for ten minutes
         const session = (await exchange(appleToken())).body.sessionToken;
         assert.equal((await exchange(early)).status, 200, 'the token is good before the deletion (and more than once)');
         clock.advance(2000);
         assert.equal((await call('DELETE', session, { 'x-backup-action': 'delete-account' })).status, 200);
+        const deletedAtMs = Date.now(); // the clock stands still: this is the marker's stamp
+        const markerPath = `revoked/${createHmac('sha256', 'test-secret').update('revoked:apple:apple-user-1').digest('hex')}.json`;
+        assert.equal(JSON.parse(blobs.get(markerPath)).revokedAtMs, deletedAtMs);
 
         const replay = await exchange(early);
         assert.equal(replay.status, 401, 'a pre-deletion identity token bought a fresh session');
@@ -907,7 +916,11 @@ module.exports = [
         assert.equal((await exchange(appleToken({ sub: 'apple-user-2', iat: Math.floor(Date.now() / 1000) - 600 }))).status, 200);
 
         // A token Apple issues after the deletion is a new sign-in: this second, and the next.
-        const same = await exchange(appleToken());
+        // The sign-in comes after the deletion — by a millisecond at least, since a
+        // session minted in the stamp's own millisecond is refused — and Apple dates
+        // its token in the deletion's second, however near that second's end it is.
+        clock.advance(1);
+        const same = await exchange(appleToken({ iat: Math.floor(deletedAtMs / 1000) }));
         assert.equal(same.status, 200);
         assert.equal((await call('PUT', same.body.sessionToken, { 'x-backup-expected-version': 'none' }, copy('again'))).status, 200);
         clock.advance(1500);
