@@ -248,4 +248,92 @@ module.exports = [
       assert.equal(fake.rows.has(LEGACY), false, 'the old bundle would load again after a failed reset');
     },
   },
+  {
+    // Bug hunt 5 (2026-10-03), user decision: the copy the crash screen makes comes back from Settings, and the
+    // rule stays "copy first, never delete".
+    name: 'workout aside: a copy is brought back with what the app holds now copied aside first, and its slot goes only after it is shown',
+    async run() {
+      const { fake, setWorkoutBundleAside, bringBackWorkoutAside, hasWorkoutAsideCopy } = load();
+      fake.rows.set(LIVE, bundle);
+      await setWorkoutBundleAside();
+      assert.equal(await hasWorkoutAsideCopy(), true);
+
+      // Logged since: the app now holds other history.
+      const since = JSON.stringify({ activeSession: null, history: { sessions: [{ id: 'later' }], slotHistory: {} } });
+      const order = [];
+      const setItem = fake.setItem;
+      const removeItem = fake.removeItem;
+      fake.setItem = async (key, value) => {
+        order.push(`set ${key}`);
+        return setItem(key, value);
+      };
+      fake.removeItem = async (key) => {
+        order.push(`remove ${key}`);
+        return removeItem(key);
+      };
+      const shown = [];
+      const result = await bringBackWorkoutAside(since, JSON.parse, async (value) => {
+        order.push('show');
+        shown.push(value);
+      });
+      assert.equal(result, 'restored');
+      assert.deepEqual(shown, [JSON.parse(bundle)], 'the copy, as it was put aside');
+      assert.equal(fake.rows.get(`${ASIDE}/1`), since, 'what the app held is a copy now, beside the first');
+      assert.equal(fake.rows.has(ASIDE), false, 'the brought-back copy left its slot');
+      assert.deepEqual(order, [`set ${ASIDE}/1`, 'show', `remove ${ASIDE}`], 'copy first, shown, and only then removed');
+      // The copy that was the app's a moment ago comes back next: one at a time, the latest first.
+      const again = [];
+      assert.equal(await bringBackWorkoutAside(JSON.stringify({}), JSON.parse, async (value) => again.push(value)), 'restored');
+      assert.deepEqual(again, [JSON.parse(since)]);
+      assert.equal(await hasWorkoutAsideCopy(), false, 'an empty bundle was not copied aside');
+      assert.equal(await bringBackWorkoutAside(since, JSON.parse, async () => assert.fail('nothing to show')), 'none');
+    },
+  },
+  {
+    name: 'workout aside: a restore whose copy will not parse, or whose write is refused, leaves every copy where it was',
+    async run() {
+      const { fake, bringBackWorkoutAside } = load();
+      // An unreadable newest copy is passed over for an older one that reads; that older one comes back.
+      const older = load();
+      older.fake.rows.set(ASIDE, bundle);
+      older.fake.rows.set(`${ASIDE}/1`, 'garbage');
+      const back = [];
+      assert.equal(await older.bringBackWorkoutAside('{}', JSON.parse, async (value) => back.push(value)), 'restored');
+      assert.deepEqual(back, [JSON.parse(bundle)]);
+      assert.equal(older.fake.rows.get(`${ASIDE}/1`), 'garbage', 'the unreadable copy stays');
+
+      fake.rows.set(ASIDE, 'not json, but the reader\'s');
+      const live = JSON.stringify({ history: { sessions: [{ id: 'now' }] } });
+      assert.equal(await bringBackWorkoutAside(live, JSON.parse, async () => assert.fail('shown')), 'unreadable');
+      assert.equal(fake.rows.get(ASIDE), 'not json, but the reader\'s');
+      assert.equal(fake.rows.has(`${ASIDE}/1`), false, 'nothing moved for a copy that cannot come back');
+
+      // Showing (the stored bundle's write) refused: the app's data has been copied, and the copy stays too.
+      fake.rows.set(ASIDE, bundle);
+      await assert.rejects(
+        bringBackWorkoutAside(live, JSON.parse, async () => {
+          throw new Error('database or disk is full');
+        }),
+        /disk is full/,
+      );
+      assert.equal(fake.rows.get(ASIDE), bundle, 'the copy is still there');
+      assert.equal(fake.rows.get(`${ASIDE}/1`), live);
+
+      // Copying the app's data aside refused: nothing is shown, nothing removed.
+      const second = load();
+      second.fake.rows.set(ASIDE, bundle);
+      const setItem = second.fake.setItem;
+      second.fake.setItem = async (key, value) => {
+        if (key.startsWith(ASIDE)) {
+          throw new Error('database or disk is full');
+        }
+        return setItem(key, value);
+      };
+      await assert.rejects(
+        second.bringBackWorkoutAside(live, JSON.parse, async () => assert.fail('shown over a copy that failed')),
+        /disk is full/,
+      );
+      assert.equal(second.fake.rows.get(ASIDE), bundle);
+    },
+  },
 ];

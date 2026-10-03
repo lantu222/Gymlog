@@ -811,6 +811,7 @@ export function isCloudCopyThisPhones(
  * - 'ask': this upload would shrink the copy, or the copy is not the one this
  *   phone last wrote or restored (`unseen`) — the restore-or-keep question.
  * - 'hold': shrinking, unattended — keep the copy and remember its size.
+ * - 'gone': synced before, and there is no copy now — it was deleted elsewhere.
  * - 'upload', or 'fail' when nothing may be written.
  *
  * Unattended, a phone that has never synced uploads only onto a confirmed
@@ -824,7 +825,7 @@ export function decideAfterLook(input: {
   local: BackupCounts;
   /** The copy found is not the one this phone last wrote or restored (isCloudCopyThisPhones). */
   unseen?: boolean;
-}): 'settle' | 'ask' | 'hold' | 'upload' | 'fail' {
+}): 'settle' | 'ask' | 'hold' | 'upload' | 'gone' | 'fail' {
   const { interactive, neverSynced, remote, local, unseen = false } = input;
   if (neverSynced) {
     if (interactive) {
@@ -834,6 +835,14 @@ export function decideAfterLook(input: {
   }
   if (remote.kind === 'unreachable') {
     return 'fail';
+  }
+  if (remote.kind === 'none') {
+    // This phone has backed up (or restored) and the copy is gone: deleted on
+    // the web page or from another phone, never by this one (its own delete
+    // forgets the backup time). Uploaded now, the whole history came back as a
+    // first backup without a word (bug hunt 5, 2026-10-03). The reader is told,
+    // and asked before a new copy is made.
+    return 'gone';
   }
   if (remote.kind === 'backup' && unseen) {
     // Another phone wrote it. Replacing it is the reader's decision, with

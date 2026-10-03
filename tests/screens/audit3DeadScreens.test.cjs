@@ -214,7 +214,8 @@ module.exports = [
         for (const m of src.matchAll(/route\.screen === '([^']+)'/g)) {
           const next = src
             .slice(m.index, m.index + 900)
-            .match(/<([A-Z]\w+)|(?:content = |return )(render[A-Z]\w*)\(/);
+            // `inWorkoutArea(…)` wraps a workout screen's handoff in the boundary that marks its failures.
+            .match(/<([A-Z]\w+)|(?:content = (?:inWorkoutArea\()?|return )(render[A-Z]\w*)\(/);
           const tag = !next ? null : next[1] ?? (renderFns.has(next[2]) ? renderFns.get(next[2]) : null);
           if (!tag) continue;
           if (!rendersOf.has(m[1])) rendersOf.set(m[1], new Set());

@@ -11,8 +11,9 @@
  * pattern as the database's and the bundle's corrupt-copy slots — and the live
  * rows are removed only after that write has resolved. A copy that fails
  * throws and leaves the live data exactly as it was, so the caller can say so.
- * Nothing in the app reads a copy back; they stay on the phone until Reset all
- * data (`removeWorkoutAsideCopies`) erases them.
+ * Settings brings a copy back (Restore set-aside workout: WorkoutProvider
+ * restoreSetAsideWorkout, user decision 2026-10-03); otherwise copies stay on
+ * the phone until Reset all data (`removeWorkoutAsideCopies`) erases them.
  *
  * A copy is never written over another one that holds something. The remount
  * after a first use hydrates an empty bundle and the provider saves it, so the
@@ -160,6 +161,85 @@ export async function setWorkoutBundleAside(): Promise<boolean> {
   await removeLargeItem(WORKOUT_STORAGE_KEY);
   await AsyncStorage.removeItem(LEGACY_WORKOUT_STORAGE_KEY);
   return worth(text) || worth(legacy);
+}
+
+/**
+ * The copy to bring back: the highest numbered slot, else the first. Copies are
+ * written to the first free slot, so that is the latest one put aside unless a
+ * restore has freed a lower slot since; with more than one, each restore brings
+ * back one. Null when no slot holds anything.
+ */
+export async function readNewestWorkoutAsideCopy(): Promise<{ key: string; text: string } | null> {
+  return (await asideCopiesNewestFirst())[0] ?? null;
+}
+
+/** Every slot that holds something, in the order a restore tries them (readNewestWorkoutAsideCopy). */
+async function asideCopiesNewestFirst(): Promise<Array<{ key: string; text: string }>> {
+  const numbered = `${WORKOUT_ASIDE_STORAGE_KEY}/`;
+  const order = (key: string) => (key === WORKOUT_ASIDE_STORAGE_KEY ? 0 : Number(key.slice(numbered.length)));
+  const copies: Array<{ key: string; text: string }> = [];
+  for (const key of (await asideKeys()).sort((a, b) => order(b) - order(a))) {
+    const text = await readLarge(key);
+    if (text !== null && !isEmptyBundleText(text)) {
+      copies.push({ key, text });
+    }
+  }
+  return copies;
+}
+
+/** Whether Settings has a copy to bring back. False when the copies cannot be read. */
+export async function hasWorkoutAsideCopy(): Promise<boolean> {
+  try {
+    return (await readNewestWorkoutAsideCopy()) !== null;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Brings the newest set-aside copy back (Settings' Restore set-aside workout).
+ *
+ * Never deletes, in this order: `read` turns the copy into what the app shows
+ * (it throws for a copy that does not parse, which stays where it is and is
+ * passed over for the next one: 'unreadable' only when none can be read, and
+ * then nothing moves);
+ * `liveText`, the workout data the app holds now, is copied aside first (not
+ * over another copy; an empty bundle is not copied); `show` stores and shows
+ * the copy; only once that resolved does the copy's slot go, and only while it
+ * still holds that copy. A step that rejects stops there and rejects, with
+ * every copy where it was.
+ */
+export async function bringBackWorkoutAside<T>(
+  liveText: string,
+  read: (text: string) => T,
+  show: (value: T) => Promise<void>,
+): Promise<'restored' | 'none' | 'unreadable'> {
+  const copies = await asideCopiesNewestFirst();
+  if (copies.length === 0) {
+    return 'none';
+  }
+  let found: { key: string; text: string; value: T } | null = null;
+  for (const candidate of copies) {
+    try {
+      found = { ...candidate, value: read(candidate.text) };
+      break;
+    } catch {
+      // Kept, and passed over: an older copy that reads still comes back.
+    }
+  }
+  if (!found) {
+    return 'unreadable';
+  }
+  const { key, text, value } = found;
+  const copy = { key, text };
+  if (!isEmptyBundleText(liveText)) {
+    await putCopy(liveText);
+  }
+  await show(value);
+  if ((await readLarge(copy.key)) === copy.text) {
+    await removeLargeItem(copy.key);
+  }
+  return 'restored';
 }
 
 /** Reset all data: every aside copy goes, with the rest of the workout data. */

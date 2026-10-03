@@ -81,9 +81,10 @@ export function useAccountOutcome(deps: AccountOutcomeDeps) {
       return outcome.kind;
     }
     if (outcome.kind === 'confirm_upload') {
-      // Another account's data on this phone: asked before it becomes this
-      // account's backup (break round, 2026-09-28). Not dismissable — the
-      // pending question would dangle with the automatic backup held.
+      // Another account's data on this phone (break round, 2026-09-28), or
+      // this account's cloud copy deleted elsewhere (bug hunt 5, 2026-10-03):
+      // asked before this phone's data becomes the backup. Not dismissable —
+      // the pending question would dangle with the automatic backup held.
       const copy = confirmUploadCopy(outcome, language);
       Alert.alert(
         copy.title,

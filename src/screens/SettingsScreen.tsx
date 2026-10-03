@@ -60,6 +60,12 @@ interface SettingsScreenProps {
   onScrollOffsetChange?: (offsetY: number) => void;
   onResetAllData: () => void;
   /**
+   * Shown only while the crash screen's set-aside copy of the workout data is on
+   * the phone (WorkoutProvider setAsideWorkoutAvailable). Called after the
+   * reader confirmed.
+   */
+  onRestoreSetAsideWorkout?: (() => void) | null;
+  /**
    * Null in builds without a configured sign-in — the rows are hidden rather
    * than shown as buttons that would do nothing. Free and Pro alike.
    */
@@ -72,7 +78,7 @@ interface SettingsScreenProps {
      * (useAccountBackup). A green time over backups that are not happening
      * was the row saying everything was fine.
      */
-    backupPaused?: 'other_phone' | 'smaller_phone' | null;
+    backupPaused?: 'other_phone' | 'smaller_phone' | 'copy_deleted' | null;
     busy: boolean;
     /** The sign-ins this build offers (accountAuth): Apple on iPhone, Google where configured. */
     providers: SignInProvider[];
@@ -286,6 +292,7 @@ export function SettingsScreen({
   onOpenLegal,
   onWithdrawCoachLog,
   onResetAllData,
+  onRestoreSetAsideWorkout = null,
   account,
   initialScrollOffset = 0,
   onScrollOffsetChange,
@@ -293,6 +300,7 @@ export function SettingsScreen({
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const [resetVisible, setResetVisible] = useState(false);
+  const [restoreAsideVisible, setRestoreAsideVisible] = useState(false);
   const language = preferences.appLanguage;
   // A redeemed promo is Pro too, so the badge cannot read the preview switch.
   const proUnlocked = resolveProEntitlement(preferences).unlocked;
@@ -528,7 +536,9 @@ export function SettingsScreen({
                           language,
                           account.backupPaused === 'other_phone'
                             ? 'account.backupPaused.otherPhone'
-                            : 'account.backupPaused.smallerPhone',
+                            : account.backupPaused === 'copy_deleted'
+                              ? 'account.backupPaused.copyDeleted'
+                              : 'account.backupPaused.smallerPhone',
                         )}
                       </Text>
                     ) : null}
@@ -713,6 +723,14 @@ export function SettingsScreen({
                 a red row that ignored the tap read as broken (PR #139
                 review). Waiting after the confirm instead would be the
                 same silence, only later. */}
+            {onRestoreSetAsideWorkout ? (
+              <Row
+                icon="download"
+                title={t(language, 'settings.restoreAside')}
+                sub={t(language, 'settings.restoreAside.sub')}
+                onPress={() => setRestoreAsideVisible(true)}
+              />
+            ) : null}
             <Row
               icon="trash"
               title={t(language, 'settings.resetData')}
@@ -740,6 +758,19 @@ export function SettingsScreen({
         onConfirm={() => {
           setResetVisible(false);
           onResetAllData();
+        }}
+      />
+      <ConfirmDialog
+        language={language}
+        visible={restoreAsideVisible}
+        title={t(language, 'settings.restoreAside.dialog.title')}
+        message={t(language, 'settings.restoreAside.dialog.message')}
+        confirmLabel={t(language, 'settings.restoreAside.dialog.confirm')}
+        cancelLabel={t(language, 'common.cancel')}
+        onCancel={() => setRestoreAsideVisible(false)}
+        onConfirm={() => {
+          setRestoreAsideVisible(false);
+          onRestoreSetAsideWorkout?.();
         }}
       />
     </View>

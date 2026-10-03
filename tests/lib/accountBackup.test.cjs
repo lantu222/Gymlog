@@ -465,7 +465,10 @@ module.exports = [
       assert.equal(decideAfterLook({ interactive: true, neverSynced: false, remote: backup(40), local: local(3) }), 'ask');
       assert.equal(decideAfterLook({ interactive: false, neverSynced: false, remote: backup(40), local: local(3) }), 'hold');
       assert.equal(decideAfterLook({ interactive: true, neverSynced: false, remote: backup(40), local: local(30) }), 'upload');
-      assert.equal(decideAfterLook({ interactive: true, neverSynced: false, remote: { kind: 'none' }, local: local(0) }), 'upload');
+      // Synced, and no copy now: it was deleted elsewhere (this phone's own delete forgets the backup time). Said
+      // and asked about, never re-made as a first backup without a word (bug hunt 5, 2026-10-03).
+      assert.equal(decideAfterLook({ interactive: true, neverSynced: false, remote: { kind: 'none' }, local: local(0) }), 'gone');
+      assert.equal(decideAfterLook({ interactive: false, neverSynced: false, remote: { kind: 'none' }, local: local(30) }), 'gone');
       assert.equal(decideAfterLook({ interactive: true, neverSynced: false, remote: { kind: 'unreachable' }, local: local(30) }), 'fail');
       // A copy another phone wrote: asked about, and never replaced unattended
       // — not even by a phone holding more than it does.

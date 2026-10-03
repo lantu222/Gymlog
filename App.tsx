@@ -141,6 +141,8 @@ import { WorkoutProvider, useWorkoutContext } from './src/features/workout/Worko
 import { getWorkoutTemplateById } from './src/features/workout/workoutCatalog';
 import { AppProvider, useAppContext } from './src/state/AppProvider';
 import { AppErrorBoundary } from './src/features/errorReporting/AppErrorBoundary';
+import { WorkoutAreaBoundary } from './src/features/errorReporting/WorkoutAreaBoundary';
+import { markingWorkoutFailures } from './src/features/errorReporting/workoutFailure';
 import { noteRenderedScreen } from './src/features/errorReporting/errorReporter';
 
 void SplashScreen.preventAutoHideAsync().catch(() => {
@@ -729,7 +731,9 @@ function VinhaApp() {
     proCompletionMoment,
     proCoachSpecimen,
   } = useProInsights({ database, preferences });
-  const homeActiveWorkoutSummary = useMemo(() => {
+  // Read on every route, from the first render after the stored workout is loaded: a session the app cannot
+  // read fails here before any workout screen is drawn, and is marked as the workout's (errorReporting/workoutFailure).
+  const homeActiveWorkoutSummary = useMemo(() => markingWorkoutFailures(() => {
     if (!workout.activeSession || !isWorkoutInProgress(workout.activeSession)) {
       return null;
     }
@@ -750,7 +754,7 @@ function VinhaApp() {
       nextExercise: activeExercise?.exerciseName ?? null,
       meta: `${pluralize(remainingSets, 'set')} left | Started ${formatTime(workout.activeSession.startedAt)}`,
     };
-  }, [workout.activeSession]);
+  }), [workout.activeSession]);
   /**
    * Go to the session that is already running, if there is one.
    *
@@ -1838,6 +1842,10 @@ function VinhaApp() {
   });
 
   let content: React.ReactNode = null;
+  // A failure while a workout screen is drawn is marked as the workout's: only then does the crash screen
+  // offer to put the stored workout aside (errorReporting/workoutFailure). Not around a null, so the
+  // dashboard fallback below still sees a tab module that declined the route.
+  const inWorkoutArea = (node: React.ReactNode) => (node == null ? node : <WorkoutAreaBoundary>{node}</WorkoutAreaBoundary>);
 
   if (onboardingActive) {
     content = renderOnboardingFlow({
@@ -1940,7 +1948,7 @@ function VinhaApp() {
       sessionAnalysis,
     });
   } else if (route.tab === 'workout' && route.screen === 'summary' && completionSummary) {
-    content = renderWorkoutCompletion({
+    content = inWorkoutArea(renderWorkoutCompletion({
       preferences,
       completionWeekProgress,
       guidedNextUp,
@@ -1953,13 +1961,13 @@ function VinhaApp() {
       updateCompletedWorkoutSession,
       workout,
       leaveFinishedWorkout,
-    });
+    }));
   } else if (route.tab === 'workout') {
     // Every route-pure workout branch. `summary` and `celebration` sit above
     // this on purpose: their guards read finish-flow state, and when that
     // state was just cleared the module returns null here and the dashboard
     // fallback below catches it — the same drop-through the old chain had.
-    content = renderWorkoutTab({
+    content = inWorkoutArea(renderWorkoutTab({
       onStopProgram: handleStopProgram,
       onResumeProgram: handleResumeProgram,
       onSwitchActiveProgram: handleSwitchActiveProgram,
@@ -2048,7 +2056,7 @@ function VinhaApp() {
       exerciseNameBook,
       teachExerciseName,
       handlePickProgramImage,
-    });
+    }));
   } else if (route.tab === 'progress') {
     content = renderProgressTab({
       route,

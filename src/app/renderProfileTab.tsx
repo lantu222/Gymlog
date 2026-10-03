@@ -138,7 +138,11 @@ export interface ProfileTabDeps {
     status: 'idle' | 'saving' | 'error';
     sessionId: string | null;
   }) => void;
-  workout: { resetWorkoutData: () => Promise<void> };
+  workout: {
+    resetWorkoutData: () => Promise<void>;
+    setAsideWorkoutAvailable: boolean;
+    restoreSetAsideWorkout: () => Promise<'restored' | 'busy' | 'none' | 'unreadable'>;
+  };
   lifetimeSummary: React.ComponentProps<typeof ProfileScreen>['lifetime'];
   milestoneLedger: React.ComponentProps<typeof MilestonesScreen>['ledger'];
   trackedProgress: React.ComponentProps<typeof ProfileScreen>['trackedProgress'];
@@ -884,6 +888,33 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
             showToast(t(preferences.appLanguage, 'toast.coachCopiesPending'));
           }
         }}
+        onRestoreSetAsideWorkout={
+          workout.setAsideWorkoutAvailable
+            ? () => {
+                // Said once the copy is stored and shown, or why it was not; a refused write changes nothing.
+                void workout.restoreSetAsideWorkout().then(
+                  (result) =>
+                    showToast(
+                      t(
+                        preferences.appLanguage,
+                        result === 'restored'
+                          ? 'settings.restoreAside.done'
+                          : result === 'busy'
+                            ? 'settings.restoreAside.busy'
+                            : result === 'unreadable'
+                              ? 'settings.restoreAside.unreadable'
+                              : 'settings.restoreAside.none',
+                      ),
+                    ),
+                  (error) => {
+                    // Not an error report: the policy lists the failures reported, and this is not one of them.
+                    console.error('Restore of the set-aside workout failed', error);
+                    showToast(t(preferences.appLanguage, 'settings.restoreAside.failed'));
+                  },
+                );
+              }
+            : null
+        }
         onResetAllData={async () => {
           // The coach's kept copies are part of "all data". The reset files
           // their label as a delete still owed in the same write that clears
