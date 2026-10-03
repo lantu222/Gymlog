@@ -140,7 +140,15 @@ answering. Sessions carry `iatMs` (and `iat` in seconds); one with only `iat`
 counts from the start of that second, one with neither as issued at
 `exp − 180 days`. A new Apple sign-in afterwards is a later session and works,
 in the same second. The copy goes first so a failed marker write leaves the
-session alive and the reader can ask again. A plain `DELETE` ("Delete cloud
+session alive and the reader can ask again. It goes a second time after the two
+stamps (hunt 3, 2026-10-03): a write that had passed its session check before the
+first stamp, and names no copy to fail against (`none`, or no
+`x-backup-expected-version` — a build from before versions), could land between
+the first delete and the stamps. A failure of that second delete is a 502 as at the
+first, but by then the marker is already written: the session is over, and the
+phone's retry meets `SESSION_REVOKED`. The second delete is unconditional (a copy
+written by a brand-new session in the milliseconds after the second stamp is lost
+with it; accepted). A plain `DELETE` ("Delete cloud
 backup") writes no marker: it keeps the reader signed in. A store that cannot
 read the marker answers 502, not 401. A marker that cannot be parsed is resolved
 ONCE to the store's `uploadedAt` and rewritten in valid form (the SDK's
@@ -149,7 +157,24 @@ afresh each time would refuse every session for ever); a rewrite the store
 refuses is a 502. Only a body that was read IN FULL and then does not parse is
 "unparseable": a stream error part-way through a valid marker is a 502 and the
 marker is left alone (rewriting it would date it with the store's time, which can
-be later than its own).
+be later than its own). The rewrite is conditional on the ETag `head` reports, and
+only when `head`'s and `get`'s forms are the same value (`etagCore`: quotes and `W/`
+ignored) — the content response's ETag can be written differently, and named as the
+condition it failed every time, a permanent 502 for the account. Forms that cannot
+be matched, or a marker that moved or went, take the re-read path (a valid marker is
+used; otherwise 502) and log `backup marker rewrite etag forms differ: get=<shape>
+head=<shape>`.
+
+**A write is looked at again once it has landed.** After a successful `PUT` of an
+Apple session the endpoint reads the marker once more. If the session is now revoked
+(Delete account landed while the write was in flight) the answer is `401
+SESSION_REVOKED` — with the `deleteRequestId` as every other refusal — after the
+write has happened, and the copy just written is taken back with `del(url, {
+ifMatch: <the ETag put returned> })`, so only that copy goes and a newer one written
+by a new sign-in stays. A put that returned no ETag is left in place (logged,
+still 401): an unconditional delete could remove somebody else's copy. A marker that
+cannot be read, or does not answer within 1.5 s, leaves the write standing and the
+answer is the ordinary 200. Google accounts have no marker and are unchanged.
 
 **Identity-token replay (2026-10-03).** An Apple identity token lives ten
 minutes and the exchange (`apple-session`) accepts it as often as it is sent, so
@@ -205,7 +230,9 @@ other phones of a deleted account stop saying "Signed in". `INVALID_TOKEN`, a
 Google token's 401 and any 502 sign nobody out, so a bad deploy cannot mass
 sign-out phones that a rollback would not bring back. A retried Delete account
 whose first answer was lost meets `SESSION_REVOKED` and is reported as done
-(the copy went before the marker was written).
+(the copy went before the marker was written; the second delete after the stamps
+may be missing if it was that one that failed, and a retry cannot repeat it — the
+marker already refuses the session).
 
 **Clean-up.** A marker older than 181 days no longer changes anything. A
 request from the account itself removes its own; `purgeOldRevocations` (a
@@ -215,10 +242,12 @@ never on the deletion, whose answer the phone is waiting for. Removal therefore
 comes some time after the 180 days, depending on sign-in traffic — which is what
 the policy says.
 
-**Known, not fixed here.** An upload already in flight from another phone when
-the account is deleted can write the copy back after the delete (the same race
-a plain "Delete cloud backup" has); the account's sessions are ended, but the
-blob stays until the reader deletes it again. **Needs a Vercel deploy** — until
+**Known, not fixed here.** An Apple upload in flight when the account is deleted
+no longer brings the copy back (the second delete and the post-write look above).
+What remains is the same race for a plain "Delete cloud backup" and for a Google
+account, which have no marker: an upload already in flight can write the copy back
+after the delete, and the blob stays until the reader deletes it again. **Needs a
+Vercel deploy** — until
 then the app's `delete-account` request is an ordinary `DELETE` that leaves the
 Apple sessions alive, and the new codes are never sent.
 

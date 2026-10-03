@@ -510,6 +510,8 @@ async function revocationOf(
 const SWEEP_PAGE_SIZE = 100;
 const SWEEP_MAX_PAGES = 5;
 const SWEEP_BUDGET_MS = 1500;
+/** The marker look after a write (PUT branch): the same budget as the sweep. */
+const POST_WRITE_CHECK_BUDGET_MS = 1500;
 
 /** Removes the markers of a listing that are stale, each one re-read first. */
 async function sweepListed(blobs: Array<{ pathname: string; uploadedAt: Date }>): Promise<void> {
@@ -930,18 +932,37 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       // before it passed, and the next request meets the store's answer.
       if (token.startsWith(APPLE_SESSION_PREFIX)) {
         let again: SessionVerdict | null = null;
+        let timer: ReturnType<typeof setTimeout> | undefined;
         try {
-          again = await verifyAppleSession(token, pathSecret);
+          // Bounded like the sweep: the write has landed, so a store that
+          // hangs on the record must not hold the answer. A timeout is
+          // "unreadable" — the write stands.
+          again = await Promise.race([
+            verifyAppleSession(token, pathSecret),
+            new Promise<null>((resolve) => {
+              timer = setTimeout(() => resolve(null), POST_WRITE_CHECK_BUDGET_MS);
+            }),
+          ]);
         } catch {
           again = null;
+        } finally {
+          if (timer) {
+            clearTimeout(timer);
+          }
         }
         if (again && !again.ok && again.error === 'SESSION_REVOKED') {
-          try {
-            await del(pathname, written.etag ? { ifMatch: written.etag } : undefined);
-          } catch (error) {
-            // Written over since (not ours any more), already gone, or the store
-            // cannot say: the answer is the same, and the log says which kind.
-            console.error('backup write after account deletion could not be taken back:', error instanceof Error ? error.message.slice(0, 200) : 'unknown');
+          if (written.etag) {
+            try {
+              await del(pathname, { ifMatch: written.etag });
+            } catch (error) {
+              // Written over since (not ours any more), already gone, or the store
+              // cannot say: the answer is the same, and the log says which kind.
+              console.error('backup write after account deletion could not be taken back:', error instanceof Error ? error.message.slice(0, 200) : 'unknown');
+            }
+          } else {
+            // No ETag to name: an unconditional delete could remove a copy a
+            // newer session wrote since, so nothing is taken back.
+            console.error(`backup write after account deletion left in place: no etag (${typeof written.etag})`);
           }
           console.error('backup SESSION_REVOKED (revoked while its write was in flight)');
           res.status(401).json(refusalBody(again));
@@ -1035,7 +1056,14 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         // first delete and here (a first backup, or a build from before
         // versions, names no copy to fail against); one that lands after the
         // stamps takes itself back (the PUT branch). Failing is a 502 as at
-        // the first delete.
+        // the first delete. Unconditional on purpose: a brand-new session (one
+        // issued after the second stamp) could write a copy in the
+        // milliseconds before this delete and lose it. That is accepted — the
+        // reader has just deleted the account, a sign-in and a first backup
+        // inside those milliseconds is not a real sequence, and the copy that
+        // would be kept instead is the resurrected one the reader asked to
+        // have gone. A conditional delete cannot tell the two apart without
+        // the ETag of the copy that was there, which is not known here.
         try {
           await del(pathname);
         } catch (error) {

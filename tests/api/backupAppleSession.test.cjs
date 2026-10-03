@@ -58,6 +58,10 @@ function pathBlobStore() {
     holdDel: null,
     // { reached, release } — the next write to backups/ waits for release before it lands, after saying it got there.
     holdBackupPut: null,
+    // A predicate on the pathname: a read of it never answers.
+    hangGets: null,
+    // The write of a copy answers without an ETag (the SDK's type allows it).
+    putWithoutEtag: false,
     // What a del was asked, in order: { pathname, ifMatch }.
     delCalls: [],
     // Every write that was accepted, in order: { pathname, body }.
@@ -81,6 +85,9 @@ function pathBlobStore() {
     async get(pathname) {
       if (store.failGets?.(pathname)) {
         throw new Error('store unavailable');
+      }
+      if (store.hangGets?.(pathname)) {
+        return new Promise(() => undefined);
       }
       const body = blobs.get(pathname);
       const answer =
@@ -146,7 +153,7 @@ function pathBlobStore() {
       blobs.set(pathname, body);
       uploaded.set(pathname, Date.now());
       versions.set(pathname, (versions.get(pathname) ?? 0) + 1);
-      return { etag: `"v${versions.get(pathname)}"` };
+      return store.putWithoutEtag && pathname.startsWith('backups/') ? {} : { etag: `"v${versions.get(pathname)}"` };
     },
     async del(pathnames, options = {}) {
       for (const pathname of [].concat(pathnames)) {
@@ -1050,7 +1057,7 @@ module.exports = [
         release();
         assert.equal((await deleting).status, 200);
         assert.deepEqual(backupsIn(blobs), [], 'the delete left the copy that landed in its gap');
-        assert.equal(store.delCalls.filter((entry) => entry.pathname.startsWith('backups/')).length, 2, 'the copy was deleted once, not twice');
+        assert.equal(store.delCalls.filter((entry) => entry.pathname.startsWith('backups/')).length, 2, 'the copy is deleted twice: before the stamps and again after them');
       });
 
       // The second delete failing is a 502, as the first: the reader is not told the account is gone.
@@ -1169,6 +1176,56 @@ module.exports = [
         };
         assert.equal((await call('GET', old)).status, 401);
         assert.equal(JSON.parse(blobs.get(path)).revokedAtMs, later);
+      });
+    },
+  },
+  {
+    name: 'apple backup: a write taken back after Delete account needs the ETag it wrote — without one nothing is deleted, and a record that hangs leaves the write standing',
+    async run() {
+      const heldPut = (store) => {
+        let reached;
+        const gotThere = new Promise((resolve) => (reached = resolve));
+        let release;
+        store.holdBackupPut = { reached, release: new Promise((resolve) => (release = resolve)) };
+        return { gotThere, release };
+      };
+
+      // No ETag from put(): the revoked answer still goes out, but an unconditional delete could remove a newer session's copy.
+      await withEndpoint(async ({ call, exchange, blobs, store }) => {
+        const logged = [];
+        console.error = (...args) => logged.push(args.join(' '));
+        const phoneA = (await exchange(appleToken())).body.sessionToken;
+        const phoneB = (await exchange(appleToken())).body.sessionToken;
+        store.putWithoutEtag = true;
+        const held = heldPut(store);
+        const inFlight = call('PUT', phoneB, {}, copy('stale'));
+        await held.gotThere;
+        assert.equal((await call('DELETE', phoneA, { 'x-backup-action': 'delete-account' })).status, 200);
+        const delsBefore = store.delCalls.length;
+        held.release();
+        const answer = await inFlight;
+        assert.equal(answer.status, 401);
+        assert.equal(answer.body.error, 'SESSION_REVOKED');
+        assert.equal(store.delCalls.length, delsBefore, 'a copy was deleted without a condition');
+        assert.equal([...blobs.keys()].filter((key) => key.startsWith('backups/')).length, 1);
+        assert.ok(logged.some((line) => line.includes('left in place: no etag')));
+      });
+
+      // The look at the record after the write hangs: the write stands and the answer is 200, within the budget.
+      await withEndpoint(async ({ call, exchange, blobs, store }) => {
+        const session = (await exchange(appleToken())).body.sessionToken;
+        const held = heldPut(store);
+        const inFlight = call('PUT', session, {}, copy('mine'));
+        await held.gotThere;
+        store.hangGets = (pathname) => pathname.startsWith('revoked/');
+        held.release();
+        const realStart = process.hrtime.bigint();
+        const answer = await inFlight;
+        const tookMs = Number(process.hrtime.bigint() - realStart) / 1e6;
+        assert.equal(answer.status, 200, 'a record that never answers held or failed a write that had landed');
+        assert.equal(answer.body.ok, true);
+        assert.ok(tookMs < 5000, `the answer waited ${tookMs} ms`);
+        assert.equal([...blobs.keys()].filter((key) => key.startsWith('backups/')).length, 1);
       });
     },
   },
