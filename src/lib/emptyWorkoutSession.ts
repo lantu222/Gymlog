@@ -363,10 +363,11 @@ const isSkippedLog = (log: Pick<ExerciseLogDraft, 'skipped' | 'status'>) => log.
  *    counts nowhere, and these sets were done);
  *  - a stored set with no moment (an older save) is matched by its lift and value instead;
  *  - what a stored row says besides its sets stays when the finish says nothing of that slot: a lift
- *    note goes onto the slot's row when none of the finish's rows for it has one, and a lift added in
- *    the session or skipped in it, with no done set, keeps its row when the finish has no row for
- *    that slot at all. The player has no way to take an added lift out or a skip back, so a finish
- *    without the row is one whose session never knew it. A note the reader cleared in a session that
+ *    note goes onto the slot's last row (the lift it ended on) when none of the finish's rows for it
+ *    has one, and a lift added, skipped or swapped in the session, with no done set, keeps its row
+ *    when the finish has no row for that slot (nor, failing its id, for that lift) at all. The player
+ *    has no way to take an added lift out or a skip back, so a finish without the row is one whose
+ *    session never knew it. A note the reader cleared in a session that
  *    came back knowing it comes back too: the finish cannot tell a note cleared from one never known,
  *    and a typed note is never lost on a guess.
  *
@@ -458,19 +459,23 @@ function joinKeptSets(
       const kept = (storedLog.sets ?? []).filter((set) => isDoneSet(set) && keeps(storedLog, set));
       const sameLift = (log: ExerciseLogDraft) =>
         (log.slotId ?? null) === (storedLog.slotId ?? null) && sameLiftName(log.exerciseNameSnapshot, storedLog.exerciseNameSnapshot);
-      // A swap names a slot's rows after their lifts, so a slot is found by its id; a row from before
-      // slot ids has only its lift.
-      const sameSlot = (log: ExerciseLogDraft) => (storedLog.slotId ? log.slotId === storedLog.slotId : sameLift(log));
-      const slotRows = merged.filter(sameSlot);
+      // The finish's rows for this stored row's slot. A swap names a slot's rows after their lifts, so a
+      // slot is found by its id; a row from before slot ids, or one whose slot id was rewritten when the
+      // session was repaired on load, is found by its lift instead (else it would stand twice).
+      const byId = storedLog.slotId ? merged.filter((log) => log.slotId === storedLog.slotId) : [];
+      const slotRows =
+        byId.length > 0 ? byId : merged.filter((log) => sameLiftName(log.exerciseNameSnapshot, storedLog.exerciseNameSnapshot));
       const note = keepsMarks && storedLog.notes?.trim() && !slotRows.some((log) => log.notes?.trim()) ? storedLog.notes : null;
       if (kept.length === 0) {
         if (note && slotRows.length > 0) {
-          (slotRows.find(sameLift) ?? slotRows[slotRows.length - 1]).notes = note;
+          // On the lift the slot ended on, where the player keeps an exercise's note (workoutAppAdapter).
+          slotRows[slotRows.length - 1].notes = note;
           return;
         }
         const marked =
           note ||
-          ((storedLog.sessionInserted === true || isSkippedLog(storedLog)) && !(storedLog.sets ?? []).some((set) => isDoneSet(set)));
+          ((storedLog.sessionInserted === true || isSkippedLog(storedLog) || Boolean(storedLog.swappedFrom)) &&
+            !(storedLog.sets ?? []).some((set) => isDoneSet(set)));
         if (keepsMarks && marked && slotRows.length === 0) {
           // Its sets as stored, less any done one the finish holds elsewhere (none, for a mark with nothing done).
           extra.push({ ...rowOfItsOwn(storedLog), sets: (storedLog.sets ?? []).filter((set) => !isDoneSet(set)) });

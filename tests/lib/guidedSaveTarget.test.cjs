@@ -403,6 +403,30 @@ module.exports = [
         behind.filter((log) => log.exerciseNameSnapshot === 'Row').map((log) => `${log.notes}:${doneOf([log]).length}`),
         ['grip:1'],
       );
+      // A stored row whose slot id the finish does not hold (rewritten on load, or a row from before slot ids) is
+      // found by its lift: its note goes on that row, not on a second row of the same lift.
+      const notesOf = (logs) => logs.map((log) => `${log.exerciseNameSnapshot}:${log.notes ?? '-'}`);
+      const rewrittenId = saved([{ ...lift('Row', 0, [pending(0)], 'row_old'), notes: 'N' }]);
+      assert.deepEqual(notesOf(mergeStoredWorkoutLogs(storedLogs(rewrittenId), [lift('Row', 0, [set(10, 60, 0, 30)], 'row_new')])), ['Row:N']);
+      const noSlot = saved([{ ...lift('Row', 0, [pending(0)], null), notes: 'N' }]);
+      assert.deepEqual(notesOf(mergeStoredWorkoutLogs(storedLogs(noSlot), [lift('Row', 0, [set(10, 60, 0, 30)])])), ['Row:N']);
+      // A slot swapped on further in the returned session: the note goes on the lift it ended on, as the player keeps it.
+      const swappedOn = mergeStoredWorkoutLogs(storedLogs(database), [
+        lift('Bench Press', 0, [set(5, 100, 0, 1)]),
+        lift('Row', 1, [set(10, 60, 0, 24)], 'row'),
+        { ...lift('Leg Press', 1, [pending(0)], 'row'), swappedFrom: 'Row' },
+      ]);
+      assert.deepEqual(swappedOn.filter((log) => log.notes).map((log) => log.exerciseNameSnapshot), ['Leg Press']);
+      // A swap made in the session with nothing done after it is on record like a skip.
+      const swapOnly = saved([lift('Bench Press', 0, [set(5, 100, 0, 1)]), { ...lift('Cable Row', 1, [pending(0)], 'row'), swappedFrom: 'Row', status: 'swapped' }]);
+      assert.deepEqual(
+        mergeStoredWorkoutLogs(storedLogs(swapOnly), [lift('Bench Press', 0, [set(5, 100, 0, 1), set(5, 100, 1, 25)])]).map((log) => `${log.exerciseNameSnapshot}<${log.swappedFrom ?? ''}`),
+        ['Bench Press<', 'Cable Row<Row'],
+      );
+      // A free board's merge keeps none of this: every board row is an added lift, and one taken off the board goes.
+      const { mergeStoredBoardLogs } = require('../../.test-dist/lib/emptyWorkoutSession.js');
+      const board = saved([lift('Bench Press', 0, [set(5, 100, 0, 1)]), { ...lift('Curl', 1, [pending(0)], 'curl'), sessionInserted: true }]);
+      assert.deepEqual(mergeStoredBoardLogs(storedLogs(board), [lift('Bench Press', 0, [set(5, 100, 0, 1)])]).map((log) => log.exerciseNameSnapshot), ['Bench Press']);
       // A note the finish holds for the slot is the reader's latest word, and the stored one does not come back beside it.
       const rewritten = mergeStoredWorkoutLogs(storedLogs(database), [lift('Bench Press', 0, [set(5, 100, 0, 1)]), { ...lift('Row', 1, [pending(0)]), notes: 'fine now' }]);
       assert.deepEqual(rewritten.filter((log) => log.notes).map((log) => log.notes), ['fine now']);
