@@ -150,7 +150,7 @@ module.exports = [
       // App.tsx for a src/app hook in the phase-C split (2026-10-01).
       const held = between(strip(readAppWiring()), 'const appUpdateHeld =', 'const renderLegalConsent');
       assert.match(held, /legalConsentDue !== null/);
-      assert.match(held, /workout\.activeSession !== null/);
+      assert.match(held, /isWorkoutInProgress\(workout\.activeSession\)/);
       assert.match(held, /Boolean\(tourElement\)/);
     },
   },

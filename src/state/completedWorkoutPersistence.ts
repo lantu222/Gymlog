@@ -38,6 +38,12 @@ export interface PersistCompletedWorkoutInput {
    */
   durationMinutes?: number;
   legacyShapeMismatches?: string[];
+  /**
+   * The stored workout under this id is this one, finished further (resolveGuidedSaveTarget): its
+   * rows are replaced instead of the save being dropped as a duplicate. What the reader added to
+   * the stored row afterwards (a note, a rename, the feel) stays.
+   */
+  replaceStored?: boolean;
 }
 
 export interface PersistCompletedWorkoutResult {
@@ -211,7 +217,26 @@ export function persistCompletedWorkoutSessionToDatabase(
     };
   }
 
-  if (workoutSessionRepository.findById(database, input.sessionId)) {
+  const stored = workoutSessionRepository.findById(database, input.sessionId);
+  if (stored && input.replaceStored) {
+    const replaced: WorkoutSession = {
+      ...record.session,
+      workoutNameSnapshot: stored.workoutNameSnapshot,
+      sessionNotes: stored.sessionNotes ?? null,
+      ...(stored.feel !== undefined ? { feel: stored.feel } : {}),
+    };
+    const without: AppDatabase = {
+      ...database,
+      workoutSessions: database.workoutSessions.map((session) => (session.id === input.sessionId ? replaced : session)),
+      exerciseLogs: database.exerciseLogs.filter((log) => log.sessionId !== input.sessionId),
+    };
+    return {
+      database: exerciseLogRepository.appendMany(without, record.logs),
+      didPersist: true,
+      summary: record.summary,
+    };
+  }
+  if (stored) {
     return {
       database,
       didPersist: false,

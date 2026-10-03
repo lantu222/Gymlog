@@ -4,6 +4,7 @@ import { View } from 'react-native';
 import { FirstRunTour } from '../components/FirstRunTour';
 import { LegalConsentSheet } from '../components/LegalConsentSheet';
 import { createTourTargetRegistry } from '../features/tour/tourTargets';
+import { isWorkoutInProgress } from '../lib/activeWorkout';
 import { isTourDue, markTourSeen, resolveTourBeats, resolveTourSurface, TourSurface } from '../lib/firstRunTour';
 import { resolveHomePrompt } from '../lib/homePrompts';
 import { acceptLegal, legalAcceptanceDue } from '../lib/legalAcceptance';
@@ -254,7 +255,7 @@ export function useSetupHandoffOverlays(deps: SetupHandoffOverlaysDeps) {
     setupHandoffActive ||
     legalConsentDue !== null ||
     Boolean(tourElement) ||
-    (workout.activeSession !== null && workout.activeSession.status !== 'completed');
+    isWorkoutInProgress(workout.activeSession);
 
   const renderLegalConsent = (shellPadsBottom: boolean) => (
     <>

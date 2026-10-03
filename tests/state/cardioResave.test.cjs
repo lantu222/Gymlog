@@ -54,6 +54,17 @@ const RUN = { activityType: 'run', startedAt: '2026-10-03T08:00:00.000Z', endedA
 
 module.exports = [
   {
+    name: 'cardio: a Complete of a run that is already stored is not counted as a second finished workout',
+    run() {
+      const screens = fs.readFileSync(path.join(ROOT, 'src', 'app', 'renderHomeScreens.tsx'), 'utf8').replace(/\r\n/g, '\n');
+      const handler = screens.slice(screens.indexOf('onSaveCardioSession={async (input) => {'), screens.indexOf('onLeave={() => navigateBack(ROOT_ROUTES.home)}'));
+      const check = handler.indexOf('findSavedCardioRun(cardioSessions, input) !== null');
+      const saved = handler.indexOf('await saveCardioSession(input)');
+      assert.ok(check > 0 && check < saved, 'asked before the save, which would store it');
+      assert.match(handler, /if \(!alreadyStored\) \{\s*trackEvent\('workout_completed'\);\s*\}/);
+    },
+  },
+  {
     name: 'cardio: findSavedCardioRun names a run by when it started and what it was',
     run() {
       const stored = [{ id: 'c1', activityType: 'run', startedAt: '2026-10-03T08:00:00.000Z' }];

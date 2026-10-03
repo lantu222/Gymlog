@@ -70,6 +70,14 @@ module.exports = [
       assert.match(views, /hasActiveSession: isWorkoutInProgress\(workout\.activeSession\)/);
       assert.doesNotMatch(views, /hasActiveSession: Boolean\(workout\.activeSession\)/);
 
+      // Home's hero and the update gate already asked the rule inline; one rule now, so they cannot drift from the door.
+      const dashboard = read('src', 'app', 'renderHomeDashboard.tsx');
+      assert.match(dashboard, /hasActiveSession=\{isWorkoutInProgress\(workout\.activeSession\)\}/);
+      assert.doesNotMatch(dashboard, /workout\.activeSession !== null/);
+      const overlays = read('src', 'app', 'useSetupHandoffOverlays.tsx');
+      assert.match(overlays, /isWorkoutInProgress\(workout\.activeSession\);/);
+      assert.doesNotMatch(overlays, /workout\.activeSession !== null/);
+
       const app = read('App.tsx');
       const door = app.slice(app.indexOf('function navigateToActiveWorkout('), app.indexOf('/** Whether the running session is the very one'));
       assert.match(door, /!isWorkoutInProgress\(workout\.activeSession\)/, 'the door and its callers cannot disagree');

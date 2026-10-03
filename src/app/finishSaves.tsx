@@ -8,7 +8,7 @@ import type { FreestyleFinishSummary } from '../lib/emptyWorkoutSession';
 import { sessionRecordedWork } from '../lib/exerciseLog';
 import { t } from '../lib/i18n';
 import { createId } from '../lib/ids';
-import { resolveFreestyleSaveTarget } from '../lib/emptyWorkoutSession';
+import { resolveFreestyleSaveTarget, resolveGuidedSaveTarget } from '../lib/emptyWorkoutSession';
 import { computePostSessionInsight } from '../lib/postSessionInsight';
 import { buildMuscleFocus, getVolumeDeltaVsPrevious } from '../lib/workoutCompleteView';
 import { ROOT_ROUTES } from '../navigation/routes';
@@ -49,7 +49,7 @@ type WorkoutContextValue = ReturnType<typeof useWorkoutContext>;
 export interface FinishSavesDeps {
   workout: Pick<
     WorkoutContextValue,
-    'activeSession' | 'discardWorkout' | 'finishWorkout' | 'clearCompletedWorkout' | 'recordLoggedWorkout'
+    'activeSession' | 'discardWorkout' | 'adoptSessionId' | 'finishWorkout' | 'clearCompletedWorkout' | 'recordLoggedWorkout'
   >;
   database: AppContextValue['database'];
   /** The database as it stands now (AppProvider's ref), not the render's snapshot. */
@@ -156,15 +156,23 @@ export function createFinishSaves(deps: FinishSavesDeps) {
     // (the bundle write behind the finish is not awaited), and the reader can add sets to it and
     // Finish again. The database refuses a second row under the same id and says nothing, so those
     // sets were shown as saved and never written (bug hunt 2026-10-03). The same question the free
-    // workout board asks (#277): under this id with exactly these sets is the finish that already
-    // landed, nothing to write; under it with other sets is another workout wearing a stale id, and
-    // these sets are saved under an id of their own. A duplicate row beats a lost set. Read from the
-    // database as it stands now, not this render's snapshot.
-    const saveTarget = resolveFreestyleSaveTarget(
+    // workout board asks (#277), with one more answer (resolveGuidedSaveTarget): exactly these sets
+    // under the id is the finish that landed; sets only added since replace that row in place; a
+    // stored set these lack (corrected, removed) means these are saved under an id of their own,
+    // since a duplicate beats a loss. Read from the database as it stands now, not this render's
+    // snapshot.
+    const saveTarget = resolveGuidedSaveTarget(
       getDatabase(),
       adaptedFromSession.sessionId,
       adaptedFromSession.logs,
     );
+    // A new id is the session's own before anything is saved: the finish state below, the route
+    // guard (which resets a finish state whose id is not the running session's), the slot history
+    // finishing stamps and the stored row all have to name one id, and a failed save has to leave
+    // the session under the id its retry will use.
+    if (saveTarget.sessionId !== adaptedFromSession.sessionId) {
+      workout.adoptSessionId(saveTarget.sessionId);
+    }
     const adaptedSession =
       saveTarget.sessionId === adaptedFromSession.sessionId
         ? adaptedFromSession
@@ -183,6 +191,7 @@ export function createFinishSaves(deps: FinishSavesDeps) {
       const summary = await saveCompletedWorkoutSession({
         ...adaptedSession,
         performedAt: adaptedSession.performedAt,
+        replaceStored: saveTarget.replaceStored,
       });
       if (!summary.sessionId || !summary.performedAt) {
         throw new Error('Workout save did not produce a valid summary');

@@ -920,7 +920,7 @@ function watched(deps) {
     defined[key] = d.get ? d : { ...d, value: wrap(d.value) };
   }
   wrapped.workout = Object.defineProperties({}, defined);
-  for (const key of ['saveCompletedWorkoutSession', 'upsertWorkoutTemplate', 'deleteWorkoutTemplate', 'setCompletionSummary', 'replaceRoute', 'updatePreferences']) {
+  for (const key of ['saveCompletedWorkoutSession', 'upsertWorkoutTemplate', 'deleteWorkoutTemplate', 'setCompletionSummary', 'replaceRoute', 'updatePreferences', 'setFinishSaveState']) {
     wrapped[key] = wrap(deps[key]);
   }
   return wrapped;
@@ -946,6 +946,14 @@ function finishDeps(proc, ev) {
         if (!summary || summary.sessionId !== sessionId || summary.setsCompleted !== world.pendingExpectation.length) {
           fail('2', `the slot history holds ${summary ? `${summary.setsCompleted} sets for ${summary.sessionId}` : 'no session'}, the reader logged ${world.pendingExpectation.length}`);
         }
+      },
+      adoptSessionId(sessionId) {
+        // The shadow is the reader's session, which keeps its sets under the new id; written before the dispatch,
+        // because the bundle write the dispatch issues takes its snapshot of the shadow.
+        if (world.shadow.session) {
+          world.shadow.session.sessionId = sessionId;
+        }
+        dispatch(proc, { type: 'session/adoptSessionId', payload: { sessionId } });
       },
       clearCompletedWorkout() {
         world.shadow.session = null;
@@ -977,12 +985,13 @@ function finishDeps(proc, ev) {
         await interleave();
       }
       const expected = world.pendingExpectation;
-      const attempt = { sessionId: input.sessionId, outcome: null };
+      // heldBefore: the id already names a saved workout (a finish of a restored session, replaced in place).
+      const attempt = { sessionId: input.sessionId, outcome: null, heldBefore: world.expectedDb.has(input.sessionId) };
       world.lastSave = attempt;
       try {
         const summary = await proc.part.persistCompletedWorkoutSession(input);
         attempt.outcome = 'resolved';
-        if (summary.sessionId && !world.expectedDb.has(input.sessionId)) {
+        if (summary.sessionId && (!world.expectedDb.has(input.sessionId) || input.replaceStored)) {
           world.expectedDb.set(input.sessionId, { sets: expected, lifts: world.pendingLifts });
         }
         return summary;
@@ -1037,6 +1046,12 @@ function finishDeps(proc, ev) {
       }
     },
     setFinishSaveState: (value) => {
+      if (value.status !== 'idle') {
+        const live = proc.state.activeSession?.sessionId ?? null;
+        if (value.sessionId !== live) {
+          fail('6', `the finish state (${value.status}) names session ${value.sessionId} while the running session is ${live}: the route guard resets it to idle, so the player is not locked while the save runs and a failed save has no retry`);
+        }
+      }
       proc.finishSaveState = value;
     },
     finishInFlightRef: proc.refs.finishInFlight,
@@ -1087,7 +1102,7 @@ async function finishGuided(ev) {
     // disk, the stored session is still the live one, and the next launch brings it back active.
     storage.fault.writeBundle = 2;
   }
-  const sessionAtFinish = session.sessionId;
+  const sessionAtFinish = world.proc.state.activeSession.sessionId;
   const saves = FINISH_SAVES(finishDeps(proc, ev));
   let thrown = null;
   const flow = saves.handleConfirmFinishWorkout().catch((error) => {
@@ -1122,15 +1137,15 @@ async function finishGuided(ev) {
   }
   if (attempt.outcome === 'failed') {
     count('save failed');
-    if (world.expectedDb.has(attempt.sessionId)) {
+    if (!attempt.heldBefore && world.expectedDb.has(attempt.sessionId)) {
       fail('2', 'a save that failed is expected as saved');
     }
-    if (proc.dbRef.current.workoutSessions.some((row) => row.id === attempt.sessionId)) {
+    if (!attempt.heldBefore && proc.dbRef.current.workoutSessions.some((row) => row.id === attempt.sessionId)) {
       fail('2', `a save that failed left session ${attempt.sessionId} in the database in memory`);
     }
     const live = proc.state.activeSession;
-    // The session the reader is still in, under the id it had: the save may have been aimed at another id.
-    if (!live || live.sessionId !== sessionAtFinish || live.status === 'completed') {
+    // The session the reader is still in, under the id its retry will save it under.
+    if (!live || live.sessionId !== attempt.sessionId || live.status === 'completed') {
       fail('2', 'a save that failed left no resumable session behind');
     }
     if (!world.toasts.includes(saveFailedToast())) {
@@ -1156,6 +1171,9 @@ async function finishGuided(ev) {
   }
   if (sessionAtFinish !== attempt.sessionId) {
     count('finish saved under an id of its own');
+  }
+  if (attempt.heldBefore) {
+    count('finish of an id already stored (replaced in place, or the same finish again)');
   }
   if (ev.lostClear) {
     count('finish with the clear lost');
@@ -2214,13 +2232,17 @@ module.exports = [
     async run() {
       const ev = (t, extra = {}) => ({ t, dt: 250, r: 7, ...extra });
       const begin = [ev('start', { r: 11 }), ev('log', { r: 1 }), ev('log', { r: 2 }), ev('finish', { lostClear: true }), ev('kill')];
-      // How many saved sessions each path leaves: the first workout, and the second where sets were added.
+      // How many saved sessions each path leaves. Sets only added replace the stored workout in place (one row,
+      // the added sets in it); a stored set that is no longer among them (undone) costs a second row, the id of its own.
       const cases = [
-        ['sets added after the relaunch', [...begin, ev('log', { r: 3 }), ev('log', { r: 4 }), ev('finish')], 2],
+        ['sets added after the relaunch: the one workout, finished further', [...begin, ev('log', { r: 3 }), ev('log', { r: 4 }), ev('finish')], 1],
         ['nothing added: the same finish again writes nothing', [...begin, ev('finish')], 1],
-        ['sets added, the new save failing, then the retry', [...begin, ev('log', { r: 3 }), ev('finish', { saveFail: true }), ev('finish')], 2],
-        ['sets added, a kill, the board restored, Finish', [...begin, ev('log', { r: 3 }), ev('kill'), ev('finish')], 2],
-        ['sets added, and the preferences write refused after the save', [...begin, ev('log', { r: 3 }), ev('finish', { prefFail: true })], 2],
+        ['sets added, the save failing, then the retry', [...begin, ev('log', { r: 3 }), ev('finish', { saveFail: true }), ev('finish')], 1],
+        ['sets added, a kill, the board restored, Finish', [...begin, ev('log', { r: 3 }), ev('kill'), ev('finish')], 1],
+        ['sets added, and the preferences write refused after the save', [...begin, ev('log', { r: 3 }), ev('finish', { prefFail: true })], 1],
+        ['a stored set undone and another logged: saved under an id of its own', [...begin, ev('undo', { r: 5 }), ev('log', { r: 6 }), ev('finish')], 2],
+        ['the same, the save failing: the finish state and the session keep the new id for the retry', [...begin, ev('undo', { r: 5 }), ev('log', { r: 6 }), ev('finish', { saveFail: true }), ev('finish')], 2],
+        ['the same, the failed save killed and relaunched, then finished', [...begin, ev('undo', { r: 5 }), ev('log', { r: 6 }), ev('finish', { saveFail: true }), ev('kill'), ev('finish')], 2],
         ['a discard whose preferences write is refused still discards', [...begin, ev('discard', { prefFail: true })], 1],
       ];
       await withEnvironment(async () => {

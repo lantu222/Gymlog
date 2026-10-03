@@ -145,7 +145,8 @@ module.exports = [
     run() {
       const provider = strip(read('src', 'features', 'workout', 'WorkoutProvider.tsx'));
       assert.match(provider, /startCardio\(activityType\) \{\s*trackEvent\('workout_started'\);\s*dispatch\(\{ type: 'cardio\/start'/);
-      assert.match(app, /await saveCardioSession\(input\);\s*trackEvent\('workout_completed'\);/);
+      // Once the run is stored, and not again for a run that was already (a lost clear brought it back).
+      assert.match(app, /await saveCardioSession\(input\);\s*if \(!alreadyStored\) \{\s*trackEvent\('workout_completed'\);\s*\}/);
     },
   },
 ];

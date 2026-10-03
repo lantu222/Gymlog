@@ -3,6 +3,7 @@ import React from 'react';
 import { trackEvent } from '../features/analytics/analyticsClient';
 import { reportOperationFailed } from '../features/errorReporting/errorReporter';
 import { isWorkoutInProgress } from '../lib/activeWorkout';
+import { findSavedCardioRun } from '../lib/cardio';
 import { isAiCoachLiveConfigured, requestProgrammeComposition } from '../lib/aiCoachClient';
 import { randomLogId } from '../lib/aiCoachLogId';
 import { recordCoachQuestion, resolveCoachQuota } from '../lib/aiCoachQuota';
@@ -238,10 +239,15 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
         onSaveCardioSession={async (input) => {
           setCardioSaving(true);
           try {
+            // A run already stored is a save landing again (its clear was lost): counted when it
+            // first landed, not on every Complete of the same run.
+            const alreadyStored = findSavedCardioRun(cardioSessions, input) !== null;
             await saveCardioSession(input);
             // Its end, once it is stored — the start is counted where the
             // provider starts the clock (analytics audit, 2026-09-21).
-            trackEvent('workout_completed');
+            if (!alreadyStored) {
+              trackEvent('workout_completed');
+            }
             // No "saved" toast: the session appears in the history the screen
             // returns to, and the haptic says it landed (user 2026-08-26,
             // "kaikki tämmöiset pitäisi saada pois apista"). Failures still
