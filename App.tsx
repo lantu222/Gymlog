@@ -1,8 +1,6 @@
 import './src/globalFont';
 
 import React, { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform } from 'react-native';
-import Constants from 'expo-constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -142,10 +140,8 @@ import { accountNameStep } from './src/lib/accountNameAdoption';
 import { WorkoutProvider, useWorkoutContext } from './src/features/workout/WorkoutProvider';
 import { getWorkoutTemplateById } from './src/features/workout/workoutCatalog';
 import { AppProvider, useAppContext } from './src/state/AppProvider';
-import { registerAppIdentity } from './src/features/appUpdate/appUpdateSignal';
 import { AppErrorBoundary } from './src/features/errorReporting/AppErrorBoundary';
 import { noteRenderedScreen } from './src/features/errorReporting/errorReporter';
-import { appInfo } from './src/theme';
 
 void SplashScreen.preventAutoHideAsync().catch(() => {
   // Native splash may already be controlled by the host app during fast refresh.
@@ -2298,14 +2294,6 @@ function VinhaApp() {
     PLAY_LISTING_URL,
   });
 }
-
-/**
- * Which build this is, on every request to our server (lib/appUpdateGate).
- * Read from the app config the native build was made from, so it is the
- * version the store shows; the theme's copy is only the fallback for a run
- * that has no config to read.
- */
-registerAppIdentity(Constants.expoConfig?.version ?? appInfo.version, Platform.OS);
 
 /**
  * ThemeProvider sits *inside* AppProvider because the theme is a stored,

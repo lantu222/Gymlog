@@ -141,8 +141,8 @@ module.exports = [
       }
       assert.match(read('src/lib/aiCoachClient.ts'), /function coachHeaders\(\)[^}]*\.\.\.appVersionHeaders\(\)/);
 
-      const app = read('App.tsx');
-      assert.match(app, /registerAppIdentity\(Constants\.expoConfig\?\.version \?\? appInfo\.version, Platform\.OS\)/);
+      // Registered from index.ts before App's modules load (bug hunt 2026-10-03), so an early crash's report names it too.
+      assert.match(read('src/features/appUpdate/registerAppIdentityAtStartup.ts'), /registerAppIdentity\(Constants\.expoConfig\?\.version \?\? appInfo\.version, Platform\.OS\)/);
       // The dialog mounts in the shell's render tail, which moved to src/app.
       assert.match(strip(readAppWiring()), /<AppUpdateDialog language=\{preferences\.appLanguage\} held=\{appUpdateHeld\} \/>/);
       // Never over the terms sheet, the tour or a workout in progress (review, 2026-09-28).
