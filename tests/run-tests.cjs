@@ -87,6 +87,7 @@ const suites = [
   ...require('./features/workout/nextSessionPreview.test.cjs'),
   ...require('./features/workout/historyBelongsToLift.test.cjs'),
   ...require('./features/workout/swapIsTheLift.test.cjs'),
+  ...require('./features/workout/workoutLifecycleInvariant.test.cjs'),
   ...require('./features/workout/addedThenSwappedBasis.test.cjs'),
   ...require('./features/workout/repeatLastAfterSwap.test.cjs'),
   ...require('./features/workout/guidedPlayerReliability.test.cjs'),
