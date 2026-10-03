@@ -127,7 +127,7 @@ export async function downloadBackup(idToken: string): Promise<BackupDownloadRes
 export async function deleteBackup(
   idToken: string,
   options: { account?: boolean; requestId?: string } = {},
-): Promise<{ ok: boolean; error?: string; definite?: boolean; deleteRequestId?: string }> {
+): Promise<{ ok: boolean; error?: string; definite?: boolean; deleteRequestId?: string | null }> {
   if (!BACKUP_API_URL) {
     return { ok: false };
   }
@@ -166,9 +166,12 @@ export async function deleteBackup(
         ok: false,
         error: body.error,
         definite: true,
+        // A present null is this server saying the marker names no request.
         ...(typeof body.deleteRequestId === 'string' && body.deleteRequestId
           ? { deleteRequestId: body.deleteRequestId }
-          : {}),
+          : body.deleteRequestId === null
+            ? { deleteRequestId: null }
+            : {}),
       };
     }
     const serverJson = typeof body?.ok === 'boolean' || typeof body?.error === 'string';

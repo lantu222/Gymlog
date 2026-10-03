@@ -606,6 +606,8 @@ module.exports = [
       assert.equal(lib.revokedDeleteOutcome({ pendingBefore: true, ownRequestId: 'x', answerRequestId: 'y' }), 'ended');
       assert.equal(lib.revokedDeleteOutcome({ pendingBefore: true, ownRequestId: 'x', answerRequestId: undefined }), 'done');
       assert.equal(lib.revokedDeleteOutcome({ pendingBefore: false, ownRequestId: 'x', answerRequestId: null }), 'ended');
+      // This server says its marker names no request (another phone, or an app too old to send one): not this phone's, even with a pending record.
+      assert.equal(lib.revokedDeleteOutcome({ pendingBefore: true, ownRequestId: 'x', answerRequestId: null }), 'ended');
     },
   },
 ];

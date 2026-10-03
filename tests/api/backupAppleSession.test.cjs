@@ -954,7 +954,7 @@ module.exports = [
         assert.equal(JSON.parse(blobs.get(markerOf(blobs))).deleteRequestId, id);
       });
 
-      // Anything that is not 32 lowercase hex characters is ignored; so is no header, and an old marker has no field.
+      // Anything that is not 32 lowercase hex characters is ignored; so is no header. A marker naming no request answers with an explicit null, so a phone can tell it from an older server that never says.
       for (const bad of ['0123456789ABCDEF0123456789ABCDEF', '0123456789abcdef0123456789abcde', `${id}0`, 'g'.repeat(32), '', ' ', '{"x":1}']) {
         await withEndpoint(async ({ call, exchange, store }) => {
           const session = (await exchange(appleToken())).body.sessionToken;
@@ -962,20 +962,20 @@ module.exports = [
           for (const stamp of store.putLog) {
             assert.equal(JSON.parse(stamp.body).deleteRequestId, undefined, `${JSON.stringify(bad)} was stored`);
           }
-          assert.deepEqual((await call('GET', session)).body, { ok: false, error: 'SESSION_REVOKED' });
+          assert.deepEqual((await call('GET', session)).body, { ok: false, error: 'SESSION_REVOKED', deleteRequestId: null });
         });
       }
       await withEndpoint(async ({ call, exchange, store }) => {
         const session = (await exchange(appleToken())).body.sessionToken;
         assert.equal((await deleteWith(call, session)).status, 200);
-        assert.deepEqual((await call('GET', session)).body, { ok: false, error: 'SESSION_REVOKED' });
+        assert.deepEqual((await call('GET', session)).body, { ok: false, error: 'SESSION_REVOKED', deleteRequestId: null });
         // A marker written before the id existed.
         store.seed(
           [...store.blobs.keys()].find((key) => key.startsWith('revoked/')),
           JSON.stringify({ revokedAtMs: Date.now() }),
           Date.now(),
         );
-        assert.deepEqual((await call('GET', session)).body, { ok: false, error: 'SESSION_REVOKED' });
+        assert.deepEqual((await call('GET', session)).body, { ok: false, error: 'SESSION_REVOKED', deleteRequestId: null });
       });
 
       // The second stamp failing: the phone's retry meets the first stamp's id, which is how it knows the deletion was its own.

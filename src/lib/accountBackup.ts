@@ -365,6 +365,11 @@ export function revokedDeleteOutcome(input: {
   if (typeof input.answerRequestId === 'string' && input.answerRequestId) {
     return input.answerRequestId === input.ownRequestId ? 'done' : 'ended';
   }
+  // This server answered that its marker names no request: another phone, or
+  // an app too old to send one, deleted the account. Not this phone's.
+  if (input.answerRequestId === null) {
+    return 'ended';
+  }
   return input.pendingBefore ? 'done' : 'ended';
 }
 

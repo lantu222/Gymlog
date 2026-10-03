@@ -573,8 +573,11 @@ type SessionVerdict =
 
 /** The 401 body for a refused session: the revoking request's id rides along, and nothing else. */
 function refusalBody(verdict: Extract<SessionVerdict, { ok: false }>): Record<string, unknown> {
-  return verdict.error === 'SESSION_REVOKED' && verdict.deleteRequestId
-    ? { ok: false, error: verdict.error, deleteRequestId: verdict.deleteRequestId }
+  // Always present on SESSION_REVOKED, null when the marker names no request:
+  // a phone tells 'this server says no id' apart from an older server that
+  // never says, and only the latter falls back to its own pending record.
+  return verdict.error === 'SESSION_REVOKED'
+    ? { ok: false, error: verdict.error, deleteRequestId: verdict.deleteRequestId ?? null }
     : { ok: false, error: verdict.error };
 }
 
