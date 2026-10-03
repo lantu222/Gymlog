@@ -1,9 +1,12 @@
-import React, { createContext, useContext, useEffect, useMemo, useReducer, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { FreestyleDraftSnapshot } from '../../lib/emptyWorkoutSession';
 import { AppState } from 'react-native';
 import { StorageLoadFailedScreen } from '../../components/StorageLoadFailedScreen';
 import { trackEvent } from '../analytics/analyticsClient';
 import { reportOperationFailed } from '../errorReporting/errorReporter';
+import { markingWorkoutFailures } from '../errorReporting/workoutFailure';
+import { isWorkoutInProgress } from '../../lib/activeWorkout';
+import { bringBackWorkoutAside, hasWorkoutAsideCopy } from '../../storage/workoutAside';
 
 import { CardioActivityType, UnitPreference } from '../../types/models';
 import { ActiveCardioSession } from '../../lib/cardio';
@@ -119,12 +122,37 @@ interface WorkoutContextValue {
    * and a refused one was only logged.
    */
   restoreHistoryFromBackup: (history: unknown) => Promise<WorkoutHistoryStore>;
+  /** A copy the crash screen put aside is on the phone, for Settings' Restore set-aside workout. */
+  setAsideWorkoutAvailable: boolean;
+  /**
+   * Brings back the workout data the crash screen put aside (storage/workoutAside).
+   * Never deletes: what the app holds now is copied aside first, the copy is
+   * written back as the stored bundle and shown, and only then does its slot go.
+   * 'busy' — a workout, run or free workout is going, and is not swapped out
+   * from under the reader; 'none' — no copy; 'unreadable' — the copy does not
+   * parse, and stays where it is. Rejects when a write is refused, with every
+   * copy where it was.
+   */
+  restoreSetAsideWorkout: () => Promise<'restored' | 'busy' | 'none' | 'unreadable'>;
 }
+
+/**
+ * The reducer, with a failure in it marked as the workout's: this is where the
+ * stored bundle is applied (session/hydrate), and a crash screen showing such a
+ * failure offers to put the workout aside (errorReporting/workoutFailure).
+ */
+const markedWorkoutReducer: typeof workoutReducer = (state, action) => markingWorkoutFailures(() => workoutReducer(state, action));
 
 const WorkoutContext = createContext<WorkoutContextValue | null>(null);
 
 export function WorkoutProvider({ children }: React.PropsWithChildren) {
-  const [state, dispatch] = useReducer(workoutReducer, workoutInitialState);
+  const [state, dispatch] = useReducer(markedWorkoutReducer, workoutInitialState);
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const [setAsideWorkoutAvailable, setSetAsideWorkoutAvailable] = useState(false);
+  const refreshSetAside = () => {
+    void hasWorkoutAsideCopy().then(setSetAsideWorkoutAvailable);
+  };
   /**
    * The phone refused the read, after retries. There was no catch here at all,
    * so the app sat on its splash forever; an empty bundle instead would be
@@ -151,6 +179,8 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
         return;
       }
       dispatch({ type: 'session/hydrate', payload: result.value });
+      // A copy the crash screen made before this mount is offered back in Settings.
+      refreshSetAside();
     }
 
     hydrate();
@@ -222,7 +252,7 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
     });
   }, [state.activeSession, state.activeCardio, state.freestyleDraft, state.hydrated, state.history]);
 
-  const completionSummary = selectWorkoutSummary(state);
+  const completionSummary = markingWorkoutFailures(() => selectWorkoutSummary(state));
 
   const value = useMemo<WorkoutContextValue>(
     () => ({
@@ -298,6 +328,8 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
         // is then written back by the persistence effect like any other change.
         await clearWorkoutBundle();
         dispatch({ type: 'session/resetAll', payload: { nowMs: Date.now() } });
+        // The reset erased the set-aside copies with the rest.
+        refreshSetAside();
       },
       clearRestTimer() {
         dispatch({ type: 'timer/clear' });
@@ -399,8 +431,37 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
         dispatch({ type: 'session/hydrate', payload: bundle });
         return bundle.history;
       },
+      setAsideWorkoutAvailable,
+      async restoreSetAsideWorkout() {
+        const now = stateRef.current;
+        if (isWorkoutInProgress(now.activeSession) || now.activeCardio || now.freestyleDraft) {
+          return 'busy';
+        }
+        // What the app holds now (the history logged since, at least) goes aside in the copy's place.
+        const live = JSON.stringify({
+          activeSession: now.activeSession,
+          history: now.history,
+          activeCardio: now.activeCardio,
+          freestyleDraft: now.freestyleDraft,
+        });
+        try {
+          return await bringBackWorkoutAside(
+            live,
+            (text) => normalizeWorkoutBundle(JSON.parse(text)),
+            async (bundle) => {
+              // Written first and shown after, as restoreHistoryFromBackup: the persistence effect writes the
+              // same bundle again once the state lands. Writes to the key run in order (largeItem), so a save
+              // queued before this one cannot land after it.
+              await saveWorkoutBundle(bundle);
+              dispatch({ type: 'session/hydrate', payload: bundle });
+            },
+          );
+        } finally {
+          refreshSetAside();
+        }
+      },
     }),
-    [completionSummary, state],
+    [completionSummary, setAsideWorkoutAvailable, state],
   );
 
   if (loadFailed) {

@@ -3,6 +3,7 @@ import React from 'react';
 import { AppCrashScreen, CrashAsideAction } from '../../components/AppCrashScreen';
 import { hasWorkoutToPutAside, setWorkoutBundleAside } from '../../storage/workoutAside';
 import { reportAppError } from './errorReporter';
+import { isWorkoutFailure } from './workoutFailure';
 
 /**
  * How long the app must stay up after a "Try again" for the next failure to
@@ -37,6 +38,12 @@ const SET_ASIDE: CrashAsideAction = { isAvailable: hasWorkoutToPutAside, run: se
  * app to run for a while, not a bundle it cannot draw at startup, and "Try
  * again" is still there for it.
  *
+ * And only when the failure is the workout's (workoutFailure): thrown on a
+ * workout-tab screen or while the workout provider applied its stored state.
+ * Putting the workout aside cannot cure a crash from anywhere else, and it took
+ * the workout in progress out of sight for nothing (user decision 2026-10-03).
+ * The copy it makes comes back from Settings (Restore set-aside workout).
+ *
  * An error thrown in an event handler or a timer never reaches a boundary —
  * React only catches rendering and lifecycle errors. Those go to the global
  * handler (installErrorReporting).
@@ -50,15 +57,17 @@ interface State {
    * failure while this is true is a retry that crashed again.
    */
   recentlyRetried: boolean;
+  /** The failure on screen was thrown by the workout (isWorkoutFailure). */
+  fromWorkout: boolean;
 }
 
 export class AppErrorBoundary extends React.Component<React.PropsWithChildren, State> {
-  state: State = { failed: false, attempt: 0, recentlyRetried: false };
+  state: State = { failed: false, attempt: 0, recentlyRetried: false, fromWorkout: false };
 
   private settleTimer: ReturnType<typeof setTimeout> | null = null;
 
-  static getDerivedStateFromError(): Partial<State> {
-    return { failed: true };
+  static getDerivedStateFromError(error: unknown): Partial<State> {
+    return { failed: true, fromWorkout: isWorkoutFailure(error) };
   }
 
   componentDidCatch(error: unknown): void {
@@ -92,7 +101,12 @@ export class AppErrorBoundary extends React.Component<React.PropsWithChildren, S
 
   render(): React.ReactNode {
     if (this.state.failed) {
-      return <AppCrashScreen onRetry={this.retry} aside={this.state.recentlyRetried ? SET_ASIDE : undefined} />;
+      return (
+        <AppCrashScreen
+          onRetry={this.retry}
+          aside={this.state.recentlyRetried && this.state.fromWorkout ? SET_ASIDE : undefined}
+        />
+      );
     }
     return <React.Fragment key={this.state.attempt}>{this.props.children}</React.Fragment>;
   }

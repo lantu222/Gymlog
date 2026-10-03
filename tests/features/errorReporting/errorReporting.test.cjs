@@ -728,8 +728,12 @@ module.exports = [
         boundary.setState = (update) => {
           boundary.state = { ...boundary.state, ...(typeof update === 'function' ? update(boundary.state) : update) };
         };
+        // The workout's failures (marked as the workout tab and the provider mark them): only those offer the action.
+        const { markWorkoutFailure } = require(path.join(DIST, 'features', 'errorReporting', 'workoutFailure.js'));
         const fail = () => {
-          boundary.state = { ...boundary.state, ...AppErrorBoundary.getDerivedStateFromError(new Error('x')) };
+          const error = new Error('x');
+          markWorkoutFailure(error);
+          boundary.state = { ...boundary.state, ...AppErrorBoundary.getDerivedStateFromError(error) };
           return boundary.render();
         };
 
@@ -776,16 +780,18 @@ module.exports = [
       );
       assert.doesNotMatch(screen, /AsyncStorage|removeItem|multiRemove|workoutAside/, 'the screen deletes nothing itself');
       // Offered only from the boundary's repeated-failure state, and only when a workout exists.
-      assert.match(boundary, /aside=\{this\.state\.recentlyRetried \? SET_ASIDE : undefined\}/);
+      assert.match(boundary, /aside=\{this\.state\.recentlyRetried && this\.state\.fromWorkout \? SET_ASIDE : undefined\}/);
       assert.match(screen, /aside && asideAvailable/);
       assert.match(screen, /aside\.isAvailable\(\)/);
       // The copy lands before the live rows go.
-      const body = aside.slice(aside.indexOf('export async function setWorkoutBundleAside'));
+      // (The function alone, up to the next export: the restore after it has catches of its own.)
+      const start = aside.indexOf('export async function setWorkoutBundleAside');
+      const body = aside.slice(start, aside.indexOf('\nexport ', start + 1));
       const copy = body.indexOf('await putCopy(text)');
       const removal = body.indexOf('await removeLargeItem(WORKOUT_STORAGE_KEY)');
       assert.ok(copy > 0 && removal > copy, 'the live bundle is removed before, or without, its copy');
       assert.match(aside, /await setLargeItem\(WORKOUT_ASIDE_STORAGE_KEY, text\)/);
-      assert.doesNotMatch(aside.slice(aside.indexOf('export async function setWorkoutBundleAside')), /catch/, 'a failed copy must not fall through to the removal');
+      assert.doesNotMatch(body, /catch/, 'a failed copy must not fall through to the removal');
       // The boundary documents the exception it now is.
       assert.match(boundary, /one deliberate exception \(user 2026-10-03\)/);
 
@@ -798,9 +804,12 @@ module.exports = [
       }
       assert.match(t('en', 'appCrash.asideHint'), /not deleted/);
       assert.match(t('fi', 'appCrash.asideHint'), /Niitä ei poisteta/);
-      // No screen restores the copy, so no copy may say it can be.
+      // The way back is Settings' Restore set-aside workout (user decision 2026-10-03), and the hint names it;
+      // the button and its failure promise nothing more.
+      assert.match(t('en', 'appCrash.asideHint'), /bring them back in Settings/);
+      assert.match(t('fi', 'appCrash.asideHint'), /Voit palauttaa ne asetuksista/);
       for (const language of ['en', 'fi']) {
-        for (const key of ['appCrash.asideHint', 'appCrash.aside', 'appCrash.asideFailed']) {
+        for (const key of ['appCrash.aside', 'appCrash.asideFailed']) {
           assert.doesNotMatch(t(language, key), /restor|recover|undo|palaut|palauta|peru/i, `${language} ${key} promises a way back`);
         }
       }
@@ -878,6 +887,114 @@ module.exports = [
           assert.match(usage, needle, `the ${language} usage-statistics section must say ${needle}`);
         }
       }
+    },
+  },
+  {
+    // Bug hunt 5 (2026-10-03), user decision: "put the workout aside" only for a crash on a workout screen or
+    // while the workout data was applied — not after any repeated crash.
+    name: 'error boundary: the set-aside action is offered only for a failure the workout threw, and the workout screens and provider mark theirs',
+    run() {
+      const failures = require(path.join(DIST, 'features', 'errorReporting', 'workoutFailure.js'));
+      const stubs = {
+        'react-native': { View: 'View', Text: 'Text', Pressable: 'Pressable', StyleSheet: { create: (styles) => styles } },
+        'expo-splash-screen': { hideAsync: async () => undefined },
+        '../storage/deviceLocale': { resolveDeviceLanguage: () => 'en' },
+        './errorReporter': { reportAppError: () => undefined },
+        '../../storage/workoutAside': { hasWorkoutToPutAside: async () => true, setWorkoutBundleAside: async () => true },
+      };
+      const cache = new Map();
+      const { AppErrorBoundary } = loadTsx(path.join(SRC, 'features', 'errorReporting', 'AppErrorBoundary.tsx'), stubs, cache);
+      const { WorkoutAreaBoundary } = loadTsx(path.join(SRC, 'features', 'errorReporting', 'WorkoutAreaBoundary.tsx'), stubs, cache);
+
+      const savedSet = globalThis.setTimeout;
+      globalThis.setTimeout = () => 0;
+      try {
+        const twice = (makeError) => {
+          const boundary = new AppErrorBoundary({ children: 'the app' });
+          boundary.setState = (update) => {
+            boundary.state = { ...boundary.state, ...(typeof update === 'function' ? update(boundary.state) : update) };
+          };
+          boundary.state = { ...boundary.state, ...AppErrorBoundary.getDerivedStateFromError(makeError()) };
+          boundary.render().props.onRetry();
+          boundary.state = { ...boundary.state, ...AppErrorBoundary.getDerivedStateFromError(makeError()) };
+          return boundary.render().props.aside;
+        };
+        assert.equal(twice(() => new Error('a profile screen bug')), undefined, 'a crash from elsewhere offers Try again alone');
+        assert.equal(twice(() => 'a thrown string'), undefined);
+
+        // A workout-tab screen's failure, through the area boundary: marked, and thrown on unchanged.
+        const area = new WorkoutAreaBoundary({ children: 'the workout tab' });
+        assert.equal(area.render(), 'the workout tab');
+        const drawn = new TypeError('Cannot read sets of undefined');
+        area.state = WorkoutAreaBoundary.getDerivedStateFromError(drawn);
+        assert.throws(() => area.render(), (error) => error === drawn, 'the root boundary must see the same failure');
+        assert.equal(failures.isWorkoutFailure(drawn), true);
+        assert.notEqual(
+          twice(() => {
+            const error = new Error('player');
+            WorkoutAreaBoundary.getDerivedStateFromError(error);
+            return error;
+          }),
+          undefined,
+          'a repeated workout-screen failure offers the action',
+        );
+
+        // The provider's reducer and summary: marked, thrown on.
+        const applied = new Error('hydrate');
+        assert.throws(() => failures.markingWorkoutFailures(() => {
+          throw applied;
+        }), (error) => error === applied);
+        assert.equal(failures.isWorkoutFailure(applied), true);
+        assert.equal(failures.markingWorkoutFailures(() => 7), 7);
+        assert.doesNotThrow(() => failures.markWorkoutFailure('a string'));
+        assert.equal(failures.isWorkoutFailure('a string'), false);
+        assert.equal(failures.isWorkoutFailure(new Error('unrelated')), false);
+      } finally {
+        globalThis.setTimeout = savedSet;
+      }
+
+      // Wired: the workout tab and the finish screens are drawn inside the area boundary, and the provider marks its
+      // reducer (where the stored bundle is applied) and its summary.
+      const app = read('App.tsx');
+      assert.match(app, /const inWorkoutArea = \(node: React\.ReactNode\) => \(node == null \? node : <WorkoutAreaBoundary>\{node\}<\/WorkoutAreaBoundary>\);/);
+      assert.match(app, /content = inWorkoutArea\(renderWorkoutTab\(\{/);
+      assert.match(app, /content = inWorkoutArea\(renderWorkoutCompletion\(\{/);
+      const provider = read('src', 'features', 'workout', 'WorkoutProvider.tsx');
+      assert.match(provider, /useReducer\(markedWorkoutReducer, workoutInitialState\)/);
+      assert.match(provider, /const markedWorkoutReducer: typeof workoutReducer = \(state, action\) => markingWorkoutFailures\(\(\) => workoutReducer\(state, action\)\);/);
+      assert.match(provider, /markingWorkoutFailures\(\(\) => selectWorkoutSummary\(state\)\)/);
+    },
+  },
+  {
+    name: 'settings: Restore set-aside workout shows only while a copy exists, asks first, and says what happened only after it resolved',
+    run() {
+      const settings = read('src', 'screens', 'SettingsScreen.tsx');
+      const profile = read('src', 'app', 'renderProfileTab.tsx');
+      const provider = read('src', 'features', 'workout', 'WorkoutProvider.tsx');
+      assert.match(settings, /\{onRestoreSetAsideWorkout \? \(\s*<Row/);
+      assert.match(settings, /onPress=\{\(\) => setRestoreAsideVisible\(true\)\}/, 'asked first');
+      assert.match(settings, /setRestoreAsideVisible\(false\);\s*onRestoreSetAsideWorkout\?\.\(\);/);
+      assert.match(profile, /onRestoreSetAsideWorkout=\{\s*workout\.setAsideWorkoutAvailable\s*\?/);
+      assert.match(profile, /void workout\.restoreSetAsideWorkout\(\)\.then\(/, 'the toast follows the resolved restore');
+      assert.match(provider, /if \(isWorkoutInProgress\(now\.activeSession\) \|\| now\.activeCardio \|\| now\.freestyleDraft\) \{\s*return 'busy';/);
+      assert.match(provider, /return await bringBackWorkoutAside\(/);
+      const { t } = require(path.join(DIST, 'lib', 'i18n.js'));
+      for (const key of [
+        'settings.restoreAside',
+        'settings.restoreAside.sub',
+        'settings.restoreAside.dialog.title',
+        'settings.restoreAside.dialog.message',
+        'settings.restoreAside.dialog.confirm',
+        'settings.restoreAside.done',
+        'settings.restoreAside.busy',
+        'settings.restoreAside.unreadable',
+        'settings.restoreAside.none',
+        'settings.restoreAside.failed',
+      ]) {
+        assert.ok(t('en', key) !== key && t('fi', key) !== key && t('en', key) !== t('fi', key), key);
+      }
+      assert.match(t('en', 'settings.restoreAside.dialog.message'), /nothing is deleted/);
+      assert.match(t('fi', 'settings.restoreAside.dialog.message'), /mitään ei poisteta/);
     },
   },
 ];

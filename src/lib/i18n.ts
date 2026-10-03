@@ -1092,6 +1092,18 @@ const EN = {
   // after they ship the sentence still bounds what may be taken.
   'settings.resetData': 'Reset all data',
   'settings.resetData.sub': 'Clear everything on this device.',
+  // The crash screen's set-aside copy of the workout data, brought back (user decision 2026-10-03).
+  'settings.restoreAside': 'Restore set-aside workout',
+  'settings.restoreAside.sub': 'The workout data put aside after the app stopped.',
+  'settings.restoreAside.dialog.title': 'Bring back the set-aside workout?',
+  'settings.restoreAside.dialog.message':
+    'The workout data put aside after the app stopped comes back. What the app holds now is put aside in its place, so nothing is deleted. If the app stops again, you can put it aside again.',
+  'settings.restoreAside.dialog.confirm': 'Bring back',
+  'settings.restoreAside.done': 'Set-aside workout brought back',
+  'settings.restoreAside.busy': 'Finish or discard the workout in progress first.',
+  'settings.restoreAside.unreadable': 'The set-aside copy cannot be read. It stays on this phone.',
+  'settings.restoreAside.none': 'There is no set-aside workout on this phone.',
+  'settings.restoreAside.failed': 'Could not bring it back. Nothing was changed.',
   'settings.resetData.busy': 'Available once the cloud backup has finished',
   // Said as it is: the sign-out is part of the reset, and the cloud copy is not.
   'settings.resetDialog.message': 'Everything on this phone is deleted.',
@@ -1784,7 +1796,7 @@ const EN = {
   // Offered only after Try again failed again. The bundle is the workout in
   // progress (or a cardio session or free-workout draft) and the numbers
   // remembered from earlier workouts; it is copied aside, never deleted.
-  'appCrash.asideHint': 'Still happening? You can put your workout in progress aside, together with the numbers Vinha remembers from earlier workouts. They are not deleted, but Vinha starts without them.',
+  'appCrash.asideHint': 'Still happening? You can put your workout in progress aside, together with the numbers Vinha remembers from earlier workouts. They are not deleted, but Vinha starts without them. You can bring them back in Settings.',
   'appCrash.aside': 'Put workout aside',
   'appCrash.asideWorking': 'Putting it aside…',
   'appCrash.asideFailed': 'The workout could not be put aside. It is still where it was.',
@@ -4347,6 +4359,17 @@ const FI: Record<I18nKey, string> = {
   'settings.terms': 'Käyttöehdot',
   'settings.resetData': 'Nollaa kaikki tiedot',
   'settings.resetData.sub': 'Tyhjentää kaiken tältä laitteelta.',
+  'settings.restoreAside': 'Palauta sivuun siirretty treeni',
+  'settings.restoreAside.sub': 'Treenitiedot, jotka siirrettiin sivuun sovelluksen pysähdyttyä.',
+  'settings.restoreAside.dialog.title': 'Palautetaanko sivuun siirretty treeni?',
+  'settings.restoreAside.dialog.message':
+    'Sovelluksen pysähdyttyä sivuun siirretyt treenitiedot palaavat. Sovelluksen nykyiset treenitiedot siirretään sivuun niiden tilalle, joten mitään ei poisteta. Jos sovellus pysähtyy uudelleen, voit siirtää ne taas sivuun.',
+  'settings.restoreAside.dialog.confirm': 'Palauta',
+  'settings.restoreAside.done': 'Sivuun siirretty treeni palautettu',
+  'settings.restoreAside.busy': 'Lopeta tai hylkää käynnissä oleva treeni ensin.',
+  'settings.restoreAside.unreadable': 'Sivuun siirrettyä kopiota ei voi lukea. Se jää tähän puhelimeen.',
+  'settings.restoreAside.none': 'Tässä puhelimessa ei ole sivuun siirrettyä treeniä.',
+  'settings.restoreAside.failed': 'Palautus ei onnistunut. Mitään ei muutettu.',
   'settings.resetData.busy': 'Käytettävissä, kun pilvivarmuuskopiointi on valmis',
   'settings.resetDialog.message': 'Kaikki tässä puhelimessa poistetaan.',
   'settings.resetDialog.message.signedIn':
@@ -4931,7 +4954,7 @@ const FI: Record<I18nKey, string> = {
   'appCrash.title': 'Jokin meni pieleen',
   'appCrash.body': 'Vinhassa tapahtui virhe, ja tämä ruutu piti pysäyttää. Mitään ei ole poistettu: treenisi ja asetuksesi ovat edelleen tässä puhelimessa. Yritä uudelleen, niin pääset jatkamaan siitä, mihin jäit.',
   'appCrash.retry': 'Yritä uudelleen',
-  'appCrash.asideHint': 'Toistuuko virhe? Voit siirtää käynnissä olevan treenin sivuun yhdessä niiden lukujen kanssa, jotka Vinha muistaa aiemmista treeneistä. Niitä ei poisteta, mutta Vinha käynnistyy ilman niitä.',
+  'appCrash.asideHint': 'Toistuuko virhe? Voit siirtää käynnissä olevan treenin sivuun yhdessä niiden lukujen kanssa, jotka Vinha muistaa aiemmista treeneistä. Niitä ei poisteta, mutta Vinha käynnistyy ilman niitä. Voit palauttaa ne asetuksista.',
   'appCrash.aside': 'Siirrä treeni sivuun',
   'appCrash.asideWorking': 'Siirretään sivuun…',
   'appCrash.asideFailed': 'Treeniä ei voitu siirtää sivuun. Se on edelleen entisellä paikallaan.',
