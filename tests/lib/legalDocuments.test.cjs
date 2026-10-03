@@ -36,7 +36,7 @@ const LEGAL_TEXT_VERSIONS = [
   // Error reports join the usage statistics (same switch, same retention).
   { date: '2026-10-04', fingerprint: '7444fcea5efd63d0' },
   // The crash screen's set-aside copy joins the bookkeeping line.
-  { date: '2026-10-05', fingerprint: '4eda7def6d6eb0dc' },
+  { date: '2026-10-05', fingerprint: '877f77b1df1b5f15' },
 ];
 
 const IDS = ['privacy', 'terms'];

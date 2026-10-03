@@ -229,10 +229,10 @@ module.exports = [
     },
   },
   {
-    name: 'feedbackLink: Send feedback opens a mail draft to the address the legal pages publish',
+    name: 'feedbackLink: Send feedback opens a mail draft to the support address',
     run() {
       const en = buildFeedbackMailto('en', '1.1.0');
-      assert.match(en, /^mailto:santeriylonen@gmail\.com\?subject=/);
+      assert.match(en, /^mailto:support@vinha\.app\?subject=/);
       assert.equal(decodeURIComponent(en.split('subject=')[1]), 'Vinha feedback (v1.1.0)');
       // The version rides along: the first question about any report is which
       // build it came from.

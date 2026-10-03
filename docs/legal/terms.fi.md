@@ -12,7 +12,7 @@ Asentamalla Vinhan tai käyttämällä sitä hyväksyt nämä ehdot. Jos et hyv�
 
 ## Kuka palvelun tarjoaa
 
-Vinhan tarjoaa Santeri Ylönen (Suomi). Yhteystieto: santeriylonen@gmail.com. Se, miten käsittelemme tietojasi, kuvataan tietosuojaselosteessa, joka on osa näitä ehtoja.
+Vinhan tarjoaa Styxon Studio (toiminimi, haltija Santeri Ylönen, Y-tunnus 3321575-3, Suomi). Yhteystieto: privacy@vinha.app. Se, miten käsittelemme tietojasi, kuvataan tietosuojaselosteessa, joka on osa näitä ehtoja.
 
 ## Ikäraja
 

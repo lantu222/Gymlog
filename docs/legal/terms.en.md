@@ -12,7 +12,7 @@ By installing or using Vinha you accept these terms. If you do not accept them, 
 
 ## Who provides the service
 
-Vinha is provided by Santeri Ylönen (Finland). Contact: santeriylonen@gmail.com. How we handle your data is described in the privacy policy, which is part of these terms.
+Vinha is provided by Styxon Studio (sole trader Santeri Ylönen, business ID 3321575-3, Finland). Contact: privacy@vinha.app. How we handle your data is described in the privacy policy, which is part of these terms.
 
 ## Age
 

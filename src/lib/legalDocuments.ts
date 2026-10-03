@@ -48,26 +48,34 @@ import type { StorePlatform } from './storeLinks';
  * The one place the publisher's identity is defined. Change it here and the
  * app, the exported Markdown and the Play Console listing all agree.
  *
- * The controller has to be whoever actually controls the data on the day a
- * user reads this, so it names the individual until a company is entered in
- * the trade register (the name is still being decided; a company that does
- * not exist yet cannot be the controller). The moment the registration lands,
- * switch `name` to the company, fill in `businessId`, re-run
- * `node scripts/export-legal.cjs`, and bump LEGAL_LAST_UPDATED — the change of
- * controller is exactly the kind users are entitled to see.
+ * Styxon Studio is a sole trader's trade name (toiminimi), not a company: in
+ * law the controller is still the individual who holds it, so the documents
+ * name both, with the business ID. If this ever becomes an Oy, the controller
+ * changes — switch `name`, drop `holder`, new `businessId`, bump
+ * LEGAL_LAST_UPDATED; users are entitled to see that change.
+ *
+ * `email` is the address for the documents (data requests, complaints);
+ * `supportEmail` is where Send feedback drafts go. Both are aliases of the
+ * same Workspace inbox, filtered apart there.
  */
 export const LEGAL_ENTITY = {
-  name: 'Santeri Ylönen',
-  /** Y-tunnus. Empty until the company is registered; rendered when set. */
-  businessId: '',
-  email: 'santeriylonen@gmail.com',
+  name: 'Styxon Studio',
+  /** The individual behind the trade name — the controller in law. */
+  holder: 'Santeri Ylönen',
+  /** Y-tunnus. */
+  businessId: '3321575-3',
+  email: 'privacy@vinha.app',
+  supportEmail: 'support@vinha.app',
   country: 'Finland',
   countryFi: 'Suomi',
 } as const;
 
-/** "Company Oy (FI12345678)" once registered, just the name before that. */
-function publisher(): string {
-  return LEGAL_ENTITY.businessId ? `${LEGAL_ENTITY.name} (${LEGAL_ENTITY.businessId})` : LEGAL_ENTITY.name;
+/** "Styxon Studio (sole trader …, business ID …, Finland)" in the reader's language. */
+function publisher(language: AppLanguage): string {
+  const { name, holder, businessId, country, countryFi } = LEGAL_ENTITY;
+  return language === 'fi'
+    ? `${name} (toiminimi, haltija ${holder}, Y-tunnus ${businessId}, ${countryFi})`
+    : `${name} (sole trader ${holder}, business ID ${businessId}, ${country})`;
 }
 
 /** Bumped whenever the wording changes in a way a user should re-read. */
@@ -116,7 +124,7 @@ const privacyEn = (p: LegalPlatform): LegalSection[] => [
   {
     heading: 'Who is responsible',
     body: [
-      `${publisher()} (${LEGAL_ENTITY.country}) publishes Vinha Fitness (“Vinha”) and is the data controller — the one responsible for how your data is handled — for everything described in this policy.`,
+      `${publisher('en')} publishes Vinha Fitness (“Vinha”) and is the data controller — the one responsible for how your data is handled — for everything described in this policy.`,
       `Questions about this policy or your data: ${LEGAL_ENTITY.email}.`,
     ],
   },
@@ -381,7 +389,7 @@ const privacyFi = (p: LegalPlatform): LegalSection[] => [
   {
     heading: 'Kuka vastaa',
     body: [
-      `${publisher()} (${LEGAL_ENTITY.countryFi}) julkaisee Vinha Fitness -sovelluksen (”Vinha”) ja on rekisterinpitäjä eli se, joka vastaa tietojesi käsittelystä kaikessa, mitä tässä selosteessa kuvataan.`,
+      `${publisher('fi')} julkaisee Vinha Fitness -sovelluksen (”Vinha”) ja on rekisterinpitäjä eli se, joka vastaa tietojesi käsittelystä kaikessa, mitä tässä selosteessa kuvataan.`,
       `Kysymykset tästä selosteesta tai tiedoistasi: ${LEGAL_ENTITY.email}.`,
     ],
   },
@@ -644,7 +652,7 @@ const termsEn = (p: LegalPlatform): LegalSection[] => [
   {
     heading: 'Who provides the service',
     body: [
-      `Vinha is provided by ${publisher()} (${LEGAL_ENTITY.country}). Contact: ${LEGAL_ENTITY.email}. How we handle your data is described in the privacy policy, which is part of these terms.`,
+      `Vinha is provided by ${publisher('en')}. Contact: ${LEGAL_ENTITY.email}. How we handle your data is described in the privacy policy, which is part of these terms.`,
     ],
   },
   {
@@ -782,7 +790,7 @@ const termsFi = (p: LegalPlatform): LegalSection[] => [
   {
     heading: 'Kuka palvelun tarjoaa',
     body: [
-      `Vinhan tarjoaa ${publisher()} (${LEGAL_ENTITY.countryFi}). Yhteystieto: ${LEGAL_ENTITY.email}. Se, miten käsittelemme tietojasi, kuvataan tietosuojaselosteessa, joka on osa näitä ehtoja.`,
+      `Vinhan tarjoaa ${publisher('fi')}. Yhteystieto: ${LEGAL_ENTITY.email}. Se, miten käsittelemme tietojasi, kuvataan tietosuojaselosteessa, joka on osa näitä ehtoja.`,
     ],
   },
   {
