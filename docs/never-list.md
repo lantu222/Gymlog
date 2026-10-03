@@ -86,8 +86,6 @@ payloads at the gzip threshold and the 4 MiB cap are run too. A failure prints t
 shortest case and the `BACKUP_ROUNDTRIP_REPLAY` that reruns it; also
 `BACKUP_ROUNDTRIP_SEED`, `BACKUP_ROUNDTRIP_SEQUENCES`, `BACKUP_ROUNDTRIP_STATS=1`.
 
-Two behaviours the first run found on main are listed as KNOWN_GAPS in the test and
-asserted only with `BACKUP_ROUNDTRIP_STRICT=1`: K1 (a phone holding only a name book
-or goals is restored over without being asked) and K2 (a restore whose history write
-is refused leaves the backup's "no" to usage statistics and later legal acceptance
-on the phone). Fix, turn the switch on in the test, delete the entry.
+The first run found two behaviours on main, both fixed and held as fixed cases: a restore whose
+history write is refused is rolled back exactly (not through the restore merge), and a name book,
+strength goals or coach goals the reader wrote count as data worth keeping, so a restore over them asks.

@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { createHmac, randomBytes } = require('node:crypto');
+const { createHmac } = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -63,9 +63,6 @@ const { createFakeAsyncStorage, loadAgainstFake } = require('../../storage/fakeA
  * a payload larger than Vercel's own 4.5 MB request limit (the endpoint's cap
  * answers first).
  *
- * KNOWN GAPS (asserted only with BACKUP_ROUNDTRIP_STRICT=1, listed in
- * KNOWN_GAPS below; otherwise recorded and printed with BACKUP_ROUNDTRIP_STATS=1).
- *
  * Reproduce a failure: BACKUP_ROUNDTRIP_SEED=<seed> BACKUP_ROUNDTRIP_SEQUENCES=<n>
  * node tests/run-tests.cjs prints the shortest case, already shrunk, and the
  * BACKUP_ROUNDTRIP_REPLAY='<json>' that reruns it alone. BACKUP_ROUNDTRIP_STATS=1
@@ -81,7 +78,6 @@ const OLD_PAYLOAD_DIR = path.join(__dirname, '..', '..', 'fixtures', 'backup-his
 const CASES = Number(process.env.BACKUP_ROUNDTRIP_SEQUENCES) || 1000;
 const SEED = Number(process.env.BACKUP_ROUNDTRIP_SEED) || 20261003;
 const REPLAY = process.env.BACKUP_ROUNDTRIP_REPLAY;
-const STRICT = Boolean(process.env.BACKUP_ROUNDTRIP_STRICT);
 const STATS = process.env.BACKUP_ROUNDTRIP_STATS ? new Map() : null;
 const count = (key) => STATS?.set(key, (STATS.get(key) ?? 0) + 1);
 
@@ -90,16 +86,6 @@ const SECRET = 'test-secret';
 const CLIENT_ID = 'client.apps.googleusercontent.com';
 const START_MS = Date.UTC(2026, 9, 3, 12, 0, 0);
 const SERVER_CAP = 4 * 1024 * 1024;
-
-/**
- * Behaviours this invariant found on main that are not fixed yet. Each is
- * asserted only under BACKUP_ROUNDTRIP_STRICT=1, so the day it is fixed the
- * run goes green with the switch on and the entry is deleted.
- */
-const KNOWN_GAPS = {
-  K2: "a restore whose history write is refused rolls the database back through the same merge, so the phone ends with the backup's \"no\" to usage statistics (and a later legal acceptance) it never chose",
-  K1: 'a phone holding only what the reader authored (name book, strength or coach goals) and nothing logged restores a backup without being asked, and those are gone',
-};
 
 // The lists the invariant is written against. Held apart from the code's own so
 // that a field added to (or taken off) the code's list is a failure here, not a
@@ -238,17 +224,6 @@ class Violation extends Error {}
 
 function bad(message) {
   throw new Violation(message);
-}
-
-/** A behaviour found on main and not fixed: a failure only with the strict switch, otherwise recorded. */
-function knownGap(id, message) {
-  count(`known gap ${id}`);
-  if (!KNOWN_GAPS[id]) {
-    throw new Error(`unlisted known gap ${id}`);
-  }
-  if (STRICT) {
-    bad(`${id}: ${message}`);
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -470,8 +445,15 @@ function props(phone) {
     liveSession: phone.live,
     database: app.database,
     workoutHistory: app.history,
-    async restoreDatabase(input) {
+    async restoreDatabase(input, options = {}) {
       armed();
+      if (options.rollback) {
+        // The phone's own database from before, put back as it was (AppProvider's rollback branch).
+        await slow();
+        await M.database.saveDatabase(input, { withPreferences: input.preferences !== app.database.preferences });
+        app.database = input;
+        return input;
+      }
       const restored = M.database.normalizeDatabase(input);
       const next = {
         ...restored,
@@ -1154,7 +1136,7 @@ function loggedRowsMissingFrom(local, copy) {
   return missing;
 }
 
-/** What a reader made that is not a logged row (their name book, goals): the K1 gap. */
+/** What a reader wrote that is not a logged row (their name book, goals): worth keeping too. */
 function authoredRowsMissingFrom(local, copy) {
   const missing = [];
   const book = new Set((copy.exerciseNameBook ?? []).map((entry) => entry.alias));
@@ -1413,7 +1395,7 @@ async function runCase(spec) {
     }
     if (spec.fault) {
       const failed = await step('restore', () => operation(target, 'resolveRestoreChoice', 'restore'));
-      checkFailedRestore(target, spec, beforeAsk, failed === 'failed' ? 'restore_failed' : failed);
+      await checkFailedRestore(target, spec, beforeAsk, failed === 'failed' ? 'restore_failed' : failed);
       return;
     }
     const done = await step('restore', () => operation(target, 'resolveRestoreChoice', 'restore'));
@@ -1432,10 +1414,10 @@ async function runCase(spec) {
     }
     const authored = authoredRowsMissingFrom(targetStart.database, original.database);
     if (authored.length > 0) {
-      knownGap('K1', `a restore that asked nothing replaced ${authored.join(', ')} the reader made on this phone, which the backup lacks`);
+      bad(`5: the restore asked nothing on a phone that held ${authored.join(', ')}, which the backup lacks`);
     }
   } else if (outcome.kind === 'restore_failed' && spec.fault) {
-    checkFailedRestore(target, spec, beforeAsk, 'restore_failed');
+    await checkFailedRestore(target, spec, beforeAsk, 'restore_failed');
     return;
   } else {
     bad(`6: the sign-in of ${spec.scenario === 'fresh' ? 'a new phone' : 'a phone'} onto an account holding a backup ended "${outcome.kind}"`);
@@ -1481,31 +1463,21 @@ async function runCase(spec) {
 const beforeNew = (phone) => clean(phone.app.database.preferences);
 
 /** A restore whose write was refused says so and leaves the phone as it was. */
-function checkFailedRestore(target, spec, before, kind) {
+async function checkFailedRestore(target, spec, before, kind) {
   count(`restore refused at write ${spec.fault} -> ${kind}`);
   if (kind !== 'restore_failed' && kind !== 'failed') {
     bad(`6: a restore whose write was refused ended "${kind}"`);
   }
-  const after = snapshotOf(target);
-  // The two answers a restore merges rather than takes (a "no" to usage statistics, the later acceptance) are
-  // read apart: the rollback after a refused history write merges them a second time (K2).
-  const without = (state) => {
-    const copy = clean(state);
-    delete copy.database.preferences.usageStatisticsEnabled;
-    delete copy.database.preferences.legalAcceptance;
-    return copy;
-  };
-  const found = firstDiff(without(before), without(after), 'phone');
+  // In memory and on disk: the rollback puts back the phone's own database and preferences exactly, not through
+  // the restore's merge (which would hand the phone the backup's "no" to usage statistics and later acceptance).
+  const found = firstDiff(before, snapshotOf(target), 'phone');
   if (found) {
     bad(`5: a restore whose write was refused (write ${spec.fault}) changed the phone: ${found}`);
   }
-  const merged = firstDiff(
-    { usageStatisticsEnabled: before.database.preferences.usageStatisticsEnabled, legalAcceptance: before.database.preferences.legalAcceptance },
-    { usageStatisticsEnabled: after.database.preferences.usageStatisticsEnabled, legalAcceptance: after.database.preferences.legalAcceptance },
-    'preferences',
-  );
-  if (merged) {
-    knownGap('K2', `a restore whose write was refused left the phone with the backup's answer: ${merged}`);
+  const disk = await readDisk(target);
+  const onDisk = firstDiff(before, stateOf(disk.database, disk.history), 'disk');
+  if (onDisk) {
+    bad(`5: a restore whose write was refused (write ${spec.fault}) changed what the phone has on disk: ${onDisk}`);
   }
 }
 
@@ -1599,7 +1571,33 @@ async function failureOf(spec) {
   }
 }
 
-/** Smaller knobs and fewer features while the same invariant still fails. */
+/**
+ * Cases the random run once found, kept as they were printed (shortest first), so they stay run on every seed.
+ */
+const ZERO = { light: false, lightExtra: 'none', sessions: 0, logs: 0, sets: 0, cardio: 0, bodyweight: 0, measurements: 0, nameBook: 0, custom: 0, freestyle: 0, plans: 0, history: 0, slots: 0, weird: false, prefs: false };
+const FIXED_CASES = [
+  {
+    // A restore whose history write is refused rolled the database back through the restore's own merge: the phone
+    // kept the backup's later terms acceptance and "no" to usage statistics.
+    name: 'a refused history write is rolled back exactly',
+    spec: { seed: 688214348, src: { kind: 'gen', seed: 688214348, knobs: ZERO }, scenario: 'other', answer: 'restore', newerLocal: false, gzip: false, freshSetup: false, live: false, body: 'string', fault: 2, other: { seed: 688214355, knobs: { ...ZERO, logs: 3, sets: 4, history: 9, slots: 1, prefs: true } } },
+  },
+  {
+    // A phone holding only a name book it taught was restored over without being asked.
+    name: 'a name book alone is worth keeping',
+    spec: { seed: 5, src: { kind: 'gen', seed: 5, knobs: { ...ZERO, sessions: 2, logs: 1, sets: 1 } }, scenario: 'other', answer: 'restore', newerLocal: false, gzip: false, freshSetup: false, live: false, body: 'string', fault: 0, other: { seed: 12, knobs: { ...ZERO, light: true, lightExtra: 'nameBook', logs: 1, sets: 1 } } },
+  },
+  {
+    name: 'a strength goal alone is worth keeping',
+    spec: { seed: 6, src: { kind: 'gen', seed: 6, knobs: { ...ZERO, sessions: 2, logs: 1, sets: 1 } }, scenario: 'other', answer: 'restore', newerLocal: false, gzip: false, freshSetup: false, live: false, body: 'string', fault: 0, other: { seed: 13, knobs: { ...ZERO, light: true, lightExtra: 'strengthGoal' } } },
+  },
+  {
+    name: 'a coach goal alone is worth keeping',
+    spec: { seed: 7, src: { kind: 'gen', seed: 7, knobs: { ...ZERO, sessions: 2, logs: 1, sets: 1 } }, scenario: 'other', answer: 'restore', newerLocal: false, gzip: false, freshSetup: false, live: false, body: 'parsed', fault: 0, other: { seed: 14, knobs: { ...ZERO, light: true, lightExtra: 'coachGoal' } } },
+  },
+];
+
+/** Smaller knobs and fewer features and fewer features while the same invariant still fails. */
 async function shrink(spec, message) {
   const kind = message.split(':')[0];
   let best = spec;
@@ -1824,18 +1822,28 @@ async function sizeCases() {
 
   // The server's cap. Random text does not compress, so the wire size follows the text size closely.
   const wireBytes = (database, history) => Buffer.byteLength(accountBackup.encodeAccountBackupBody(accountBackup.buildAccountBackupPayload(database, history, new Date(0).toISOString())), 'utf8');
-  const filler = (n) => randomBytes(Math.ceil(n / 2)).toString('hex').slice(0, n);
+  // Seeded: the same text every run, so the sizes below are the same every run (an unseeded one moved them by a few KB).
+  const filler = (n) => {
+    const next = mulberry32(0x5eed);
+    let text = '';
+    while (text.length < n) {
+      text += Math.floor(next() * 4294967296).toString(16).padStart(8, '0');
+    }
+    return text.slice(0, n);
+  };
   const seedState = genState(13, { ...randomKnobs(part(13, 'k')), light: false, sessions: 3, logs: 2, sets: 2, weird: false });
   const withNote = (chars) => {
     const database = clean({ ...seedState.database, exerciseLibrary: [] });
     database.workoutSessions[0].sessionNotes = `n${filler(chars)}`;
     return database;
   };
-  // Calibrate on a sample: wire bytes per character of random hex (the gzip window is 32 KB, so the ratio does not move with size).
-  const sample = 1_000_000;
-  const ratio = wireBytes(withNote(sample), seedState.history) / sample;
-  const under = Math.floor((SERVER_CAP - 40_000) / ratio);
-  const over = Math.ceil((SERVER_CAP + 40_000) / ratio);
+  // Calibrate on two samples: the wire bytes are a line in the characters of random hex (the gzip window is 32 KB).
+  const [lo, hi] = [1_000_000, 2_000_000];
+  const wireLo = wireBytes(withNote(lo), seedState.history);
+  const slope = (wireBytes(withNote(hi), seedState.history) - wireLo) / (hi - lo);
+  const base = wireLo - slope * lo;
+  const under = Math.floor((SERVER_CAP - 40_000 - base) / slope);
+  const over = Math.ceil((SERVER_CAP + 40_000 - base) / slope);
   for (const bodyMode of ['string', 'parsed']) {
     for (const [name, size, fits] of [['just under the server cap', under, true], ['just over the server cap', over, false]]) {
       world = freshWorld();
@@ -2055,7 +2063,9 @@ function guardAgainstDrift() {
   assert.ok(
     app.includes('const restored = normalizeDatabase(input);') &&
       app.includes('preferencesForRestore(restored.preferences, databaseRef.current.preferences, restored.workoutPlans)') &&
-      app.includes('await commit(next);'),
+      app.includes('await commit(next);') &&
+      app.includes('if (options.rollback) {') &&
+      app.includes('await commit(exact);'),
     'AppProvider.restoreDatabaseFromBackup changed: rebuild the phone model in props() from it',
   );
   assert.ok(read('App.tsx').includes('liveSession: hasWorkoutInProgress(workout),'), 'App.tsx no longer tells the backup hook about a workout in progress through hasWorkoutInProgress');
@@ -2064,6 +2074,7 @@ function guardAgainstDrift() {
     assert.equal(inProgress({ activeSession: null, activeCardio: null, freestyleDraft: null, [key]: {} }), true, `a ${key} is a workout in progress`);
   }
   assert.equal(inProgress({ activeSession: null, activeCardio: null, freestyleDraft: null }), false);
+  assert.ok(read('src/features/account/useAccountBackup.ts').includes('await restoreDatabase(previous, { rollback: true });'), 'a failed restore\'s rollback no longer asks for the exact previous database');
   const workout = read('src/features/workout/WorkoutProvider.tsx');
   assert.ok(
     workout.includes('normalizeWorkoutBundle({ activeSession: null, history, activeCardio: null, freestyleDraft: null })') &&
@@ -2101,6 +2112,10 @@ module.exports = [
           return;
         }
         await loadCorpus();
+        for (const fixed of FIXED_CASES) {
+          const failure = await failureOf(fixed.spec);
+          assert.equal(failure, null, `${fixed.name}: ${failure}`);
+        }
         const random = mulberry32(SEED);
         for (let index = 0; index < CASES; index += 1) {
           const spec = makeSpec(random, index);

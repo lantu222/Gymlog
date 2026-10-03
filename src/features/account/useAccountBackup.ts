@@ -201,8 +201,13 @@ export interface AccountBackupInput {
   /**
    * Replaces local data through the providers' own normalize-and-save path,
    * resolving with what was committed once it is on disk.
+   *
+   * `rollback` puts back a database this phone held before: exactly, as it
+   * was, not merged with anything — the restore's own merge (a "no" to usage
+   * statistics, the later terms acceptance) applied to it a second time left
+   * the phone with the backup's answers after a restore that had failed.
    */
-  restoreDatabase: (input: Partial<AppDatabase>) => Promise<AppDatabase>;
+  restoreDatabase: (input: Partial<AppDatabase>, options?: { rollback?: boolean }) => Promise<AppDatabase>;
   restoreWorkoutHistory: (history: WorkoutHistoryStore) => Promise<WorkoutHistoryStore>;
   /**
    * Called once a restore has actually landed — both stores committed, never
@@ -546,7 +551,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       // and the old database written back would undo the wipe.
       if (generationRef.current === generation) {
         try {
-          await restoreDatabase(previous);
+          await restoreDatabase(previous, { rollback: true });
         } catch (rollbackError) {
           console.error('Backup restore could not be undone', rollbackError);
         }

@@ -435,6 +435,17 @@ export function hasLocalDataWorthKeeping(database: AppDatabase, liveSession = fa
   if (database.workoutTemplates.some((template) => !isUntouchedOnboardingTemplate(template, planIds))) {
     return true;
   }
+  // What the reader wrote themselves, with nothing logged beside it: the
+  // lifts they taught the name book, a strength target, a goal told to the
+  // coach. Setup writes none of these (the seed's lists are empty), and a
+  // restore replaces all three with the backup's.
+  if (
+    (database.exerciseNameBook ?? []).length > 0 ||
+    (database.preferences?.strengthGoals ?? []).length > 0 ||
+    (database.preferences?.coachGoals ?? []).length > 0
+  ) {
+    return true;
+  }
   const setupWeight = database.preferences?.setupCurrentWeightKg ?? null;
   const weighIns = database.bodyweightEntries;
   if (weighIns.length > 1 || (weighIns.length === 1 && weighIns[0].weight !== setupWeight)) {
