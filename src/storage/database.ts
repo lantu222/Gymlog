@@ -1493,7 +1493,11 @@ export async function saveDatabase(database: AppDatabase, options: { withPrefere
  *   what this install has already been given: writing defaults over them made
  *   Reset a way to start the fourteen-day trial again and to refill the free
  *   coach answers, as often as wanted — and it dropped a paid membership. The
- *   privacy answers are NOT in that list and go with everything else.
+ *   privacy answers are NOT in that list and go with everything else — but
+ *   for one: a "no" to usage statistics stays a "no". Reset clears what the
+ *   reader logged, not what they said about being measured, and a restore
+ *   keeps that "no" the same way (keepDevicePrivacyChoices: a no on either
+ *   side wins). A yes goes back to the default, as it always did.
  * - The coach-log label goes with the consents, but not before it is filed as
  *   a delete still owed (lib/aiLogDeletion). It is the only way back to the
  *   copies kept under it, so it moves in the same write that clears it: no
@@ -1502,10 +1506,13 @@ export async function saveDatabase(database: AppDatabase, options: { withPrefere
  *   server confirms.
  */
 export async function resetDatabase(
-  device: Pick<AppPreferences, (typeof DEVICE_ONLY_PREFERENCE_FIELDS)[number] | 'aiLogId'>,
+  device: Pick<AppPreferences, (typeof DEVICE_ONLY_PREFERENCE_FIELDS)[number] | 'aiLogId' | 'usageStatisticsEnabled'>,
 ) {
   const blank = createEmptyDatabase(resolveDeviceLanguage());
-  const kept = keepDeviceEntitlement(blank.preferences, device);
+  const kept = {
+    ...keepDeviceEntitlement(blank.preferences, device),
+    usageStatisticsEnabled: blank.preferences.usageStatisticsEnabled && device.usageStatisticsEnabled !== false,
+  };
   const empty = normalizeDatabase({
     ...blank,
     preferences: {

@@ -656,6 +656,33 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
   }
 
   if (route.screen === 'settings') {
+    /**
+     * Delete account takes the reader's kept coach copies with it. Every line
+     * goes off on the phone first (the account is gone; nothing may be kept
+     * under the label from here on), then the server is asked, and a delete
+     * that did not land is filed as owed the way Reset and "withdraw" file it,
+     * for the retry runner. Called only after the account deletion resolved,
+     * and it never reports a failure of that deletion: its own failure is the
+     * "copies pending" toast.
+     */
+    const deleteCoachCopiesAfterAccountDeletion = async () => {
+      const logId = preferences.aiLogId;
+      if (!logId) {
+        return;
+      }
+      try {
+        await updatePreferences({ aiLogChatConsent: false, aiLogComposerConsent: false, aiLogPhotoConsent: false });
+        const deleteSentAt = Date.now();
+        const forgotten = await forgetAiCoachLog(logId);
+        const settling = aiLogDeleteSettlesAt(lastAiLogCarriedAt(logId), deleteSentAt) !== null;
+        const stillOwed = await retireAiLogLabel(logId, !forgotten.ok || settling);
+        if (stillOwed && !forgotten.ok) {
+          showToast(t(preferences.appLanguage, 'toast.coachCopiesPending'));
+        }
+      } catch {
+        showToast(t(preferences.appLanguage, 'toast.coachCopiesPending'));
+      }
+    };
     return (
       <SettingsScreen
         preferences={preferences}
@@ -719,6 +746,10 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
                           void accountBackup.deleteRemoteBackup().then((result) => {
                             if (result === 'failed') {
                               showToast(t(preferences.appLanguage, 'account.deleteRemote.failed'));
+                            } else if (result === 'ended') {
+                              // Signed out because the sign-in was over; nothing
+                              // was deleted, and "try again" would not work.
+                              showToast(t(preferences.appLanguage, 'account.sessionEnded'));
                             }
                           });
                         },
@@ -755,6 +786,12 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
                                   t(preferences.appLanguage, 'account.deleteAccount.done.title'),
                                   t(preferences.appLanguage, 'account.deleteAccount.done.body'),
                                 );
+                                // The account is deleted; the coach's kept copies
+                                // go with it, asked for after and on their own:
+                                // that call can take the whole request timeout,
+                                // and its failure is a queued delete, never a
+                                // failed account deletion.
+                                void deleteCoachCopiesAfterAccountDeletion();
                               } else if (result === 'ended') {
                                 // Signed out because the account was deleted
                                 // elsewhere or its sign-in had ended: nothing was
@@ -866,6 +903,15 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
           setCompletionSummary(null);
           setFinishSaveState({ status: 'idle', sessionId: null });
           await workout.resetWorkoutData();
+          // Both wipes have resolved: nobody's data is on this phone, so the
+          // accounts it was signed out of have nothing left to ask about. Not
+          // earlier — a failed wipe throws above and keeps the marks. A failure
+          // here keeps them too (asks once too often, never too seldom).
+          try {
+            await accountBackup.forgetSignedOutAccounts();
+          } catch {
+            // Fail closed.
+          }
           resetToRoute(ROOT_ROUTES.home);
           if (logId) {
             // Empty in a build without the live coach: it sends nothing, and

@@ -715,7 +715,7 @@ export function SettingsScreen({
         language={language}
         visible={resetVisible}
         title={t(language, 'settings.resetData')}
-        message={t(language, 'settings.resetDialog.message')}
+        message={t(language, account?.signedIn ? 'settings.resetDialog.message.signedIn' : 'settings.resetDialog.message')}
         confirmLabel={t(language, 'settings.resetDialog.confirm')}
         cancelLabel={t(language, 'common.cancel')}
         destructive

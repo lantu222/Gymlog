@@ -47,15 +47,44 @@ module.exports = [
     },
   },
   {
-    name: 'signed-out accounts: a broken row reads as none rather than throwing, and junk entries are dropped',
+    name: 'signed-out accounts: a broken row reads as unknown (it asks), never as nobody, and junk entries are dropped',
     async run() {
       const { fake, store } = load();
+      const unknown = [store.UNKNOWN_SIGNED_OUT_ACCOUNT];
       fake.rows.set(KEY, '[not json');
-      assert.deepEqual(await store.loadSignedOutAccounts(), []);
+      assert.deepEqual(await store.loadSignedOutAccounts(), unknown);
       fake.rows.set(KEY, JSON.stringify(['a', 3, null, '', 'b']));
       assert.deepEqual(await store.loadSignedOutAccounts(), ['a', 'b']);
       fake.rows.set(KEY, JSON.stringify({ a: 1 }));
-      assert.deepEqual(await store.loadSignedOutAccounts(), []);
+      assert.deepEqual(await store.loadSignedOutAccounts(), unknown);
+      fake.rows.set(KEY, JSON.stringify([3, null]));
+      assert.deepEqual(await store.loadSignedOutAccounts(), unknown);
+    },
+  },
+  {
+    name: 'signed-out accounts: an unreadable list asks (unknown) and is never rewritten from nothing',
+    async run() {
+      const { fake, store } = load();
+      await store.rememberSignedOutAccount('a');
+      const row = fake.rows.get(KEY);
+      const realGet = fake.getItem;
+      fake.getItem = async (key) => {
+        if (key === KEY) {
+          throw new Error('Row too big to fit into CursorWindow');
+        }
+        return realGet.call(fake, key);
+      };
+      // Fail closed: "could not read" is somebody's data, not nobody's.
+      assert.deepEqual(await store.loadSignedOutAccounts(), [store.UNKNOWN_SIGNED_OUT_ACCOUNT]);
+      // And a remember on top of it does not replace the entries with [sub].
+      await assert.rejects(() => store.rememberSignedOutAccount('b'));
+      assert.equal(fake.rows.get(KEY), row, 'the list was rewritten after a failed read');
+      fake.getItem = realGet;
+      assert.deepEqual(await store.loadSignedOutAccounts(), ['a']);
+      // An unknown mark survives the next sign-out being added to it.
+      fake.rows.set(KEY, '[not json');
+      await store.rememberSignedOutAccount('b');
+      assert.deepEqual(await store.loadSignedOutAccounts(), [store.UNKNOWN_SIGNED_OUT_ACCOUNT, 'b']);
     },
   },
 ];

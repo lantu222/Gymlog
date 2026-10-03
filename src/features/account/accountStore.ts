@@ -120,28 +120,57 @@ export async function clearStoredAccount(): Promise<void> {
  */
 const SIGNED_OUT_KEY = '@vinha/account/signedout/v1';
 
+/**
+ * Stands for "somebody, I cannot tell who": the list could not be read, or what
+ * was there is not a list. It is no account's own, so every sign-in meets it as
+ * another account's data on the phone and is asked first — the safe way to be
+ * wrong. Gone with the rest of the list once a sign-in settles whose the data is.
+ * (The old reading, "nobody", skipped the account-switch question altogether
+ * on a bad read; audit 2026-10-03.)
+ */
+export const UNKNOWN_SIGNED_OUT_ACCOUNT = '?unknown';
+
+/** Throws when AsyncStorage cannot be read; an unreadable or malformed row reads as unknown. */
+async function readSignedOutAccounts(): Promise<string[]> {
+  const raw = await AsyncStorage.getItem(SIGNED_OUT_KEY);
+  if (typeof raw !== 'string' || raw.length === 0) {
+    return [];
+  }
+  // A build from earlier the same day stored one bare identifier — a
+  // Google account id, digits and nothing else JSON would start with.
+  if (/^[A-Za-z0-9._-]+$/.test(raw)) {
+    return [raw];
+  }
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [UNKNOWN_SIGNED_OUT_ACCOUNT];
+    }
+    const subs = parsed.filter((sub): sub is string => typeof sub === 'string' && sub.length > 0);
+    return subs.length === 0 && parsed.length > 0 ? [UNKNOWN_SIGNED_OUT_ACCOUNT] : subs;
+  } catch {
+    return [UNKNOWN_SIGNED_OUT_ACCOUNT];
+  }
+}
+
+/**
+ * Adds an account to the list. A list that cannot be read is not rewritten
+ * from nothing — that dropped every account already on it — so this throws and
+ * the caller decides; the entries stay as they were.
+ */
 export async function rememberSignedOutAccount(sub: string): Promise<void> {
-  const known = await loadSignedOutAccounts();
+  const known = await readSignedOutAccounts();
   if (!known.includes(sub)) {
     await AsyncStorage.setItem(SIGNED_OUT_KEY, JSON.stringify([...known, sub]));
   }
 }
 
+/** Never throws: what cannot be read is reported as UNKNOWN_SIGNED_OUT_ACCOUNT, which asks. */
 export async function loadSignedOutAccounts(): Promise<string[]> {
   try {
-    const raw = await AsyncStorage.getItem(SIGNED_OUT_KEY);
-    if (typeof raw !== 'string' || raw.length === 0) {
-      return [];
-    }
-    // A build from earlier the same day stored one bare identifier — a
-    // Google account id, digits and nothing else JSON would start with.
-    if (/^[A-Za-z0-9._-]+$/.test(raw)) {
-      return [raw];
-    }
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((sub): sub is string => typeof sub === 'string' && sub.length > 0) : [];
+    return await readSignedOutAccounts();
   } catch {
-    return [];
+    return [UNKNOWN_SIGNED_OUT_ACCOUNT];
   }
 }
 

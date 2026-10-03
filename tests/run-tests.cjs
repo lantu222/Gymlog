@@ -289,6 +289,7 @@ const suites = [
   ...require('./features/account/backupApiDelete.test.cjs'),
   ...require('./lib/accountRestoreAwaitsErase.test.cjs'),
   ...require('./features/account/signedOutAccounts.test.cjs'),
+  ...require('./features/account/accountSession.test.cjs'),
   ...require('./api/backupEndpoint.test.cjs'),
   ...require('./api/backupAppleSession.test.cjs'),
   ...require('./state/accountBackupWiring.test.cjs'),

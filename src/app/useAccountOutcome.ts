@@ -64,6 +64,12 @@ export function useAccountOutcome(deps: AccountOutcomeDeps) {
       showToast(t(language, 'account.signInUnavailable'));
       return outcome.kind;
     }
+    if (outcome.kind === 'ended') {
+      // The sign-in was over and the phone is signed out: said, instead of
+      // "check your connection" or nothing at all.
+      showToast(t(language, 'account.sessionEnded'));
+      return outcome.kind;
+    }
     if (outcome.kind === 'confirm_upload') {
       // Another account's data on this phone: asked before it becomes this
       // account's backup (break round, 2026-09-28). Not dismissable — the
@@ -81,6 +87,8 @@ export function useAccountOutcome(deps: AccountOutcomeDeps) {
                 // Only the failure speaks. Success is the row's green timestamp.
                 if (result === 'failed') {
                   showToast(t(language, 'account.backupFailed'));
+                } else if (result === 'ended') {
+                  showToast(t(language, 'account.sessionEnded'));
                 }
               });
             },
@@ -101,6 +109,8 @@ export function useAccountOutcome(deps: AccountOutcomeDeps) {
         // Only the failure speaks. Success is the row's green timestamp.
         if (result === 'failed') {
           showToast(t(language, 'account.backupFailed'));
+        } else if (result === 'ended') {
+          showToast(t(language, 'account.sessionEnded'));
         }
       });
     };
@@ -141,7 +151,9 @@ export function useAccountOutcome(deps: AccountOutcomeDeps) {
               void accountBackup.resolveRestoreChoice('restore').then((result) => {
                 // Both results speak: this button replaces the phone's data, and
                 // silence after it is no answer to whether it did.
-                if (result !== 'cancelled') {
+                if (result === 'ended') {
+                  showToast(t(language, 'account.sessionEnded'));
+                } else if (result !== 'cancelled') {
                   showToast(t(language, result === 'done' ? 'account.restore.restored' : 'account.restore.failed'));
                 }
               });
