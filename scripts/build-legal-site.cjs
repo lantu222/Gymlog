@@ -21,7 +21,7 @@ if (!fs.existsSync(compiled)) {
   process.exit(1);
 }
 
-const { buildLegalDocument } = require(compiled);
+const { LEGAL_ENTITY, buildLegalDocument } = require(compiled);
 const { buildAccountDeletionPage } = require(path.join(__dirname, '..', '.test-dist', 'lib', 'accountDeletionPage.js'));
 const { WEB_DELETION_ENDPOINT } = require(path.join(__dirname, '..', '.test-dist', 'lib', 'webAccountDeletion.js'));
 
@@ -79,7 +79,8 @@ const FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com">
 // Absolute links: the same pages are also served from GitHub Pages, where a
 // root-relative "/" would not be styxon.fi.
 function page(language, title, body) {
-  const company = 'Styxon Studio · Y-tunnus 3321575-3 · ' + (language === 'fi' ? 'Suomi' : 'Finland');
+  const { name, businessId, country, countryFi } = LEGAL_ENTITY;
+  const company = `${name} · ${language === 'fi' ? 'Y-tunnus' : 'Business ID'} ${businessId} · ${language === 'fi' ? countryFi : country}`;
   return `<!doctype html>
 <html lang="${language}">
 <head>
@@ -101,7 +102,7 @@ ${body}
 </div></main>
 <footer><div class="wrap">
 <span>${escapeHtml(company)}</span>
-<span>© 2026 Styxon Studio</span>
+<span>© 2026 ${escapeHtml(LEGAL_ENTITY.name)}</span>
 </div></footer>
 </body>
 </html>
