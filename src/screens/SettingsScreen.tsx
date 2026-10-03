@@ -413,7 +413,6 @@ export function SettingsScreen({
             <Row
               icon="spark"
               title={t(language, 'settings.replayTour')}
-              sub={t(language, 'settings.replayTour.sub')}
               chevron
               onPress={onReplayTour}
             />
