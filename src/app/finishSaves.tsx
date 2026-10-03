@@ -8,7 +8,7 @@ import type { FreestyleFinishSummary } from '../lib/emptyWorkoutSession';
 import { sessionRecordedWork } from '../lib/exerciseLog';
 import { t } from '../lib/i18n';
 import { createId } from '../lib/ids';
-import { buildExercisePrLookup } from '../lib/workoutCompletionSummary';
+import { buildExercisePrLookupBefore } from '../lib/workoutCompletionSummary';
 import { resolveGuidedSaveTarget } from '../lib/emptyWorkoutSession';
 import { computePostSessionInsight } from '../lib/postSessionInsight';
 import { buildMuscleFocus, getVolumeDeltaVsPrevious } from '../lib/workoutCompleteView';
@@ -231,13 +231,7 @@ export function createFinishSaves(deps: FinishSavesDeps) {
       const priorExerciseLogs = holdsOwnEarlierVersion
         ? database.exerciseLogs.filter((log) => log.sessionId !== adaptedSession.sessionId)
         : database.exerciseLogs;
-      const priorPrLookup = holdsOwnEarlierVersion
-        ? buildExercisePrLookup({
-            exerciseLogs: priorExerciseLogs,
-            workoutSessions: priorSessions,
-            exerciseTemplates: database.exerciseTemplates,
-          })
-        : exercisePrLookup;
+      const priorPrLookup = buildExercisePrLookupBefore(database, adaptedSession.sessionId, exercisePrLookup);
       const insight = computePostSessionInsight(
         {
           completedSession: {

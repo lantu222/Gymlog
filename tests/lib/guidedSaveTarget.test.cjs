@@ -344,4 +344,103 @@ module.exports = [
       assert.match(source, /saveCompletedWorkoutSession\(\{\s*\.\.\.adaptedSession,/, 'the guided save passes the adapted session whole, takenBackAt with it');
     },
   },
+  {
+    // Bug hunt 5 (2026-10-03): the merge kept stored done sets only. A lift note typed before the first Finish,
+    // a lift added in the session and one skipped in it were dropped by a second Finish whose session came
+    // back from a bundle written before them (the save landed, the clear and that bundle write were lost).
+    name: 'a guided finish merged with its save keeps a stored lift note, added lift and skip the returned session never knew',
+    run() {
+      const skippedRow = (name, orderIndex) => ({
+        ...lift(name, orderIndex, [{ ...pending(0), status: 'skipped', outcome: 'skipped', skippedReason: 'Skipped by user' }]),
+        skipped: true,
+        status: 'skipped',
+      });
+      const first = [
+        lift('Bench Press', 0, [set(5, 100, 0, 1)]),
+        { ...lift('Row', 1, [pending(0)]), notes: 'left elbow clicks, drop to 50 next time' },
+        skippedRow('Dips', 2),
+        { ...lift('Face Pull', 3, [pending(0)]), sessionInserted: true, slotId: 'inserted_face_pull' },
+      ];
+      const database = saved(first);
+      const rowsOf = (db) =>
+        db.exerciseLogs
+          .filter((log) => log.sessionId === 'session_a')
+          .sort((x, y) => x.orderIndex - y.orderIndex)
+          .map((log) => `${log.exerciseNameSnapshot}${log.notes ? ` [${log.notes}]` : ''}${log.skipped ? ' [skipped]' : ''}${log.sessionInserted ? ' [added]' : ''}`);
+      assert.deepEqual(rowsOf(database), ['Bench Press', 'Row [left elbow clicks, drop to 50 next time]', 'Dips [skipped]', 'Face Pull [added]']);
+
+      // Back from a bundle behind all three, one more bench set logged, Finish again.
+      const returned = [lift('Bench Press', 0, [set(5, 100, 0, 1), set(5, 100, 1, 20)]), lift('Row', 1, [pending(0)])];
+      const merged = persistCompletedWorkoutSessionToDatabase(database, input(returned, { mergeStored: true }));
+      assert.equal(merged.didPersist, true);
+      assert.deepEqual(rowsOf(merged.database), [
+        'Bench Press',
+        'Row [left elbow clicks, drop to 50 next time]',
+        'Dips [skipped]',
+        'Face Pull [added]',
+      ]);
+      assert.deepEqual(setsOf(merged.database, 'session_a'), ['Bench Press:5@100', 'Bench Press:5@100'], 'no set twice, none lost');
+      const row = merged.database.workoutSessions.find((entry) => entry.id === 'session_a');
+      assert.equal(row.noteCount, 1);
+      assert.equal(row.exercisesSkipped, 1);
+      assert.equal(row.sessionInsertedCount, 1);
+      assert.equal(row.setsCompleted, 2);
+      // The same finish again writes nothing.
+      assert.equal(persistCompletedWorkoutSessionToDatabase(merged.database, input(returned, { mergeStored: true })).didPersist, false);
+
+      // A finish that has the slot and nothing for its note: the note goes on the slot's row, once; a row the
+      // finish holds for a lift that was swapped carries it when no row has the stored lift's name.
+      const swapped = [lift('Bench Press', 0, [set(5, 100, 0, 1)]), { ...lift('Cable Row', 1, [set(12, 40, 0, 21)], 'row'), swappedFrom: 'Row' }];
+      const onSwap = mergeStoredWorkoutLogs(storedLogs(database), swapped);
+      assert.deepEqual(
+        onSwap.filter((log) => log.notes).map((log) => `${log.exerciseNameSnapshot}: ${log.notes}`),
+        ['Cable Row: left elbow clicks, drop to 50 next time'],
+      );
+      // A stored set and its lift's note both unknown to the returned session: the set joins its row, the note with it.
+      const withSet = saved([lift('Bench Press', 0, [set(5, 100, 0, 1)]), { ...lift('Row', 1, [set(10, 60, 0, 2)]), notes: 'grip' }]);
+      const behind = mergeStoredWorkoutLogs(storedLogs(withSet), [lift('Bench Press', 0, [set(5, 100, 0, 1)]), lift('Row', 1, [pending(0)])]);
+      assert.deepEqual(
+        behind.filter((log) => log.exerciseNameSnapshot === 'Row').map((log) => `${log.notes}:${doneOf([log]).length}`),
+        ['grip:1'],
+      );
+      // A stored row whose slot id the finish does not hold (rewritten on load, or a row from before slot ids) is
+      // found by its lift: its note goes on that row, not on a second row of the same lift.
+      const notesOf = (logs) => logs.map((log) => `${log.exerciseNameSnapshot}:${log.notes ?? '-'}`);
+      const rewrittenId = saved([{ ...lift('Row', 0, [pending(0)], 'row_old'), notes: 'N' }]);
+      assert.deepEqual(notesOf(mergeStoredWorkoutLogs(storedLogs(rewrittenId), [lift('Row', 0, [set(10, 60, 0, 30)], 'row_new')])), ['Row:N']);
+      const noSlot = saved([{ ...lift('Row', 0, [pending(0)], null), notes: 'N' }]);
+      assert.deepEqual(notesOf(mergeStoredWorkoutLogs(storedLogs(noSlot), [lift('Row', 0, [set(10, 60, 0, 30)])])), ['Row:N']);
+      // A slot swapped on further in the returned session: the note goes on the lift it ended on, as the player keeps it.
+      const swappedOn = mergeStoredWorkoutLogs(storedLogs(database), [
+        lift('Bench Press', 0, [set(5, 100, 0, 1)]),
+        lift('Row', 1, [set(10, 60, 0, 24)], 'row'),
+        { ...lift('Leg Press', 1, [pending(0)], 'row'), swappedFrom: 'Row' },
+      ]);
+      assert.deepEqual(swappedOn.filter((log) => log.notes).map((log) => log.exerciseNameSnapshot), ['Leg Press']);
+      // A swap made in the session with nothing done after it is on record like a skip.
+      const swapOnly = saved([lift('Bench Press', 0, [set(5, 100, 0, 1)]), { ...lift('Cable Row', 1, [pending(0)], 'row'), swappedFrom: 'Row', status: 'swapped' }]);
+      assert.deepEqual(
+        mergeStoredWorkoutLogs(storedLogs(swapOnly), [lift('Bench Press', 0, [set(5, 100, 0, 1), set(5, 100, 1, 25)])]).map((log) => `${log.exerciseNameSnapshot}<${log.swappedFrom ?? ''}`),
+        ['Bench Press<', 'Cable Row<Row'],
+      );
+      // A free board's merge keeps none of this: every board row is an added lift, and one taken off the board goes.
+      const { mergeStoredBoardLogs } = require('../../.test-dist/lib/emptyWorkoutSession.js');
+      const board = saved([lift('Bench Press', 0, [set(5, 100, 0, 1)]), { ...lift('Curl', 1, [pending(0)], 'curl'), sessionInserted: true }]);
+      assert.deepEqual(mergeStoredBoardLogs(storedLogs(board), [lift('Bench Press', 0, [set(5, 100, 0, 1)])]).map((log) => log.exerciseNameSnapshot), ['Bench Press']);
+      // A note the finish holds for the slot is the reader's latest word, and the stored one does not come back beside it.
+      const rewritten = mergeStoredWorkoutLogs(storedLogs(database), [lift('Bench Press', 0, [set(5, 100, 0, 1)]), { ...lift('Row', 1, [pending(0)]), notes: 'fine now' }]);
+      assert.deepEqual(rewritten.filter((log) => log.notes).map((log) => log.notes), ['fine now']);
+      // The finish's own skip, added lift or logged sets for those slots are not overridden.
+      const known = mergeStoredWorkoutLogs(storedLogs(database), [
+        lift('Bench Press', 0, [set(5, 100, 0, 1)]),
+        lift('Dips', 2, [set(10, 0, 0, 22)]),
+        { ...lift('Face Pull', 3, [set(15, 20, 0, 23)]), sessionInserted: true, slotId: 'inserted_face_pull' },
+      ]);
+      assert.deepEqual(
+        known.filter((log) => ['Dips', 'Face Pull'].includes(log.exerciseNameSnapshot)).map((log) => `${log.exerciseNameSnapshot}:${log.skipped}:${log.sets.length}`),
+        ['Dips:false:1', 'Face Pull:false:1'],
+        'one row each, as the finish holds them',
+      );
+    },
+  },
 ];

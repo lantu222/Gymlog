@@ -10,6 +10,6 @@
  *
  * Paused counts: it is still a session the button resumes.
  */
-export function isWorkoutInProgress(session: { status: string } | null | undefined): boolean {
+export function isWorkoutInProgress(session: { status?: string } | null | undefined): boolean {
   return session != null && session.status !== 'completed';
 }

@@ -361,7 +361,15 @@ const isSkippedLog = (log: Pick<ExerciseLogDraft, 'skipped' | 'status'>) => log.
  *    from was written before that set) and stays. It joins its own lift's row in set order, or
  *    keeps a row of its own when the finish has none for it, or only a skipped one (a skipped row
  *    counts nowhere, and these sets were done);
- *  - a stored set with no moment (an older save) is matched by its lift and value instead.
+ *  - a stored set with no moment (an older save) is matched by its lift and value instead;
+ *  - what a stored row says besides its sets stays when the finish says nothing of that slot: a lift
+ *    note goes onto the slot's last row (the lift it ended on) when none of the finish's rows for it
+ *    has one, and a lift added, skipped or swapped in the session, with no done set, keeps its row
+ *    when the finish has no row for that slot (nor, failing its id, for that lift) at all. The player
+ *    has no way to take an added lift out or a skip back, so a finish without the row is one whose
+ *    session never knew it. A note the reader cleared in a session that
+ *    came back knowing it comes back too: the finish cannot tell a note cleared from one never known,
+ *    and a typed note is never lost on a guess.
  *
  * A stored set the session never knew of showed there as open, and a reader who logs it again has
  * two sets in that place, both kept: the place is not the set (a swap renumbers it), and dropping
@@ -393,10 +401,14 @@ export function mergeStoredWorkoutLogs(
     return left > 0;
   };
   const takenBack = new Set(takenBackAt);
-  return joinKeptSets(stored, logs, (storedLog, set) =>
-    set.completedAt
-      ? !take(heldMoments, set.completedAt) && !takenBack.has(set.completedAt)
-      : !take(heldValues, valueKey(storedLog.exerciseNameSnapshot, set)),
+  return joinKeptSets(
+    stored,
+    logs,
+    (storedLog, set) =>
+      set.completedAt
+        ? !take(heldMoments, set.completedAt) && !takenBack.has(set.completedAt)
+        : !take(heldValues, valueKey(storedLog.exerciseNameSnapshot, set)),
+    true,
   );
 }
 
@@ -423,17 +435,21 @@ export function mergeStoredBoardLogs(
       }
     }),
   );
-  return joinKeptSets(stored, logs, (storedLog, set) => !held.has(`${storedLog.slotId ?? ''}|${set.orderIndex}`));
+  // Not the guided merge's notes and markers: every board row is an added lift, and one taken off the
+  // board with nothing done on it is meant to go.
+  return joinKeptSets(stored, logs, (storedLog, set) => !held.has(`${storedLog.slotId ?? ''}|${set.orderIndex}`), false);
 }
 
 /**
  * The finish's rows with the stored done sets `keeps` says it lacks put back: each into its own
- * lift's row, or a row of its own (see mergeStoredWorkoutLogs).
+ * lift's row, or a row of its own (see mergeStoredWorkoutLogs). With `keepsMarks`, also a stored
+ * note, added lift or skip the finish says nothing of.
  */
 function joinKeptSets(
   stored: ReadonlyArray<ExerciseLog>,
   logs: ReadonlyArray<ExerciseLogDraft>,
   keeps: (storedLog: ExerciseLog, set: ExerciseLogSet) => boolean,
+  keepsMarks: boolean,
 ): ExerciseLogDraft[] {
   const merged: ExerciseLogDraft[] = logs.map((log) => ({ ...log, sets: [...(log.sets ?? [])] }));
   const extra: ExerciseLogDraft[] = [];
@@ -441,11 +457,31 @@ function joinKeptSets(
     .sort((a, b) => a.orderIndex - b.orderIndex)
     .forEach((storedLog) => {
       const kept = (storedLog.sets ?? []).filter((set) => isDoneSet(set) && keeps(storedLog, set));
-      if (kept.length === 0) {
-        return;
-      }
       const sameLift = (log: ExerciseLogDraft) =>
         (log.slotId ?? null) === (storedLog.slotId ?? null) && sameLiftName(log.exerciseNameSnapshot, storedLog.exerciseNameSnapshot);
+      // The finish's rows for this stored row's slot. A swap names a slot's rows after their lifts, so a
+      // slot is found by its id; a row from before slot ids, or one whose slot id was rewritten when the
+      // session was repaired on load, is found by its lift instead (else it would stand twice).
+      const byId = storedLog.slotId ? merged.filter((log) => log.slotId === storedLog.slotId) : [];
+      const slotRows =
+        byId.length > 0 ? byId : merged.filter((log) => sameLiftName(log.exerciseNameSnapshot, storedLog.exerciseNameSnapshot));
+      const note = keepsMarks && storedLog.notes?.trim() && !slotRows.some((log) => log.notes?.trim()) ? storedLog.notes : null;
+      if (kept.length === 0) {
+        if (note && slotRows.length > 0) {
+          // On the lift the slot ended on, where the player keeps an exercise's note (workoutAppAdapter).
+          slotRows[slotRows.length - 1].notes = note;
+          return;
+        }
+        const marked =
+          note ||
+          ((storedLog.sessionInserted === true || isSkippedLog(storedLog) || Boolean(storedLog.swappedFrom)) &&
+            !(storedLog.sets ?? []).some((set) => isDoneSet(set)));
+        if (keepsMarks && marked && slotRows.length === 0) {
+          // Its sets as stored, less any done one the finish holds elsewhere (none, for a mark with nothing done).
+          extra.push({ ...rowOfItsOwn(storedLog), sets: (storedLog.sets ?? []).filter((set) => !isDoneSet(set)) });
+        }
+        return;
+      }
       // A row skipped with nothing done in it was skipped by a session that did not know these sets were
       // done: it is done after all, the way a lift skipped after a set is (exercise/skip). A skipped row
       // that held a done set is not one the player writes, and is left alone.
@@ -466,25 +502,40 @@ function joinKeptSets(
         if (home.status === 'active' && home.sets.every((set) => isDoneSet(set))) {
           home.status = 'completed';
         }
+        if (note) {
+          home.notes = note;
+        }
         return;
       }
       extra.push({
-        exerciseTemplateId: storedLog.exerciseTemplateId,
-        exerciseNameSnapshot: storedLog.exerciseNameSnapshot,
+        ...rowOfItsOwn(storedLog),
         sets: kept,
-        tracked: storedLog.tracked,
-        orderIndex: storedLog.orderIndex,
         skipped: false,
-        sessionInserted: storedLog.sessionInserted === true,
         status: storedLog.status === 'skipped' ? 'completed' : storedLog.status,
-        slotId: storedLog.slotId ?? null,
-        templateSlotId: storedLog.templateSlotId ?? null,
-        templateExerciseId: storedLog.templateExerciseId ?? null,
-        notes: storedLog.notes ?? null,
-        swappedFrom: storedLog.swappedFrom ?? null,
+        // A slot's note once: not again beside the one the finish holds for it.
+        notes: keepsMarks ? note : storedLog.notes ?? null,
       });
     });
   return [...merged, ...extra];
+}
+
+/** A stored row as a draft row of its own, as it was saved. */
+function rowOfItsOwn(storedLog: ExerciseLog): ExerciseLogDraft {
+  return {
+    exerciseTemplateId: storedLog.exerciseTemplateId,
+    exerciseNameSnapshot: storedLog.exerciseNameSnapshot,
+    sets: storedLog.sets ?? [],
+    tracked: storedLog.tracked,
+    orderIndex: storedLog.orderIndex,
+    skipped: storedLog.skipped === true,
+    sessionInserted: storedLog.sessionInserted === true,
+    status: storedLog.status,
+    slotId: storedLog.slotId ?? null,
+    templateSlotId: storedLog.templateSlotId ?? null,
+    templateExerciseId: storedLog.templateExerciseId ?? null,
+    notes: storedLog.notes ?? null,
+    swappedFrom: storedLog.swappedFrom ?? null,
+  };
 }
 
 /**

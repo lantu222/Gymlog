@@ -167,6 +167,36 @@ module.exports = [
     },
   },
   {
+    // Bug hunt 5 (2026-10-03): the identity was registered at the bottom of App.tsx, after App's whole import
+    // graph, so a fatal while those modules loaded (what the crash key is for) was reported as 'unknown' build.
+    name: 'error reporter: a crash while the app modules load names the build: the identity is registered before App is imported',
+    run() {
+      const imports = [...read('index.ts').matchAll(/^import (?:[\w{}\s,]+ from )?'([^']+)';/gm)].map((match) => match[1]);
+      assert.deepEqual(
+        imports.slice(0, 2),
+        ['./src/features/errorReporting/installErrorReporting', './src/features/appUpdate/registerAppIdentityAtStartup'],
+        'the error handlers first, the identity second',
+      );
+      assert.ok(imports.indexOf('./App') > 1, 'App after both');
+      assert.ok(!/registerAppIdentity\(/.test(read('App.tsx')), 'registered once, before App, not again at its bottom');
+
+      const signal = require(path.join(DIST, 'features', 'appUpdate', 'appUpdateSignal.js'));
+      signal.registerAppIdentity(undefined, undefined);
+      requireWithStubs(path.join(DIST, 'features', 'appUpdate', 'registerAppIdentityAtStartup.js'), {
+        'expo-constants': { __esModule: true, default: { expoConfig: { version: '1.1.0' } } },
+        'react-native': { Platform: { OS: 'android' } },
+      });
+      const client = recorder();
+      const reporter = loadReporter(client);
+      reporter.resetErrorReportBudget();
+      reporter.reportAppError('js_fatal', appError('boom while modules load'), { urgent: true });
+      assert.equal(client.sent[0].props.appVersion, '1.1.0');
+      assert.equal(client.sent[0].props.platform, 'android');
+      reporter.resetErrorReportBudget();
+      signal.registerAppIdentity(undefined, undefined);
+    },
+  },
+  {
     name: 'error reporter: the budget holds — one per signature, ten errors and twenty failures a launch',
     run() {
       const client = recorder();

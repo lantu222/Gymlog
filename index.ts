@@ -4,6 +4,8 @@
 // sends it on the next launch if the reader's statistics switch allows; the
 // write is issued, not guaranteed to finish before the process ends.
 import './src/features/errorReporting/installErrorReporting';
+// Second, so a report of an error thrown while App's modules load names the build it came from.
+import './src/features/appUpdate/registerAppIdentityAtStartup';
 import { registerRootComponent } from 'expo';
 
 import App from './App';

@@ -179,7 +179,7 @@ export interface WorkoutTabDeps {
   recentExerciseBrowserItems: React.ComponentProps<typeof CreateTemplateScreen>['recentExerciseLibraryItems'];
   upsertWorkoutTemplate: (draft: WorkoutTemplateDraft) => Promise<string>;
   showToast: (message: string) => void;
-  exercisePrLookup: React.ComponentProps<typeof EmptyWorkoutScreen>['exercisePrLookup'];
+  exercisePrLookupBefore: React.ComponentProps<typeof EmptyWorkoutScreen>['exercisePrLookupBefore'];
   finishLoggedWorkoutSave: (
     draft: WorkoutTemplateDraft,
     summary: FreestyleFinishSummary,
@@ -288,7 +288,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     recentExerciseBrowserItems,
     upsertWorkoutTemplate,
     showToast,
-    exercisePrLookup,
+    exercisePrLookupBefore,
     finishLoggedWorkoutSave,
     exerciseLibrary,
     liftHistory,
@@ -994,7 +994,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         recentExerciseLibraryItems={recentExerciseBrowserItems}
         defaultRestSeconds={preferences.defaultRestSeconds}
         keepScreenAwake={preferences.keepScreenAwakeDuringWorkout}
-        exercisePrLookup={exercisePrLookup}
+        exercisePrLookupBefore={exercisePrLookupBefore}
         restAlerts={{
           // Their own switches and the OS permission, not the phone's
           // Notifications switch: that one governs the scheduled reminders

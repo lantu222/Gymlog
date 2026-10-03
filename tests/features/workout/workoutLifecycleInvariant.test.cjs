@@ -1145,6 +1145,14 @@ async function finishGuided(ev) {
   if (!session) {
     return;
   }
+  if (session.status === 'completed') {
+    // Held as finished until its summary clears it, and saved already: no caller opens the player for it
+    // (navigateToActiveWorkout refuses it), so there is no Finish to press. Finishing it here made a failed save
+    // "leave no resumable session" that no reader could have reached (bug hunt 5, 2026-10-03: it failed at seeds 1,
+    // 2, 3 and 777 within 30 000 sequences).
+    count('finish not offered: the session is already finished');
+    return;
+  }
   const expectedLogged = world.shadow.session?.sets ?? new Map();
   world.pendingExpectation = setMultiset([...expectedLogged.values()]);
   // A set is the moment it was logged (two in one moment told apart by a count).
@@ -1453,8 +1461,15 @@ async function finishFreestyle(ev) {
     if (proc.dbRef.current.workoutTemplates.length !== templatesBefore) {
       fail('2', 'a free workout whose save failed left its template behind');
     }
-    if (world.lastSave && proc.dbRef.current.workoutSessions.some((row) => row.id === world.lastSave.sessionId)) {
+    // A failed write leaves the database in memory as it was. A board with no earlier save has no row; one under the id
+    // of its own earlier save keeps that row with the sets it was stored with (checkDatabase: every saved session holds
+    // exactly its expected sets, and no row stands without a resolved save). (Read as "any row under that id", a
+    // failed merge into a stored row looked like a leaked one: bug hunt 5, 2026-10-03.)
+    if (!idHeld && world.lastSave && proc.dbRef.current.workoutSessions.some((row) => row.id === world.lastSave.sessionId)) {
       fail('2', 'a free workout whose save failed is in the database in memory');
+    }
+    if (idHeld) {
+      checkDatabase(proc.dbRef.current, 'after a free workout board failed to merge into its save');
     }
     if (!world.toasts.includes(saveFailedToast())) {
       fail('2', 'a free workout whose save failed did not say so');
