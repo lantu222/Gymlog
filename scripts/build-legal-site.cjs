@@ -33,35 +33,76 @@ fs.mkdirSync(outDir, { recursive: true });
 const escapeHtml = (value) =>
   value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
 
+// styxon.fi's look (the site these pages live on): its colour tokens, Manrope,
+// the same top bar and footer. Orange is what you press, violet is the brand.
 const STYLE = `
-  body { margin: 0 auto; max-width: 42rem; padding: 2rem 1.25rem 4rem; font-family: Georgia, 'Times New Roman', serif; line-height: 1.6; color: #1a1523; background: #fff; }
-  h1 { font-size: 1.8rem; line-height: 1.2; margin: 0 0 0.25rem; }
-  h2 { font-size: 1.15rem; margin: 2rem 0 0.5rem; }
-  p { margin: 0.6rem 0; }
-  ul, ol { margin: 0.6rem 0; padding-left: 1.4rem; }
-  li { margin: 0.3rem 0; }
-  .updated { color: #6b6478; font-style: italic; margin: 0 0 1.5rem; }
-  .summary { font-size: 1.05rem; }
-  a { color: #5b3df5; }
-  nav { margin-bottom: 2.5rem; }
-  .web-delete { margin: 1rem 0 1.5rem; }
-  .web-delete button { font: inherit; padding: 0.5rem 1rem; margin: 0.25rem 0.5rem 0.25rem 0; border: 1px solid #6b6478; border-radius: 6px; background: #fff; color: #1a1523; cursor: pointer; }
-  .web-delete button.danger { background: #b42318; border-color: #b42318; color: #fff; }
+  :root { --bg: #15131f; --bg2: #1c1830; --line: #2c2740; --fg: #ece9f5; --fg2: #cfcadf; --mut: #9a95ad; --acc: #ff7a3d; --vio2: #a78bfa; --danger: #f04438; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg2); font-family: Manrope, system-ui, sans-serif; font-size: 17px; line-height: 1.65; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 44rem; margin: 0 auto; padding: 0 24px; }
+  header.top { border-bottom: 1px solid var(--line); }
+  header.top .wrap { display: flex; align-items: center; gap: 10px; height: 64px; max-width: 1080px; font-size: 15px; }
+  header.top a { color: var(--fg); text-decoration: none; }
+  .wm { font-weight: 700; letter-spacing: -0.02em; }
+  .wm span { font-weight: 300; color: var(--mut); }
+  .sep { color: var(--line); }
+  .wm.vinha span { font-weight: 700; color: var(--vio2); }
+  main { padding: 48px 0 72px; }
+  h1 { color: var(--fg); font-size: clamp(30px, 6vw, 44px); line-height: 1.1; font-weight: 700; letter-spacing: -0.03em; margin: 0 0 12px; }
+  h2 { color: var(--fg); font-size: 20px; line-height: 1.3; font-weight: 700; letter-spacing: -0.01em; margin: 40px 0 10px; }
+  p { margin: 10px 0; }
+  ul, ol { margin: 10px 0; padding-left: 1.3rem; }
+  li { margin: 6px 0; }
+  li::marker { color: var(--vio2); }
+  ol li::marker { font-weight: 700; }
+  .updated { color: var(--mut); font-size: 14px; margin: 0 0 20px; }
+  .summary { color: var(--fg); font-size: 19px; }
+  a { color: var(--vio2); }
+  a:hover { color: var(--acc); }
+  nav { margin-bottom: 40px; }
+  footer { border-top: 1px solid var(--line); padding: 28px 0 44px; color: var(--mut); font-size: 14px; }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; max-width: 1080px; }
+  footer a { color: var(--mut); }
+  .web-delete { margin: 20px 0 8px; padding: 20px; background: var(--bg2); border: 1px solid var(--line); border-radius: 12px; }
+  .web-delete button { font: inherit; font-size: 15px; font-weight: 600; padding: 9px 16px; margin: 4px 8px 4px 0; border: 1px solid var(--mut); border-radius: 8px; background: transparent; color: var(--fg); cursor: pointer; }
+  .web-delete button.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
   .web-delete button:disabled { opacity: 0.5; cursor: default; }
-  #status { font-weight: bold; }
+  #confirm-text { color: var(--fg); }
+  #status { font-weight: 700; color: var(--fg); margin-bottom: 0; }
+  #status:empty { display: none; }
 `;
 
+const FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&display=swap">`;
+
+// Absolute links: the same pages are also served from GitHub Pages, where a
+// root-relative "/" would not be styxon.fi.
 function page(language, title, body) {
+  const company = 'Styxon Studio · Y-tunnus 3321575-3 · ' + (language === 'fi' ? 'Suomi' : 'Finland');
   return `<!doctype html>
 <html lang="${language}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)}</title>
+<link rel="icon" href="https://styxon.fi/assets/favicon.ico">
+${FONTS}
 <style>${STYLE}</style>
 </head>
 <body>
+<header class="top"><div class="wrap">
+<a class="wm" href="https://styxon.fi/">Styxon <span>Studio</span></a>
+<span class="sep" aria-hidden="true">/</span>
+<a class="wm vinha" href="https://styxon.fi/vinha-fitness/">Vinha <span>Fitness</span></a>
+</div></header>
+<main><div class="wrap">
 ${body}
+</div></main>
+<footer><div class="wrap">
+<span>${escapeHtml(company)}</span>
+<span>© 2026 Styxon Studio</span>
+</div></footer>
 </body>
 </html>
 `;
@@ -187,7 +228,7 @@ function webDeletionForm(language, doc, clientId) {
   });
   window.vinhaGoogleLoaded = function () {
     google.accounts.id.initialize({ client_id: C.clientId, callback: onCredential, auto_select: false });
-    google.accounts.id.renderButton($('gsi-button'), { theme: 'outline', size: 'large', text: 'signin_with', locale: C.language });
+    google.accounts.id.renderButton($('gsi-button'), { theme: 'filled_black', size: 'large', text: 'signin_with', locale: C.language });
   };
   window.vinhaGoogleFailed = function () { say(C.text.signInFailed); };
 })();
