@@ -1,5 +1,8 @@
 const assert = require('node:assert/strict');
 
+// workoutPersistence reaches storage/largeItem, which reads Platform from react-native.
+require('../../helpers/reactNativeStub.cjs').installReactNativeStub();
+
 const {
   workoutReducer,
   workoutInitialState,
