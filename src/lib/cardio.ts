@@ -172,10 +172,9 @@ export function findSavedCardioRun<T extends Pick<CardioSession, 'activityType' 
  */
 export function mergeContinuedCardioRun(stored: CardioSession, incoming: CardioSession): CardioSession {
   // The time and the end move together, and only forward: a longer reading that ended after the stored
-  // one. A pause lost together with the clear can carry the time the app was dead into the duration of
-  // a run that comes back running; nothing at Complete tells that from a run genuinely run further (both
-  // are running when Finish is pressed), so it is not guessed at here. The clock is on the screen before
-  // Complete, and the reader can see it.
+  // one. A pause lost together with the clear brought a saved run back running, the time the app was
+  // dead on its clock; settleSavedCardioRun stops it where it was saved before anyone sees it, so a
+  // longer reading here is a run that was carried on.
   const longer =
     incoming.durationSec > stored.durationSec &&
     Date.parse(incoming.performedAt) > Date.parse(stored.performedAt);
@@ -193,6 +192,35 @@ export function mergeContinuedCardioRun(stored: CardioSession, incoming: CardioS
     next.distanceKm !== (stored.distanceKm ?? null) ||
     next.feel !== (stored.feel ?? null);
   return changed ? next : stored;
+}
+
+/**
+ * A saved run that came back running, stopped where it was saved; null when there is nothing to settle.
+ *
+ * Complete pauses the run, saves it, and clears it, and the pause and the clear are writes nobody
+ * awaits. With both lost (a kill) the run came back running, its clock counting the hours the app was
+ * dead, and a Complete then took that time into the stored row (8 h for a 30 min run; bug hunt
+ * 2026-10-03). A run is saved only once it is paused, so one still running from before its save ended
+ * (its stretch resumed at or before the save's end) is the lost pause: it is put back paused at the
+ * saved time and end. One resumed after its save is the reader carrying on, and runs.
+ */
+export function settleSavedCardioRun(
+  active: ActiveCardioSession | null,
+  sessions: readonly CardioSession[],
+): ActiveCardioSession | null {
+  if (!active || !active.resumedAt) {
+    return null;
+  }
+  const stored = findSavedCardioRun(sessions, active);
+  if (!stored || !(Date.parse(active.resumedAt) <= Date.parse(stored.performedAt))) {
+    return null;
+  }
+  return {
+    ...active,
+    accumulatedMs: Math.max(0, stored.durationSec) * 1000,
+    resumedAt: null,
+    pausedAt: stored.performedAt,
+  };
 }
 
 /**

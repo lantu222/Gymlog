@@ -1,6 +1,6 @@
 import { createId } from '../lib/ids';
 import { normalizeExerciseLogDraft } from '../lib/exerciseLog';
-import { mergeStoredWorkoutLogs, resolveFreestyleSaveTarget, sameSavedLogs } from '../lib/emptyWorkoutSession';
+import { mergeStoredBoardLogs, mergeStoredWorkoutLogs, resolveFreestyleSaveTarget, sameSavedLogs } from '../lib/emptyWorkoutSession';
 import { getSessionTotals } from '../lib/sessionTotals';
 import { exerciseLogRepository, workoutSessionRepository } from '../storage/repositories';
 import { AppDatabase, ExerciseLog, ExerciseLogDraft, WorkoutSession } from '../types/models';
@@ -51,6 +51,11 @@ export interface PersistCompletedWorkoutInput {
    * row afterwards (a note, a rename, the feel) stays.
    */
   mergeStored?: boolean;
+  /**
+   * How the merge tells a set: by the moment it was logged (a guided session, the default), or by
+   * its place on a free workout board, whose sets carry no moment of their own (mergeStoredBoardLogs).
+   */
+  mergeBy?: 'moment' | 'place';
   /** The moments of the sets taken back in the session, for the merge (WorkoutSessionRuntime.takenBackAt). */
   takenBackAt?: string[];
 }
@@ -239,7 +244,13 @@ export function persistCompletedWorkoutSessionToDatabase(
     // in between is kept all the same.
     const storedLogs = database.exerciseLogs.filter((log) => log.sessionId === input.sessionId);
     const merged = buildCompletedWorkoutRecord(
-      { ...input, logs: mergeStoredWorkoutLogs(storedLogs, input.logs, input.takenBackAt ?? []) },
+      {
+        ...input,
+        logs:
+          input.mergeBy === 'place'
+            ? mergeStoredBoardLogs(storedLogs, input.logs)
+            : mergeStoredWorkoutLogs(storedLogs, input.logs, input.takenBackAt ?? []),
+      },
       createIdFn,
     );
     if (!merged) {

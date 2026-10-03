@@ -10,6 +10,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { AppShell } from './src/components/AppShell';
 import { isWorkoutInProgress } from './src/lib/activeWorkout';
 import { discardSavedFreestyleDraft } from './src/lib/emptyWorkoutSession';
+import { settleSavedCardioRun } from './src/lib/cardio';
 import { formatTime, pluralize } from './src/lib/format';
 import { HistoryScrollMemory } from './src/lib/historyScrollMemory';
 import { formatWorkoutDisplayLabel } from './src/lib/displayLabel';
@@ -218,6 +219,10 @@ function VinhaApp() {
     importWorkoutHistory,
   } = useAppContext();
   const workout = useWorkoutContext();
+  // A draft whose workout is already saved is a lost clear's leftover, not a board to come back to: the
+  // screen does not get it, and the restore question does not count it as a workout in progress (bug
+  // hunt 2026-10-03: the provider holds it until the screen mounts and clears it).
+  const freestyleDraft = discardSavedFreestyleDraft(workout.freestyleDraft, database);
   // For listeners that must not re-subscribe on every workout change: the
   // context is a new object once a second while a rest timer or cardio runs.
   const workoutRef = useRef(workout);
@@ -235,7 +240,7 @@ function VinhaApp() {
     // it starts with over the real one. The same as appHydrated below.
     hydrated: hydrated && workout.hydrated,
     // Everything a restore puts away, the free workout's board included.
-    liveSession: hasWorkoutInProgress(workout),
+    liveSession: hasWorkoutInProgress({ ...workout, freestyleDraft }),
     database,
     workoutHistory: workout.history,
     restoreDatabase: restoreDatabaseFromBackup,
@@ -386,6 +391,21 @@ function VinhaApp() {
   const { todayKey, todayStartMs } = useTodayKey();
 
   useInstallStamps({ appHydrated, preferences, updatePreferences });
+
+  // A saved run that came back running (its pause and its clear both lost) is stopped where it was
+  // saved, once both stores have loaded, before its clock carries the hours the app was dead into the
+  // next Complete (lib/cardio settleSavedCardioRun).
+  const activeCardio = workout.activeCardio;
+  const settleCardio = workout.settleCardio;
+  useEffect(() => {
+    if (!hydrated || !workout.hydrated) {
+      return;
+    }
+    const settled = settleSavedCardioRun(activeCardio, cardioSessions);
+    if (settled) {
+      settleCardio(settled);
+    }
+  }, [hydrated, workout.hydrated, activeCardio, cardioSessions, settleCardio]);
 
   useEffect(() => {
     const timeout = setTimeout(() => setMinimumSplashElapsed(true), 1200);
@@ -1957,8 +1977,7 @@ function VinhaApp() {
       unitPreference,
       database,
       workout,
-      // A draft whose workout is already saved is a lost clear's leftover, not a board to come back to.
-      freestyleDraft: discardSavedFreestyleDraft(workout.freestyleDraft, database),
+      freestyleDraft,
       saveFreestyleDraft: workout.saveFreestyleDraft,
       clearFreestyleDraft: workout.clearFreestyleDraft,
       customWorkoutRuntimeMap,

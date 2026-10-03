@@ -170,6 +170,8 @@ export type WorkoutAction =
   | { type: 'cardio/pause'; payload: { nowMs: number } }
   | { type: 'cardio/resume'; payload: { nowMs: number } }
   | { type: 'cardio/clear' }
+  /** The run put back as a whole (lib/cardio settleSavedCardioRun), when it is still the same run. */
+  | { type: 'cardio/settle'; payload: { session: ActiveCardioSession } }
   | { type: 'freestyle/save'; payload: { snapshot: FreestyleDraftSnapshot } }
   | { type: 'freestyle/clear' }
   | { type: 'session/openFinishSummary' }
@@ -1692,7 +1694,10 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
           })),
           skipped: false,
         };
-        slotHistory[slotId] = [entry, ...(slotHistory[slotId] ?? [])].slice(0, 10);
+        // A workout recorded again (a board finished again, merged into its save) replaces its entry:
+        // two entries of one session ate the ten-entry cap and doubled it in the progression gate.
+        const others = (slotHistory[slotId] ?? []).filter((item) => item.sessionId !== sessionId);
+        slotHistory[slotId] = [entry, ...others].slice(0, 10);
       });
 
       return { ...state, history: { ...state.history, slotHistory } };
@@ -2112,6 +2117,12 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
         return state;
       }
       return { ...state, activeCardio: null };
+
+    case 'cardio/settle':
+      if (!state.activeCardio || state.activeCardio.startedAt !== action.payload.session.startedAt) {
+        return state;
+      }
+      return { ...state, activeCardio: action.payload.session };
 
     case 'session/openFinishSummary':
       if (!state.activeSession) {

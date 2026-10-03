@@ -9,7 +9,7 @@ import { sessionRecordedWork } from '../lib/exerciseLog';
 import { t } from '../lib/i18n';
 import { createId } from '../lib/ids';
 import { buildExercisePrLookup } from '../lib/workoutCompletionSummary';
-import { resolveFreestyleSaveTarget, resolveGuidedSaveTarget } from '../lib/emptyWorkoutSession';
+import { resolveGuidedSaveTarget } from '../lib/emptyWorkoutSession';
 import { computePostSessionInsight } from '../lib/postSessionInsight';
 import { buildMuscleFocus, getVolumeDeltaVsPrevious } from '../lib/workoutCompleteView';
 import { ROOT_ROUTES } from '../navigation/routes';
@@ -357,23 +357,33 @@ export function createFinishSaves(deps: FinishSavesDeps) {
     summary: FreestyleFinishSummary,
     adoptSessionId?: (sessionId: string) => void,
   ) => {
-    // The board's own id (FreestyleDraftSnapshot.sessionId), not one per attempt, so a retry of a
-    // finish that already landed saves nothing and goes on to the summary. Only a true retry: a
-    // stored session under this id with other sets gets these sets a new id, never a summary
-    // over a write that did not happen. Read from the database as it stands now.
-    const { sessionId, alreadySaved } = resolveFreestyleSaveTarget(
-      getDatabase(),
-      summary.sessionId ?? createId('session'),
-      summary.logs,
-    );
-    if (summary.sessionId && sessionId !== summary.sessionId) {
-      // The board's id was taken by another workout: the board takes the new one before anything is
-      // written, so a failed save or a kill leaves these sets under an id of their own.
-      adoptSessionId?.(sessionId);
-    }
+    const sessionId = summary.sessionId ?? createId('session');
+    // A board whose own earlier save holds its id is that workout carried on: a draft that reached
+    // the board before the database had loaded, or one written after its save (discardSavedFreestyleDraft
+    // lets only those through). It is merged into that save under the same id, by place
+    // (mergeStoredBoardLogs), and keeps the template the save hangs on. It used to be saved beside it
+    // under `<id>_b`, every set the two shared counted twice (bug hunt 2026-10-03). Read from the
+    // database as it stands now.
+    const storedRow = summary.sessionId ? getDatabase().workoutSessions.find((row) => row.id === sessionId) : undefined;
     // The id the sets are stored under, which the write may have walked on from the one asked for.
     let landedAs = sessionId;
-    if (!alreadySaved) {
+    // Counted at its first save only: a merge, or the same finish found already stored, was counted
+    // when it first landed.
+    let firstSave = true;
+    if (storedRow) {
+      const landed = await saveCompletedWorkoutSession({
+        sessionId,
+        workoutTemplateId: storedRow.workoutTemplateId,
+        workoutNameSnapshot: summary.workoutName,
+        logs: summary.logs,
+        startedAt: summary.startedAt,
+        performedAt: summary.performedAt,
+        mergeStored: true,
+        mergeBy: 'place',
+      });
+      landedAs = landed.sessionId ?? sessionId;
+      firstSave = landed.wasStored !== true;
+    } else {
       const workoutTemplateId = await upsertWorkoutTemplate(draft);
       try {
         const landed = await saveCompletedWorkoutSession({
@@ -385,6 +395,12 @@ export function createFinishSaves(deps: FinishSavesDeps) {
           performedAt: summary.performedAt,
         });
         landedAs = landed.sessionId ?? sessionId;
+        firstSave = landed.wasStored !== true;
+        if (!firstSave) {
+          // Found already stored (a save that appeared between the read above and the write): the
+          // template made for it holds nothing.
+          await deleteWorkoutTemplate(workoutTemplateId).catch(() => undefined);
+        }
       } catch (error) {
         // The template is written first so the session can name it. A session
         // that did not land must not leave the template behind — the retry made
@@ -394,8 +410,18 @@ export function createFinishSaves(deps: FinishSavesDeps) {
         await deleteWorkoutTemplate(workoutTemplateId).catch(() => undefined);
         throw error;
       }
-      // Counted once it is on disk, by the guided path's own rule.
-      countWorkoutCompleted(landedAs);
+    }
+    if (summary.sessionId && landedAs !== summary.sessionId) {
+      // The write filed the sets under another id: the board takes it, so a kill before the summary
+      // leaves a board that names the saved workout.
+      adoptSessionId?.(landedAs);
+    }
+    // The sets are on disk. Nothing after this may throw back to the board: it would say the save
+    // failed over a saved workout and leave the board up to be finished, and saved, again.
+    try {
+      if (firstSave) {
+        countWorkoutCompleted(landedAs);
+      }
       /**
        * Remembered for the next time these lifts come up.
        *
@@ -423,33 +449,36 @@ export function createFinishSaves(deps: FinishSavesDeps) {
             })),
         })),
       });
-    }
-    setCompletionSummary({
-      ...summary,
-      sessionId: landedAs,
-      // Freestyle sessions have no plan identity: no previous-session
-      // comparison, and muscle focus comes from the logged drafts.
-      volumeDeltaKg: null,
-      muscles: buildMuscleFocus(
-        summary.logs.map((log) => ({
-          exerciseName: log.exerciseNameSnapshot,
-          sets: log.sets.map((set) => ({
-            status: set.outcome === 'completed' ? ('completed' as const) : ('skipped' as const),
-            weightKg: set.weight,
-            reps: set.reps,
+      setCompletionSummary({
+        ...summary,
+        sessionId: landedAs,
+        // Freestyle sessions have no plan identity: no previous-session
+        // comparison, and muscle focus comes from the logged drafts.
+        volumeDeltaKg: null,
+        muscles: buildMuscleFocus(
+          summary.logs.map((log) => ({
+            exerciseName: log.exerciseNameSnapshot,
+            sets: log.sets.map((set) => ({
+              status: set.outcome === 'completed' ? ('completed' as const) : ('skipped' as const),
+              weightKg: set.weight,
+              reps: set.reps,
+            })),
           })),
-        })),
-        exerciseLibrary,
-      ),
-      // A freestyle session has no plan identity, and the comparison this
-      // screen makes is "against the last time you trained this lift" — a
-      // claim the empty-workout flow does not gather the history for.
-      whatMoved: [],
-      movementById: {},
-      insight: null,
-    });
-    summaryExitRouteRef.current = ROOT_ROUTES.home;
-    replaceRoute({ tab: 'workout', screen: 'summary' });
+          exerciseLibrary,
+        ),
+        // A freestyle session has no plan identity, and the comparison this
+        // screen makes is "against the last time you trained this lift" — a
+        // claim the empty-workout flow does not gather the history for.
+        whatMoved: [],
+        movementById: {},
+        insight: null,
+      });
+      summaryExitRouteRef.current = ROOT_ROUTES.home;
+      replaceRoute({ tab: 'workout', screen: 'summary' });
+    } catch (error) {
+      console.error('Failed after the free workout was saved', error);
+      navigateBack(getWorkoutLoggerFallbackRoute());
+    }
   };
 
   return { handleDiscardWorkout, handleConfirmFinishWorkout, finishLoggedWorkoutSave };

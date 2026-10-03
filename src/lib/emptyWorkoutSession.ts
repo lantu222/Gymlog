@@ -228,9 +228,15 @@ export function freestyleLogsOf(exercises: FreestyleExerciseDraft[]): ExerciseLo
  *
  * Finish saves first and clears the draft with a write nobody awaits; when that write is lost
  * (a kill, a refused disk) the board returns after launch under an id the database already
- * holds. If everything the draft holds as done is in that saved session (a draft handed over
- * before the last tick is a subset of it) it is the same workout and goes. If it holds a set the
- * session does not, those sets were never saved: the board stays, under an id of its own.
+ * holds. It goes when everything it holds as done is in that saved session (a draft handed over
+ * before the last tick is a subset of it), and when it was written before that save: the save is
+ * the board as it stood at Finish, so a draft written earlier is that board less its last edits
+ * (it is written 400 ms behind the board). It came back holding a weight changed just before
+ * Finish, and its second Finish saved every set twice (bug hunt 2026-10-03).
+ *
+ * A draft written after the save is the board carried on after it (a draft that reached the board
+ * before the database had loaded): it stays, under its own id, and its Finish merges into the
+ * saved workout (mergeStoredBoardLogs). An id held by an older build's walk (`<id>_b`) is followed.
  */
 export function discardSavedFreestyleDraft(
   draft: FreestyleDraftSnapshot | null,
@@ -239,13 +245,16 @@ export function discardSavedFreestyleDraft(
   if (!draft || !draft.sessionId) {
     return draft;
   }
+  const saved = database.workoutSessions.find((session) => session.id === draft.sessionId);
+  const writtenBeforeSave =
+    saved !== undefined && draft.savedAtMs > 0 && draft.savedAtMs <= Date.parse(saved.performedAt);
+  if (writtenBeforeSave) {
+    return null;
+  }
   const target = walkTakenIds(database, draft.sessionId, liftsOf(freestyleLogsOf(draft.exercises)), (stored, saving) =>
     liftsContained(saving, stored),
   );
-  if (target.stored) {
-    return null;
-  }
-  return target.sessionId === draft.sessionId ? draft : { ...draft, sessionId: target.sessionId };
+  return target.stored ? null : draft;
 }
 
 /**
@@ -382,20 +391,54 @@ export function mergeStoredWorkoutLogs(
     return left > 0;
   };
   const takenBack = new Set(takenBackAt);
+  return joinKeptSets(stored, logs, (storedLog, set) =>
+    set.completedAt
+      ? !take(heldMoments, set.completedAt) && !takenBack.has(set.completedAt)
+      : !take(heldValues, valueKey(storedLog.exerciseNameSnapshot, set)),
+  );
+}
+
+/**
+ * A free workout board finished again under the id its earlier save holds, merged with that save.
+ *
+ * The board's sets carry no moment of their own (each is stamped with its finish), but they have a
+ * place that does not move: a lift's key on the board (the row's slotId) and the set's position in
+ * it. A set is never taken off a board, only unticked, and a lift taken off goes with all its sets.
+ * The board is the reader's latest word: a done set on it is saved as it stands, once. A stored set
+ * whose place the board holds no done set at (unticked since, or a lift taken off, or a board that
+ * came back from a draft written before it) stays, as in the guided merge (a set kept beats a set
+ * lost); it joins its lift's row the same way (joinKeptSets).
+ */
+export function mergeStoredBoardLogs(
+  stored: ReadonlyArray<ExerciseLog>,
+  logs: ReadonlyArray<ExerciseLogDraft>,
+): ExerciseLogDraft[] {
+  const held = new Set<string>();
+  logs.forEach((log) =>
+    (log.sets ?? []).forEach((set) => {
+      if (isDoneSet(set)) {
+        held.add(`${log.slotId ?? ''}|${set.orderIndex}`);
+      }
+    }),
+  );
+  return joinKeptSets(stored, logs, (storedLog, set) => !held.has(`${storedLog.slotId ?? ''}|${set.orderIndex}`));
+}
+
+/**
+ * The finish's rows with the stored done sets `keeps` says it lacks put back: each into its own
+ * lift's row, or a row of its own (see mergeStoredWorkoutLogs).
+ */
+function joinKeptSets(
+  stored: ReadonlyArray<ExerciseLog>,
+  logs: ReadonlyArray<ExerciseLogDraft>,
+  keeps: (storedLog: ExerciseLog, set: ExerciseLogSet) => boolean,
+): ExerciseLogDraft[] {
   const merged: ExerciseLogDraft[] = logs.map((log) => ({ ...log, sets: [...(log.sets ?? [])] }));
   const extra: ExerciseLogDraft[] = [];
   [...stored]
     .sort((a, b) => a.orderIndex - b.orderIndex)
     .forEach((storedLog) => {
-      const kept = (storedLog.sets ?? []).filter((set) => {
-        if (!isDoneSet(set)) {
-          return false;
-        }
-        if (set.completedAt) {
-          return !take(heldMoments, set.completedAt) && !takenBack.has(set.completedAt);
-        }
-        return !take(heldValues, valueKey(storedLog.exerciseNameSnapshot, set));
-      });
+      const kept = (storedLog.sets ?? []).filter((set) => isDoneSet(set) && keeps(storedLog, set));
       if (kept.length === 0) {
         return;
       }
