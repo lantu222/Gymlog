@@ -195,7 +195,7 @@ Needs, in the Production environment: `CRON_SECRET` (already set for
 Run it by hand, without posting:
 
 ```bash
-curl -s -H "x-analytics-secret: $ANALYTICS_READ_SECRET" "https://vinha-azure.vercel.app/api/coach-health?notify=0"
+curl -s -H "x-analytics-secret: $ANALYTICS_READ_SECRET" "https://api.vinha.app/api/coach-health?notify=0"
 ```
 
 ## Important

@@ -3,9 +3,11 @@
 Last updated: 22 August 2026
 
 **Deployed state (2026-08-22):** project `vinha-fit/vinha`, production URL
-`https://vinha-azure.vercel.app/api/backup` (the bare `vinha.vercel.app` was
-taken by someone else). Server env complete, smoke-tested: a nonsense token
-answers `INVALID_TOKEN`. `.vercelignore` limits the upload to api/ + src/ —
+`https://api.vinha.app/api/backup` since 2026-10-03 (CNAME in Cloudflare, DNS
+only). The old `https://vinha-azure.vercel.app` stays attached to the same
+project, because builds before that date have it baked in; remove it only
+once no installed build uses it. Server env complete, smoke-tested: a nonsense
+token answers `INVALID_TOKEN`. `.vercelignore` limits the upload to api/ + src/ —
 without it the CLI tried to push the whole 1.4 GB working tree.
 
 Optional Google sign-in that backs the training data up to a server, so a new
@@ -68,14 +70,14 @@ backed up.
      bodies over 4.5 MB anyway, and the app gzips a backup whose JSON passes
      1 MB (`ACCOUNT_BACKUP_COMPRESS_ABOVE_CHARS`), so the cap is compressed bytes.
 3. Deploy (`npx vercel`). Smoke test:
-   `curl -X PUT https://vinha-azure.vercel.app/api/backup -H 'authorization: Bearer nonsense' -d '{}'`
+   `curl -X PUT https://api.vinha.app/api/backup -H 'authorization: Bearer nonsense' -d '{}'`
    must answer `401 INVALID_TOKEN` — not 500 (500 = missing env).
 
 ### 3. App build
 
 1. Build env:
    - `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=<web client id>`
-   - `EXPO_PUBLIC_BACKUP_API_URL=https://vinha-azure.vercel.app/api/backup`
+   - `EXPO_PUBLIC_BACKUP_API_URL=https://api.vinha.app/api/backup`
 2. The native module needs a prebuild (`npx expo prebuild` — the config plugin
    `@react-native-google-signin/google-signin` is already in app.json).
    Remember the local.properties restore afterwards (see project notes).
