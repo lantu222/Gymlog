@@ -440,9 +440,9 @@ comments before deciding. And read them from all three places — the check
 being red or green says nothing about where the bot put them:
 
 ```bash
-gh api repos/lantu222/Gymlog/pulls/<n>/comments -q '.[] | .path + ":" + (.line|tostring) + "\n" + .body'
-gh api repos/lantu222/Gymlog/issues/<n>/comments -q '.[] | .body'
-gh api repos/lantu222/Gymlog/pulls/<n>/reviews  -q '.[] | .body'
+gh api repos/styxon/Gymlog/pulls/<n>/comments -q '.[] | .path + ":" + (.line|tostring) + "\n" + .body'
+gh api repos/styxon/Gymlog/issues/<n>/comments -q '.[] | .body'
+gh api repos/styxon/Gymlog/pulls/<n>/reviews  -q '.[] | .body'
 ```
 
 This is not hypothetical. On 2026-09-03 the first of those commands turned up
