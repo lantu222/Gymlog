@@ -97,7 +97,7 @@ export function buildAccountDeletionPage(language: AppLanguage): AccountDeletion
           bullets: [
             `Treenitiedot puhelimessasi, kunnes painat ${resetAll} tai poistat sovelluksen.`,
             `Nimettömät käyttötilastot ja virheraportit, enintään ${months} kuukautta. Niitä ei ole sidottu tiliisi, joten niistä ei voi poimia sinun tietojasi.`,
-            `Apple-tilillä yksi merkintä päivämäärineen, joka estää vanhan kirjautumisen käytön. Siinä ei ole nimeä, sähköpostia eikä treenitietoja, ja se poistuu ${days} päivän jälkeen.`,
+            `Apple-tilillä yksi merkintä päivämäärineen, joka estää vanhan kirjautumisen käytön. Siinä ei ole nimeä, sähköpostia eikä treenitietoja. Palvelimen rutiinisiivous poistaa sen, kun ${days} päivää on kulunut; siivous ajetaan, kun joku kirjautuu Applella, joten siinä voi mennä hieman pidempään.`,
             'Anthropic, joka kirjoittaa valmentajan vastaukset, poistaa oman kopionsa kysymyksistä 30 päivän kuluessa joka tapauksessa.',
           ],
         },
@@ -161,7 +161,7 @@ export function buildAccountDeletionPage(language: AppLanguage): AccountDeletion
         bullets: [
           `The training data on your phone, until you tap ${resetAll} or uninstall the app.`,
           `Anonymous usage statistics and error reports, for up to ${months} months. They are not tied to your account, so nothing of yours can be picked out of them.`,
-          `For an Apple account, one dated marker that stops an old sign-in from being used. It holds no name, email or training data, and is removed after ${days} days.`,
+          `For an Apple account, one dated marker that stops an old sign-in from being used. It holds no name, email or training data. The server’s routine clean-up removes it once ${days} days have passed; that clean-up runs when someone signs in with Apple, so it can take a little longer.`,
           'Anthropic, which writes the coach’s answers, deletes its own copy of the questions within 30 days either way.',
         ],
       },

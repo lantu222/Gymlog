@@ -38,6 +38,8 @@ const LEGAL_TEXT_VERSIONS = [
   // The crash screen's set-aside copy joins the bookkeeping line; account
   // deletion without the app, on the web page.
   { date: '2026-10-05', fingerprint: '75c46b9081ec08fb' },
+  // The cookie line names the web deletion page's Google sign-in.
+  { date: '2026-10-06', fingerprint: '4e2656f3346bf4e6' },
 ];
 
 const IDS = ['privacy', 'terms'];
@@ -916,6 +918,34 @@ module.exports = [
           + 'The date and the record move together: a bumped date without a changed wording has nothing new to '
           + 'show the reader, and a recorded version under a different date is not the one they see.',
       );
+    },
+  },
+  {
+    // Bug hunt 5 (2026-10-03): the policy said "No cookies. The app is not a web page", while the web page for
+    // deleting an account without the app loads Google's sign-in script, which can set and read Google's cookies.
+    // Every script the published pages load from another site is one the policy has to account for.
+    name: 'privacy policy: what the published pages load from other sites is what its cookie line names',
+    run() {
+      // Scripts, stylesheets, fonts and other resources the pages fetch, not links a reader follows. styxon.fi is ours.
+      const site = read('scripts/build-legal-site.cjs');
+      const fetched = [...site.matchAll(/<(?:script|link|img|iframe)\b[^>]*\s(?:src|href)="https:\/\/([^/"]+)/g)].map((match) => match[1]);
+      const hosts = [...new Set(fetched)].filter((host) => host !== 'styxon.fi');
+      assert.deepEqual(hosts, ['accounts.google.com'], 'something new loaded from another site on the legal pages: say in the cookie line what it does');
+      assert.match(site, /src: url\('fonts\/Manrope\.ttf'\)/, 'the font is served beside the pages, not fetched from a font service');
+      const said = {
+        en: /No cookies in the app\. [^']*Our web pages set none either\. On the page for deleting an account without the app \(above\), the Sign in with Google button is Google’s own, loaded from Google when the page opens, and Google can set and read its own cookies for that sign-in/,
+        fi: /Ei evästeitä sovelluksessa\. [^']*Myöskään verkkosivumme eivät aseta niitä\. Yllä mainitulla sivulla, jolla tilin voi poistaa ilman sovellusta, Kirjaudu Googlella -painike on Googlen oma ja ladataan Googlelta, kun sivu avautuu, ja Google voi asettaa ja lukea kirjautumista varten omia evästeitään/,
+      };
+      for (const platform of ['android', 'ios', 'both']) {
+        for (const language of LANGUAGES) {
+          const text = buildLegalDocument('privacy', language, platform)
+            .sections.flatMap((section) => [...(section.body ?? []), ...(section.bullets ?? [])])
+            .join('\n');
+          assert.match(text, said[language], `${platform}/${language}`);
+          // "above": the page is named before the cookie line, with the address it is at.
+          assert.ok(text.indexOf('legal/delete-account.') > -1 && text.indexOf('legal/delete-account.') < text.search(said[language]), `${platform}/${language}: the page is named above`);
+        }
+      }
     },
   },
 ];
