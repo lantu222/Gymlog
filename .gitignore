@@ -81,3 +81,6 @@ dist-analytics/
 # in half a minute. The script and its review notes are tracked; the output is
 # not.
 outputs/app-texts-fi-en/
+# Private notes (lawyer memos, company papers): the repository is public.
+private/
+docs/legal/juristin-*
