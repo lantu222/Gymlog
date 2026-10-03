@@ -53,7 +53,10 @@ export function useAccountOutcome(deps: AccountOutcomeDeps) {
       return outcome.kind;
     }
     if (outcome.kind === 'restored') {
-      showToast(t(language, 'account.restore.restored'));
+      // No toast, for the same reason as 'backed_up': the history is on screen
+      // and the backup row carries the time in green. "Varmuuskopio
+      // palautettu" over that was one more of the bars the reader keeps
+      // asking to be rid of (#bugs 2026-10-03).
       return outcome.kind;
     }
     if (outcome.kind === 'restore_failed') {
@@ -160,12 +163,13 @@ export function useAccountOutcome(deps: AccountOutcomeDeps) {
             style: 'destructive',
             onPress: () => {
               void accountBackup.resolveRestoreChoice('restore').then((result) => {
-                // Both results speak: this button replaces the phone's data, and
-                // silence after it is no answer to whether it did.
+                // Only the failure speaks, as after "keep": a landed restore
+                // shows itself — the backup's history on screen, the row's
+                // green timestamp (#bugs 2026-10-03).
                 if (result === 'ended') {
                   showToast(t(language, 'account.sessionEnded'));
-                } else if (result !== 'cancelled') {
-                  showToast(t(language, result === 'done' ? 'account.restore.restored' : 'account.restore.failed'));
+                } else if (result === 'failed') {
+                  showToast(t(language, 'account.restore.failed'));
                 }
               });
             },
