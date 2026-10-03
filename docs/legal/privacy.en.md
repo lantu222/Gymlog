@@ -1,6 +1,6 @@
 # Privacy policy
 
-*Updated 2 October 2026*
+*Updated 3 October 2026*
 
 What Vinha stores, what leaves your phone, and what you can do about it.
 
@@ -60,7 +60,9 @@ The backup is stored by Vercel, our hosting provider, in the European Union. It 
 
 Settings → Delete cloud backup removes the server copy immediately. Signing out does not delete it, and neither does resetting the phone’s data — a reset signs you out first, precisely so that an empty backup never overwrites a full one. The copy waits until you sign in again. If you can no longer open the app, sign in on any phone with the same account and delete it there, or write to us.
 
-Settings → Delete account does the same and more: it deletes the server copy, signs you out on this phone, and ends the sign-in our own server gave an Apple account, so your other phones signed in with Apple are signed out the next time they back up. The training data on this phone stays; Reset all data clears that separately. Afterwards our server holds nothing of yours except, for an Apple account, one scrambled marker with a date, which says that sign-ins made before it have ended, so that an old sign-in cannot be used again. It holds no name, email or training data.
+Settings → Delete account does the same and more: it deletes the server copy, signs you out on this phone, asks our server to delete any copies the AI coach kept for you (only if you had allowed that, as described under “The AI coach”), and ends the sign-in our own server gave an Apple account: your other phones signed in with Apple are signed out at their next request to our server, and a sign-in made with Apple before the deletion can no longer be used to start a new one. The training data on this phone stays; Reset all data clears that separately. The anonymous usage statistics are not tied to your account, so deleting it does not delete them; they are kept for up to 24 months, as described under “Usage statistics”. Apart from those, our server holds nothing of yours afterwards except, for an Apple account, one scrambled marker with a date, which says that sign-ins made before it have ended, so that an old sign-in cannot be used again. It holds no name, email or training data.
+
+Settings → Reset all data deletes everything on this phone and signs you out. It keeps the cloud backup, which waits for you as described above, and it keeps your answer about usage statistics: if you had switched them off, they stay off.
 
 ## The AI coach
 
@@ -192,7 +194,7 @@ Most of these you exercise yourself, inside the app, without asking anyone. For 
 
 - See it: Settings → My data shows your profile, and Progress shows your log. The cloud backup is the same data, so there is nothing more on our side to show.
 - Correct it: edit your profile, or any logged session or entry.
-- Delete it: Settings → Reset all data clears the phone, Settings → Delete cloud backup clears the server copy, and Settings → Delete account clears the server copy and signs you out. Uninstalling the app removes the phone copy too. Usage statistics cannot be traced back to you, so there is nothing of yours to find in them.
+- Delete it: Settings → Reset all data clears the phone, Settings → Delete cloud backup clears the server copy, and Settings → Delete account clears the server copy and any coach copies you had allowed us to keep, and signs you out. Uninstalling the app removes the phone copy too. Usage statistics cannot be traced back to you, so there is nothing of yours to find in them.
 - Take it with you: Settings → Export plan (CSV) sends your programme, or every logged set, as CSV text to any app you choose.
 - Withdraw consent or object: delete the cloud backup and sign out; stop sending questions to the coach; switch usage statistics off in Settings.
 - Complain: write to santeriylonen@gmail.com first, so we can put it right. You also have the right to complain to the data protection authority — in Finland, the Office of the Data Protection Ombudsman, tietosuoja.fi or tietosuoja@om.fi.

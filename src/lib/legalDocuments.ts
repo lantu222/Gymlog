@@ -71,7 +71,7 @@ function publisher(): string {
 }
 
 /** Bumped whenever the wording changes in a way a user should re-read. */
-export const LEGAL_LAST_UPDATED = '2026-10-02';
+export const LEGAL_LAST_UPDATED = '2026-10-03';
 
 export type LegalDocumentId = 'privacy' | 'terms';
 
@@ -168,7 +168,8 @@ const privacyEn = (p: LegalPlatform): LegalSection[] => [
       'A backup is sent shortly after you log training, and whenever you press Back up now. The server checks your sign-in on every request, stores the file, and hands it back only to the same account. It does not read, analyse or log the contents.',
       'The backup is stored by Vercel, our hosting provider, in the European Union. It is kept until you delete it.',
       'Settings → Delete cloud backup removes the server copy immediately. Signing out does not delete it, and neither does resetting the phone’s data — a reset signs you out first, precisely so that an empty backup never overwrites a full one. The copy waits until you sign in again. If you can no longer open the app, sign in on any phone with the same account and delete it there, or write to us.',
-      'Settings → Delete account does the same and more: it deletes the server copy, signs you out on this phone, and ends the sign-in our own server gave an Apple account, so your other phones signed in with Apple are signed out the next time they back up. The training data on this phone stays; Reset all data clears that separately. Afterwards our server holds nothing of yours except, for an Apple account, one scrambled marker with a date, which says that sign-ins made before it have ended, so that an old sign-in cannot be used again. It holds no name, email or training data.',
+      'Settings → Delete account does the same and more: it deletes the server copy, signs you out on this phone, asks our server to delete any copies the AI coach kept for you (only if you had allowed that, as described under “The AI coach”), and ends the sign-in our own server gave an Apple account: your other phones signed in with Apple are signed out at their next request to our server, and a sign-in made with Apple before the deletion can no longer be used to start a new one. The training data on this phone stays; Reset all data clears that separately. The anonymous usage statistics are not tied to your account, so deleting it does not delete them; they are kept for up to 24 months, as described under “Usage statistics”. Apart from those, our server holds nothing of yours afterwards except, for an Apple account, one scrambled marker with a date, which says that sign-ins made before it have ended, so that an old sign-in cannot be used again. It holds no name, email or training data.',
+      'Settings → Reset all data deletes everything on this phone and signs you out. It keeps the cloud backup, which waits for you as described above, and it keeps your answer about usage statistics: if you had switched them off, they stay off.',
     ],
   },
   {
@@ -345,7 +346,7 @@ const privacyEn = (p: LegalPlatform): LegalSection[] => [
     bullets: [
       'See it: Settings → My data shows your profile, and Progress shows your log. The cloud backup is the same data, so there is nothing more on our side to show.',
       'Correct it: edit your profile, or any logged session or entry.',
-      'Delete it: Settings → Reset all data clears the phone, Settings → Delete cloud backup clears the server copy, and Settings → Delete account clears the server copy and signs you out. Uninstalling the app removes the phone copy too. Usage statistics cannot be traced back to you, so there is nothing of yours to find in them.',
+      'Delete it: Settings → Reset all data clears the phone, Settings → Delete cloud backup clears the server copy, and Settings → Delete account clears the server copy and any coach copies you had allowed us to keep, and signs you out. Uninstalling the app removes the phone copy too. Usage statistics cannot be traced back to you, so there is nothing of yours to find in them.',
       'Take it with you: Settings → Export plan (CSV) sends your programme, or every logged set, as CSV text to any app you choose.',
       'Withdraw consent or object: delete the cloud backup and sign out; stop sending questions to the coach; switch usage statistics off in Settings.',
       `Complain: write to ${LEGAL_ENTITY.email} first, so we can put it right. You also have the right to complain to the data protection authority — in Finland, the Office of the Data Protection Ombudsman, tietosuoja.fi or tietosuoja@om.fi.`,
@@ -430,7 +431,8 @@ const privacyFi = (p: LegalPlatform): LegalSection[] => [
       'Varmuuskopio lähetetään hetki sen jälkeen, kun kirjaat treenin, ja aina kun painat Varmuuskopioi nyt. Palvelin tarkistaa kirjautumisesi joka pyynnöllä, tallentaa tiedoston ja luovuttaa sen vain samalle tilille. Se ei lue, analysoi eikä lokita sisältöä.',
       'Varmuuskopion säilyttää Vercel, palvelintarjoajamme, Euroopan unionin alueella. Se säilyy, kunnes poistat sen.',
       'Asetukset → Poista pilvivarmuuskopio poistaa palvelinkopion heti. Uloskirjautuminen ei poista sitä, eikä puhelimen tietojen nollaus — nollaus kirjaa sinut ensin ulos juuri siksi, ettei tyhjä varmuuskopio koskaan korvaisi täyttä. Kopio odottaa, kunnes kirjaudut uudelleen. Jos et enää pääse sovellukseen, kirjaudu samalla tilillä millä tahansa puhelimella ja poista se sieltä, tai kirjoita meille.',
-      'Asetukset → Poista tili tekee saman ja enemmän: se poistaa palvelinkopion, kirjaa sinut ulos tästä puhelimesta ja päättää oman palvelimemme Apple-tilille antaman kirjautumisen, joten muut Applella kirjautuneet puhelimesi kirjautuvat ulos, kun ne seuraavan kerran varmuuskopioivat. Treenitiedot tässä puhelimessa säilyvät; Nollaa kaikki tiedot tyhjentää ne erikseen. Sen jälkeen palvelimellamme ei ole sinusta mitään, paitsi Apple-tilillä yksi sekoitettu merkintä päivämäärineen, joka kertoo, että sitä ennen tehdyt kirjautumiset ovat päättyneet, jottei vanhaa kirjautumista voi käyttää uudelleen. Siinä ei ole nimeä, sähköpostia eikä treenitietoja.',
+      'Asetukset → Poista tili tekee saman ja enemmän: se poistaa palvelinkopion, kirjaa sinut ulos tästä puhelimesta, pyytää palvelintamme poistamaan kaikki kopiot, jotka AI-valmentaja on säilyttänyt sinusta (vain jos olit sallinut sen, kuten kohdassa ”AI-valmentaja” kerrotaan), ja päättää oman palvelimemme Apple-tilille antaman kirjautumisen: muut Applella kirjautuneet puhelimesi kirjautuvat ulos seuraavalla pyynnöllään palvelimellemme, eikä ennen poistoa Applella tehdyllä kirjautumisella voi enää aloittaa uutta. Treenitiedot tässä puhelimessa säilyvät; Nollaa kaikki tiedot tyhjentää ne erikseen. Nimettömät käyttötilastot eivät ole sidottu tiliisi, joten tilin poistaminen ei poista niitä; ne säilyvät enintään 24 kuukautta, kuten kohdassa ”Käyttötilastot” kerrotaan. Näiden lisäksi palvelimellamme ei sen jälkeen ole sinusta mitään, paitsi Apple-tilillä yksi sekoitettu merkintä päivämäärineen, joka kertoo, että sitä ennen tehdyt kirjautumiset ovat päättyneet, jottei vanhaa kirjautumista voi käyttää uudelleen. Siinä ei ole nimeä, sähköpostia eikä treenitietoja.',
+      'Asetukset → Nollaa kaikki tiedot poistaa kaiken tästä puhelimesta ja kirjaa sinut ulos. Se säilyttää pilvivarmuuskopion, joka odottaa sinua yllä kerrotulla tavalla, ja säilyttää valintasi käyttötilastoista: jos olit kytkenyt ne pois, ne pysyvät poissa.',
     ],
   },
   {
@@ -607,7 +609,7 @@ const privacyFi = (p: LegalPlatform): LegalSection[] => [
     bullets: [
       'Näe ne: Asetukset → Omat tiedot näyttää profiilisi ja Kehitys lokisi. Pilvivarmuuskopio on sama data, joten meidän puolellamme ei ole mitään lisää näytettävää.',
       'Korjaa ne: muokkaa profiiliasi tai mitä tahansa kirjattua treeniä tai merkintää.',
-      'Poista ne: Asetukset → Nollaa kaikki tiedot tyhjentää puhelimen, Asetukset → Poista pilvivarmuuskopio tyhjentää palvelinkopion ja Asetukset → Poista tili tyhjentää palvelinkopion ja kirjaa sinut ulos. Sovelluksen poistaminen poistaa myös puhelimen kopion. Käyttötilastoja ei voi jäljittää sinuun, joten niistä ei löydy mitään sinun.',
+      'Poista ne: Asetukset → Nollaa kaikki tiedot tyhjentää puhelimen, Asetukset → Poista pilvivarmuuskopio tyhjentää palvelinkopion ja Asetukset → Poista tili tyhjentää palvelinkopion ja ne valmentajan kopiot, joiden säilyttämisen olit sallinut, ja kirjaa sinut ulos. Sovelluksen poistaminen poistaa myös puhelimen kopion. Käyttötilastoja ei voi jäljittää sinuun, joten niistä ei löydy mitään sinun.',
       'Ota ne mukaasi: Asetukset → Vie ohjelma (CSV) lähettää ohjelmasi tai jokaisen kirjatun sarjan CSV-tekstinä valitsemaasi sovellukseen.',
       'Peruuta suostumus tai vastusta: poista pilvivarmuuskopio ja kirjaudu ulos; lakkaa lähettämästä kysymyksiä valmentajalle; kytke käyttötilastot pois asetuksista.',
       `Valita: kirjoita ensin osoitteeseen ${LEGAL_ENTITY.email}, jotta voimme korjata asian. Sinulla on myös oikeus tehdä valitus tietosuojaviranomaiselle — Suomessa tietosuojavaltuutetun toimistolle, tietosuoja.fi tai tietosuoja@om.fi.`,

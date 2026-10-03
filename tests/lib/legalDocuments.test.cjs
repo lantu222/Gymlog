@@ -30,6 +30,9 @@ const LEGAL_TEXT_VERSIONS = [
   { date: '2026-09-30', fingerprint: '5998cb9be6282a40' },
   { date: '2026-10-01', fingerprint: 'e3a2198516dc68a3' },
   { date: '2026-10-02', fingerprint: 'de881a6024122a47' },
+  // From here the fingerprint covers all three renders (android, ios, both) in
+  // both languages; the entries above hashed the 'both' text only.
+  { date: '2026-10-03', fingerprint: '7d906a544fd500bf' },
 ];
 
 const IDS = ['privacy', 'terms'];
@@ -778,14 +781,22 @@ module.exports = [
         assert.match(en, /The server’s routine clean-up removes it once 180 days have passed/);
         assert.match(en, /That clean-up runs when someone signs in with Apple, so it can take a little longer/);
         assert.doesNotMatch(en, /write to us and we delete it/, 'the policy promises a deletion on request that nobody can perform — the marker has no email on it');
-        assert.match(en, /so your other phones signed in with Apple are signed out the next time they back up/);
+        assert.match(en, /your other phones signed in with Apple are signed out at their next request to our server, and a sign-in made with Apple before the deletion can no longer be used to start a new one/);
+        assert.match(en, /asks our server to delete any copies the AI coach kept for you/);
+        assert.match(en, /does not delete them; they are kept for up to 24 months/);
+        assert.doesNotMatch(en, /Afterwards our server holds nothing of yours except/, 'the usage events are not deleted with the account, so "nothing" is too broad');
+        assert.match(en, /Settings → Reset all data deletes everything on this phone and signs you out\. It keeps the cloud backup, .* and it keeps your answer about usage statistics/);
         assert.match(en, /does not take Vinha off the list of apps you use Sign in with Apple with/);
         assert.match(fi, /Asetukset → Poista tili tekee saman ja enemmän/);
         assert.match(fi, /yksi sekoitettu merkintä päivämäärineen/);
         assert.match(fi, /Palvelimen rutiinisiivous poistaa sen, kun 180 päivää on kulunut/);
         assert.match(fi, /Siivous ajetaan, kun joku kirjautuu Applella, joten/);
         assert.doesNotMatch(fi, /Sitä ei poisteta automaattisesti/);
-        assert.match(fi, /muut Applella kirjautuneet puhelimesi kirjautuvat ulos, kun ne seuraavan kerran varmuuskopioivat/);
+        assert.match(fi, /muut Applella kirjautuneet puhelimesi kirjautuvat ulos seuraavalla pyynnöllään palvelimellemme, eikä ennen poistoa Applella tehdyllä kirjautumisella voi enää aloittaa uutta/);
+        assert.match(fi, /pyytää palvelintamme poistamaan kaikki kopiot, jotka AI-valmentaja on säilyttänyt sinusta/);
+        assert.match(fi, /tilin poistaminen ei poista niitä; ne säilyvät enintään 24 kuukautta/);
+        assert.doesNotMatch(fi, /Sen jälkeen palvelimellamme ei ole sinusta mitään/, 'käyttötilastot eivät poistu tilin mukana, joten "ei mitään" on liian laaja');
+        assert.match(fi, /Asetukset → Nollaa kaikki tiedot poistaa kaiken tästä puhelimesta ja kirjaa sinut ulos\. Se säilyttää pilvivarmuuskopion, .* ja säilyttää valintasi käyttötilastoista/);
         assert.match(fi, /ei poista Vinhaa luettelosta sovelluksista, joissa käytät Apple-kirjautumista/);
       }
       // The providers: no number in the sentence that drifted from the list (it said three beside five).
@@ -838,11 +849,21 @@ module.exports = [
       // separate map and are published on the same page (review, #127) — so
       // the one field is named and taken out, and anything added to a
       // document later is covered without anyone remembering to list it.
-      const payload = IDS.flatMap((id) =>
-        LANGUAGES.map((language) => {
-          const { updatedLabel, ...wording } = buildLegalDocument(id, language);
-          return JSON.stringify(wording);
-        }),
+      //
+      // Every render a reader can get: the website's 'both', and the two
+      // platform-only texts the app shows on a phone. The first version of the
+      // record hashed 'both' alone, so a line that exists only in the iOS or
+      // only in the Android text (the `pick` wordings, the platform-only
+      // sections) could change with no new date — and no re-acceptance for the
+      // readers of that platform, who never see the 'both' wording.
+      const PLATFORMS = ['android', 'ios', 'both'];
+      const payload = PLATFORMS.flatMap((platform) =>
+        IDS.flatMap((id) =>
+          LANGUAGES.map((language) => {
+            const { updatedLabel, ...wording } = buildLegalDocument(id, language, platform);
+            return JSON.stringify(wording);
+          }),
+        ),
       ).join(String.fromCharCode(10));
       const fingerprint = require('node:crypto').createHash('sha256').update(payload).digest('hex').slice(0, 16);
 
