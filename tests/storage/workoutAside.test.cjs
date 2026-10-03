@@ -30,17 +30,17 @@ module.exports = [
   {
     name: 'workout aside: the bundle is copied under its own key, then the live key goes; nothing else is touched',
     async run() {
-      const { fake, setWorkoutBundleAside, hasStoredWorkoutBundle } = load();
+      const { fake, setWorkoutBundleAside, hasWorkoutToPutAside } = load();
       fake.rows.set(LIVE, bundle);
       fake.rows.set('@vinha/database/v1', '{"db":true}');
 
-      assert.equal(await hasStoredWorkoutBundle(), true);
+      assert.equal(await hasWorkoutToPutAside(), true);
       assert.equal(await setWorkoutBundleAside(), true);
 
       assert.equal(fake.rows.get(ASIDE), bundle, 'the copy is byte for byte');
       assert.equal(fake.rows.has(LIVE), false);
       assert.equal(fake.rows.get('@vinha/database/v1'), '{"db":true}', 'the database is not the workout');
-      assert.equal(await hasStoredWorkoutBundle(), false);
+      assert.equal(await hasWorkoutToPutAside(), false);
     },
   },
   {
@@ -93,7 +93,7 @@ module.exports = [
     name: 'workout aside: a long bundle in parts is copied whole and every live part goes',
     async run() {
       const { fake, large, setWorkoutBundleAside } = load();
-      const big = JSON.stringify({ body: '€'.repeat(STORAGE_CHUNK_CHARS * 3) });
+      const big = JSON.stringify({ activeSession: { id: 'big' }, body: '€'.repeat(STORAGE_CHUNK_CHARS * 3) });
       await large.setLargeItem(LIVE, big);
       assert.ok([...fake.rows.keys()].some((key) => key.startsWith(`${LIVE}#`)), 'the fixture was not split');
 
@@ -106,8 +106,8 @@ module.exports = [
   {
     name: 'workout aside: a bundle only under the pre-rename key is moved too, and no bundle is a no-op',
     async run() {
-      const { fake, setWorkoutBundleAside, hasStoredWorkoutBundle } = load();
-      assert.equal(await hasStoredWorkoutBundle(), false, 'nothing stored: the screen hides the action');
+      const { fake, setWorkoutBundleAside, hasWorkoutToPutAside } = load();
+      assert.equal(await hasWorkoutToPutAside(), false, 'nothing stored: the screen hides the action');
       assert.equal(await setWorkoutBundleAside(), false);
       assert.equal(fake.rows.size, 0, 'no copy of nothing');
 
@@ -127,6 +127,103 @@ module.exports = [
       assert.equal(await setWorkoutBundleAside(), true);
       assert.ok(fake.rows.get(ASIDE).includes('part zero'), 'the part that was there is not in the copy');
       assert.equal(fake.rows.has(LIVE), false);
+    },
+  },
+  {
+    name: 'workout aside: a second use never overwrites the first copy — an empty bundle saved after the remount is not copied and not offered',
+    async run() {
+      // The review's repro: aside, the remount hydrates an empty bundle and the
+      // provider saves it, a crash from elsewhere shows the action again.
+      const { fake, large, setWorkoutBundleAside, hasWorkoutToPutAside } = load();
+      fake.rows.set(LIVE, bundle);
+      await setWorkoutBundleAside();
+
+      const empty = JSON.stringify({
+        activeSession: null,
+        history: { sessions: [], slotHistory: {}, lastSelectedTemplateId: null },
+        activeCardio: null,
+        freestyleDraft: null,
+      });
+      await large.setLargeItem(LIVE, empty);
+
+      assert.equal(await hasWorkoutToPutAside(), false, 'an empty bundle offers nothing to put aside');
+      await setWorkoutBundleAside();
+      assert.equal(fake.rows.get(ASIDE), bundle, 'the only copy of the real workout was overwritten');
+      assert.equal(fake.rows.has(LIVE), false);
+    },
+  },
+  {
+    name: 'workout aside: a second non-empty bundle goes to its own slot beside the first, and a retry does not copy twice',
+    async run() {
+      const { fake, setWorkoutBundleAside } = load();
+      const second = JSON.stringify({ activeSession: { id: 's2' }, history: { sessions: [], slotHistory: {} } });
+      fake.rows.set(LIVE, bundle);
+      await setWorkoutBundleAside();
+      fake.rows.set(LIVE, second);
+      await setWorkoutBundleAside();
+
+      assert.equal(fake.rows.get(ASIDE), bundle);
+      assert.equal(fake.rows.get(`${ASIDE}/1`), second);
+
+      // The copy landed but the removal did not: the retry finds it and moves on.
+      fake.rows.set(LIVE, second);
+      await setWorkoutBundleAside();
+      assert.equal(fake.rows.has(`${ASIDE}/2`), false, 'a retry copied the same bundle again');
+      assert.equal(fake.rows.has(LIVE), false);
+    },
+  },
+  {
+    name: 'workout aside: a pre-rename bundle beside a live one is copied too, not deleted',
+    async run() {
+      const { fake, setWorkoutBundleAside } = load();
+      const old = JSON.stringify({ activeSession: null, history: { sessions: [], slotHistory: { old: [1] } } });
+      fake.rows.set(LIVE, bundle);
+      fake.rows.set(LEGACY, old);
+      await setWorkoutBundleAside();
+      const copies = [fake.rows.get(ASIDE), fake.rows.get(`${ASIDE}/1`)];
+      assert.ok(copies.includes(bundle) && copies.includes(old), 'a copy is missing');
+      assert.equal(fake.rows.has(LEGACY), false);
+    },
+  },
+  {
+    name: 'workout aside: Reset all data erases every aside copy — numbered slots and their parts included',
+    async run() {
+      const fake = createFakeAsyncStorage();
+      const { aside, large, persistence } = loadAgainstFake(fake, (requireDist) => ({
+        aside: requireDist('storage/workoutAside.js'),
+        large: requireDist('storage/largeItem.js'),
+        persistence: requireDist('features/workout/workoutPersistence.js'),
+      }));
+      const big = JSON.stringify({ activeSession: { id: 'big' }, body: '€'.repeat(STORAGE_CHUNK_CHARS * 3) });
+      await large.setLargeItem(LIVE, bundle);
+      await aside.setWorkoutBundleAside();
+      await large.setLargeItem(LIVE, big);
+      await aside.setWorkoutBundleAside();
+      assert.ok([...fake.rows.keys()].filter((key) => key.startsWith(ASIDE)).length >= 5, 'the fixture left too few rows');
+
+      await persistence.clearWorkoutBundle();
+
+      assert.deepEqual([...fake.rows.keys()].filter((key) => key.includes('workout')), []);
+    },
+  },
+  {
+    name: 'workout aside: what counts as empty — every kept field, and text that does not parse is kept',
+    run() {
+      const { isEmptyBundleText } = load();
+      assert.equal(isEmptyBundleText('{}'), true);
+      assert.equal(isEmptyBundleText(JSON.stringify({ history: { sessions: [], slotHistory: {} } })), true);
+      for (const kept of [
+        { activeSession: { id: 'x' } },
+        { activeCardio: { id: 'x' } },
+        { freestyleDraft: { id: 'x' } },
+        { history: { sessions: [{ id: 'x' }] } },
+        { history: { slotHistory: { a: [1] } } },
+        { history: { lastSelectedTemplateId: 'x' } },
+      ]) {
+        assert.equal(isEmptyBundleText(JSON.stringify(kept)), false, JSON.stringify(kept));
+      }
+      assert.equal(isEmptyBundleText('vinha-chunks:3:70'), false);
+      assert.equal(isEmptyBundleText('[]'), false);
     },
   },
 ];

@@ -34,7 +34,9 @@ const LEGAL_TEXT_VERSIONS = [
   // both languages; the entries above hashed the 'both' text only.
   { date: '2026-10-03', fingerprint: 'e5d4d3139906bfd2' },
   // Error reports join the usage statistics (same switch, same retention).
-  { date: '2026-10-04', fingerprint: 'a83bc2dfe04c8bb4' },
+  { date: '2026-10-04', fingerprint: '7444fcea5efd63d0' },
+  // The crash screen's set-aside copy joins the bookkeeping line.
+  { date: '2026-10-05', fingerprint: '4eda7def6d6eb0dc' },
 ];
 
 const IDS = ['privacy', 'terms'];

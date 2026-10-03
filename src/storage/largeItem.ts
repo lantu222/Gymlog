@@ -131,11 +131,15 @@ async function readPartsOnDisk(key: string): Promise<Array<string | null>> {
 }
 
 /**
- * `alongside` are small rows that must land in the same transaction as this
+ * `alongside` are small rows meant to land in the same transaction as this
  * value — the preferences key beside the database blob, which the load lays
  * over the blob's own copy. Written as a second call, a kill between the two
  * left a new programme in the blob and the old preferences over it: back to
- * onboarding, the programme stranded (break round, 2026-09-28).
+ * onboarding, the programme stranded (break round, 2026-09-28). On Android one
+ * multiSet is one transaction, so they land together or not at all. On iOS it
+ * is not one — a long value is its own file, written first, and the short rows
+ * reach the index after it — so there the single call narrows the window to
+ * one file write but does not close it.
  */
 export function setLargeItem(
   key: string,

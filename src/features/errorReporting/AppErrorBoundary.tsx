@@ -1,7 +1,7 @@
 import React from 'react';
 
 import { AppCrashScreen, CrashAsideAction } from '../../components/AppCrashScreen';
-import { hasStoredWorkoutBundle, setWorkoutBundleAside } from '../../storage/workoutAside';
+import { hasWorkoutToPutAside, setWorkoutBundleAside } from '../../storage/workoutAside';
 import { reportAppError } from './errorReporter';
 
 /**
@@ -11,7 +11,7 @@ import { reportAppError } from './errorReporter';
 export const CRASH_SETTLE_MS = 15_000;
 
 /** The second action of the crash screen; one object, so the screen's effect does not re-run. */
-const SET_ASIDE: CrashAsideAction = { isAvailable: hasStoredWorkoutBundle, run: setWorkoutBundleAside };
+const SET_ASIDE: CrashAsideAction = { isAvailable: hasWorkoutToPutAside, run: setWorkoutBundleAside };
 
 /**
  * The root error boundary: the last place a render error can be caught before
@@ -31,7 +31,11 @@ const SET_ASIDE: CrashAsideAction = { isAvailable: hasStoredWorkoutBundle, run: 
  * is the reader's own tap, never automatic; it copies the bundle to its own
  * key first and removes the live one only after the copy resolved, so nothing
  * is deleted (storage/workoutAside). The count lives in this component's state
- * and is not persisted: a fresh launch starts at the first failure.
+ * and is not persisted: a fresh launch starts at the first failure. A crash
+ * that recurs only after the retry has held for CRASH_SETTLE_MS is counted as a
+ * first failure and does not show the action: that is a bug which needs the
+ * app to run for a while, not a bundle it cannot draw at startup, and "Try
+ * again" is still there for it.
  *
  * An error thrown in an event handler or a timer never reaches a boundary —
  * React only catches rendering and lifecycle errors. Those go to the global

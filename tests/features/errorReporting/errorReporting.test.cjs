@@ -634,7 +634,7 @@ module.exports = [
         'expo-splash-screen': { hideAsync: async () => undefined },
         '../storage/deviceLocale': { resolveDeviceLanguage: () => 'fi' },
         './errorReporter': { reportAppError: (...args) => reported.push(args) },
-        '../../storage/workoutAside': { hasStoredWorkoutBundle: async () => true, setWorkoutBundleAside: async () => true },
+        '../../storage/workoutAside': { hasWorkoutToPutAside: async () => true, setWorkoutBundleAside: async () => true },
       };
       const cache = new Map();
       const { AppErrorBoundary } = loadTsx(path.join(SRC, 'features', 'errorReporting', 'AppErrorBoundary.tsx'), stubs, cache);
@@ -678,7 +678,7 @@ module.exports = [
         'expo-splash-screen': { hideAsync: async () => undefined },
         '../storage/deviceLocale': { resolveDeviceLanguage: () => 'en' },
         './errorReporter': { reportAppError: () => undefined },
-        '../../storage/workoutAside': { hasStoredWorkoutBundle: async () => true, setWorkoutBundleAside: async () => true },
+        '../../storage/workoutAside': { hasWorkoutToPutAside: async () => true, setWorkoutBundleAside: async () => true },
       };
       const cache = new Map();
       const { AppErrorBoundary, CRASH_SETTLE_MS } = loadTsx(path.join(SRC, 'features', 'errorReporting', 'AppErrorBoundary.tsx'), stubs, cache);
@@ -750,9 +750,11 @@ module.exports = [
       assert.match(screen, /aside && asideAvailable/);
       assert.match(screen, /aside\.isAvailable\(\)/);
       // The copy lands before the live rows go.
-      const copy = aside.indexOf('await setLargeItem(WORKOUT_ASIDE_STORAGE_KEY, raw)');
-      const removal = aside.indexOf('await removeLargeItem(WORKOUT_STORAGE_KEY)');
+      const body = aside.slice(aside.indexOf('export async function setWorkoutBundleAside'));
+      const copy = body.indexOf('await putCopy(text)');
+      const removal = body.indexOf('await removeLargeItem(WORKOUT_STORAGE_KEY)');
       assert.ok(copy > 0 && removal > copy, 'the live bundle is removed before, or without, its copy');
+      assert.match(aside, /await setLargeItem\(WORKOUT_ASIDE_STORAGE_KEY, text\)/);
       assert.doesNotMatch(aside.slice(aside.indexOf('export async function setWorkoutBundleAside')), /catch/, 'a failed copy must not fall through to the removal');
       // The boundary documents the exception it now is.
       assert.match(boundary, /one deliberate exception \(user 2026-10-03\)/);
@@ -765,7 +767,7 @@ module.exports = [
         assert.ok(screen.includes(`'${key}'`) || screen.includes('moving ?'), `the screen must use ${key}`);
       }
       assert.match(t('en', 'appCrash.asideHint'), /not deleted/);
-      assert.match(t('fi', 'appCrash.asideHint'), /Sitä ei poisteta/);
+      assert.match(t('fi', 'appCrash.asideHint'), /Niitä ei poisteta/);
       // No screen restores the copy, so no copy may say it can be.
       for (const language of ['en', 'fi']) {
         for (const key of ['appCrash.asideHint', 'appCrash.aside', 'appCrash.asideFailed']) {

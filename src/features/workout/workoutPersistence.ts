@@ -4,6 +4,7 @@ import { normalizeFreestyleDraftSnapshot } from '../../lib/emptyWorkoutSession';
 import { normalizeActiveCardioSession } from '../../lib/cardio';
 import { scrubImpossibleSessionLoads } from '../../lib/impossibleLoads';
 import { getLargeItem, MissingPartsError, removeLargeItem, setLargeItem } from '../../storage/largeItem';
+import { removeWorkoutAsideCopies } from '../../storage/workoutAside';
 import {
   LEGACY_WORKOUT_STORAGE_KEY,
   WORKOUT_CORRUPT_STORAGE_KEY,
@@ -301,5 +302,8 @@ export async function saveWorkoutBundle(bundle: WorkoutPersistenceBundle) {
 export async function clearWorkoutBundle() {
   await removeLargeItem(STORAGE_KEY);
   await removeLargeItem(CORRUPT_STORAGE_KEY);
+  // Reset means reset: the crash screen's set-aside copies are not a copy
+  // somebody who asked for their data to be erased wanted to survive.
+  await removeWorkoutAsideCopies();
   await AsyncStorage.removeItem(LEGACY_STORAGE_KEY);
 }

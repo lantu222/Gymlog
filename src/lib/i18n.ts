@@ -1775,8 +1775,9 @@ const EN = {
   'appCrash.body': 'Vinha hit a problem and had to stop this screen. Nothing has been deleted: your workouts and settings are still on this phone. Try again to pick up where you were.',
   'appCrash.retry': 'Try again',
   // Offered only after Try again failed again. The bundle is the workout in
-  // progress and the "last time" numbers saved beside it; it is copied aside, never deleted.
-  'appCrash.asideHint': 'Still happening? You can put the workout in progress aside. It is not deleted, but Vinha starts without it and without the saved “last time” numbers.',
+  // progress (or a cardio session or free-workout draft) and the numbers
+  // remembered from earlier workouts; it is copied aside, never deleted.
+  'appCrash.asideHint': 'Still happening? You can put your workout in progress aside, together with the numbers Vinha remembers from earlier workouts. They are not deleted, but Vinha starts without them.',
   'appCrash.aside': 'Put workout aside',
   'appCrash.asideWorking': 'Putting it aside…',
   'appCrash.asideFailed': 'The workout could not be put aside. It is still where it was.',
@@ -4917,7 +4918,7 @@ const FI: Record<I18nKey, string> = {
   'appCrash.title': 'Jokin meni pieleen',
   'appCrash.body': 'Vinhassa tapahtui virhe, ja tämä ruutu piti pysäyttää. Mitään ei ole poistettu: treenisi ja asetuksesi ovat edelleen tässä puhelimessa. Yritä uudelleen, niin pääset jatkamaan siitä, mihin jäit.',
   'appCrash.retry': 'Yritä uudelleen',
-  'appCrash.asideHint': 'Toistuuko virhe? Voit siirtää käynnissä olevan treenin sivuun. Sitä ei poisteta, mutta Vinha käynnistyy ilman sitä ja ilman tallennettuja ”viime kerran” lukuja.',
+  'appCrash.asideHint': 'Toistuuko virhe? Voit siirtää käynnissä olevan treenin sivuun yhdessä niiden lukujen kanssa, jotka Vinha muistaa aiemmista treeneistä. Niitä ei poisteta, mutta Vinha käynnistyy ilman niitä.',
   'appCrash.aside': 'Siirrä treeni sivuun',
   'appCrash.asideWorking': 'Siirretään sivuun…',
   'appCrash.asideFailed': 'Treeniä ei voitu siirtää sivuun. Se on edelleen entisellä paikallaan.',
