@@ -919,6 +919,39 @@ async function failedQuarantineKeepsRows(rows) {
 }
 
 /**
+ * A healthy small value with stale parts beside it: the phone was killed
+ * between a write that fell back under the split point and the sweep of the
+ * parts the earlier, larger write left. The head is the value; the leftovers
+ * are unreachable and must not make it look damaged.
+ */
+async function healthyHeadWithStaleParts(fixture) {
+  const problems = [];
+  const rows = new Map(rowsOf(fixture));
+  const stale = (key) => [
+    [`${key}#0`, 'stale part from an earlier, larger write'],
+    [`${key}#1`, 'more of it'],
+  ];
+  for (const [store, keys, corruptKey] of [
+    ['database', DB_KEYS, DB_CORRUPT],
+    ['workout bundle', WK_KEYS, WK_CORRUPT],
+  ]) {
+    const key = keys.find((candidate) => rows.has(candidate));
+    const raw = JSON.parse(rows.get(key));
+    const app = open([...rows.entries(), ...stale(key)]);
+    const loaded = store === 'database' ? await app.database.loadDatabase() : await app.workout.loadWorkoutBundle();
+    const count = store === 'database' ? loaded.workoutSessions.length : loaded.history.sessions.length;
+    const expected = store === 'database' ? raw.workoutSessions.length : raw.history.sessions.length;
+    if (app.fake.rows.has(corruptKey) || count !== expected) {
+      problems.push({
+        label: `healthy-head-stale-parts-${store}`,
+        problem: `a healthy value with leftover parts was ${app.fake.rows.has(corruptKey) ? 'set aside as corrupt' : 'not loaded whole'}`,
+      });
+    }
+  }
+  return problems;
+}
+
+/**
  * A split value whose middle part, once gone, leaves text that still parses.
  *
  * Three parts, cut on array element boundaries: [open, element 0] [element 1]
@@ -1018,7 +1051,7 @@ module.exports = [
     async run() {
       const fixtures = loadFixtures();
       const rows = await checkLongHistory(fixtures[fixtures.length - 1]);
-      const problems = [...(await chunkFaults(rows)), ...(await shortenedHistoryNeverParses()), ...(await failedQuarantineKeepsRows(rows))];
+      const problems = [...(await chunkFaults(rows)), ...(await shortenedHistoryNeverParses()), ...(await failedQuarantineKeepsRows(rows)), ...(await healthyHeadWithStaleParts(fixtures[fixtures.length - 1]))];
       assert.deepEqual(problems, [], problems.map((entry) => `${entry.label}: ${entry.problem}`).join('\n'));
     },
   },
