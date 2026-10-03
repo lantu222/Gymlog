@@ -220,7 +220,8 @@ function lookResult(remote: BackupDownloadResult): BackupLookResult {
 }
 
 export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
-  const available = isAccountSignInConfigured() && isBackupApiConfigured();  const [account, setAccount] = useState<StoredAccount | null>(null);
+  const available = isAccountSignInConfigured() && isBackupApiConfigured();
+  const [account, setAccount] = useState<StoredAccount | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [phase, setPhase] = useState<AccountBackupPhase>('idle');
 
@@ -411,9 +412,10 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
           if (attempt > 0) {
             return 'changed';
           }
-          // The copy that refused is this phone's own earlier upload (its
-          // answer lost), or only holds what this phone holds already: then
-          // nothing was written by anyone else, and this upload goes onto it.
+          // The copy that refused is exactly what an earlier upload of this
+          // phone sent (its answer lost): then nothing was written by anyone
+          // else, and this upload goes onto it. Any other copy is another
+          // phone's — rows, settings and the name book included — and asked about.
           const remote = await screenSession(idToken, await downloadBackup(idToken));
           ensureCurrent(generation);
           if (
@@ -421,8 +423,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
             remote.version === null ||
             !isCopyPhonesOwnWork({
               inFlightFingerprints: sync.uploadInFlightFingerprints ?? [],
-              lastCounts: { itemCount: sync.lastBackupItemCount, historyCount: sync.lastBackupHistoryCount },
-              local: latestRef.current.database,
+              lastBackupFingerprint: sync.lastBackupFingerprint,
               copy: remote.payload,
             })
           ) {
@@ -888,8 +889,6 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
             remote.version !== null &&
             isCopyPhonesOwnWork({
               inFlightFingerprints: current.uploadInFlightFingerprints ?? [],
-              lastCounts: { itemCount: null, historyCount: null },
-              local: latestRef.current.database,
               copy: remote.payload,
             })
           ) {

@@ -311,53 +311,62 @@ module.exports = [
     },
   },
   {
-    // The loose rule: no fingerprint kept (an account stored by an older build),
-    // but the copy holds nothing the phone lacks.
-    name: 'backup sync: a copy the phone already contains is replaced; one with a row, an edit or a deletion from another phone is asked about',
+    // Review of 1a30bc80 (2026-10-03). A copy that merely holds nothing the
+    // phone lacks is NOT "this phone catching up": it can be another phone's
+    // deletion, dropped programme or changed setting, which a silent retry
+    // would undo. Only an exact match with what this phone sent is adopted.
+    name: 'backup sync: a copy that is not exactly what this phone sent is another phone\'s — asked about, left untouched, whatever it holds',
     async run() {
       const local = database({ workoutSessions: workouts(4) });
-      const stored = () => syncedAccount(local);
       // The phone has two more than the copy it last saw.
-      const ahead = database({ workoutSessions: [...workouts(4), workout('x1'), workout('x2')] });
+      const ahead = (extra = {}) => database({ workoutSessions: [...workouts(4), workout('x1'), workout('x2')], ...extra });
+      const planOf = (id) => ({ id, name: id, entries: [{ workoutTemplateId: 'catalog-x' }] });
+      const refused = async (theirs, name, phone = ahead()) => {
+        await withHook({ local: phone, stored: syncedAccount(local), cloud: cloudCopy(theirs) }, async (env) => {
+          env.server.version = 'v9'; // moved on without this phone knowing
+          const before = JSON.stringify(env.server.blob);
+          await env.edit(addWorkout('x3'));
+          await env.advance(QUIET_MS);
+          assert.equal(env.calls.upload, 1, `${name}: only the refused attempt may be sent`);
+          assert.equal(JSON.stringify(env.server.blob), before, `${name}: the other phone's copy was overwritten`);
+          assert.equal(env.api.state.backupPaused, 'other_phone', `${name}: nothing said the backup stood still`);
+          assert.equal((await env.api.backUpOrAsk()).kind, 'choice', `${name}: "Back up now" did not ask`);
+        });
+      };
+      // Everything in the copy is already on the phone (the old "loose" rule's case).
+      await refused(database({ workoutSessions: workouts(3) }), 'a subset of the phone');
+      // A row the phone lacks.
+      await refused(database({ workoutSessions: [...workouts(4), workout('theirs')] }), 'a new row');
+      // The same rows, one corrected on the other phone.
+      await refused(database({ workoutSessions: [workout('w0', { sessionNotes: 'felt heavy' }), ...workouts(4).slice(1)] }), 'an edit');
+      // A deletion.
+      await refused(database({ workoutSessions: workouts(2) }), 'a deletion');
+      // A held programme's plan dropped (plans are in no count).
+      await refused(
+        database({ workoutSessions: workouts(4), workoutPlans: [planOf('p1')] }),
+        'a dropped plan',
+        ahead({ workoutPlans: [planOf('p1'), planOf('p2')] }),
+      );
+      // Settings changed, nothing else.
+      await refused(database({ workoutSessions: workouts(4), preferences: { unitPreference: 'lb' } }), 'a setting');
+      // The name book.
+      await refused(database({ workoutSessions: workouts(4), exerciseNameBook: [{ id: 'n1', name: 'EDITED' }] }), 'the name book');
 
-      // Held already: the copy is a subset of the phone.
-      await withHook({ local: ahead, stored: stored(), cloud: cloudCopy(local), storedVersion: 5 }, async (env) => {
-        env.server.version = 'v9'; // moved on without this phone knowing
-        await env.edit(addWorkout('x3'));
+      // Lost answer on this phone, then another phone deletes a row from that copy:
+      // the kept fingerprint is of what this phone sent, so the deleted copy is not it.
+      await withHook({ local, stored: syncedAccount(local), cloud: cloudCopy(local) }, async (env) => {
+        env.server.loseNextResponse = true;
+        await env.edit(addWorkout('a'));
         await env.advance(QUIET_MS);
-        assert.equal(env.server.blob.database.workoutSessions.length, 7);
-        assert.equal(env.api.state.backupPaused, null);
-      });
-
-      // A row the phone lacks: another phone logged it.
-      await withHook({ local: ahead, stored: stored(), cloud: cloudCopy(database({ workoutSessions: [...workouts(4), workout('theirs')] })) }, async (env) => {
-        env.server.version = 'v9';
-        await env.edit(addWorkout('x3'));
+        assert.equal(env.server.blob.database.workoutSessions.length, 5);
+        // Another phone restored that copy, deleted w1 and wrote.
+        const theirs = JSON.parse(JSON.stringify(env.server.blob));
+        theirs.database.workoutSessions = theirs.database.workoutSessions.filter((row) => row.id !== 'w1');
+        env.write(theirs);
+        await env.edit(addWorkout('b'));
         await env.advance(QUIET_MS);
-        assert.equal(env.calls.upload, 1, 'only the refused attempt may have been sent');
-        assert.ok(env.server.blob.database.workoutSessions.some((row) => row.id === 'theirs'), 'the other phone\'s workout was overwritten');
-        assert.equal(env.api.state.backupPaused, 'other_phone');
-        assert.equal((await env.api.backUpOrAsk()).kind, 'choice');
-      });
-
-      // The same rows, but one was corrected on the other phone.
-      const edited = cloudCopy(database({ workoutSessions: [workout('w0', { sessionNotes: 'felt heavy' }), ...workouts(4).slice(1)] }));
-      await withHook({ local: ahead, stored: stored(), cloud: edited }, async (env) => {
-        env.server.version = 'v9';
-        await env.edit(addWorkout('x3'));
-        await env.advance(QUIET_MS);
-        assert.equal(env.calls.upload, 1);
-        assert.equal(env.server.blob.database.workoutSessions[0].sessionNotes, 'felt heavy', 'an edit made on another phone was overwritten');
-        assert.equal(env.api.state.backupPaused, 'other_phone');
-      });
-
-      // Something deleted on the other phone is not "this phone catching up".
-      await withHook({ local: ahead, stored: stored(), cloud: cloudCopy(database({ workoutSessions: workouts(2) })) }, async (env) => {
-        env.server.version = 'v9';
-        await env.edit(addWorkout('x3'));
-        await env.advance(QUIET_MS);
-        assert.equal(env.calls.upload, 1);
-        assert.equal(env.server.blob.database.workoutSessions.length, 2, 'a deletion made on another phone was undone');
+        assert.equal(env.server.blob.database.workoutSessions.some((row) => row.id === 'w1'), false, 'the other phone\'s deletion was undone');
+        assert.equal(env.calls.upload, 2);
         assert.equal(env.api.state.backupPaused, 'other_phone');
       });
     },
@@ -381,40 +390,56 @@ module.exports = [
     },
   },
   {
-    // Lib: the rules the hook leans on.
-    name: 'backup sync: copyIsInPhoneData and isCopyPhonesOwnWork judge a refused upload\'s copy',
+    // Lib: only an exact match is "this phone's own".
+    name: 'backup sync: isCopyPhonesOwnWork takes a copy only when its fingerprint is one this phone kept',
     run() {
-      const phone = database({ workoutSessions: [...workouts(3), workout('extra')], bodyweightEntries: [{ id: 'bw1', recordedAt: 't', weight: 80 }] });
-      const copy = (db) => cloudCopy(db);
-      assert.equal(lib.copyIsInPhoneData(phone, copy(database({ workoutSessions: workouts(3) })).database), true);
-      assert.equal(lib.copyIsInPhoneData(phone, copy(database()).database), true, 'an empty copy is in any phone');
-      assert.equal(lib.copyIsInPhoneData(phone, null), false);
-      assert.equal(lib.copyIsInPhoneData(phone, copy(database({ workoutSessions: [workout('w9')] })).database), false);
-      assert.equal(
-        lib.copyIsInPhoneData(phone, copy(database({ bodyweightEntries: [{ id: 'bw1', recordedAt: 't', weight: 81 }] })).database),
-        false,
-        'a weigh-in edited elsewhere passed',
-      );
-      assert.equal(lib.copyIsInPhoneData(phone, copy(database({ workoutSessions: [workout('w0', { feel: 4 })] })).database), false);
+      const payloadOf = (db) => cloudCopy(db);
+      const mine = payloadOf(database({ workoutSessions: workouts(3) }));
+      const mineFp = lib.accountBackupFingerprint(mine.database, mine.workoutHistory);
+      assert.equal(lib.isCopyPhonesOwnWork({ inFlightFingerprints: ['nope', mineFp], copy: mine }), true);
+      assert.equal(lib.isCopyPhonesOwnWork({ inFlightFingerprints: [], lastBackupFingerprint: mineFp, copy: mine }), true, 'the last confirmed upload');
+      assert.equal(lib.isCopyPhonesOwnWork({ inFlightFingerprints: [], copy: mine }), false, 'nothing kept');
+      assert.equal(lib.isCopyPhonesOwnWork({ inFlightFingerprints: ['a', 'b', 'c'], lastBackupFingerprint: null, copy: mine }), false);
 
-      const payload = copy(database({ workoutSessions: workouts(3) }));
-      const own = (extra) => lib.isCopyPhonesOwnWork({ inFlightFingerprints: [], lastCounts: { itemCount: 3, historyCount: 0 }, local: phone, copy: payload, ...extra });
-      assert.equal(own({}), true);
-      assert.equal(own({ lastCounts: { itemCount: 4, historyCount: 0 } }), false, 'a smaller copy than the one last seen passed as catching up');
-      assert.equal(own({ lastCounts: { itemCount: null, historyCount: null } }), false, 'with no size to compare it passed');
-      const foreign = copy(database({ workoutSessions: [workout('theirs')] }));
-      assert.equal(lib.isCopyPhonesOwnWork({ inFlightFingerprints: [], lastCounts: { itemCount: 1, historyCount: 0 }, local: phone, copy: foreign }), false);
-      // Exact: what an upload of this phone's was made of, whatever the rows say.
-      const fingerprint = lib.accountBackupFingerprint(foreign.database, foreign.workoutHistory);
-      assert.equal(lib.isCopyPhonesOwnWork({ inFlightFingerprints: ['nope', fingerprint], lastCounts: { itemCount: null, historyCount: null }, local: phone, copy: foreign }), true);
+      // The reviewer's scenarios: each differs from what this phone sent, so each is not its own.
+      const sent = database({ workoutSessions: [workout('w3'), workout('w1'), workout('w2')] });
+      const kept = [lib.accountBackupFingerprint(sent, emptyHistory())];
+      // 1: another phone restored the copy and deleted w1 (the counts lag after a lost answer).
+      assert.equal(
+        lib.isCopyPhonesOwnWork({ inFlightFingerprints: kept, copy: payloadOf(database({ workoutSessions: [workout('w3'), workout('w2')] })) }),
+        false,
+        '1: a deletion after a lost answer',
+      );
+      const plan = (id) => ({ id, name: id, entries: [{ workoutTemplateId: 'catalog-x' }], updatedAt: 'u' });
+      const base = database({ workoutSessions: [workout('w1')], workoutPlans: [plan('p1'), plan('p2')] });
+      const keptBase = [lib.accountBackupFingerprint(base, emptyHistory())];
+      const notOwnOfBase = (name, db) => assert.equal(lib.isCopyPhonesOwnWork({ inFlightFingerprints: keptBase, copy: payloadOf(db) }), false, name);
+      // 2: a held programme's plan removed.
+      notOwnOfBase('2: a dropped plan', database({ workoutSessions: [workout('w1')], workoutPlans: [plan('p1')] }));
+      // 3: settings only.
+      notOwnOfBase('3: settings', { ...base, preferences: { ...base.preferences, unitPreference: base.preferences.unitPreference === 'lb' ? 'kg' : 'lb' } });
+      // 4: the name book.
+      notOwnOfBase('4: the name book', { ...base, exerciseNameBook: [{ id: 'n1', name: 'EDITED' }] });
+      // 6: the same as 1 with the fingerprint pushed out of the kept three.
+      assert.equal(
+        lib.isCopyPhonesOwnWork({ inFlightFingerprints: ['x', 'y', 'z'], copy: payloadOf(database({ workoutSessions: [workout('w3'), workout('w2')] })) }),
+        false,
+        '6: fingerprint out of the kept three',
+      );
+      // And the one the phone sent is its own.
+      assert.equal(lib.isCopyPhonesOwnWork({ inFlightFingerprints: keptBase, copy: payloadOf(base) }), true);
+
       assert.equal(
         lib.isCloudCopyThisPhones(
-          { cloudVersion: 'v1', lastBackupAt: 'x', lastBackupFingerprint: null, uploadInFlightFingerprints: [fingerprint] },
-          { version: 'v2', payload: foreign },
+          { cloudVersion: 'v1', lastBackupAt: 'x', lastBackupFingerprint: null, uploadInFlightFingerprints: kept },
+          { version: 'v2', payload: payloadOf(sent) },
         ),
         true,
       );
-      assert.equal(lib.isCloudCopyThisPhones({ cloudVersion: 'v1', lastBackupAt: 'x', lastBackupFingerprint: null }, { version: 'v2', payload: foreign }), false);
+      assert.equal(
+        lib.isCloudCopyThisPhones({ cloudVersion: 'v1', lastBackupAt: 'x', lastBackupFingerprint: null }, { version: 'v2', payload: payloadOf(sent) }),
+        false,
+      );
     },
   },
   {
