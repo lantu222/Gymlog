@@ -30,12 +30,19 @@ const outDir = process.env.LEGAL_SITE_OUT_DIR || path.join(__dirname, '..', 'dis
 fs.rmSync(outDir, { recursive: true, force: true });
 fs.mkdirSync(outDir, { recursive: true });
 
+// Manrope from the app's own bundle, served beside the pages: a font from Google's servers would hand every
+// reader's IP address to Google on the privacy policy itself, which says the deletion page's sign-in is the only
+// thing loaded from Google (bug hunt 5, 2026-10-03). The variable file covers every weight the pages use.
+fs.mkdirSync(path.join(outDir, 'fonts'), { recursive: true });
+fs.copyFileSync(path.join(__dirname, '..', 'assets', 'fonts', 'Manrope.ttf'), path.join(outDir, 'fonts', 'Manrope.ttf'));
+
 const escapeHtml = (value) =>
   value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
 
 // styxon.fi's look (the site these pages live on): its colour tokens, Manrope,
 // the same top bar and footer. Orange is what you press, violet is the brand.
 const STYLE = `
+  @font-face { font-family: Manrope; src: url('fonts/Manrope.ttf') format('truetype'); font-weight: 200 800; font-display: swap; }
   :root { --bg: #15131f; --bg2: #1c1830; --line: #2c2740; --fg: #ece9f5; --fg2: #cfcadf; --mut: #9a95ad; --acc: #ff7a3d; --vio2: #a78bfa; --danger: #f04438; }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--fg2); font-family: Manrope, system-ui, sans-serif; font-size: 17px; line-height: 1.65; -webkit-font-smoothing: antialiased; }
@@ -72,9 +79,7 @@ const STYLE = `
   #status:empty { display: none; }
 `;
 
-const FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&display=swap">`;
+const FONTS = `<link rel="preload" href="fonts/Manrope.ttf" as="font" type="font/ttf" crossorigin>`;
 
 // Absolute links: the same pages are also served from GitHub Pages, where a
 // root-relative "/" would not be styxon.fi.
