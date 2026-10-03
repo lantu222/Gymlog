@@ -205,6 +205,7 @@ function Row({
   control,
   chevron = false,
   danger = false,
+  positive = false,
   last = false,
   disabled = false,
   onPress,
@@ -219,6 +220,8 @@ function Row({
   control?: React.ReactNode;
   chevron?: boolean;
   danger?: boolean;
+  /** Green: an action that keeps the data safe (sign in, back up). */
+  positive?: boolean;
   last?: boolean;
   /**
    * Shown, dimmed, and not pressable. A row that simply dropped its handler
@@ -236,11 +239,11 @@ function Row({
       {/* The danger tokens, not a fixed #C0392B on #FBEAE7: those were
           light-surface values, and the title was 3.23:1 on the dark card
           (accessibility audit, 2026-09-21). */}
-      <View style={[styles.rowTile, danger && { backgroundColor: theme.dangerSoft }]}>
-        <Ic n={icon} c={danger ? theme.danger : iconColor ?? theme.highlight} />
+      <View style={[styles.rowTile, danger && { backgroundColor: theme.dangerSoft }, positive && { backgroundColor: theme.greenSoft }]}>
+        <Ic n={icon} c={danger ? theme.danger : positive ? theme.greenInk : iconColor ?? theme.highlight} />
       </View>
       <View style={styles.rowCopy}>
-        <Text style={[styles.rowTitle, danger && { color: theme.danger }]}>{title}</Text>
+        <Text style={[styles.rowTitle, danger && { color: theme.danger }, positive && { color: theme.greenInk }]}>{title}</Text>
         {subNode ?? (sub ? <Text style={styles.rowSub}>{sub}</Text> : null)}
       </View>
       {value !== undefined ? <Text style={styles.rowValue}>{value}</Text> : null}
@@ -486,69 +489,6 @@ export function SettingsScreen({
         <View style={styles.section}>
           <SectionLabel label={t(language, 'settings.section.yourData')} />
           <View style={styles.card}>
-            {/* Sign in and the data survives a new phone. Hidden when the build
-                has no sign-in configured; free and Pro alike (2026-08-22). */}
-            {/* Apple's own button, as App Review wants it, above the Google row. */}
-            {account && !account.signedIn && account.providers.includes('apple') ? (
-              <View style={styles.appleSignIn}>
-                <AppleSignInButton
-                  variant="whiteOutline"
-                  cornerRadius={12}
-                  height={46}
-                  disabled={account.busy}
-                  onPress={() => account.onSignIn('apple')}
-                />
-                {account.providers.includes('google') ? null : (
-                  <Text style={styles.appleSignInSub}>{t(language, 'account.signIn.sub')}</Text>
-                )}
-              </View>
-            ) : null}
-            {account && !account.signedIn && account.providers.includes('google') ? (
-              <Row
-                icon="shield"
-                title={t(language, 'account.signIn')}
-                sub={t(language, 'account.signIn.sub')}
-                chevron
-                disabled={account.busy}
-                onPress={() => account.onSignIn('google')}
-              />
-            ) : null}
-            {account && account.signedIn ? (
-              <Row
-                icon="shield"
-                title={t(language, 'account.backupNow')}
-                // Just the identity and, in green, when the cloud copy was
-                // last written (user, 2026-08-22). Green only once a backup
-                // exists — "never" is not a success state.
-                subNode={
-                  <>
-                    <Text style={styles.rowSub}>
-                      {account.email ? `${account.email} · ` : ''}
-                      {account.lastBackupAt ? (
-                        <Text style={styles.rowSubOk}>{backupTimeLabel(account.lastBackupAt, language)}</Text>
-                      ) : (
-                        t(language, 'account.noBackupYet')
-                      )}
-                    </Text>
-                    {account.backupPaused ? (
-                      <Text style={[styles.rowSub, styles.rowSubWarn]}>
-                        {t(
-                          language,
-                          account.backupPaused === 'other_phone'
-                            ? 'account.backupPaused.otherPhone'
-                            : account.backupPaused === 'copy_deleted'
-                              ? 'account.backupPaused.copyDeleted'
-                              : 'account.backupPaused.smallerPhone',
-                        )}
-                      </Text>
-                    ) : null}
-                  </>
-                }
-                chevron
-                disabled={account.busy}
-                onPress={account.onBackupNow}
-              />
-            ) : null}
             {/* The one thing the app sends on its own, and the reader's say
                 over it (user, 2026-09-04). A real gate, not a statement: the
                 preference reaches analyticsClient through App.tsx, and off
@@ -741,6 +681,80 @@ export function SettingsScreen({
               onPress={() => setResetVisible(true)}
             />
           </View>
+          {/* Under the red rows, in green: sign in when signed out, Back up
+              now when signed in — the same place Sign out is found (user,
+              2026-10-03). */}
+          {account && (account.signedIn || account.providers.length > 0) ? (
+            <View style={[styles.card, styles.cardFollow]}>
+            {/* Sign in and the data survives a new phone. Hidden when the build
+                has no sign-in configured; free and Pro alike (2026-08-22). */}
+            {/* Apple's own button, as App Review wants it, above the Google row. */}
+            {account && !account.signedIn && account.providers.includes('apple') ? (
+              <View style={styles.appleSignIn}>
+                <AppleSignInButton
+                  variant="whiteOutline"
+                  cornerRadius={12}
+                  height={46}
+                  disabled={account.busy}
+                  onPress={() => account.onSignIn('apple')}
+                />
+                {account.providers.includes('google') ? null : (
+                  <Text style={styles.appleSignInSub}>{t(language, 'account.signIn.sub')}</Text>
+                )}
+              </View>
+            ) : null}
+            {account && !account.signedIn && account.providers.includes('google') ? (
+              <Row
+                icon="shield"
+                positive
+                last
+                title={t(language, 'account.signIn')}
+                sub={t(language, 'account.signIn.sub')}
+                chevron
+                disabled={account.busy}
+                onPress={() => account.onSignIn('google')}
+              />
+            ) : null}
+            {account && account.signedIn ? (
+              <Row
+                icon="shield"
+                positive
+                last
+                title={t(language, 'account.backupNow')}
+                // Just the identity and, in green, when the cloud copy was
+                // last written (user, 2026-08-22). Green only once a backup
+                // exists — "never" is not a success state.
+                subNode={
+                  <>
+                    <Text style={styles.rowSub}>
+                      {account.email ? `${account.email} · ` : ''}
+                      {account.lastBackupAt ? (
+                        <Text style={styles.rowSubOk}>{backupTimeLabel(account.lastBackupAt, language)}</Text>
+                      ) : (
+                        t(language, 'account.noBackupYet')
+                      )}
+                    </Text>
+                    {account.backupPaused ? (
+                      <Text style={[styles.rowSub, styles.rowSubWarn]}>
+                        {t(
+                          language,
+                          account.backupPaused === 'other_phone'
+                            ? 'account.backupPaused.otherPhone'
+                            : account.backupPaused === 'copy_deleted'
+                              ? 'account.backupPaused.copyDeleted'
+                              : 'account.backupPaused.smallerPhone',
+                        )}
+                      </Text>
+                    ) : null}
+                  </>
+                }
+                chevron
+                disabled={account.busy}
+                onPress={account.onBackupNow}
+              />
+            ) : null}
+            </View>
+          ) : null}
         </View>
 
         <Text style={styles.footer}>Vinha · v{appInfo.version} · {LEGAL_ENTITY.name}</Text>
@@ -826,6 +840,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderColor: theme.border,
     borderRadius: 18,
     ...CARD_SHADOW,
+  },
+  cardFollow: {
+    marginTop: 12,
   },
   demoCardGap: {
     marginTop: 10,
