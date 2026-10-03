@@ -240,12 +240,14 @@ function git(args) {
  */
 function describePushFailure(tag, error) {
   const text = String(error?.stderr ?? '').trim() || String(error?.message ?? error).trim();
-  const rejected = /rejected|non-fast-forward|already exists|stale info|failed to push some refs|denied|permission/i;
+  // Authentication and permission failures print "Could not read from remote"
+  // too, so they are named first: origin answered, and no retry will change it.
+  const refused = /authentication failed|permission denied|access denied|publickey|denied to|http (?:401|403)|error: (?:401|403)|requested url returned error: (?:401|403)|remote rejected|rejected|non-fast-forward|already exists|stale info/i;
   const unreachable =
     /could not resolve host|unable to access|could not read from remote|does not appear to be a git repository|connection (?:refused|timed out|reset)|timed out|network is unreachable|unable to connect|repository not found|no route to host/i;
   // "failed to push some refs" follows a rejection and a network failure alike,
-  // so an unreachable signal wins over the generic line.
-  const kind = unreachable.test(text) ? 'unreachable' : rejected.test(text) ? 'rejected' : 'unknown';
+  // so neither signal is taken from that line.
+  const kind = refused.test(text) ? 'rejected' : unreachable.test(text) ? 'unreachable' : /failed to push some refs/i.test(text) ? 'rejected' : 'unknown';
   const head = {
     unreachable: `Tagin ${tag} työntö originiin epäonnistui: origin ei vastaa.`,
     rejected: `Tagin ${tag} työntö originiin epäonnistui: origin hylkäsi sen.`,
@@ -253,7 +255,7 @@ function describePushFailure(tag, error) {
   }[kind];
   const advice =
     kind === 'rejected'
-      ? 'Tarkista mitä originissa on tälle tagille (git ls-remote --tags origin); älä pakota työntöä ennen sitä.'
+      ? 'Tarkista tunnistautuminen ja oikeudet sekä mitä originissa on tälle tagille (git ls-remote --tags origin); älä pakota työntöä ennen sitä.'
       : `Tagi ${tag} on vain tällä koneella. Aja sama komento uudelleen kun origin vastaa.`;
   return `${head}\n${text.split('\n').map((line) => `  git: ${line}`).join('\n')}\n${advice}`;
 }
@@ -403,19 +405,20 @@ function recordCode({ platform, tag, code, run }) {
     };
   }
   const full = run(['rev-parse', `${name}^{commit}`]);
-  const lines = [];
-  if (recorded === null) {
-    run(['tag', '--force', '-a', name, '-m', `versionCode=${code}`, full]);
-    lines.push(`Tagi ${name} (${full.slice(0, 7)}) merkitty: versionCode=${code}.`);
-  }
-  const object = run(['rev-parse', name]);
+
+  // Everything about origin is settled BEFORE the local tag is touched, so an
+  // origin that cannot be asked, one that holds another commit, or one that
+  // records another code leaves this checkout exactly as it was.
   let rows;
   try {
     rows = run(['ls-remote', '--tags', 'origin', `refs/tags/${name}`, `refs/tags/${name}^{}`]);
   } catch (error) {
     return {
       code: 1,
-      lines: [...lines, `Originiin ei saada yhteyttä, joten tagin ${name} tilaa siellä ei tiedetä. Aja sama komento uudelleen kun origin vastaa.`, `  git: ${String(error?.stderr ?? error?.message ?? error).trim()}`],
+      lines: [
+        `Originiin ei saada yhteyttä, joten tagin ${name} tilaa siellä ei tiedetä. Tagiin ei koskettu. Aja sama komento uudelleen kun origin vastaa.`,
+        `  git: ${String(error?.stderr ?? error?.message ?? error).trim()}`,
+      ],
     };
   }
   const remote = rows === '' ? [] : rows.split('\n').map((row) => row.split('\t'));
@@ -425,18 +428,61 @@ function recordCode({ platform, tag, code, run }) {
     return {
       code: 1,
       lines: [
-        ...lines,
         `Tagi ${name} osoittaa täällä commitiin ${full.slice(0, 7)} mutta originissa commitiin ${remoteCommit.slice(0, 7)}: ` +
-          'ne kertovat eri julkaisusta. Selvitä kumpi on se mikä kauppaan meni; origin jätettiin ennalleen.',
+          'ne kertovat eri julkaisusta. Selvitä kumpi on se mikä kauppaan meni; tagiin ei koskettu.',
       ],
     };
   }
-  if (remoteObject === object) {
-    return { code: 0, lines: [...lines, `Tagi ${name} kertoo versionCoden ${code} myös originissa.`] };
+
+  // What origin's own annotation says, read from the object itself: the local
+  // tag can be a bare one while origin's already records a code.
+  let remoteRecorded = null;
+  if (remoteObject) {
+    const probe = `refs/vinha-check/${name}`;
+    try {
+      run(['fetch', '--quiet', 'origin', `+refs/tags/${name}:${probe}`]);
+      remoteRecorded = run(['cat-file', '-t', probe]) === 'tag' ? parseVersionCode(run(['for-each-ref', probe, '--format=%(contents)'])) : null;
+    } catch (error) {
+      return {
+        code: 1,
+        lines: [
+          `Originin tagia ${name} ei saatu luettua. Tagiin ei koskettu. Aja sama komento uudelleen kun origin vastaa.`,
+          `  git: ${String(error?.stderr ?? error?.message ?? error).trim()}`,
+        ],
+      };
+    } finally {
+      try {
+        run(['update-ref', '-d', probe]);
+      } catch {
+        // Nothing to clean up when the fetch never made it.
+      }
+    }
+  }
+  if (remoteRecorded !== null && remoteRecorded !== code) {
+    return {
+      code: 1,
+      lines: [
+        `Tagi ${name} kertoo originissa versionCoden ${remoteRecorded}, ei ${code}. Selvitä kumpi meni kauppaan; tagiin ei koskettu.`,
+      ],
+    };
+  }
+  if (remoteRecorded === code) {
+    // Origin already says it; make this checkout say the same, with origin's own object.
+    if (run(['rev-parse', name]) !== remoteObject) {
+      run(['update-ref', `refs/tags/${name}`, remoteObject]);
+    }
+    return { code: 0, lines: [`Tagi ${name} kertoo versionCoden ${code} myös originissa.`] };
+  }
+
+  const lines = [];
+  if (recorded === null) {
+    run(['tag', '--force', '-a', name, '-m', `versionCode=${code}`, full]);
+    lines.push(`Tagi ${name} (${full.slice(0, 7)}) merkitty: versionCode=${code}.`);
   }
   try {
-    // Only this tag, and only because it is the same commit being annotated.
-    run(['push', '--force', 'origin', `refs/tags/${name}`]);
+    // Only this tag, and only if origin still holds what was just read: the
+    // lease turns a tag moved by someone else in between into a refusal.
+    run(['push', `--force-with-lease=refs/tags/${name}:${remoteObject ?? ''}`, 'origin', `refs/tags/${name}`]);
   } catch (error) {
     return { code: 1, lines: [...lines, describePushFailure(name, error)] };
   }
@@ -483,10 +529,15 @@ async function main(args) {
   const tags = git(['tag', '--list']).split('\n').filter(Boolean);
 
   const recordFlag = argValue(args, '--record-code');
+  const tagFlag = argValue(args, '--tag');
+  if (tagFlag === '') {
+    console.error('--tag vaatii tagin nimen (esim. --tag android-v1.1.0).');
+    return 1;
+  }
   if (recordFlag !== undefined) {
     const result = recordCode({
       platform,
-      tag: argValue(args, '--tag') || undefined,
+      tag: tagFlag,
       code: codeFromFlag(recordFlag),
       run: git,
     });
