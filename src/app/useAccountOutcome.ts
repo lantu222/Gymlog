@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Alert } from 'react-native';
 import type { SignInProvider } from '../features/account/accountAuth';
 import { AccountBackupApi, SignInOutcome } from '../features/account/useAccountBackup';
@@ -26,6 +26,16 @@ export interface AccountOutcomeDeps {
 
 export function useAccountOutcome(deps: AccountOutcomeDeps) {
   const { accountBackup, preferences, showToast } = deps;
+
+  // An automatic backup that found the sign-in over signed the phone out with
+  // nobody to tell: said here, once, and acknowledged.
+  useEffect(() => {
+    if (accountBackup.sessionEndedNotice) {
+      showToast(t(preferences.appLanguage, 'account.sessionEnded'));
+      accountBackup.acknowledgeSessionEnded();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountBackup.sessionEndedNotice]);
 
   /**
    * The whole sign-in conversation: outcome toasts, and the one dialog that

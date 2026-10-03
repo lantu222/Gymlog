@@ -136,6 +136,14 @@ export interface AccountBackupApi {
   /** The sign-ins this build offers, in display order (accountAuth). */
   providers: SignInProvider[];
   state: AccountBackupState;
+  /**
+   * True after an AUTOMATIC backup found the sign-in over and signed the phone
+   * out: nobody pressed anything, so no operation could answer 'ended'. The app
+   * shows "Signed out — your sign-in had ended…" once and acknowledges it;
+   * the next sign-in clears it too.
+   */
+  sessionEndedNotice: boolean;
+  acknowledgeSessionEnded: () => void;
   phase: AccountBackupPhase;
   /** Without a provider, the first one offered. */
   signIn: (provider?: SignInProvider) => Promise<SignInOutcome>;
@@ -236,6 +244,8 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
   const [account, setAccount] = useState<StoredAccount | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [phase, setPhase] = useState<AccountBackupPhase>('idle');
+  const [sessionEndedNotice, setSessionEndedNotice] = useState(false);
+  const acknowledgeSessionEnded = useCallback(() => setSessionEndedNotice(false), []);
 
   // The payload waiting on the reader's restore-or-keep answer, with the
   // account it belongs to. The account travels with it because the answer is
@@ -612,6 +622,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
     // A sign-out that is still finishing (it clears the stored account and the
     // provider's session) must not be signed in over.
     await signOutInFlightRef.current;
+    setSessionEndedNotice(false);
     const generation = generationRef.current;
     enterPhase('signing_in');
     try {
@@ -901,6 +912,11 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         return { kind: 'failed' };
       } catch (error) {
         if (error instanceof SessionEnded) {
+          if (!interactive) {
+            // Nobody is waiting for this answer (backupNow reduces it to a
+            // boolean): the notice is how the reader hears it.
+            setSessionEndedNotice(true);
+          }
           return { kind: 'ended' };
         }
         if (error instanceof Superseded) {
@@ -1243,6 +1259,8 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
     available,
     providers: availableSignInProviders(),
     state,
+    sessionEndedNotice,
+    acknowledgeSessionEnded,
     phase,
     signIn,
     resolveRestoreChoice,

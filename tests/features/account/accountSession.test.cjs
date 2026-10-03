@@ -136,6 +136,9 @@ async function withHook({ local, stored = null, cloud = null, signedOut = [] }, 
       },
       loadSignedOutAccounts: async () => store.signedOut,
       forgetSignedOutAccount: async () => {
+        if (server.gates.forget) {
+          await server.gates.forget.promise;
+        }
         store.signedOut = [];
       },
     },
@@ -358,6 +361,88 @@ module.exports = [
       });
       assert.equal(lib.uploadNeedsConsent({ signedOutSubs: [UNKNOWN], sub: 'sub-1', localWorthKeeping: true }), true);
       assert.equal(lib.uploadNeedsConsent({ signedOutSubs: [UNKNOWN], sub: 'sub-1', localWorthKeeping: false }), false);
+    },
+  },
+  {
+    // Both branches of settleWithRemote await forgetSignedOutAccount and then
+    // act on the phone's data: restore onto an empty phone, or upload as the
+    // first backup. A sign-out (Reset) inside that await must stop both.
+    name: 'sign-in: a sign-out during the signed-out list being forgotten stops the restore and the first upload',
+    async run() {
+      // Empty phone, cloud copy exists: the restore.
+      const cloud = cloudCopy(database({ workoutSessions: workouts(5) }));
+      await withHook({ local: database(), stored: null, cloud }, async (env) => {
+        env.server.gates.forget = deferred();
+        const signingIn = env.api.signIn('google');
+        await env.settle();
+        const signingOut = env.api.signOut();
+        await env.settle();
+        env.server.gates.forget.resolve();
+        await signingOut;
+        const outcome = await signingIn;
+        await env.settle();
+        assert.equal(outcome.kind, 'cancelled');
+        assert.equal(env.app.database.workoutSessions.length, 0, 'a restore landed on the phone that Reset had emptied');
+        assert.equal(env.store.account, null, 'the account was signed in again');
+        assert.equal(env.api.state.status, 'signed_out');
+      });
+      // Phone with data, no cloud copy: the first upload.
+      await withHook({ local: database({ workoutSessions: workouts(5) }), stored: null, cloud: null }, async (env) => {
+        env.server.gates.forget = deferred();
+        const signingIn = env.api.signIn('google');
+        await env.settle();
+        const signingOut = env.api.signOut();
+        await env.settle();
+        env.server.gates.forget.resolve();
+        await signingOut;
+        const outcome = await signingIn;
+        await env.settle();
+        assert.equal(outcome.kind, 'cancelled');
+        assert.equal(env.calls.upload, 0, 'a backup was uploaded after the sign-out');
+        assert.equal(env.store.account, null);
+        assert.equal(env.api.state.status, 'signed_out');
+      });
+    },
+  },
+  {
+    name: 'an automatic backup that finds the sign-in over leaves a one-time notice, cleared once acknowledged and by the next sign-in; the reader\'s own backup does not (it answers directly)',
+    async run() {
+      const local = database({ workoutSessions: workouts(3) });
+      const stale = () => syncedAccount(local, { lastBackupFingerprint: null });
+      await withHook({ local, stored: stale(), cloud: cloudCopy(local) }, async (env) => {
+        assert.equal(env.api.sessionEndedNotice, false);
+        env.google.silent = { status: 'signed_out' };
+        await env.edit((db) => ({ ...db, bodyweightEntries: [{ id: 'bw', recordedAt: 't', weight: 80 }] }));
+        await env.advance(QUIET_MS);
+        assert.equal(env.api.state.status, 'signed_out');
+        assert.equal(env.api.sessionEndedNotice, true, 'the reader was signed out without a word');
+        env.api.acknowledgeSessionEnded();
+        await env.settle();
+        assert.equal(env.api.sessionEndedNotice, false);
+      });
+      // Cleared by the next sign-in, acknowledged or not.
+      await withHook({ local, stored: stale(), cloud: cloudCopy(local) }, async (env) => {
+        env.google.silent = { status: 'signed_out' };
+        await env.edit((db) => ({ ...db, bodyweightEntries: [{ id: 'bw', recordedAt: 't', weight: 80 }] }));
+        await env.advance(QUIET_MS);
+        assert.equal(env.api.sessionEndedNotice, true);
+        await env.api.signIn('google');
+        await env.settle();
+        assert.equal(env.api.sessionEndedNotice, false);
+      });
+      // Back up now answers 'ended' itself; no second notice.
+      await withHook({ local, stored: stale(), cloud: cloudCopy(local) }, async (env) => {
+        env.google.silent = { status: 'signed_out' };
+        assert.equal((await env.api.backUpOrAsk()).kind, 'ended');
+        await env.settle();
+        assert.equal(env.api.sessionEndedNotice, false);
+      });
+      // And the app-level surface shows it once, then acknowledges.
+      const outcome = read('src', 'app', 'useAccountOutcome.ts');
+      assert.match(
+        outcome,
+        /if \(accountBackup\.sessionEndedNotice\) \{\s*showToast\(t\(preferences\.appLanguage, 'account\.sessionEnded'\)\);\s*accountBackup\.acknowledgeSessionEnded\(\);/,
+      );
     },
   },
   {

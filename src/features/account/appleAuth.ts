@@ -58,9 +58,10 @@ let signOutEpoch = 0;
 /**
  * The name Apple gave for a sign-in that has not finished. Apple returns the
  * full name on the first authorization only — a later one carries none — so a
- * failed exchange or write would lose it for good. Kept here for the retry, and
- * on disk in the session's own row while that row holds no session (no new key:
- * the row is already the one this file owns, and a sign-out empties it).
+ * failed exchange or write would lose it for good. Kept here, in memory only,
+ * for the retry within this run of the app: a phone with no account holds
+ * nothing of the reader's on disk, and the row at STORAGE_KEY is only ever a
+ * session. Gone with a sign-out and once the sign-in has worked.
  */
 let pendingName: { user: string; name: string } | null = null;
 
@@ -99,9 +100,15 @@ export function isAppleSignInConfigured(): boolean {
   return loadModule() !== null;
 }
 
+/**
+ * The stored session. THROWS when AsyncStorage cannot be read — a locked or
+ * busy database is no statement about the session, and the callers that sign
+ * someone out on "none" must not read it as one. A row that was read and is
+ * empty or malformed is null.
+ */
 async function loadSession(): Promise<StoredAppleSession | null> {
+  const raw = await AsyncStorage.getItem(STORAGE_KEY);
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
     if (!raw) {
       return null;
     }
@@ -125,7 +132,11 @@ async function loadSession(): Promise<StoredAppleSession | null> {
 
 /** True when this phone's account is an Apple one: the backup token comes from here. */
 export async function hasAppleSession(): Promise<boolean> {
-  return (await loadSession()) !== null;
+  try {
+    return (await loadSession()) !== null;
+  } catch {
+    return false;
+  }
 }
 
 function fullNameOf(fullName: { givenName: string | null; familyName: string | null } | null): string | null {
@@ -133,34 +144,8 @@ function fullNameOf(fullName: { givenName: string | null; familyName: string | n
   return name || null;
 }
 
-async function rememberPendingName(user: string, name: string, epoch: number): Promise<void> {
-  pendingName = { user, name };
-  await exclusive(async () => {
-    try {
-      // Never over a session: that row is somebody's sign-in. Memory holds the name then.
-      if (epoch === signOutEpoch && (await loadSession()) === null) {
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ pendingName }));
-      }
-    } catch {
-      // Memory still holds it for a retry in this run.
-    }
-  });
-}
-
-async function pendingNameOf(user: string): Promise<string | null> {
-  if (pendingName && pendingName.user === user) {
-    return pendingName.name;
-  }
-  try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const kept = (raw ? (JSON.parse(raw) as { pendingName?: { user?: unknown; name?: unknown } } | null) : null)?.pendingName;
-    if (kept && kept.user === user && typeof kept.name === 'string' && kept.name) {
-      return kept.name;
-    }
-  } catch {
-    // No kept name.
-  }
-  return null;
+function pendingNameOf(user: string): string | null {
+  return pendingName && pendingName.user === user ? pendingName.name : null;
 }
 
 /** The email claim from the identity token: Apple sends `email` on the credential only the first time. */
@@ -200,7 +185,7 @@ export async function signInWithApple(): Promise<GoogleSignInResult> {
   // fail, and handed on once the sign-in has worked.
   const authorizedName = fullNameOf(credential.fullName);
   if (authorizedName) {
-    await rememberPendingName(credential.user, authorizedName, epoch);
+    pendingName = { user: credential.user, name: authorizedName };
   }
   if (!credential.identityToken) {
     return { status: 'failed' };
@@ -209,8 +194,7 @@ export async function signInWithApple(): Promise<GoogleSignInResult> {
   if (!session.ok) {
     return { status: 'failed' };
   }
-  // Read before the row is overwritten: a pending name kept on disk is in it.
-  const keptName = authorizedName ?? (await pendingNameOf(credential.user));
+  const keptName = authorizedName ?? pendingNameOf(credential.user);
   const written = await exclusive(async (): Promise<'written' | 'superseded' | 'failed'> => {
     if (epoch !== signOutEpoch) {
       // The reader signed out (Reset) while this was on its way: not theirs to keep.
@@ -232,8 +216,7 @@ export async function signInWithApple(): Promise<GoogleSignInResult> {
   if (written === 'failed') {
     return { status: 'failed' };
   }
-  // The session row just written replaced the pending record; the name leaves
-  // with the account, which the hook stores.
+  // The name leaves with the account, which the hook stores.
   const name = keptName;
   pendingName = null;
   return {
@@ -259,7 +242,13 @@ export async function signInWithApple(): Promise<GoogleSignInResult> {
  */
 export async function getFreshAppleToken(expectedUser: string): Promise<FreshIdTokenResult> {
   const epoch = signOutEpoch;
-  const session = await loadSession();
+  let session: StoredAppleSession | null;
+  try {
+    session = await loadSession();
+  } catch {
+    // The row could not be read: nothing is known, so nobody is signed out.
+    return { status: 'error' };
+  }
   if (!session || session.user !== expectedUser) {
     return { status: 'signed_out' };
   }
@@ -293,7 +282,12 @@ export async function getFreshAppleToken(expectedUser: string): Promise<FreshIdT
         if (epoch !== signOutEpoch) {
           return 'moved';
         }
-        const current = await loadSession();
+        let current: StoredAppleSession | null;
+        try {
+          current = await loadSession();
+        } catch {
+          return 'moved';
+        }
         if (!current || current.user !== session.user || current.sessionToken !== session.sessionToken) {
           return 'moved';
         }
@@ -307,7 +301,7 @@ export async function getFreshAppleToken(expectedUser: string): Promise<FreshIdT
       if (outcome === 'moved') {
         // Nothing of this call's is left standing; whoever asked is acting for
         // a sign-in that is no longer there, or another call renewed first.
-        const now = epoch === signOutEpoch ? await loadSession() : null;
+        const now = epoch === signOutEpoch ? await loadSession().catch(() => null) : null;
         if (now && now.user === expectedUser && Date.parse(now.expiresAt) - Date.now() >= EXPIRY_MARGIN_MS) {
           return { status: 'ok', idToken: now.sessionToken };
         }

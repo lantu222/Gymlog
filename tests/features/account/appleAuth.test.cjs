@@ -326,26 +326,38 @@ module.exports = [
     }),
   },
   {
-    name: 'apple sign-in: the name Apple sends once survives a failed exchange or write, and is handed over by the retry',
+    name: 'apple sign-in: the name Apple sends once survives a failed exchange or write for the retry in this run, and never reaches the disk before the sign-in worked',
     run: withAppleCache(async () => {
       const KEY = '@vinha/account/apple/v1';
-      const withName = {
-        signInAsync: async () => ({ user: 'apple-user-1', identityToken: 'h.e30.s', email: null, fullName: { givenName: 'Aino', familyName: 'Virtanen' } }),
-      };
-      const withoutName = {
-        signInAsync: async () => ({ user: 'apple-user-1', identityToken: 'h.e30.s', email: null, fullName: null }),
-      };
       const good = async () => ({ ok: true, sessionToken: 'vs1.session', expiresAt: new Date(Date.now() + 180 * DAY).toISOString() });
+      const authorizations = (names) => {
+        let call = 0;
+        return {
+          signInAsync: async () => ({
+            user: 'apple-user-1',
+            identityToken: 'h.e30.s',
+            email: null,
+            fullName: names[Math.min(call++, names.length - 1)],
+          }),
+        };
+      };
+      const aino = { givenName: 'Aino', familyName: 'Virtanen' };
 
       // The exchange fails after the authorization: the retry's authorization carries no name.
-      const storage = memoryStorage();
-      const first = loadApple({ storage, apple: withName, exchange: async () => ({ ok: false }) });
+      let exchangeOk = false;
+      const first = loadApple({
+        apple: authorizations([aino, null]),
+        exchange: async () => (exchangeOk ? good() : { ok: false }),
+      });
       assert.deepEqual(await first.auth.signInWithApple(), { status: 'failed' });
-      assert.equal(await first.auth.hasAppleSession(), false);
-      // A fresh start of the app (a new module): only the disk remembers.
-      const retry = await loadApple({ storage, apple: withoutName, exchange: good }).auth.signInWithApple();
+      // A phone with no account keeps no name and no Apple user id on disk.
+      assert.equal(first.storage.items.size, 0, 'a failed sign-in left the reader\'s name or Apple id on the disk');
+      exchangeOk = true;
+      const retry = await first.auth.signInWithApple();
       assert.equal(retry.status, 'signed_in');
       assert.equal(retry.account.name, 'Aino Virtanen', 'the name Apple sends once was lost with the failed attempt');
+      // Only the session is in the row.
+      assert.deepEqual(Object.keys(JSON.parse(first.storage.items.get(KEY))).sort(), ['expiresAt', 'sessionToken', 'user']);
 
       // The write of the session fails instead.
       const flaky = memoryStorage();
@@ -357,17 +369,44 @@ module.exports = [
         }
         return realSet.call(flaky, key, value);
       };
-      const viaWrite = loadApple({ storage: flaky, apple: withName, exchange: good });
+      const viaWrite = loadApple({ storage: flaky, apple: authorizations([aino, null]), exchange: good });
       assert.deepEqual(await viaWrite.auth.signInWithApple(), { status: 'failed' });
+      assert.equal(flaky.items.size, 0);
       refuse = false;
-      const again = await loadApple({ storage: flaky, apple: withoutName, exchange: good }).auth.signInWithApple();
+      const again = await viaWrite.auth.signInWithApple();
       assert.equal(again.account.name, 'Aino Virtanen');
 
-      // Handed over once: the next sign-in without a name has none, and nothing lingers in the row.
-      assert.equal(JSON.parse(flaky.items.get(KEY)).pendingName, undefined);
-      await loadApple({ storage: flaky }).auth.signOutApple();
-      const later = await loadApple({ storage: flaky, apple: withoutName, exchange: good }).auth.signInWithApple();
+      // Handed over once, and gone with a sign-out.
+      const later = await viaWrite.auth.signInWithApple();
       assert.equal(later.account.name, null);
+      const out = loadApple({ apple: authorizations([aino, null]), exchange: async () => ({ ok: false }) });
+      await out.auth.signInWithApple();
+      await out.auth.signOutApple();
+      assert.equal(out.storage.items.size, 0);
+    }),
+  },
+  {
+    name: 'apple session: a storage read that throws is an error (stay signed in), only a successful read of nothing or junk is signed out',
+    run: withAppleCache(async () => {
+      const KEY = '@vinha/account/apple/v1';
+      const storage = memoryStorage({ [KEY]: stored(Date.now() + 100 * DAY) });
+      const realGet = storage.getItem;
+      let failing = true;
+      storage.getItem = async (key) => {
+        if (failing) {
+          throw new Error('SQLiteDatabase locked');
+        }
+        return realGet.call(storage, key);
+      };
+      const { auth } = loadApple({ storage });
+      assert.deepEqual(await auth.getFreshAppleToken('apple-user-1'), { status: 'error' }, 'a transient read failure signed the reader out');
+      failing = false;
+      assert.deepEqual(await auth.getFreshAppleToken('apple-user-1'), { status: 'ok', idToken: 'vs1.session' });
+      assert.deepEqual(await loadApple({ storage: memoryStorage() }).auth.getFreshAppleToken('apple-user-1'), { status: 'signed_out' });
+      assert.deepEqual(
+        await loadApple({ storage: memoryStorage({ [KEY]: '{"user":1}' }) }).auth.getFreshAppleToken('apple-user-1'),
+        { status: 'signed_out' },
+      );
     }),
   },
   {
