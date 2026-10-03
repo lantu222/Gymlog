@@ -548,7 +548,6 @@ export function SettingsScreen({
             <Row
               icon="analytics"
               title={t(language, 'settings.usageStats')}
-              sub={t(language, 'settings.usageStats.sub')}
               control={
                 <ToggleSwitch
                   label={t(language, 'settings.usageStats')}
