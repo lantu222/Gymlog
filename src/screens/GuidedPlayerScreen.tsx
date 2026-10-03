@@ -2061,6 +2061,11 @@ function GuidedPlayer({
   /* ── hardware back: exit sheet in player, plain leave on entry ── */
   useEffect(() => {
     const handler = BackHandler.addEventListener('hardwareBackPress', () => {
+      // The player is locked while Finish saves (the overlay at the end of the render); the sheet
+      // this opens holds a discard, which is not for the middle of a save either.
+      if (isSavingWorkout) {
+        return true;
+      }
       if (mode === 'player') {
         setExitOpen(true);
         return true;
@@ -2069,7 +2074,7 @@ function GuidedPlayer({
       return true;
     });
     return () => handler.remove();
-  }, [mode, onLeave]);
+  }, [mode, onLeave, isSavingWorkout]);
 
   if (!session) {
     return <View style={{ flex: 1, backgroundColor: theme.bg }} />;
@@ -4739,6 +4744,16 @@ function GuidedPlayer({
         onAllow={() => void restAsk.allow()}
         onLater={restAsk.later}
       />
+
+      {/*
+        Locked while Finish saves (bug hunt 2026-10-03). The save is the session as it stood when
+        Finish was pressed; a set ticked during the await reached the reducer and the slot history,
+        was not in the saved workout, and went with the finished session when it was cleared.
+        Nothing under this takes a touch until the save resolves (the screen is then left) or
+        fails (isSavingWorkout goes false, and the save-failed panel and its retry are reachable).
+        The free workout board holds its edits the same way while its Finish is in flight.
+      */}
+      {isSavingWorkout ? <View style={StyleSheet.absoluteFill} onStartShouldSetResponder={() => true} /> : null}
     </View>
   );
 }

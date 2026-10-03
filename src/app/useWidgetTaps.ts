@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Linking } from 'react-native';
 
+import { isWorkoutInProgress } from '../lib/activeWorkout';
 import { parseWidgetDeepLink } from '../lib/widgetDeepLink';
 import { HomeWidgetTarget, resolveHomeWidgetSessionTap } from '../lib/widgetPayload';
 import { AppRoute, ROOT_ROUTES } from '../navigation/routes';
@@ -19,7 +20,7 @@ type TapInput = Parameters<typeof resolveHomeWidgetSessionTap>[0];
  */
 export interface WidgetTapsDeps {
   appHydrated: boolean;
-  workout: { activeSession: unknown };
+  workout: { activeSession: { status: string } | null };
   homeActivePlanCard: {
     programType: 'ready' | 'custom';
     programId: string;
@@ -116,7 +117,7 @@ export function useWidgetTaps(deps: WidgetTapsDeps): void {
     }
 
     const tap = resolveHomeWidgetSessionTap({
-      hasActiveSession: workout.activeSession !== null,
+      hasActiveSession: isWorkoutInProgress(workout.activeSession),
       hasActivePlan: homeActivePlanCard !== null,
       nowMs: Date.now(),
       schedule: homeTrainingSchedule,

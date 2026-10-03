@@ -123,7 +123,15 @@ export function createFinishSaves(deps: FinishSavesDeps) {
     }
 
     const fallbackRoute = getWorkoutLoggerFallbackRoute();
-    await updatePreferences({ trainingFirstRunDismissed: true });
+    // The reader's choice is what this does, and a preference is not allowed to refuse it: a
+    // refused write (a full disk) threw here before the discard, so Discard did nothing, and
+    // Finish over a session with nothing lifted, which ends here, left a blank Finish screen
+    // (bug hunt 2026-10-03). Logged and let go, as the post-save write is.
+    try {
+      await updatePreferences({ trainingFirstRunDismissed: true });
+    } catch (preferencesError) {
+      console.error('Failed to record the first-run dismissal', preferencesError);
+    }
     workout.discardWorkout();
     setFinishSaveState({ status: 'idle', sessionId: null });
     navigateBack(fallbackRoute);
@@ -137,13 +145,30 @@ export function createFinishSaves(deps: FinishSavesDeps) {
       return;
     }
 
-    const adaptedSession = adaptCompletedWorkoutSessionForAppDatabase(activeSession);
+    const adaptedFromSession = adaptCompletedWorkoutSessionForAppDatabase(activeSession);
     // Nothing lifted is nothing to keep, even when skips, a swap or a note
     // left logs behind (#bugs 2026-10-01).
-    if (!sessionRecordedWork(adaptedSession.logs)) {
+    if (!sessionRecordedWork(adaptedFromSession.logs)) {
       await handleDiscardWorkout();
       return;
     }
+    // A session whose save landed and whose clear was lost comes back active on the next launch
+    // (the bundle write behind the finish is not awaited), and the reader can add sets to it and
+    // Finish again. The database refuses a second row under the same id and says nothing, so those
+    // sets were shown as saved and never written (bug hunt 2026-10-03). The same question the free
+    // workout board asks (#277): under this id with exactly these sets is the finish that already
+    // landed, nothing to write; under it with other sets is another workout wearing a stale id, and
+    // these sets are saved under an id of their own. A duplicate row beats a lost set. Read from the
+    // database as it stands now, not this render's snapshot.
+    const saveTarget = resolveFreestyleSaveTarget(
+      getDatabase(),
+      adaptedFromSession.sessionId,
+      adaptedFromSession.logs,
+    );
+    const adaptedSession =
+      saveTarget.sessionId === adaptedFromSession.sessionId
+        ? adaptedFromSession
+        : { ...adaptedFromSession, sessionId: saveTarget.sessionId };
 
     finishInFlightRef.current = true;
     setFinishSaveState({

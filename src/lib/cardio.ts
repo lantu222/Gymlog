@@ -148,6 +148,22 @@ export function getCardioMinutes(sessions: Array<Pick<CardioSession, 'durationSe
 }
 
 /**
+ * The stored run this save is, when it is already stored.
+ *
+ * The finish saves first and clears the live run with a write nobody awaits; when that write is
+ * lost (a kill, a refused disk) the run comes back on the next launch and Complete saved it a
+ * second time under a fresh id: one run, two rows, in every total (bug hunt 2026-10-03). A run is
+ * named by when it started and what it was: the start is the live run's own millisecond stamp,
+ * so two different runs cannot share one. Pure: the caller decides what to do with it.
+ */
+export function findSavedCardioRun<T extends Pick<CardioSession, 'activityType' | 'startedAt'>>(
+  sessions: readonly T[],
+  run: Pick<CardioSession, 'activityType' | 'startedAt'>,
+): T | null {
+  return sessions.find((session) => session.startedAt === run.startedAt && session.activityType === run.activityType) ?? null;
+}
+
+/**
  * Live cardio session state. Elapsed time is derived from timestamps so it
  * survives backgrounding and process death: accumulatedMs counts finished
  * running stretches, resumedAt marks the current one (null = paused).

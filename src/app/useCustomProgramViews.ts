@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { adaptLegacyWorkoutTemplateToRuntimeTemplate } from '../features/workout/customWorkoutAdapter';
 import type { WORKOUT_TEMPLATES_V1 } from '../features/workout/workoutCatalog';
 import type { WorkoutFeatureState } from '../features/workout/workoutState';
+import { isWorkoutInProgress } from '../lib/activeWorkout';
 import { getRecentExerciseLibraryItems } from '../lib/exerciseSuggestions';
 import { selectHomeCustomProgram } from '../lib/homeProgramSelection';
 import { buildProgramInsightMap } from '../lib/programInsights';
@@ -133,7 +134,7 @@ export function useCustomProgramViews(deps: CustomProgramViewsDeps) {
       selectHomeCustomProgram({
         customWorkouts,
         activeSessionTemplateId: workout.activeSession?.templateId ?? null,
-        hasActiveSession: Boolean(workout.activeSession),
+        hasActiveSession: isWorkoutInProgress(workout.activeSession),
         lastSelectedTemplateId: workout.history.lastSelectedTemplateId,
         recentCompletedCustomTemplateId,
       }),

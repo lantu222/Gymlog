@@ -2,6 +2,7 @@ import React from 'react';
 
 import { trackEvent } from '../features/analytics/analyticsClient';
 import { reportOperationFailed } from '../features/errorReporting/errorReporter';
+import { isWorkoutInProgress } from '../lib/activeWorkout';
 import { isAiCoachLiveConfigured, requestProgrammeComposition } from '../lib/aiCoachClient';
 import { randomLogId } from '../lib/aiCoachLogId';
 import { recordCoachQuestion, resolveCoachQuota } from '../lib/aiCoachQuota';
@@ -46,7 +47,7 @@ export interface HomeScreensDeps {
   navigateBack: (fallback?: AppRoute | null) => void;
   preferences: AppPreferences;
   updatePreferences: (patch: PreferencesPatch) => Promise<unknown>;
-  workout: { activeSession: unknown; discardWorkout: () => void };
+  workout: { activeSession: { status: string } | null; discardWorkout: () => void };
   cardioSessions: CardioScreenProps['cardioSessions'];
   cardioSaving: boolean;
   setCardioSaving: (saving: boolean) => void;
@@ -224,7 +225,7 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
         language={preferences.appLanguage}
         keepScreenAwake={preferences.keepScreenAwakeDuringWorkout}
         cardioSessions={cardioSessions}
-        hasActiveStrengthSession={Boolean(workout.activeSession)}
+        hasActiveStrengthSession={isWorkoutInProgress(workout.activeSession)}
         isSaving={cardioSaving}
         onResumeStrengthSession={() => {
           // The button says resume, so it resumes: straight to the set.

@@ -79,6 +79,11 @@ const { createFakeAsyncStorage, loadAgainstFake } = require('../../storage/fakeA
  *     values the reducer is meant to refuse are refused; ids are unique.
  *  6. A summary is shown, and the session marked finished, only once the write
  *     has landed on disk.
+ *  7. Whatever Finish shows as saved, some stored session holds exactly the sets
+ *     logged at that Finish - also when the session is one that came back active
+ *     after a save whose clear was lost (`finish:lostClear`, a kill, more sets,
+ *     Finish again). A discard happens whether or not the preference write behind
+ *     it is refused.
  *
  * The first runs (2026-10-03) found two things on main, both fixed since and held here as
  * invariants: a finished guided session left as the activeSession blocked every Start (and
@@ -262,6 +267,7 @@ const { parseNumberInput } = dist('lib/format.js');
 const { getCatalogTrackingMode } = dist('lib/catalogExercisePools.js');
 const emptyWorkout = dist('lib/emptyWorkoutSession.js');
 const { sessionRecordedWork } = dist('lib/exerciseLog.js');
+const { isWorkoutInProgress } = dist('lib/activeWorkout.js');
 const { t: translate } = dist('lib/i18n.js');
 
 const LIBRARY = createEmptyDatabase('en').exerciseLibrary;
@@ -316,7 +322,7 @@ const NAVIGATE_SOURCE = liftFunction(APP_SHELL, 'function navigateToActiveWorkou
 
 /** App.tsx's navigateToActiveWorkout, the door every Start goes through, run as written. */
 const compileDoor = (() => {
-  const wrapped = `function __door(__scope) {\n  const { workout, showToast, navigateToGuidedWorkout } = __scope;\n${NAVIGATE_SOURCE}\n  return navigateToActiveWorkout;\n}`;
+  const wrapped = `function __door(__scope) {\n  const { workout, showToast, navigateToGuidedWorkout, isWorkoutInProgress } = __scope;\n${NAVIGATE_SOURCE}\n  return navigateToActiveWorkout;\n}`;
   const js = ts.transpileModule(wrapped, { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.None } }).outputText;
   return new Function(`'use strict';\n${js}\nreturn __door;`)();
 })();
@@ -382,8 +388,13 @@ function freshWorld() {
   };
 }
 
-/** A session whose save resolved is closed: the reader has finished it, whatever status the leftover wears. */
-const isClosed = (session) => !session || session.status === 'completed' || world.expectedDb.has(session.sessionId);
+/**
+ * A finished session is closed to edits. A session whose save resolved is NOT: when the clear behind the save
+ * was lost (finish with `lostClear`, then a kill) it comes back active on the next launch, and the reader can
+ * log more into it and Finish again. This used to count it as closed, which hid that path from every
+ * generated sequence (bug hunt 2026-10-03).
+ */
+const isClosed = (session) => !session || session.status === 'completed';
 
 const setKey = (slotId, setIndex) => `${slotId}|${setIndex}`;
 const sameNumber = (a, b) => typeof a === 'number' && typeof b === 'number' && Math.abs(a - b) < 1e-9;
@@ -930,11 +941,10 @@ function finishDeps(proc, ev) {
         // N6: finishing flips the session to completed and stamps the history; only a landed save may say so.
         const sessionId = proc.state.activeSession.sessionId;
         assertDurable(sessionId, 'the session was marked finished');
-        const expected = world.expectedDb.get(sessionId);
         dispatch(proc, { type: 'session/finishWorkout', payload: { performedAt } });
         const summary = proc.state.history.sessions[0];
-        if (!summary || summary.sessionId !== sessionId || (expected && summary.setsCompleted !== expected.sets.length)) {
-          fail('2', `the slot history holds ${summary ? `${summary.setsCompleted} sets for ${summary.sessionId}` : 'no session'}, the reader logged ${expected?.sets.length}`);
+        if (!summary || summary.sessionId !== sessionId || summary.setsCompleted !== world.pendingExpectation.length) {
+          fail('2', `the slot history holds ${summary ? `${summary.setsCompleted} sets for ${summary.sessionId}` : 'no session'}, the reader logged ${world.pendingExpectation.length}`);
         }
       },
       clearCompletedWorkout() {
@@ -1072,6 +1082,12 @@ async function finishGuided(ev) {
     storage.fault.writeDb = 1;
     storage.fault.dbSkip = 0;
   }
+  if (ev.lostClear) {
+    // The bundle writes behind the finish (the session marked finished, then cleared) never land: the save is on
+    // disk, the stored session is still the live one, and the next launch brings it back active.
+    storage.fault.writeBundle = 2;
+  }
+  const sessionAtFinish = session.sessionId;
   const saves = FINISH_SAVES(finishDeps(proc, ev));
   let thrown = null;
   const flow = saves.handleConfirmFinishWorkout().catch((error) => {
@@ -1081,11 +1097,13 @@ async function finishGuided(ev) {
     // The process dies inside the awaited preferences write: neither the clear nor the summary ever happens.
     await Promise.race([flow, new Promise((resolve) => setImmediate(resolve))]);
     await settle(proc);
+    storage.fault.writeBundle = 0;
     return;
   }
   await flow;
   storage.fault.writeDb = 0;
   await settle(proc);
+  storage.fault.writeBundle = 0;
   rethrowCaptured();
   if (proc.refs.finishInFlight.current) {
     fail('2', 'the finish left itself in flight: no second Finish can run');
@@ -1111,7 +1129,8 @@ async function finishGuided(ev) {
       fail('2', `a save that failed left session ${attempt.sessionId} in the database in memory`);
     }
     const live = proc.state.activeSession;
-    if (!live || live.sessionId !== attempt.sessionId || live.status === 'completed') {
+    // The session the reader is still in, under the id it had: the save may have been aimed at another id.
+    if (!live || live.sessionId !== sessionAtFinish || live.status === 'completed') {
       fail('2', 'a save that failed left no resumable session behind');
     }
     if (!world.toasts.includes(saveFailedToast())) {
@@ -1126,6 +1145,20 @@ async function finishGuided(ev) {
   count('save resolved');
   if (thrown) {
     fail('4', `Finish threw ${thrown instanceof Error ? thrown.message : thrown}`);
+  }
+  // N1 and N6 together: the summary said these sets were saved, so some session in the database holds exactly them.
+  // (A session restored after a lost clear, with sets added, was "already saved" under its old id and the new
+  // sets reached nothing.)
+  const wanted = world.pendingExpectation.join(' ');
+  const holder = proc.dbRef.current.workoutSessions.find((row) => savedSets(proc.dbRef.current, row.id).join(' ') === wanted);
+  if (!holder) {
+    fail('2', `Finish showed ${world.pendingExpectation.length} logged sets [${wanted}] as saved and no session in the database holds them`);
+  }
+  if (sessionAtFinish !== attempt.sessionId) {
+    count('finish saved under an id of its own');
+  }
+  if (ev.lostClear) {
+    count('finish with the clear lost');
   }
   if (ev.prefFail) {
     // The save is on disk and the preferences write behind it was refused: not a reason to say the save failed.
@@ -1147,12 +1180,18 @@ async function discardGuided(ev) {
   const saves = FINISH_SAVES(finishDeps(proc, ev));
   try {
     await saves.handleDiscardWorkout();
-  } catch {
+  } catch (error) {
     rethrowCaptured();
-    // The preferences write refused: nothing was discarded.
-    count('discard refused');
+    fail('4', `Discard threw ${error instanceof Error ? error.message : error}`);
   }
   await settle(proc);
+  // A preference is not allowed to refuse the reader's choice: the discard happens whether or not its write did.
+  if (proc.state.activeSession) {
+    fail('1', `a discard was refused${ev.prefFail ? ' because the preferences write behind it failed' : ''}: the session is still live`);
+  }
+  if (ev.prefFail) {
+    count('discard with the preferences write refused');
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1364,6 +1403,7 @@ const HANDLERS = {
       },
       showToast: () => undefined,
       navigateToGuidedWorkout: () => undefined,
+      isWorkoutInProgress,
     });
     if (door({ resume: false })) {
       if (active.status === 'completed') {
@@ -1864,6 +1904,12 @@ const JUMPS = [-3600 * 1000, 25 * 3600 * 1000, 3 * 24 * 3600 * 1000, 7 * 24 * 36
 /** Sequences that walk a path the random ones reach rarely: the finish and a kill right behind it. */
 function scenario(rnd) {
   const ev = (t, extra = {}) => ({ t, dt: pick(rnd, [250, 1500, 20000]), r: int(rnd, 1 << 30), ...extra });
+  if (rnd() < 0.3) {
+    // A guided session whose save landed and whose clear was lost comes back active; the reader logs more and finishes.
+    const first = Array.from({ length: 1 + int(rnd, 3) }, () => ev('log'));
+    const more = Array.from({ length: int(rnd, 3) }, () => ev('log'));
+    return [ev('start'), ...first, ev('finish', { lostClear: true, ...(rnd() < 0.2 ? { prefFail: true } : {}) }), ev('kill'), ...more, ev('finish', rnd() < 0.2 ? { saveFail: true } : {})];
+  }
   if (rnd() < 0.5) {
     const lifts = [ev('fsAdd'), ev('fsType'), ev('fsTick'), ev('fsAdd'), ev('fsType'), ev('fsTick')];
     return [...lifts, ev('wait', { dt: 1500 }), ev('fsFinish', rnd() < 0.3 ? { saveFail: true, failAt: int(rnd, 2) } : {}), ev('kill', rnd() < 0.7 ? { early: true } : {}), ev('fsFinish')];
@@ -1905,6 +1951,9 @@ function generate(rnd) {
       }
       if (rnd() < 0.08) {
         event.killMid = true;
+      }
+      if (rnd() < 0.1) {
+        event.lostClear = true;
       }
     } else if (t === 'fsFinish') {
       if (rnd() < 0.3) {
@@ -2156,6 +2205,29 @@ module.exports = [
           assert.equal(failure, null, `${name}: ${failure?.message} (at step ${failure ? failure.step + 1 : 0} of ${events.map(describe).join(', ')})`);
           const saves = [...world.expectedDb.keys()].length;
           assert.ok(saves >= 1, `${name}: expected the first workout and the next one saved, saw ${saves}`);
+        }
+      });
+    },
+  },
+  {
+    name: 'workout lifecycle: a guided session whose save landed and whose clear was lost comes back active - sets logged into it are written under an id of their own, an unchanged one is not saved twice, and a discard is never refused by a preference',
+    async run() {
+      const ev = (t, extra = {}) => ({ t, dt: 250, r: 7, ...extra });
+      const begin = [ev('start', { r: 11 }), ev('log', { r: 1 }), ev('log', { r: 2 }), ev('finish', { lostClear: true }), ev('kill')];
+      // How many saved sessions each path leaves: the first workout, and the second where sets were added.
+      const cases = [
+        ['sets added after the relaunch', [...begin, ev('log', { r: 3 }), ev('log', { r: 4 }), ev('finish')], 2],
+        ['nothing added: the same finish again writes nothing', [...begin, ev('finish')], 1],
+        ['sets added, the new save failing, then the retry', [...begin, ev('log', { r: 3 }), ev('finish', { saveFail: true }), ev('finish')], 2],
+        ['sets added, a kill, the board restored, Finish', [...begin, ev('log', { r: 3 }), ev('kill'), ev('finish')], 2],
+        ['sets added, and the preferences write refused after the save', [...begin, ev('log', { r: 3 }), ev('finish', { prefFail: true })], 2],
+        ['a discard whose preferences write is refused still discards', [...begin, ev('discard', { prefFail: true })], 1],
+      ];
+      await withEnvironment(async () => {
+        for (const [name, events, saves] of cases) {
+          const failure = await runSequence(events, SEED);
+          assert.equal(failure, null, `${name}: ${failure?.message} (at step ${failure ? failure.step + 1 : 0} of ${events.map(describe).join(', ')})`);
+          assert.equal(world.expectedDb.size, saves, `${name}: expected ${saves} saved session(s), saw ${world.expectedDb.size}`);
         }
       });
     },
