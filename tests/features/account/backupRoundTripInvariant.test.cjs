@@ -337,6 +337,7 @@ async function fakeFetch(url, init = {}) {
     for (const [name, value] of Object.entries(init.headers ?? {})) {
       headers[name.toLowerCase()] = value;
     }
+    world.now += 1000;
     // Vercel hands a JSON body over already parsed; the handler writes it back out.
     const parsed = world.bodyMode === 'parsed' && init.method === 'PUT' && typeof init.body === 'string';
     const result = await callHandler(handler, { method: init.method ?? 'GET', headers, body: parsed ? JSON.parse(init.body) : init.body });
@@ -1944,6 +1945,8 @@ async function generatorReaches() {
     const state = genState(900 + index, knobs);
     resetPhone(phone);
     world = freshWorld();
+    assert.equal(new Date().getTime(), world.now, 'new Date() reads the clock of the world, not the real one');
+    assert.equal(Date.now(), world.now);
     await setDisk(phone, state.database, state.history);
     const got = phone.app.database;
     const lost = (name) => bad(`6: the generator's ${name} did not survive the loader (case ${index}, ${JSON.stringify(knobs)})`);
@@ -1989,7 +1992,24 @@ async function generatorReaches() {
 // ---------------------------------------------------------------------------
 
 async function withWorld(run) {
-  const savedNow = Date.now;
+  // The clock is the world's, for `new Date()` as much as for Date.now: exportedAt, the endpoint's savedAt and the
+  // loaders' fallbacks all read it, so no case depends on the real time (two uploads in one millisecond used to be
+  // able to carry the same exportedAt).
+  const RealDate = Date;
+  class FakeDate extends RealDate {
+    constructor(...args) {
+      if (args.length === 0) {
+        super(world ? world.now : RealDate.now());
+      } else {
+        super(...args);
+      }
+    }
+    static now() {
+      return world ? world.now : RealDate.now();
+    }
+  }
+  global.Date = FakeDate;
+  const savedNow = RealDate.now;
   const savedFetch = global.fetch;
   const savedSetTimeout = global.setTimeout;
   const savedClearTimeout = global.clearTimeout;
@@ -2031,6 +2051,7 @@ async function withWorld(run) {
     );
   } finally {
     console.error = quiet;
+    global.Date = RealDate;
     Date.now = savedNow;
     global.fetch = savedFetch;
     global.setTimeout = savedSetTimeout;

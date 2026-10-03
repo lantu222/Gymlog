@@ -66,6 +66,14 @@ export interface BackupContents {
   readyProgramCount: number;
   bodyweightCount: number;
   measurementCount: number;
+  /**
+   * What the reader wrote themselves, with no workout behind it: the lifts
+   * they taught the name book, strength targets, goals told to the coach.
+   * Counted so the question can show them (hasLocalDataWorthKeeping keeps them).
+   */
+  nameBookCount: number;
+  strengthGoalCount: number;
+  coachGoalCount: number;
 }
 
 /** What the restore dialog says, so the reader knows what they are accepting. */
@@ -158,8 +166,11 @@ export function decodeAccountBackupBody(raw: unknown): unknown {
 
 export function countBackupContents(
   database: Partial<
-    Pick<AppDatabase, 'workoutSessions' | 'cardioSessions' | 'bodyweightEntries' | 'measurementEntries' | 'workoutTemplates' | 'workoutPlans'>
-  >,
+    Pick<
+      AppDatabase,
+      'workoutSessions' | 'cardioSessions' | 'bodyweightEntries' | 'measurementEntries' | 'workoutTemplates' | 'workoutPlans' | 'exerciseNameBook'
+    >
+  > & { preferences?: Partial<Pick<AppPreferences, 'strengthGoals' | 'coachGoals'>> | null },
 ): BackupContents {
   const count = (list: unknown) => (Array.isArray(list) ? list.length : 0);
   const templates = Array.isArray(database.workoutTemplates) ? database.workoutTemplates : [];
@@ -185,6 +196,9 @@ export function countBackupContents(
     readyProgramCount: readyIds.size,
     bodyweightCount: count(database.bodyweightEntries),
     measurementCount: count(database.measurementEntries),
+    nameBookCount: count(database.exerciseNameBook),
+    strengthGoalCount: count(database.preferences?.strengthGoals),
+    coachGoalCount: count(database.preferences?.coachGoals),
   };
 }
 
