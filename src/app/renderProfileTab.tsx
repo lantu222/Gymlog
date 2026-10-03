@@ -718,6 +718,7 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
                 signedIn: accountBackup.state.status === 'signed_in',
                 email: accountBackup.state.email,
                 lastBackupAt: accountBackup.state.lastBackupAt,
+                backupPaused: accountBackup.state.backupPaused,
                 busy: accountBackup.phase !== 'idle',
                 providers: accountBackup.providers,
                 onSignIn: (provider) => void handleAccountSignIn(provider),

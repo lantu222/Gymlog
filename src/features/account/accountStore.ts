@@ -8,6 +8,8 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { isDeleteRequestId } from '../../lib/accountBackup';
+
 const STORAGE_KEY = '@vinha/account/v1';
 
 export interface StoredAccount {
@@ -58,6 +60,21 @@ export interface StoredAccount {
    * same answer because the account was deleted elsewhere, and says that.
    */
   deleteAccountPendingAt?: string | null;
+  /**
+   * The random id (128 bits, hex) this phone's "Delete account" request
+   * carries, kept with the pending record. The server writes it into the
+   * revocation marker and hands it back with SESSION_REVOKED, so a retry can
+   * tell its own delete (same id) from one another phone made (another id).
+   */
+  deleteRequestId?: string | null;
+  /**
+   * accountBackupFingerprint of the data the latest uploads (newest first, at
+   * most three) were made of, written BEFORE each request goes out and cleared
+   * once an answer settles which copy the cloud holds. An upload can land while
+   * its answer is lost; the copy that is then one version ahead of this phone
+   * is recognised by it, also after a restart.
+   */
+  uploadInFlightFingerprints?: string[];
 }
 
 /** The stored record, repaired: an account written by an older build lacks the newer fields. */
@@ -82,6 +99,15 @@ export function normalizeStoredAccount(parsed: Partial<StoredAccount> | null | u
     cloudVersion: typeof parsed.cloudVersion === 'string' && parsed.cloudVersion ? parsed.cloudVersion : null,
     ...(typeof parsed.deleteAccountPendingAt === 'string' && Number.isFinite(Date.parse(parsed.deleteAccountPendingAt))
       ? { deleteAccountPendingAt: parsed.deleteAccountPendingAt }
+      : {}),
+    ...(isDeleteRequestId(parsed.deleteRequestId) ? { deleteRequestId: parsed.deleteRequestId } : {}),
+    ...(Array.isArray(parsed.uploadInFlightFingerprints) &&
+    parsed.uploadInFlightFingerprints.some((entry) => typeof entry === 'string' && entry)
+      ? {
+          uploadInFlightFingerprints: parsed.uploadInFlightFingerprints
+            .filter((entry): entry is string => typeof entry === 'string' && entry.length > 0)
+            .slice(0, 3),
+        }
       : {}),
   };
 }

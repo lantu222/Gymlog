@@ -41,14 +41,19 @@ import {
   decideAfterLook,
   describeAccountBackup,
   describeRestoreChoice,
+  backupWouldShrink,
   hasLocalDataWorthKeeping,
   isCloudCopyThisPhones,
+  isCopyPhonesOwnWork,
+  isDeleteRequestId,
   phoneDataIsInCopy,
   planBackup,
   RestoreChoiceSummary,
+  revokedDeleteOutcome,
   syncCounts,
   uploadNeedsConsent,
 } from '../../lib/accountBackup';
+import { randomHex } from '../../lib/aiCoachLogId';
 import {
   BACKUP_CHANGED,
   BackupDownloadResult,
@@ -86,7 +91,17 @@ export interface AccountBackupState {
   lastBackupAt: string | null;
   /** Whose sign-in this is, for wording that only fits one (null when signed out). */
   provider: 'google' | 'apple' | null;
+  /**
+   * Why the automatic backup is standing still until the reader decides with
+   * "Back up now", or null when it is not. 'other_phone': the cloud copy
+   * changed on another phone since this one last saw it. 'smaller_phone': this
+   * phone holds far less than the cloud copy (the shrink guard). The row says
+   * so — a green timestamp over backups that were silently not happening.
+   */
+  backupPaused: BackupPauseReason | null;
 }
+
+export type BackupPauseReason = 'other_phone' | 'smaller_phone';
 
 export type SignInOutcome =
   | { kind: 'unavailable' }
@@ -308,6 +323,26 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
    * settles it.
    */
   const unseenCopyFoundRef = useRef(false);
+  // What the row says about it: the same fact, and the shrink guard's, as state.
+  const [backupPaused, setBackupPaused] = useState<BackupPauseReason | null>(null);
+  const pauseRef = useRef<BackupPauseReason | null>(null);
+  const pauseBackup = (reason: BackupPauseReason) => {
+    if (reason === 'other_phone') {
+      unseenCopyFoundRef.current = true;
+    }
+    if (pauseRef.current !== reason) {
+      pauseRef.current = reason;
+      setBackupPaused(reason);
+    }
+  };
+  /** The reader's own backup, restore, sign-in or sign-out settles every pause. */
+  const clearPause = () => {
+    unseenCopyFoundRef.current = false;
+    if (pauseRef.current !== null) {
+      pauseRef.current = null;
+      setBackupPaused(null);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -397,32 +432,97 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       generation: number,
       expectedVersion: string | null,
     ): Promise<'done' | 'failed' | 'changed'> => {
-      const { database, workoutHistory } = latestRef.current;
-      const payload = buildAccountBackupPayload(database, workoutHistory, new Date().toISOString());
-      // Taken with the payload: an edit made while the upload runs is still a
-      // difference afterwards, and gets its own backup.
-      const fingerprint = accountBackupFingerprint(database, workoutHistory);
-      const result = await screenSession(idToken, await uploadBackup(idToken, payload, expectedVersion));
-      ensureCurrent(generation);
-      if (!result.ok) {
-        return result.error === BACKUP_CHANGED ? 'changed' : 'failed';
+      let version = expectedVersion;
+      let sync = base;
+      // At most one silent retry: a second refusal is a real race.
+      for (let attempt = 0; ; attempt += 1) {
+        const { database, workoutHistory } = latestRef.current;
+        const payload = buildAccountBackupPayload(database, workoutHistory, new Date().toISOString());
+        // Taken with the payload: an edit made while the upload runs is still a
+        // difference afterwards, and gets its own backup.
+        const fingerprint = accountBackupFingerprint(database, workoutHistory);
+        // Kept BEFORE the request: it can land while its answer is lost, and
+        // the copy that is then a version ahead of this phone is recognised by
+        // this — also after the app was closed in between.
+        ensureCurrent(generation);
+        sync = {
+          ...sync,
+          uploadInFlightFingerprints: [fingerprint, ...(sync.uploadInFlightFingerprints ?? [])].slice(0, 3),
+        };
+        await persistAccount(sync);
+        ensureCurrent(generation);
+        const result = await screenSession(idToken, await uploadBackup(idToken, payload, version));
+        ensureCurrent(generation);
+        if (!result.ok) {
+          if (result.error !== BACKUP_CHANGED) {
+            return 'failed';
+          }
+          if (attempt > 0) {
+            return 'changed';
+          }
+          // The copy that refused is exactly what an earlier upload of this
+          // phone sent (its answer lost): then nothing was written by anyone
+          // else, and this upload goes onto it. Any other copy is another
+          // phone's — rows, settings and the name book included — and asked about.
+          const remote = await screenSession(idToken, await downloadBackup(idToken));
+          ensureCurrent(generation);
+          if (
+            !remote.ok ||
+            remote.version === null ||
+            !isCopyPhonesOwnWork({
+              inFlightFingerprints: sync.uploadInFlightFingerprints ?? [],
+              lastBackupFingerprint: sync.lastBackupFingerprint,
+              copy: remote.payload,
+            })
+          ) {
+            return 'changed';
+          }
+          version = remote.version;
+          // The copy is known now, and nothing in flight is a question any more.
+          sync = {
+            ...sync,
+            cloudVersion: remote.version,
+            ...syncCounts(countBackup(remote.payload.database, remote.payload.workoutHistory)),
+            uploadInFlightFingerprints: [],
+          };
+          continue;
+        }
+        clearPause();
+        await persistAccount({
+          ...sync,
+          lastBackupAt: result.savedAt,
+          ...syncCounts(countBackup(database, workoutHistory)),
+          lastBackupFingerprint: fingerprint,
+          uploadInFlightFingerprints: [],
+          // The reader's own backup (or restore, or sign-in) is what lifts a
+          // delete's pause.
+          autoBackupPaused: false,
+          cloudVersion: result.version,
+        });
+        return 'done';
       }
-      unseenCopyFoundRef.current = false;
-      await persistAccount({
-        ...base,
-        lastBackupAt: result.savedAt,
-        ...syncCounts(countBackup(database, workoutHistory)),
-        lastBackupFingerprint: fingerprint,
-        // The reader's own backup (or restore, or sign-in) is what lifts a
-        // delete's pause.
-        autoBackupPaused: false,
-        cloudVersion: result.version,
-      });
-      return 'done';
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [persistAccount],
   );
+
+  /**
+   * The token an answer to a question goes out with. The question can sit open
+   * for hours and a Google ID token lasts about one: the one captured when it
+   * was asked is a 401 by the time the reader taps "Use this phone's data".
+   * A fresh one when there is one; the captured one when the lookup only failed
+   * (offline — the upload will say so); null when Google has no session left,
+   * which the next backup handles.
+   */
+  const tokenForAnswer = useCallback(async (captured: string, generation: number): Promise<string | null> => {
+    const token = await getFreshIdToken();
+    ensureCurrent(generation);
+    if (token.status === 'ok') {
+      return token.idToken;
+    }
+    return token.status === 'signed_out' ? null : captured;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /** Both stores, each on disk before the next; resolves with the fingerprint of what landed. */
   const applyRestore = useCallback(async (payload: AccountBackupPayload, generation: number): Promise<string> => {
@@ -559,7 +659,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
           // may replace.
           cloudVersion: remote.version,
         });
-        unseenCopyFoundRef.current = false;
+        clearPause();
         return { kind: 'restored', summary };
       }
       if (remote.error !== 'NO_BACKUP') {
@@ -606,7 +706,9 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       // next "Back up now" asks about the copy that is there.
       const uploaded = await uploadCurrent(idToken, base, generation, null);
       if (uploaded !== 'done') {
-        await persistAccount(base);
+        // Signed in, nothing synced — and what the failed upload kept (its
+        // fingerprint, see uploadCurrent) stays with the account.
+        await persistAccount(accountRef.current ?? base);
         return { kind: 'not_backed_up' };
       }
       return { kind: 'backed_up' };
@@ -631,7 +733,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       if (result.status !== 'signed_in') {
         return { kind: result.status === 'cancelled' ? 'cancelled' : result.status === 'unavailable' ? 'unavailable' : 'failed' };
       }
-      unseenCopyFoundRef.current = false;
+      clearPause();
       const base: StoredAccount = {
         sub: result.account.sub,
         email: result.account.email,
@@ -696,7 +798,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
             autoBackupPaused: false,
             cloudVersion: pending.version,
           });
-          unseenCopyFoundRef.current = false;
+          clearPause();
           // The phone now holds this account's own backup: whose data it was
           // is settled.
           await forgetSignedOutAccount();
@@ -707,7 +809,11 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         // other: one written since then is refused, and the next "Back up
         // now" asks about that one.
         enterPhase('backing_up');
-        const kept = await uploadCurrent(pending.idToken, current, generation, pending.version);
+        const idToken = await tokenForAnswer(pending.idToken, generation);
+        if (idToken === null) {
+          return 'failed';
+        }
+        const kept = await uploadCurrent(idToken, current, generation, pending.version);
         if (kept === 'done') {
           await forgetSignedOutAccount();
         }
@@ -725,7 +831,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [applyRestore, persistAccount, uploadCurrent],
+    [applyRestore, persistAccount, tokenForAnswer, uploadCurrent],
   );
 
   const resolveUploadChoice = useCallback(
@@ -748,7 +854,11 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         enterPhase('backing_up');
         // uploadCurrent lifts the hold when the upload lands. Only a landed
         // upload settles whose data this is; a failed one asks again.
-        const uploaded = await uploadCurrent(pending.idToken, pending.account, generation, null);
+        const idToken = await tokenForAnswer(pending.idToken, generation);
+        if (idToken === null) {
+          return 'failed';
+        }
+        const uploaded = await uploadCurrent(idToken, pending.account, generation, null);
         if (uploaded === 'done') {
           await forgetSignedOutAccount();
         }
@@ -766,7 +876,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [persistAccount, uploadCurrent],
+    [persistAccount, tokenForAnswer, uploadCurrent],
   );
 
   /**
@@ -794,7 +904,24 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         local: countBackup(latestRef.current.database, latestRef.current.workoutHistory),
       });
       if (plan === 'skip') {
+        // A delete's own pause already shows as "No backup yet". The shrink
+        // guard did not show at all: the row kept its green time while nothing
+        // was being backed up.
+        if (
+          !interactive &&
+          !current.autoBackupPaused &&
+          backupWouldShrink(countBackup(latestRef.current.database, latestRef.current.workoutHistory), {
+            itemCount: current.lastBackupItemCount,
+            historyCount: current.lastBackupHistoryCount,
+          })
+        ) {
+          pauseBackup('smaller_phone');
+        }
         return { kind: 'failed' };
+      }
+      if (pauseRef.current === 'smaller_phone') {
+        // The phone no longer holds far less than the copy.
+        clearPause();
       }
       const generation = generationRef.current;
       enterPhase('backing_up');
@@ -821,6 +948,36 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         if (plan === 'look') {
           const remote = await screenSession(idToken, await downloadBackup(idToken));
           ensureCurrent(generation);
+          if (
+            remote.ok &&
+            !current.lastBackupAt &&
+            remote.version !== null &&
+            isCopyPhonesOwnWork({
+              inFlightFingerprints: current.uploadInFlightFingerprints ?? [],
+              copy: remote.payload,
+            })
+          ) {
+            // This phone's own first backup, which landed while its answer was
+            // lost. Nobody wrote it but this phone: no question to ask.
+            const copyFingerprint = accountBackupFingerprint(remote.payload.database as AppDatabase, remote.payload.workoutHistory);
+            const adopted: StoredAccount = {
+              ...current,
+              lastBackupAt: remote.payload.exportedAt,
+              ...syncCounts(countBackup(remote.payload.database, remote.payload.workoutHistory)),
+              lastBackupFingerprint: copyFingerprint,
+              uploadInFlightFingerprints: [],
+              cloudVersion: remote.version,
+            };
+            await persistAccount(adopted);
+            ensureCurrent(generation);
+            const { database, workoutHistory } = latestRef.current;
+            if (accountBackupFingerprint(database, workoutHistory) === copyFingerprint) {
+              return { kind: 'backed_up' };
+            }
+            return (await uploadCurrent(idToken, adopted, generation, remote.version)) === 'done'
+              ? { kind: 'backed_up' }
+              : { kind: 'failed' };
+          }
           const decision = decideAfterLook({
             interactive,
             neverSynced: !current.lastBackupAt,
@@ -844,6 +1001,9 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
           if (decision === 'hold' && remote.ok) {
             // The copy is this phone's own (another phone's fails above), so
             // its version is the one the next upload names.
+            if (!interactive) {
+              pauseBackup('smaller_phone');
+            }
             await persistAccount({
               ...current,
               ...syncCounts(countBackup(remote.payload.database, remote.payload.workoutHistory)),
@@ -853,7 +1013,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
           }
           if (decision !== 'upload') {
             if (remote.ok && !interactive) {
-              unseenCopyFoundRef.current = true;
+              pauseBackup('other_phone');
             }
             return { kind: 'failed' };
           }
@@ -893,7 +1053,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         // server kept theirs. Unattended, nothing more is sent: the next try
         // would upload the whole history to hear the same refusal.
         if (!interactive) {
-          unseenCopyFoundRef.current = true;
+          pauseBackup('other_phone');
           return { kind: 'failed' };
         }
         // "Back up now": the look this phone would have done had it known.
@@ -960,7 +1120,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
     // therefore gone from the ref and from state before anything is awaited.
     pendingRestoreRef.current = null;
     pendingUploadRef.current = null;
-    unseenCopyFoundRef.current = false;
+    clearPause();
     lookWaitingRef.current = false;
     const leaving = accountRef.current;
     accountRef.current = null;
@@ -1110,9 +1270,19 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       // answer is slow or lost, the retry meets a session the server has by
       // then ended, and this is how that retry knows its own try went through.
       const triedBefore = Boolean(current.deleteAccountPendingAt);
-      await persistAccount({ ...(accountRef.current ?? current), deleteAccountPendingAt: new Date().toISOString() });
+      // The id this phone's request carries, kept with the record: the server
+      // writes it into the revocation marker and hands it back when it turns a
+      // later request away, so "the account is gone" can be told apart as this
+      // phone's own delete or another's. A retry keeps the first try's id —
+      // that is the one a delivered request left behind.
+      const requestId = isDeleteRequestId(current.deleteRequestId) ? current.deleteRequestId : randomHex(32);
+      await persistAccount({
+        ...(accountRef.current ?? current),
+        deleteAccountPendingAt: new Date().toISOString(),
+        deleteRequestId: requestId,
+      });
       ensureCurrent(generation);
-      const answer = await deleteBackup(token.idToken, { account: true });
+      const answer = await deleteBackup(token.idToken, { account: true, requestId });
       ensureCurrent(generation);
       if (answer.ok) {
         // The server has deleted; now this phone forgets the account. Sign-out
@@ -1130,9 +1300,14 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         // (the copy goes before the marker is written). Any other phone is
         // being told the account was deleted elsewhere — maybe by a phone that
         // has since signed in again and backed up, whose copy is alive — and
-        // says only that, never "deleted".
+        // says only that, never "deleted". A server that returns the marker's
+        // request id settles it exactly (revokedDeleteOutcome); the pending
+        // record alone could not tell a lost delete from one another phone made
+        // after this phone's try never arrived.
         await signOut();
-        return answer.error === SESSION_REVOKED && triedBefore ? 'done' : 'ended';
+        return answer.error === SESSION_REVOKED
+          ? revokedDeleteOutcome({ pendingBefore: triedBefore, ownRequestId: requestId, answerRequestId: answer.deleteRequestId })
+          : 'ended';
       }
       if (answer.definite) {
         // The server said no: nothing was deleted by this request, so there is
@@ -1140,7 +1315,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         // have gone through.)
         const latest = accountRef.current;
         if (latest) {
-          await persistAccount({ ...latest, deleteAccountPendingAt: null });
+          await persistAccount({ ...latest, deleteAccountPendingAt: null, deleteRequestId: null });
         }
       }
       return 'failed';
@@ -1238,13 +1413,13 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
 
   const state = useMemo<AccountBackupState>(() => {
     if (!available) {
-      return { status: 'unavailable', email: null, name: null, lastBackupAt: null, provider: null };
+      return { status: 'unavailable', email: null, name: null, lastBackupAt: null, provider: null, backupPaused: null };
     }
     if (!loaded) {
-      return { status: 'loading', email: null, name: null, lastBackupAt: null, provider: null };
+      return { status: 'loading', email: null, name: null, lastBackupAt: null, provider: null, backupPaused: null };
     }
     if (!account) {
-      return { status: 'signed_out', email: null, name: null, lastBackupAt: null, provider: null };
+      return { status: 'signed_out', email: null, name: null, lastBackupAt: null, provider: null, backupPaused: null };
     }
     return {
       status: 'signed_in',
@@ -1252,8 +1427,9 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       name: account.name,
       lastBackupAt: account.lastBackupAt,
       provider: account.sub.startsWith(APPLE_ACCOUNT_PREFIX) ? 'apple' : 'google',
+      backupPaused,
     };
-  }, [account, available, loaded]);
+  }, [account, available, backupPaused, loaded]);
 
   return {
     available,
