@@ -170,7 +170,13 @@ module.exports = [
       const settle = hook.slice(hook.indexOf('const settleWithRemote = useCallback('), hook.indexOf('const signIn = useCallback('));
       assert.match(settle, /try \{\s*fingerprint = await applyRestore\(remote\.payload, generation\);\s*\} catch \(error\) \{[\s\S]*?return \{ kind: 'restore_failed' \};/);
       const presenter = code(readShell());
-      assert.match(presenter, /showToast\(t\(language, result === 'done' \? 'account\.restore\.restored' : 'account\.restore\.failed'\)\);/);
+      // The reader's own "use the backup": a refused write is said. A landed one is not — the
+      // history on screen and the row's timestamp say it (#bugs 2026-10-03).
+      assert.match(
+        presenter,
+        /resolveRestoreChoice\('restore'\)\.then\(\(result\) => \{[\s\S]*?\} else if \(result === 'failed'\) \{\s*showToast\(t\(language, 'account\.restore\.failed'\)\);/,
+      );
+      assert.doesNotMatch(presenter, /account\.restore\.restored/, 'a success bar over the restored history');
       assert.match(presenter, /if \(outcome\.kind === 'restore_failed'\) \{\s*showToast\(t\(language, 'account\.restore\.failed'\)\);/);
     },
   },
