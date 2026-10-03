@@ -8,8 +8,8 @@ import { TourTargetRegistry, viewportOf } from './tourTargets';
  * A screen's list, as the tour's scroller: the ref, the offset it is at, and
  * the scroll handler that keeps the ring following the page.
  *
- * One hook for the three surfaces, so the settle and offset logic has one
- * home. Spread the result onto the ScrollView; a screen that already keeps
+ * Home is the only surface since 2026-10-03; the hook keeps the settle and
+ * offset logic in one place. Spread the result onto the ScrollView; a screen that already keeps
  * a ref to its list uses the returned one instead.
  */
 export function useTourScroller(surface: TourSurface, tourTargets: TourTargetRegistry | undefined) {

@@ -68,11 +68,9 @@ module.exports = [
       assert.equal(plain.anchor, undefined);
 
       // Every other section beat still rings what it anchors to.
-      for (const surface of ['home', 'progress', 'profile']) {
-        for (const beat of tour.resolveTourBeats(surface, { hasProgram: true })) {
-          if (beat.kind === 'section' && beat.target !== 'home.workoutChevron') {
-            assert.equal(beat.anchor, undefined, beat.target);
-          }
+      for (const beat of tour.resolveTourBeats('home', { hasProgram: true })) {
+        if (beat.kind === 'section' && beat.target !== 'home.workoutChevron') {
+          assert.equal(beat.anchor, undefined, beat.target);
         }
       }
     },
@@ -109,12 +107,14 @@ module.exports = [
     },
   },
   {
-    name: 'firstRunTour: Progress and Profile are two beats each, and the bar is not among them',
+    // User 2026-10-03: the tour runs on Home only. Progress and Profile had
+    // two beats each; a stray surface name must not bring them back.
+    name: 'firstRunTour: Home is the only surface',
     run() {
+      assert.deepEqual([...tour.TOUR_SURFACES], ['home']);
       for (const surface of ['progress', 'profile']) {
-        const beats = tour.resolveTourBeats(surface, { hasProgram: true });
-        assert.equal(beats.length, 2, surface);
-        assert.ok(beats.every((beat) => beat.kind === 'section'), surface);
+        assert.deepEqual(tour.resolveTourBeats(surface, { hasProgram: true }), [], surface);
+        assert.equal(tour.isTourSurface(surface), false, surface);
       }
     },
   },
@@ -288,29 +288,29 @@ module.exports = [
     run() {
       assert.deepEqual(tour.normalizeFirstRunToursSeen(undefined), []);
       assert.deepEqual(tour.normalizeFirstRunToursSeen('home'), []);
-      assert.deepEqual(tour.normalizeFirstRunToursSeen(['home', 'home', 'garden', 7, 'profile']), ['home', 'profile']);
+      // 'profile' and 'progress' were surfaces before 2026-10-03; an old
+      // install's list drops them rather than carrying unknown names.
+      assert.deepEqual(tour.normalizeFirstRunToursSeen(['home', 'home', 'garden', 7, 'profile', 'progress']), ['home']);
     },
   },
   {
-    name: 'firstRunTour: seen once is seen; replay hands every surface back',
+    name: 'firstRunTour: seen once is seen',
     run() {
       assert.equal(tour.isTourDue([], 'home'), true);
       const seen = tour.markTourSeen([], 'home');
       assert.deepEqual(seen, ['home']);
       assert.deepEqual(tour.markTourSeen(seen, 'home'), ['home']);
       assert.equal(tour.isTourDue(seen, 'home'), false);
-      assert.equal(tour.isTourDue(seen, 'progress'), true);
     },
   },
   {
-    name: 'firstRunTour: only a tab root is a tour surface, and Progress only on its overview',
+    name: "firstRunTour: only Home's dashboard is a tour surface",
     run() {
       assert.equal(tour.resolveTourSurface({ tab: 'home', screen: 'dashboard' }), 'home');
       assert.equal(tour.resolveTourSurface({ tab: 'home', screen: 'ai_chat' }), null);
-      assert.equal(tour.resolveTourSurface({ tab: 'progress', screen: 'list' }), 'progress');
-      assert.equal(tour.resolveTourSurface({ tab: 'progress', screen: 'list', section: 'overview' }), 'progress');
-      assert.equal(tour.resolveTourSurface({ tab: 'progress', screen: 'list', section: 'records' }), null);
-      assert.equal(tour.resolveTourSurface({ tab: 'profile', screen: 'list' }), 'profile');
+      assert.equal(tour.resolveTourSurface({ tab: 'progress', screen: 'list' }), null);
+      assert.equal(tour.resolveTourSurface({ tab: 'progress', screen: 'list', section: 'overview' }), null);
+      assert.equal(tour.resolveTourSurface({ tab: 'profile', screen: 'list' }), null);
       assert.equal(tour.resolveTourSurface({ tab: 'profile', screen: 'settings' }), null);
       assert.equal(tour.resolveTourSurface({ tab: 'workout', screen: 'list' }), null);
     },

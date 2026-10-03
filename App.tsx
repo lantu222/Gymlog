@@ -2037,7 +2037,6 @@ function VinhaApp() {
       route,
       navigate,
       resetToRoute,
-      tourTargets: tourRegistry,
       preferences,
       updatePreferences,
       personalRecords,
@@ -2074,7 +2073,6 @@ function VinhaApp() {
     // sees it. Branch order inside the module mirrors the old chain exactly.
     content = renderProfileTab({
       route,
-      tourTargets: tourRegistry,
       readyProgramCount: workout.templates.length,
       proUnlocked: proEntitlement.unlocked,
       navigate,

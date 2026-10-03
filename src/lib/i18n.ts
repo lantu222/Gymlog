@@ -1762,12 +1762,6 @@ const EN = {
   'tour.bar.ai': 'Your personal coach analyses your training data and provides recommendations.',
   'tour.bar.progress': 'Track your progress, personal records, and training history.',
   'tour.bar.profile': 'Manage your settings, personal information, and app preferences.',
-  'tour.progress.chart':
-    'View your progress across different time ranges. Your training history is always saved, even if the visible range is limited in the free version.',
-  'tour.progress.calendar':
-    "Your month's training days as one grid, cardio included — both the ones you've done and the ones still ahead.",
-  'tour.profile.milestone': 'See your next milestone and how close you are to it.',
-  'tour.profile.settings': 'Manage your theme, notifications, account information, and replay this introduction.',
   'settings.replayTour': 'Replay the tour',
   'settings.replayTour.sub': 'Home, Progress and Profile introduce themselves again.',
   'settings.widget': 'Home screen widget',
@@ -4908,12 +4902,6 @@ const FI: Record<I18nKey, string> = {
   'tour.bar.ai': 'Henkilökohtainen valmentajasi analysoi harjoittelutietojasi ja antaa suosituksia.',
   'tour.bar.progress': 'Seuraa edistymistäsi, ennätyksiäsi ja harjoitteluhistoriaasi.',
   'tour.bar.profile': 'Hallitse asetuksiasi, tietojasi ja muita sovelluksen toimintoja.',
-  'tour.progress.chart':
-    'Tarkastele kehitystäsi eri aikaväleillä. Harjoitushistoriasi säilyy aina, vaikka ilmaisessa versiossa näkyvä aikajakso on rajattu.',
-  'tour.progress.calendar':
-    'Kuukautesi treenipäivät yhtenä ruudukkona, cardio mukaan lukien — sekä jo tehdyt että vielä edessä olevat.',
-  'tour.profile.milestone': 'Näet seuraavan tavoitteesi ja kuinka lähellä sitä olet.',
-  'tour.profile.settings': 'Hallitse teemaa, ilmoituksia, käyttäjätietoja ja tämän esittelyn näyttämistä uudelleen.',
   'settings.replayTour': 'Näytä esittely uudestaan',
   'settings.replayTour.sub': 'Koti, Kehitys ja Profiili esittelevät itsensä uudelleen.',
   'settings.widget': 'Kotinäytön widget',
