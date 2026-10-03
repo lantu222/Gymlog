@@ -26,7 +26,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { get, list, put } from '@vercel/blob';
 
-import { validateBatch } from '../src/lib/analytics';
+import { acceptBatch } from '../src/lib/analytics';
 import { appUpdateRefusalBody, isAppVersionRefused } from '../src/lib/appUpdateGate';
 import {
   ANALYTICS_READ_CONCURRENCY,
@@ -111,11 +111,19 @@ async function handlePost(req: RequestLike, res: ResponseLike): Promise<void> {
   }
 
   const parsed = typeof req.body === 'string' ? safeJson(req.body) : req.body;
-  const batch = validateBatch(parsed);
-  if (!batch) {
-    // Rejected whole rather than filtered: a client sending anything outside
-    // the vocabulary is a bug worth surfacing, not trimming.
+  const accepted = acceptBatch(parsed);
+  if (!accepted) {
+    // Not a batch at all: no install id, no events, too many of them.
     res.status(400).json({ ok: false, error: 'BAD_REQUEST' });
+    return;
+  }
+  const { batch, dropped } = accepted;
+  // The valid events are kept and the rest counted, not the whole batch
+  // refused: a 400 here made the app retry the same head of its queue forever
+  // behind which no funnel event could leave. The answer tells a client how
+  // many were dropped, and a batch with none left stores nothing.
+  if (batch.events.length === 0) {
+    res.status(200).json({ ok: true, accepted: 0, dropped });
     return;
   }
 
@@ -127,7 +135,7 @@ async function handlePost(req: RequestLike, res: ResponseLike): Promise<void> {
     contentType: 'application/json',
     addRandomSuffix: false,
   });
-  res.status(200).json({ ok: true });
+  res.status(200).json({ ok: true, accepted: batch.events.length, dropped });
 }
 
 function safeJson(text: string): unknown {

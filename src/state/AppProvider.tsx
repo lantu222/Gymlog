@@ -34,6 +34,7 @@ import {
   getTrackedExerciseProgress,
 } from '../lib/progression';
 import { loadDatabase, normalizeDatabase, resetDatabase, saveDatabase, savePreferences } from '../storage/database';
+import { reportOperationFailed } from '../features/errorReporting/errorReporter';
 import { loadWithRetry } from '../storage/loadWithRetry';
 import {
   bodyweightRepository,
@@ -419,6 +420,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
         return;
       }
       if (result.kind === 'failed') {
+        reportOperationFailed('database_load', result.error);
         setLoadFailed(true);
         return;
       }

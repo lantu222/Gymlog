@@ -295,6 +295,119 @@ function buildFunnels(events) {
   });
 }
 
+const text = (value) => (typeof value === 'string' ? value : '');
+
+/**
+ * The errors section: what broke on real phones, worst first.
+ *
+ * `app_error` rows are by signature — the stable hash of the error's class and
+ * its top frames, so one bug is one row however many phones hit it — with how
+ * often, on how many installs, when it was first and last seen (Helsinki
+ * days), which app versions it was in, which screens, and the top frames to
+ * look up in the build's source map. Worst first means most installs hit,
+ * then most occurrences. `operation_failed` rows are by operation and code,
+ * with the count for each day, most frequent first.
+ *
+ * There is no message to show: the app never sends one (lib/errorReport).
+ */
+function buildErrors(events) {
+  const bySignature = new Map();
+  const byOperation = new Map();
+  for (const event of events) {
+    const day = localDay(event.at);
+    if (!day) continue;
+    const props = event.props ?? {};
+    if (event.name === 'app_error' && text(props.signature)) {
+      if (!bySignature.has(props.signature)) {
+        bySignature.set(props.signature, {
+          signature: props.signature,
+          name: '',
+          kinds: new Set(),
+          count: 0,
+          installs: new Set(),
+          first: event.at,
+          last: event.at,
+          versions: new Set(),
+          screens: new Map(),
+          frames: [],
+        });
+      }
+      const row = bySignature.get(props.signature);
+      row.count += 1;
+      row.installs.add(event.installId);
+      if (event.at < row.first) row.first = event.at;
+      if (event.at >= row.last) {
+        row.last = event.at;
+        // The latest sighting's name and frames: a build's positions move, the newest is the one to look up.
+        row.name = text(props.name) || row.name;
+        row.frames = Array.isArray(props.frames) ? props.frames.filter((frame) => typeof frame === 'string') : row.frames;
+      }
+      if (text(props.kind)) row.kinds.add(props.kind);
+      if (text(props.appVersion)) row.versions.add(props.appVersion);
+      if (text(props.screen)) row.screens.set(props.screen, (row.screens.get(props.screen) ?? 0) + 1);
+    }
+    if (event.name === 'operation_failed' && text(props.op) && text(props.code)) {
+      const key = `${props.op}|${props.code}`;
+      if (!byOperation.has(key)) {
+        byOperation.set(key, { op: props.op, code: props.code, total: 0, installs: new Set(), days: new Map() });
+      }
+      const row = byOperation.get(key);
+      row.total += 1;
+      row.installs.add(event.installId);
+      row.days.set(day, (row.days.get(day) ?? 0) + 1);
+    }
+  }
+  const appErrors = [...bySignature.values()]
+    .map((row) => ({
+      signature: row.signature,
+      name: row.name,
+      kinds: [...row.kinds].sort(),
+      count: row.count,
+      installs: row.installs.size,
+      firstSeen: localDay(row.first),
+      lastSeen: localDay(row.last),
+      versions: [...row.versions].sort(),
+      screens: [...row.screens.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 3).map(([screen]) => screen),
+      frames: row.frames,
+    }))
+    .sort((a, b) => b.installs - a.installs || b.count - a.count || b.lastSeen.localeCompare(a.lastSeen) || a.signature.localeCompare(b.signature));
+  const operations = [...byOperation.values()]
+    .map((row) => ({
+      op: row.op,
+      code: row.code,
+      total: row.total,
+      installs: row.installs.size,
+      days: [...row.days.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([day, count]) => ({ day, count })),
+    }))
+    .sort((a, b) => b.total - a.total || a.op.localeCompare(b.op) || a.code.localeCompare(b.code));
+  return { appErrors, operations };
+}
+
+/** The terminal's errors section, as lines. Worst first, as buildErrors sorts. */
+function errorLines({ appErrors, operations }) {
+  const lines = [];
+  lines.push(`\nVIRHEET  (sovellusvirheet allekirjoituksittain, pahimmat ensin: asennukset · kertaa · ensi/viimeksi nähty)`);
+  if (appErrors.length === 0) {
+    lines.push('  ei sovellusvirheitä');
+  }
+  for (const row of appErrors) {
+    lines.push(
+      `  ${row.signature}  ${row.name}  (${row.kinds.join(', ')})  ${row.installs} asennusta · ${row.count} krt · ${row.firstSeen} … ${row.lastSeen}`,
+    );
+    lines.push(`      versiot: ${row.versions.join(', ') || '-'}   ruudut: ${row.screens.join(', ') || '-'}`);
+    lines.push(`      kehykset: ${row.frames.join('  ') || '-'}`);
+  }
+  lines.push(`\nEPÄONNISTUNEET TOIMINNOT  (toiminto + koodi, päivittäin)`);
+  if (operations.length === 0) {
+    lines.push('  ei epäonnistuneita toimintoja');
+  }
+  for (const row of operations) {
+    lines.push(`  ${row.op} ${row.code}  ${row.total} krt · ${row.installs} asennusta`);
+    lines.push(`      ${row.days.map((entry) => `${entry.day}: ${entry.count}`).join('   ')}`);
+  }
+  return lines;
+}
+
 /** Every number both renderers print, from one pass over the events. */
 function aggregate(events, { now = new Date() } = {}) {
   const byDay = new Map();
@@ -318,6 +431,7 @@ function aggregate(events, { now = new Date() } = {}) {
   return {
     dailies,
     funnels: buildFunnels(events),
+    errors: buildErrors(events),
     retention: retention(events, localDay(now.toISOString())),
     installsSeen: new Set(events.map((event) => event.installId)).size,
   };
@@ -331,6 +445,8 @@ module.exports = {
   coverageWarning,
   aggregate,
   buildFunnels,
+  buildErrors,
+  errorLines,
   retention,
   localDay,
   addDays,
@@ -352,7 +468,7 @@ async function main() {
     console.log('No events yet.');
     return;
   }
-  const { dailies, funnels, retention: back, installsSeen } = aggregate(events);
+  const { dailies, funnels, retention: back, installsSeen, errors } = aggregate(events);
 
   console.log(`\nPÄIVITTÄIN, ${TIME_ZONE}  (aktiiviset · avaukset · treenit · coach-kysymykset · paywall)`);
   for (const row of dailies) {
@@ -371,6 +487,7 @@ async function main() {
   for (const window of back.windows) {
     console.log(`  ${window.label}: ${window.returned}/${window.eligible}  (${share(window.returned, window.eligible)} %)`);
   }
+  for (const line of errorLines(errors)) console.log(line);
   console.log(`\n${events.length} events from ${fetched.batchesFetched}/${fetched.batchTotal} batches.`);
 }
 

@@ -22,9 +22,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   AnalyticsEvent,
   AnalyticsEventName,
-  MAX_BATCH_EVENTS,
+  AnalyticsEventProps,
   appendToQueue,
+  isFinalRefusal,
   isValidEvent,
+  takeBatch,
 } from '../../lib/analytics';
 import { appVersionHeaders, noteServerAnswer } from '../appUpdate/appUpdateSignal';
 
@@ -125,23 +127,32 @@ async function flush(): Promise<void> {
     return;
   }
   flushing = true;
-  const batch = state.queue.slice(0, MAX_BATCH_EVENTS);
+  const batch = takeBatch(state.queue);
   try {
     const response = await fetch(ANALYTICS_URL, {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...appVersionHeaders() },
       body: JSON.stringify({ installId: state.installId, sentAt: new Date().toISOString(), events: batch }),
     });
+    const body = response.ok ? null : ((await response.json().catch(() => null)) as { ok?: unknown; error?: unknown } | null);
     if (!response.ok) {
-      noteServerAnswer(response.status, await response.json().catch(() => null));
-    } else {
+      noteServerAnswer(response.status, body);
+    }
+    // Sent, or refused for good: either way this batch leaves the queue. A
+    // final refusal (a 400: the server will say the same tomorrow) kept at the
+    // head was retried forever, and no event behind it ever left the phone.
+    // What stays queued is what a later try can fix: no network, a 5xx, a rate
+    // limit, "update the app" (lib/analytics isFinalRefusal) — and an answer
+    // that is not our server's own JSON (a captive portal's 403 says nothing
+    // about this batch).
+    const ownRefusal = body !== null && body.ok === false && typeof body.error === 'string';
+    if (response.ok || (ownRefusal && isFinalRefusal(response.status))) {
       state.queue = state.queue.slice(batch.length);
       await persist();
       if (state.queue.length > 0) {
         scheduleFlush();
       }
     }
-    // A refused batch stays queued; the next flush retries it.
   } catch {
     // Offline. The queue holds; the next foreground tries again.
   } finally {
@@ -165,8 +176,31 @@ function scheduleFlush(): void {
  * installs that will never send it. A reader who switched statistics off
  * queues nothing either.
  */
-export function trackEvent(name: AnalyticsEventName, props?: { step?: number; path?: string }): void {
+export function trackEvent(
+  name: AnalyticsEventName,
+  props?: AnalyticsEventProps,
+  options?: { urgent?: boolean },
+): void {
   if (!ANALYTICS_URL || enabled === false) {
+    return;
+  }
+  // The process may be about to die (a fatal JS error): no await before the
+  // write is issued, or the microtask that would issue it may never run.
+  // Only possible once the queue is in memory — it is, for any crash after
+  // the first moments of a launch (app_open loads it); a crash before that
+  // falls through to the ordinary path and may be lost with the process. And
+  // the write is only *issued* here: whether the phone finishes it before the
+  // process ends is not something JavaScript can promise.
+  if (options?.urgent && memory) {
+    try {
+      const event: AnalyticsEvent = { name, at: new Date().toISOString(), ...(props ? { props } : {}) };
+      if (isValidEvent(event)) {
+        memory.queue = appendToQueue(memory.queue, event);
+        void persist();
+      }
+    } catch {
+      // Reporting a crash must not become the next one.
+    }
     return;
   }
   void (async () => {

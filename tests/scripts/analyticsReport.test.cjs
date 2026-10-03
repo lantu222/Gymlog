@@ -210,4 +210,82 @@ module.exports = [
       assert.match(html, /VAROITUS: luettiin 1\/2/);
     },
   },
+  {
+    name: 'analytics report: errors group by signature, worst first, and operations by op and code per Helsinki day',
+    run() {
+      const a = install();
+      const b = install();
+      const c = install();
+      const err = (installId, at, signature, over = {}) =>
+        ev(installId, 'app_error', at, {
+          kind: 'render',
+          name: 'TypeError',
+          signature,
+          frames: ['index.android.bundle:1:100', 'index.android.bundle:1:200'],
+          screen: 'home/dashboard',
+          appVersion: '1.1.0',
+          platform: 'android',
+          ...over,
+        });
+      const events = [
+        // One bug, three phones, two versions.
+        err(a, '2026-10-01T08:00:00.000Z', 'aaaaaaaaaaaa01'),
+        err(a, '2026-10-02T08:00:00.000Z', 'aaaaaaaaaaaa01', { appVersion: '1.1.1', screen: 'workout/programDay' }),
+        err(b, '2026-10-02T09:00:00.000Z', 'aaaaaaaaaaaa01', { appVersion: '1.1.1', screen: 'workout/programDay' }),
+        err(c, '2026-10-03T09:00:00.000Z', 'aaaaaaaaaaaa01', { frames: ['index.android.bundle:9:9'] }),
+        // Another bug that one phone hits five times: more occurrences, fewer installs.
+        ...Array.from({ length: 5 }, (_, index) => err(a, `2026-10-0${index + 1}T10:00:00.000Z`, 'bbbbbbbbbbbb02', { kind: 'js_fatal', name: 'RangeError' })),
+        // 23:30 and 00:30 Helsinki: one UTC day, two Helsinki days.
+        ev(a, 'operation_failed', '2026-10-01T20:30:00.000Z', { op: 'backup_upload', code: 'NETWORK' }),
+        ev(a, 'operation_failed', '2026-10-01T21:30:00.000Z', { op: 'backup_upload', code: 'NETWORK' }),
+        ev(b, 'operation_failed', '2026-10-01T21:40:00.000Z', { op: 'backup_upload', code: 'NETWORK' }),
+        ev(b, 'operation_failed', '2026-10-02T08:00:00.000Z', { op: 'workout_save', code: 'QUOTA' }),
+        ev(a, 'app_open', '2026-10-01T08:00:00.000Z'),
+      ];
+      const { appErrors, operations } = report.buildErrors(events);
+
+      assert.deepEqual(appErrors.map((row) => row.signature), ['aaaaaaaaaaaa01', 'bbbbbbbbbbbb02'], 'most installs first, however often the other repeats');
+      const first = appErrors[0];
+      assert.equal(first.count, 4);
+      assert.equal(first.installs, 3);
+      assert.equal(first.firstSeen, '2026-10-01');
+      assert.equal(first.lastSeen, '2026-10-03');
+      assert.deepEqual(first.versions, ['1.1.0', '1.1.1']);
+      assert.deepEqual(first.screens, ['home/dashboard', 'workout/programDay'], 'two each: alphabetical');
+      assert.deepEqual(first.frames, ['index.android.bundle:9:9'], 'the latest sighting’s frames');
+      assert.equal(appErrors[1].count, 5);
+      assert.equal(appErrors[1].installs, 1);
+      assert.deepEqual(appErrors[1].kinds, ['js_fatal']);
+
+      assert.deepEqual(operations.map((row) => `${row.op}/${row.code}/${row.total}/${row.installs}`), [
+        'backup_upload/NETWORK/3/2',
+        'workout_save/QUOTA/1/1',
+      ]);
+      assert.deepEqual(operations[0].days, [
+        { day: '2026-10-01', count: 1 },
+        { day: '2026-10-02', count: 2 },
+      ]);
+
+      // Nothing sent, nothing printed as undefined.
+      const lines = report.errorLines(report.buildErrors([])).join('\n');
+      assert.match(lines, /ei sovellusvirheitä/);
+      assert.match(lines, /ei epäonnistuneita toimintoja/);
+      assert.match(report.errorLines({ appErrors, operations }).join('\n'), /aaaaaaaaaaaa01 {2}TypeError/);
+
+      const summary = report.aggregate(events, { now: new Date('2026-10-04T12:00:00.000Z') });
+      assert.equal(summary.errors.appErrors.length, 2);
+      const html = render(summary, null, { generatedAt: 'now', eventCount: events.length, batchTotal: 1, batchesFetched: 1, warning: null });
+      assert.doesNotMatch(html, /undefined|NaN/);
+      assert.match(html, /Virheet/);
+      assert.match(html, /aaaaaaaaaaaa01/);
+      assert.match(html, /backup_upload/);
+      // A hostile stored value is escaped, not rendered.
+      const hostile = report.aggregate(
+        [ev(a, 'app_error', '2026-10-01T08:00:00.000Z', { signature: 'cc01', name: '<script>alert(1)</script>', frames: [], kind: 'render' })],
+        { now: new Date('2026-10-04T12:00:00.000Z') },
+      );
+      const page = render(hostile, null, { generatedAt: 'now', eventCount: 1, batchTotal: 1, batchesFetched: 1, warning: null });
+      assert.doesNotMatch(page, /<script>alert/);
+    },
+  },
 ];

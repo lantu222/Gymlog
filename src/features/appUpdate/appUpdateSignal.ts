@@ -44,6 +44,11 @@ export function currentAppPlatform(): AppPlatform | null {
   return identity?.platform ?? null;
 }
 
+/** The registered version, for the error reports; null until registered. */
+export function currentAppVersion(): string | null {
+  return identity?.version ?? null;
+}
+
 /** The headers every request to our server carries. Empty until registered. */
 export function appVersionHeaders(): Record<string, string> {
   return appIdentityHeaders(identity);

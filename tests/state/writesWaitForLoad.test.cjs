@@ -41,7 +41,8 @@ module.exports = [
       // A failed load is not a new install: no empty database is put in its place.
       assert.doesNotMatch(hydrate, /createEmptyDatabase/);
       assert.match(hydrate, /const result = await loadWithRetry\(loadDatabase, \{\s*isCancelled: \(\) => cancelled,/);
-      assert.match(hydrate, /if \(result\.kind === 'failed'\) \{\s*setLoadFailed\(true\);\s*return;\s*\}/);
+      // The failure is noted (error reports, 2026-10-03) and then, as before, shown — nothing else.
+      assert.match(hydrate, /if \(result\.kind === 'failed'\) \{\s*reportOperationFailed\('database_load', result\.error\);\s*setLoadFailed\(true\);\s*return;\s*\}/);
       assert.ok(
         hydrate.indexOf("result.kind === 'cancelled'") < hydrate.indexOf('databaseRef.current = nextDatabase;') &&
           hydrate.indexOf("result.kind === 'failed'") < hydrate.indexOf('databaseRef.current = nextDatabase;'),
@@ -62,7 +63,7 @@ module.exports = [
         'a read that throws has to be caught, or the splash never goes',
       );
       const failed = hydrate.slice(hydrate.indexOf("if (result.kind === 'failed') {"));
-      assert.match(failed, /^if \(result\.kind === 'failed'\) \{\s*setLoadFailed\(true\);\s*return;\s*\}/);
+      assert.match(failed, /^if \(result\.kind === 'failed'\) \{\s*reportOperationFailed\('workout_load', result\.error\);\s*setLoadFailed\(true\);\s*return;\s*\}/);
       assert.ok(
         hydrate.indexOf("result.kind === 'failed'") < hydrate.indexOf("type: 'session/hydrate'"),
         'hydrating on a failed read saves the empty bundle over the stored one',

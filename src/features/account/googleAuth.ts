@@ -58,6 +58,7 @@ interface GoogleSigninModule {
     >;
     signOut(): Promise<unknown>;
   };
+  statusCodes?: { SIGN_IN_CANCELLED?: string; IN_PROGRESS?: string };
 }
 
 let configured = false;
@@ -123,7 +124,15 @@ export async function signInWithGoogle(): Promise<GoogleSignInResult> {
         idToken,
       },
     };
-  } catch {
+  } catch (error) {
+    // A sheet the reader dismissed can arrive as a rejection with the
+    // library's own cancel code rather than as `type: 'cancelled'` — that is
+    // the reader changing their mind, not a failed sign-in (and not an error
+    // report), as Apple's cancel is handled.
+    const code = (error as { code?: unknown } | null)?.code;
+    if (code !== undefined && code === module.statusCodes?.SIGN_IN_CANCELLED) {
+      return { status: 'cancelled' };
+    }
     return { status: 'failed' };
   }
 }

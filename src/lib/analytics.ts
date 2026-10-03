@@ -18,6 +18,13 @@
  * An event that answers no question is noise — the same rule as the labels.
  */
 
+import {
+  isValidAppErrorProps,
+  isValidOperationFailedProps,
+  type AppErrorProps,
+  type OperationFailedProps,
+} from './errorReport';
+
 export const ANALYTICS_EVENTS = [
   /**
    * The app was opened: a cold start, or a return after half an hour away
@@ -41,6 +48,14 @@ export const ANALYTICS_EVENTS = [
   'paywall_viewed',
   /** A question left for the coach (the fact of it — never the text). */
   'coach_question_asked',
+  /**
+   * The app failed in a way the reader would feel: a crash, a render error, an
+   * unhandled rejection. Where the code failed, never what it held — see
+   * lib/errorReport for the fields and for why there is no message.
+   */
+  'app_error',
+  /** A save, backup, restore, load, deletion or sign-in failed; which, and a closed code. */
+  'operation_failed',
 ] as const;
 
 export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[number];
@@ -49,9 +64,15 @@ export interface AnalyticsEvent {
   name: AnalyticsEventName;
   /** ISO timestamp, client clock. */
   at: string;
-  /** The only two properties that exist. Anything else is refused. */
-  props?: { step?: number; path?: string };
+  /**
+   * The step/path pair the funnel events carry, or — for the two error events
+   * only — their own closed shapes (lib/errorReport). Anything else is refused.
+   */
+  props?: AnalyticsEventProps;
 }
+
+export type StepProps = { step?: number; path?: string };
+export type AnalyticsEventProps = StepProps | AppErrorProps | OperationFailedProps;
 
 export interface AnalyticsBatch {
   /** Random UUID minted on the device. Identifies an install, not a person. */
@@ -64,6 +85,13 @@ export interface AnalyticsBatch {
 export const MAX_BATCH_EVENTS = 100;
 /** Queue cap on the device: beyond this the oldest events are dropped. */
 export const MAX_QUEUED_EVENTS = 200;
+/**
+ * Error events one batch may carry. Two launches' worth of the per-launch
+ * budget (lib/errorReport): a phone that crashed twice offline still sends
+ * both in one go, and a client that sends more is not counting.
+ */
+export const MAX_APP_ERRORS_PER_BATCH = 20;
+export const MAX_OPERATION_FAILURES_PER_BATCH = 40;
 
 const INSTALL_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -90,6 +118,14 @@ export function isValidEvent(value: unknown): value is AnalyticsEvent {
   if (keys.length > 0) {
     return false;
   }
+  // The error events have their own closed shapes and need them: a report
+  // without its fields answers nothing, and no other event may carry them.
+  if (candidate.name === 'app_error') {
+    return isValidAppErrorProps(candidate.props);
+  }
+  if (candidate.name === 'operation_failed') {
+    return isValidOperationFailedProps(candidate.props);
+  }
   if (candidate.props === undefined) {
     return true;
   }
@@ -113,8 +149,24 @@ export function isValidEvent(value: unknown): value is AnalyticsEvent {
   return true;
 }
 
-/** The whole batch, or null. Partial acceptance would hide a broken client. */
-export function validateBatch(payload: unknown): AnalyticsBatch | null {
+/**
+ * What the server keeps of a batch: the events that are valid, and a count of
+ * the ones it dropped.
+ *
+ * It used to be all or nothing, so one event the server did not know — a new
+ * screen, an event shape from a newer app — got the whole batch a 400, and a
+ * client that retries the head of its queue forever sent that batch forever
+ * behind which no funnel event could leave. Now the valid events are kept and
+ * the rest are counted and dropped; only a batch that is not a batch at all
+ * (the envelope, or more than MAX_BATCH_EVENTS) is refused.
+ */
+export interface AcceptedBatch {
+  batch: AnalyticsBatch;
+  dropped: number;
+}
+
+/** The accepted part of a batch, or null when the batch itself is malformed. */
+export function acceptBatch(payload: unknown): AcceptedBatch | null {
   if (!payload || typeof payload !== 'object') {
     return null;
   }
@@ -128,14 +180,43 @@ export function validateBatch(payload: unknown): AnalyticsBatch | null {
   if (!Array.isArray(candidate.events) || candidate.events.length === 0 || candidate.events.length > MAX_BATCH_EVENTS) {
     return null;
   }
-  if (!candidate.events.every(isValidEvent)) {
-    return null;
+  const events: AnalyticsEvent[] = [];
+  let errors = 0;
+  let failures = 0;
+  for (const event of candidate.events) {
+    if (!isValidEvent(event)) {
+      continue;
+    }
+    // The client composes its batches by takeBatch, which holds the same caps;
+    // an error event past them is dropped, not a reason to refuse the rest.
+    if (event.name === 'app_error') {
+      if (errors >= MAX_APP_ERRORS_PER_BATCH) {
+        continue;
+      }
+      errors += 1;
+    } else if (event.name === 'operation_failed') {
+      if (failures >= MAX_OPERATION_FAILURES_PER_BATCH) {
+        continue;
+      }
+      failures += 1;
+    }
+    events.push(event);
   }
   return {
-    installId: candidate.installId,
-    sentAt: candidate.sentAt,
-    events: candidate.events as AnalyticsEvent[],
+    batch: { installId: candidate.installId, sentAt: candidate.sentAt, events },
+    dropped: candidate.events.length - events.length,
   };
+}
+
+/**
+ * Whether the server's answer to a batch is final: it will say the same to the
+ * same batch tomorrow, so the batch is dropped instead of retried forever. A
+ * 4xx is that — except the answers that are about timing or about this build
+ * (408, 425, 429 rate limit, 426 update required), which keep the batch queued
+ * for a later try. Network failures and 5xx are never final.
+ */
+export function isFinalRefusal(status: number): boolean {
+  return status >= 400 && status < 500 && ![408, 425, 426, 429].includes(status);
 }
 
 /**
@@ -146,4 +227,35 @@ export function validateBatch(payload: unknown): AnalyticsBatch | null {
 export function appendToQueue(queue: AnalyticsEvent[], event: AnalyticsEvent): AnalyticsEvent[] {
   const next = [...queue, event];
   return next.length > MAX_QUEUED_EVENTS ? next.slice(next.length - MAX_QUEUED_EVENTS) : next;
+}
+
+/**
+ * The next batch off the front of the queue: up to MAX_BATCH_EVENTS, in order,
+ * stopping before an event that would put the batch over a per-batch error
+ * cap. The rest waits for the next flush, where it leads. Without this a
+ * queue whose first hundred held more error events than the server accepts
+ * would be refused whole, forever, and the funnel behind it would never leave.
+ */
+export function takeBatch(queue: readonly AnalyticsEvent[]): AnalyticsEvent[] {
+  const batch: AnalyticsEvent[] = [];
+  let errors = 0;
+  let failures = 0;
+  for (const event of queue) {
+    if (batch.length >= MAX_BATCH_EVENTS) {
+      break;
+    }
+    if (event.name === 'app_error') {
+      if (errors >= MAX_APP_ERRORS_PER_BATCH) {
+        break;
+      }
+      errors += 1;
+    } else if (event.name === 'operation_failed') {
+      if (failures >= MAX_OPERATION_FAILURES_PER_BATCH) {
+        break;
+      }
+      failures += 1;
+    }
+    batch.push(event);
+  }
+  return batch;
 }

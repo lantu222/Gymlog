@@ -54,6 +54,7 @@ import {
   uploadNeedsConsent,
 } from '../../lib/accountBackup';
 import { randomHex } from '../../lib/aiCoachLogId';
+import { reportOperationFailed } from '../errorReporting/errorReporter';
 import {
   BACKUP_CHANGED,
   BackupDownloadResult,
@@ -460,6 +461,8 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         ensureCurrent(generation);
         if (!result.ok) {
           if (result.error !== BACKUP_CHANGED) {
+            // Read-only: a note of what the server said, and no change to what happens next.
+            reportOperationFailed('backup_upload', result.error);
             return 'failed';
           }
           if (attempt > 0) {
@@ -649,6 +652,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
           // nothing synced, so the next "Back up now" asks again — and the
           // reader is told now instead of seeing nothing happen.
           console.error('Backup restore failed', error);
+          reportOperationFailed('backup_restore', error);
           ensureCurrent(generation);
           await persistAccount({ ...base, ...remoteCounts });
           return { kind: 'restore_failed' };
@@ -674,6 +678,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       if (remote.error !== 'NO_BACKUP') {
         // The server is unreachable or spoke nonsense: signed in, not backed
         // up, and the state says so instead of inventing a timestamp.
+        reportOperationFailed('backup_restore', remote.error);
         await persistAccount(base);
         return { kind: 'not_backed_up' };
       }
@@ -739,6 +744,10 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
     try {
       const result = await signInWith(provider ?? availableSignInProviders()[0] ?? 'google');
       ensureCurrent(generation);
+      if (result.status === 'failed') {
+        // The provider's own refusal carries no code of ours: UNKNOWN.
+        reportOperationFailed('sign_in');
+      }
       if (result.status !== 'signed_in') {
         return { kind: result.status === 'cancelled' ? 'cancelled' : result.status === 'unavailable' ? 'unavailable' : 'failed' };
       }
@@ -760,6 +769,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       return await settleWithRemote(result.account.idToken, base, remote, generation);
     } catch (error) {
       if (error instanceof SessionEnded) {
+        // Not reported: a session that ended is a known account state.
         return { kind: 'ended' };
       }
       if (error instanceof Superseded) {
@@ -796,6 +806,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
             // now" path — so the automatic backup never writes over the copy
             // the reader chose, and "Back up now" asks again (PR #119 review).
             console.error('Backup restore failed', error);
+            reportOperationFailed('backup_restore', error);
             ensureCurrent(generation);
             await persistAccount({ ...current, lastBackupAt: null, lastBackupFingerprint: null, cloudVersion: null });
             return 'failed';
@@ -1267,6 +1278,9 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         throw new SessionEnded();
       }
       if (token.status !== 'ok') {
+        // No credential to delete with (offline, Play services busy): the
+        // provider says nothing more, so the code is UNKNOWN.
+        reportOperationFailed('account_delete');
         return 'failed';
       }
       // Written BEFORE sending, cleared by any answer that settles it: if the
@@ -1321,6 +1335,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
           await persistAccount({ ...latest, deleteAccountPendingAt: null, deleteRequestId: null });
         }
       }
+      reportOperationFailed('account_delete', answer.error);
       return 'failed';
     } catch (error) {
       if (error instanceof SessionEnded) {

@@ -1,6 +1,7 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 
 import { trackEvent } from '../features/analytics/analyticsClient';
+import { reportOperationFailed } from '../features/errorReporting/errorReporter';
 import { adaptCompletedWorkoutSessionForAppDatabase } from '../features/workout/workoutAppAdapter';
 import type { useWorkoutContext } from '../features/workout/WorkoutProvider';
 import type { FreestyleFinishSummary } from '../lib/emptyWorkoutSession';
@@ -272,6 +273,8 @@ export function createFinishSaves(deps: FinishSavesDeps) {
         navigateBack(getWorkoutLoggerFallbackRoute());
         return;
       }
+      // Only the save that did not land: after it, what failed was not the save.
+      reportOperationFailed('workout_save', error);
       setFinishSaveState({
         status: 'error',
         sessionId: adaptedSession.sessionId,
@@ -320,6 +323,7 @@ export function createFinishSaves(deps: FinishSavesDeps) {
         // that did not land must not leave the template behind — the retry made
         // a second one (audit round 4, 2026-09-20). Best effort: the failure
         // the reader hears about is the save.
+        reportOperationFailed('workout_save', error);
         await deleteWorkoutTemplate(workoutTemplateId).catch(() => undefined);
         throw error;
       }

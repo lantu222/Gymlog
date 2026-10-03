@@ -331,6 +331,9 @@ const FINISH_SAVES = (() => {
     if (specifier.includes('analyticsClient')) {
       return { trackEvent() {} };
     }
+    if (specifier.includes('errorReporter')) {
+      return { reportOperationFailed() {} };
+    }
     return specifier.startsWith('.') ? require(path.join(DIST, 'app', specifier)) : require(specifier);
   };
   new Function('require', 'module', 'exports', js)(localRequire, module_, module_.exports);

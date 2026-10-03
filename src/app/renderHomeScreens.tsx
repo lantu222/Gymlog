@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { trackEvent } from '../features/analytics/analyticsClient';
+import { reportOperationFailed } from '../features/errorReporting/errorReporter';
 import { isAiCoachLiveConfigured, requestProgrammeComposition } from '../lib/aiCoachClient';
 import { randomLogId } from '../lib/aiCoachLogId';
 import { recordCoachQuestion, resolveCoachQuota } from '../lib/aiCoachQuota';
@@ -247,6 +248,7 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
             void haptics.success();
           } catch (error) {
             console.error('Failed to save cardio session', error);
+            reportOperationFailed('workout_save', error);
             showToast(t(preferences.appLanguage, 'toast.cardioSaveFailed'));
             throw error;
           } finally {

@@ -1,6 +1,6 @@
 # Tietosuojaseloste
 
-*Päivitetty 3.10.2026*
+*Päivitetty 4.10.2026*
 
 Mitä Vinha tallentaa, mikä lähtee puhelimestasi ja mitä voit sille tehdä.
 
@@ -90,7 +90,9 @@ Jokaisen verkkotilan valmentajan kirjoittaman vastauksen alla on Ilmoita-linkki.
 
 Jotta näemme, toimiiko sovellus — esimerkiksi onko jokin käyttöönoton vaihe niin vaikea, että siihen jäädään — sovellus lähettää nimettömiä käyttötapahtumia omalle palvelimellemme.
 
-Tapahtuma on nimi ja aika sekä käyttöönoton vaiheissa vaiheen numero ja se, kumman polun valitsit. Ei koskaan sisältöä: ei liikkeen nimeä, ei painoa, ei mittaa, ei kysymyksen tekstiä. Tapahtumien lista on kiinnitetty sovelluksen koodiin, ja palvelin hylkää kaiken sen ulkopuolisen.
+Tapahtuma on nimi ja aika sekä käyttöönoton vaiheissa vaiheen numero ja se, kumman polun valitsit, ja virheraportissa jäljempänä luetellut tiedot. Ei koskaan sisältöä: ei liikkeen nimeä, ei painoa, ei mittaa, ei kysymyksen tekstiä. Tapahtumien lista on kiinnitetty sovelluksen koodiin, ja palvelin hylkää kaiken sen ulkopuolisen.
+
+Jos jokin menee pieleen, sovellus lähettää myös virheraportin, yhtenä näistä tapahtumista: kaatumisen, virheen jollakin ruudulla tai tallennuksen, varmuuskopion, palautuksen, kirjautumisen, tilin poiston tai tallennettujen tietojesi avaamisen, joka ei onnistunut. Lähetetään: virheen tyyppi, kohta sovelluksen koodissa, jossa se tapahtui (paikka ohjelmassa, ei se, mitä sillä hetkellä käsiteltiin), mikä ruutu oli auki, sovelluksen versio, puhelimen käyttöjärjestelmä ja epäonnistuneen tallennuksen, varmuuskopion tai vastaavan kohdalla mikä niistä epäonnistui sekä lyhyt koodi, kuten ”verkko” tai ”tallennustila täynnä”. Ei koskaan lähetetä: virheilmoitusten tekstejä, treenitietojasi, nimiä, muistiinpanoja tai mitään kirjoittamaasi — virheilmoitukset voivat sisältää juuri tällaista, joten niitä ei kerätä lainkaan. Kaatuminen merkitään puhelimeen heti, kun se tapahtuu, ja lähetetään, kun sovellus seuraavan kerran avataan. Virheraportit seuraavat samaa kytkintä, menevät vain omalle palvelimellemme ja säilyvät yhtä kauan kuin muut tapahtumat.
 
 Jokainen asennus saa satunnaisen tunnisteen, joka luodaan puhelimessasi. Sitä ei ole kytketty nimeesi, sähköpostiisi, Google-tiliisi eikä mihinkään mainostunnisteeseen, ja se nollautuu, jos asennat sovelluksen uudelleen.
 
@@ -104,6 +106,7 @@ Tapahtumat menevät omalle palvelimellemme eivätkä mihinkään muualle. Niitä
 - Treeni tallennettiin.
 - Pro-sivu avattiin.
 - Valmentajalle lähetettiin kysymys — se, että kysymys lähti, ei koskaan sen tekstiä.
+- Sovellus kaatui tai jokin ei onnistunut: virheraportti, kuten edellä kerrotaan.
 
 ## Ketkä auttavat meitä
 
@@ -130,7 +133,7 @@ Tietosuoja-asetus (GDPR) vaatii jokaiselle käsittelylle laillisen perusteen. Me
 
 ## Mitä sovellus ei tee
 
-- Ei kolmannen osapuolen analytiikkaa eikä muiden yritysten kaatumisraportointityökaluja. Ainoa käyttödata on yllä kuvatut nimettömät tilastot, jotka menevät omalle palvelimellemme eikä kenellekään muulle.
+- Ei kolmannen osapuolen analytiikkaa eikä muiden yritysten kaatumisraportointityökaluja. Ainoa käyttödata on yllä kuvatut nimettömät tilastot, virheraportit mukaan lukien, jotka menevät omalle palvelimellemme eikä kenellekään muulle.
 - Ei mainoksia, ei mainosverkostoja, ei mainostunnistetta.
 - Ei seurantaa eikä sosiaalisen median osia. Ei syötettä, ei seuraajia, ei julkista profiilia.
 - Ei pääsyä sijaintiisi, yhteystietoihisi, mikrofoniin, kameraan tai tiedostoihisi. Kuva luetaan vain, kun itse valitset sen puhelimen omalla valitsimella, ja vain se kuva.
@@ -183,7 +186,7 @@ Puhelimessasi sovelluksen tietoja suojaavat puhelimen oma lukitus ja Androidin j
 - Pilvivarmuuskopio: kunnes poistat sen asetuksista tai pyydät meitä poistamaan sen.
 - Tilin poiston jättämä merkintä Apple-tilillä: yksi sekoitettu merkintä päivämäärineen sekä satunnainen luku, jonka puhelimesi teki poistopyyntöä varten (käytetään vain kertomaan sille puhelimelle, että poisto onnistui); nimeä, sähköpostia tai treenitietoja siinä ei ole. Palvelimen rutiinisiivous poistaa sen, kun 180 päivää on kulunut eikä se enää voi päättää mitään. Siivous ajetaan, kun joku kirjautuu Applella, joten siinä voi mennä hieman pidempään.
 - Valmentajan kysymykset, kuvaukset ja kuvat: emme säilytä niitä, ellet ole antanut lupaa. Luvan kanssa enintään 24 kuukautta tai siihen asti kun peruutat luvan, kumpi tulee ensin. Anthropic poistaa oman kopionsa 30 päivän kuluessa joka tapauksessa.
-- Käyttötilastot: enintään 24 kuukautta, sen jälkeen automaattinen poisto.
+- Käyttötilastot, virheraportit mukaan lukien: enintään 24 kuukautta, sen jälkeen automaattinen poisto.
 - Palautesähköpostit: niin kauan kuin niiden käsittely vaatii.
 
 ## Oikeutesi

@@ -71,7 +71,7 @@ function publisher(): string {
 }
 
 /** Bumped whenever the wording changes in a way a user should re-read. */
-export const LEGAL_LAST_UPDATED = '2026-10-03';
+export const LEGAL_LAST_UPDATED = '2026-10-04';
 
 export type LegalDocumentId = 'privacy' | 'terms';
 
@@ -191,7 +191,8 @@ const privacyEn = (p: LegalPlatform): LegalSection[] => [
     heading: 'Usage statistics',
     body: [
       'To see whether the app works — for example whether some step of the setup is so hard that people give up there — the app sends anonymous usage events to our own server.',
-      'An event is a name and a time, plus for setup steps the step number and which path you took. Never the content: no exercise name, no weight, no measurement, no question text. The full list of events is fixed in the app’s code, and the server refuses anything outside it.',
+      'An event is a name and a time, plus for setup steps the step number and which path you took, and for an error report the details listed below. Never the content: no exercise name, no weight, no measurement, no question text. The full list of events is fixed in the app’s code, and the server refuses anything outside it.',
+      'If something goes wrong, the app also sends an error report, as one more of these events: a crash, an error on a screen, or a save, backup, restore, sign-in, account deletion or opening your saved data that did not work. What is sent: the type of error, where in the app’s code it happened (a position in the program, not what it was working on), which screen you were on, the app version, which operating system the phone runs and, for a failed save, backup or similar, which one failed and a short code such as “network” or “storage full”. Never sent: error messages, your training data, names, notes or anything you typed — error messages can contain exactly such things, so they are not collected at all. A crash is noted on the phone as it happens and sent the next time the app is opened. Error reports follow the same switch, go only to our own server and are kept for the same time as the other events.',
       'Each install gets a random identifier, generated on your phone. It is not connected to your name, email, Google account or any advertising identity, and it resets if you reinstall the app.',
       'The events go to our own server and nowhere else. They are kept for up to 24 months and then deleted automatically, and they are not shared, not sold and not used for advertising. You can switch them off at any time in Settings → Usage statistics; the app then sends nothing and throws away whatever was waiting to be sent. These are the events:',
     ],
@@ -204,6 +205,7 @@ const privacyEn = (p: LegalPlatform): LegalSection[] => [
       'A workout was saved.',
       'The Pro page was viewed.',
       'A question was sent to the coach — the fact that one was sent, never the text.',
+      'The app failed or something did not work: an error report, as described above.',
     ],
   },
   {
@@ -252,7 +254,7 @@ const privacyEn = (p: LegalPlatform): LegalSection[] => [
   {
     heading: 'What the app does not do',
     bullets: [
-      'No third-party analytics and no crash-reporting tools from other companies. The only usage data is the anonymous statistics described above, sent to our own server and no one else.',
+      'No third-party analytics and no crash-reporting tools from other companies. The only usage data is the anonymous statistics described above, error reports included, sent to our own server and no one else.',
       'No ads, no ad networks, no advertising identifier.',
       'No trackers and no social media components. There is no feed, no followers and no public profile.',
       'No access to your location, contacts, microphone, camera or files. A photo is read only when you pick one yourself, through the phone’s own picker, and only that photo.',
@@ -333,7 +335,7 @@ const privacyEn = (p: LegalPlatform): LegalSection[] => [
       'Cloud backup: until you delete it in Settings, or ask us to.',
       'The marker left by Delete account on an Apple account: one scrambled marker with a date and a random number your phone made for the deletion request (used only to tell that phone its deletion went through), with no name, email or training data. The server’s routine clean-up removes it once 180 days have passed and it can no longer end anything. That clean-up runs when someone signs in with Apple, so it can take a little longer.',
       'Coach questions, briefs and photos: not kept by us unless you allowed it, and then for up to 24 months or until you take the permission back, whichever comes first. Anthropic deletes its own copy within 30 days either way.',
-      'Usage statistics: up to 24 months, then deleted automatically.',
+      'Usage statistics, error reports included: up to 24 months, then deleted automatically.',
       'Feedback emails: as long as it takes to handle them.',
     ],
   },
@@ -454,7 +456,8 @@ const privacyFi = (p: LegalPlatform): LegalSection[] => [
     heading: 'Käyttötilastot',
     body: [
       'Jotta näemme, toimiiko sovellus — esimerkiksi onko jokin käyttöönoton vaihe niin vaikea, että siihen jäädään — sovellus lähettää nimettömiä käyttötapahtumia omalle palvelimellemme.',
-      'Tapahtuma on nimi ja aika sekä käyttöönoton vaiheissa vaiheen numero ja se, kumman polun valitsit. Ei koskaan sisältöä: ei liikkeen nimeä, ei painoa, ei mittaa, ei kysymyksen tekstiä. Tapahtumien lista on kiinnitetty sovelluksen koodiin, ja palvelin hylkää kaiken sen ulkopuolisen.',
+      'Tapahtuma on nimi ja aika sekä käyttöönoton vaiheissa vaiheen numero ja se, kumman polun valitsit, ja virheraportissa jäljempänä luetellut tiedot. Ei koskaan sisältöä: ei liikkeen nimeä, ei painoa, ei mittaa, ei kysymyksen tekstiä. Tapahtumien lista on kiinnitetty sovelluksen koodiin, ja palvelin hylkää kaiken sen ulkopuolisen.',
+      'Jos jokin menee pieleen, sovellus lähettää myös virheraportin, yhtenä näistä tapahtumista: kaatumisen, virheen jollakin ruudulla tai tallennuksen, varmuuskopion, palautuksen, kirjautumisen, tilin poiston tai tallennettujen tietojesi avaamisen, joka ei onnistunut. Lähetetään: virheen tyyppi, kohta sovelluksen koodissa, jossa se tapahtui (paikka ohjelmassa, ei se, mitä sillä hetkellä käsiteltiin), mikä ruutu oli auki, sovelluksen versio, puhelimen käyttöjärjestelmä ja epäonnistuneen tallennuksen, varmuuskopion tai vastaavan kohdalla mikä niistä epäonnistui sekä lyhyt koodi, kuten ”verkko” tai ”tallennustila täynnä”. Ei koskaan lähetetä: virheilmoitusten tekstejä, treenitietojasi, nimiä, muistiinpanoja tai mitään kirjoittamaasi — virheilmoitukset voivat sisältää juuri tällaista, joten niitä ei kerätä lainkaan. Kaatuminen merkitään puhelimeen heti, kun se tapahtuu, ja lähetetään, kun sovellus seuraavan kerran avataan. Virheraportit seuraavat samaa kytkintä, menevät vain omalle palvelimellemme ja säilyvät yhtä kauan kuin muut tapahtumat.',
       'Jokainen asennus saa satunnaisen tunnisteen, joka luodaan puhelimessasi. Sitä ei ole kytketty nimeesi, sähköpostiisi, Google-tiliisi eikä mihinkään mainostunnisteeseen, ja se nollautuu, jos asennat sovelluksen uudelleen.',
       'Tapahtumat menevät omalle palvelimellemme eivätkä mihinkään muualle. Niitä säilytetään enintään 24 kuukautta, minkä jälkeen ne poistetaan automaattisesti, eikä niitä jaeta, myydä tai käytetä mainontaan. Voit kytkeä ne pois milloin tahansa kohdasta Asetukset → Käyttötilastot; sen jälkeen sovellus ei lähetä mitään ja hävittää lähetystä odottaneet tapahtumat. Tapahtumat ovat nämä:',
     ],
@@ -467,6 +470,7 @@ const privacyFi = (p: LegalPlatform): LegalSection[] => [
       'Treeni tallennettiin.',
       'Pro-sivu avattiin.',
       'Valmentajalle lähetettiin kysymys — se, että kysymys lähti, ei koskaan sen tekstiä.',
+      'Sovellus kaatui tai jokin ei onnistunut: virheraportti, kuten edellä kerrotaan.',
     ],
   },
   {
@@ -515,7 +519,7 @@ const privacyFi = (p: LegalPlatform): LegalSection[] => [
   {
     heading: 'Mitä sovellus ei tee',
     bullets: [
-      'Ei kolmannen osapuolen analytiikkaa eikä muiden yritysten kaatumisraportointityökaluja. Ainoa käyttödata on yllä kuvatut nimettömät tilastot, jotka menevät omalle palvelimellemme eikä kenellekään muulle.',
+      'Ei kolmannen osapuolen analytiikkaa eikä muiden yritysten kaatumisraportointityökaluja. Ainoa käyttödata on yllä kuvatut nimettömät tilastot, virheraportit mukaan lukien, jotka menevät omalle palvelimellemme eikä kenellekään muulle.',
       'Ei mainoksia, ei mainosverkostoja, ei mainostunnistetta.',
       'Ei seurantaa eikä sosiaalisen median osia. Ei syötettä, ei seuraajia, ei julkista profiilia.',
       'Ei pääsyä sijaintiisi, yhteystietoihisi, mikrofoniin, kameraan tai tiedostoihisi. Kuva luetaan vain, kun itse valitset sen puhelimen omalla valitsimella, ja vain se kuva.',
@@ -596,7 +600,7 @@ const privacyFi = (p: LegalPlatform): LegalSection[] => [
       'Pilvivarmuuskopio: kunnes poistat sen asetuksista tai pyydät meitä poistamaan sen.',
       'Tilin poiston jättämä merkintä Apple-tilillä: yksi sekoitettu merkintä päivämäärineen sekä satunnainen luku, jonka puhelimesi teki poistopyyntöä varten (käytetään vain kertomaan sille puhelimelle, että poisto onnistui); nimeä, sähköpostia tai treenitietoja siinä ei ole. Palvelimen rutiinisiivous poistaa sen, kun 180 päivää on kulunut eikä se enää voi päättää mitään. Siivous ajetaan, kun joku kirjautuu Applella, joten siinä voi mennä hieman pidempään.',
       'Valmentajan kysymykset, kuvaukset ja kuvat: emme säilytä niitä, ellet ole antanut lupaa. Luvan kanssa enintään 24 kuukautta tai siihen asti kun peruutat luvan, kumpi tulee ensin. Anthropic poistaa oman kopionsa 30 päivän kuluessa joka tapauksessa.',
-      'Käyttötilastot: enintään 24 kuukautta, sen jälkeen automaattinen poisto.',
+      'Käyttötilastot, virheraportit mukaan lukien: enintään 24 kuukautta, sen jälkeen automaattinen poisto.',
       'Palautesähköpostit: niin kauan kuin niiden käsittely vaatii.',
     ],
   },

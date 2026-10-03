@@ -1,3 +1,6 @@
+// First, so the error handlers are in place before the rest of the app's
+// modules are evaluated — an error thrown while they load is reported too.
+import './src/features/errorReporting/installErrorReporting';
 import { registerRootComponent } from 'expo';
 
 import App from './App';
