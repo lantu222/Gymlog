@@ -17,6 +17,7 @@ import { gunzipSync, gzipSync, strFromU8 } from 'fflate';
 import type { AppDatabase, AppPreferences } from '../types/models';
 import type { WorkoutHistoryStore } from '../features/workout/workoutTypes';
 import { ONBOARDING_PLAN_PREFIX, reconcileRunningSet } from './activeProgramSet';
+import { isWorkoutInProgress } from './activeWorkout';
 import { base64ToBytes, bytesToBase64 } from './base64';
 import { DEVICE_ONLY_PREFERENCE_FIELDS, keepDeviceEntitlement } from './proEntitlement';
 import { countAuthoredPrograms } from './programSlots';
@@ -261,13 +262,18 @@ export function describeRestoreChoice(
  * was thrown out by the next sign-in — without a word on an otherwise empty
  * phone, and without its "in progress" line in the question on any other
  * (persistence audit, 2026-09-20).
+ *
+ * A guided session held as 'completed' is a finished one waiting for its summary to clear it, saved
+ * already: not a workout in progress, the same answer every other caller gets (isWorkoutInProgress).
+ * Counted, it put "This phone has a workout in progress" in the restore question, and made an
+ * otherwise empty phone ask before a restore (bug hunt 2026-10-03).
  */
 export function hasWorkoutInProgress(player: {
-  activeSession: unknown;
+  activeSession: { status?: string } | null | undefined;
   activeCardio: unknown;
   freestyleDraft: unknown;
 }): boolean {
-  return player.activeSession != null || player.activeCardio != null || player.freestyleDraft != null;
+  return isWorkoutInProgress(player.activeSession) || player.activeCardio != null || player.freestyleDraft != null;
 }
 
 /**

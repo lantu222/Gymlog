@@ -582,6 +582,16 @@ module.exports = [
       const none = { activeSession: null, activeCardio: null, freestyleDraft: null };
       assert.equal(hasWorkoutInProgress(none), false);
       assert.equal(hasWorkoutInProgress({ ...none, activeSession: { sessionId: 's' } }), true);
+      assert.equal(hasWorkoutInProgress({ ...none, activeSession: { sessionId: 's', status: 'active' } }), true);
+      assert.equal(hasWorkoutInProgress({ ...none, activeSession: { sessionId: 's', status: 'paused' } }), true);
+      // A finished session held until its summary clears it is saved, not in progress (bug hunt 2026-10-03): the
+      // same answer isWorkoutInProgress gives every other caller.
+      assert.equal(hasWorkoutInProgress({ ...none, activeSession: { sessionId: 's', status: 'completed' } }), false);
+      assert.equal(
+        hasLocalDataWorthKeeping(makeDatabase(), hasWorkoutInProgress({ ...none, activeSession: { sessionId: 's', status: 'completed' } })),
+        false,
+        'an otherwise empty phone holding a finished session restores without a question about a workout in progress',
+      );
       assert.equal(hasWorkoutInProgress({ ...none, activeCardio: { activityType: 'run' } }), true);
       const draft = { exercises: [{ localKey: 'k', name: 'Bench Press', sets: [{ localKey: 's', kg: '80', reps: '8', done: true }] }] };
       assert.equal(hasWorkoutInProgress({ ...none, freestyleDraft: draft }), true, 'the free workout was not counted');
