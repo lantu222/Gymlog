@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { adaptLegacyWorkoutTemplateToRuntimeTemplate } from '../features/workout/customWorkoutAdapter';
 import type { WORKOUT_TEMPLATES_V1 } from '../features/workout/workoutCatalog';
@@ -7,7 +7,7 @@ import { isWorkoutInProgress } from '../lib/activeWorkout';
 import { getRecentExerciseLibraryItems } from '../lib/exerciseSuggestions';
 import { selectHomeCustomProgram } from '../lib/homeProgramSelection';
 import { buildProgramInsightMap } from '../lib/programInsights';
-import { buildExercisePrLookup } from '../lib/workoutCompletionSummary';
+import { buildExercisePrLookup, buildExercisePrLookupBefore } from '../lib/workoutCompletionSummary';
 import type {
   AppDatabase,
   AppPreferences,
@@ -160,6 +160,21 @@ export function useCustomProgramViews(deps: CustomProgramViewsDeps) {
       }),
     [database.exerciseLogs, database.exerciseTemplates, database.workoutSessions],
   );
+  // What a free workout board's Finish compares against: without its own earlier save when it is one
+  // carried on after it (the guided finish does the same in finishSaves).
+  const exercisePrLookupBefore = useCallback(
+    (sessionId: string | null | undefined) =>
+      buildExercisePrLookupBefore(
+        {
+          exerciseLogs: database.exerciseLogs,
+          workoutSessions: database.workoutSessions,
+          exerciseTemplates: database.exerciseTemplates,
+        },
+        sessionId,
+        exercisePrLookup,
+      ),
+    [database.exerciseLogs, database.exerciseTemplates, database.workoutSessions, exercisePrLookup],
+  );
 
   return {
     customWorkoutRuntimeMap,
@@ -168,5 +183,6 @@ export function useCustomProgramViews(deps: CustomProgramViewsDeps) {
     selectedCustomProgram,
     recentExerciseBrowserItems,
     exercisePrLookup,
+    exercisePrLookupBefore,
   };
 }

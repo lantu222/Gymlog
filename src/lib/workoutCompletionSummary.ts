@@ -106,6 +106,27 @@ export function buildExercisePrLookup({
   };
 }
 
+/**
+ * The records as they stood before the workout stored under `sessionId`: a workout finished again
+ * under its own id (a restored session, a board carried on after its save) has its earlier version
+ * in the database, and against it the same sets were their own previous best — no record cards.
+ * `full` is returned when the database holds no such workout, so the common finish rebuilds nothing.
+ */
+export function buildExercisePrLookupBefore(
+  tables: { exerciseLogs: ExerciseLog[]; workoutSessions: WorkoutSession[]; exerciseTemplates: ExerciseTemplate[] },
+  sessionId: string | null | undefined,
+  full: ExercisePrLookup,
+): ExercisePrLookup {
+  if (!sessionId || !tables.workoutSessions.some((session) => session.id === sessionId)) {
+    return full;
+  }
+  return buildExercisePrLookup({
+    exerciseLogs: tables.exerciseLogs.filter((log) => log.sessionId !== sessionId),
+    workoutSessions: tables.workoutSessions.filter((session) => session.id !== sessionId),
+    exerciseTemplates: tables.exerciseTemplates,
+  });
+}
+
 export interface LatestSessionPr {
   exerciseName: string;
   weightKg: number;

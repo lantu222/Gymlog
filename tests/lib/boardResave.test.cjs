@@ -138,4 +138,53 @@ module.exports = [
       );
     },
   },
+  {
+    // Bug hunt 5 (2026-10-03): the board's record cards were read against a database that already held this
+    // session's first save, so the set that set the record the first time was its own previous best.
+    name: 'a free workout board finished again keeps its record cards: compared with what came before it, not with its own save',
+    run() {
+      const { buildFreestyleFinish } = require('../../.test-dist/lib/emptyWorkoutSession.js');
+      const { buildExercisePrLookup, buildExercisePrLookupBefore } = require('../../.test-dist/lib/workoutCompletionSummary.js');
+      const tablesOf = (db) => ({ exerciseLogs: db.exerciseLogs, workoutSessions: db.workoutSessions, exerciseTemplates: db.exerciseTemplates });
+      const board = [liftOn('l1', 'Bench Press', [row(100, 5)])];
+      const finish = (db, performedAtIso) => {
+        const full = buildExercisePrLookup(tablesOf(db));
+        return buildFreestyleFinish({
+          exercises: board,
+          workoutName: 'Free workout',
+          startedAtIso: '2026-10-03T09:00:00.000Z',
+          performedAtIso,
+          elapsedSeconds: 3600,
+          exercisePrLookup: buildExercisePrLookupBefore(tablesOf(db), 'session_board', full),
+          sessionId: 'session_board',
+        });
+      };
+      // An earlier workout with a lighter bench: the board beats it.
+      let db = persistCompletedWorkoutSessionToDatabase(
+        createEmptyDatabase('en'),
+        input(logsOf([liftOn('o1', 'Bench Press', [row(90, 5)])]), { sessionId: 'session_old', performedAt: '2026-10-01T10:00:00.000Z', startedAt: '2026-10-01T09:00:00.000Z' }),
+      ).database;
+      const first = finish(db, '2026-10-03T10:00:00.000Z');
+      assert.deepEqual(first.summary.prCards.map((card) => `${card.exerciseName} ${card.previousBestWeightKg}->${card.performedWeightKg}`), ['Bench Press 90->100']);
+      db = persistCompletedWorkoutSessionToDatabase(db, input(first.summary.logs)).database;
+
+      const again = finish(db, '2026-10-03T10:05:00.000Z');
+      assert.deepEqual(
+        again.summary.prCards.map((card) => `${card.exerciseName} ${card.previousBestWeightKg}->${card.performedWeightKg}`),
+        ['Bench Press 90->100'],
+        'the record it set the first time, against the same previous best',
+      );
+      // No earlier save under that id: the lookup the caller already has, not a rebuilt one.
+      const full = buildExercisePrLookup(tablesOf(db));
+      assert.equal(buildExercisePrLookupBefore(tablesOf(db), 'session_new', full), full);
+      assert.equal(buildExercisePrLookupBefore(tablesOf(db), undefined, full), full);
+
+      // Wired: the board asks for the lookup for the id it finishes under, and the shell hands it the one that leaves it out.
+      const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8');
+      assert.match(read('src', 'screens', 'EmptyWorkoutScreen.tsx'), /exercisePrLookup: exercisePrLookupBefore\(sessionIdRef\.current\),\n\s*sessionId: sessionIdRef\.current \?\? undefined,/);
+      assert.match(read('src', 'app', 'renderWorkoutTab.tsx'), /exercisePrLookupBefore=\{exercisePrLookupBefore\}/);
+      assert.match(read('src', 'app', 'useCustomProgramViews.ts'), /buildExercisePrLookupBefore\(\s*\{[^}]*\},\s*sessionId,\s*exercisePrLookup,\s*\)/);
+      assert.match(read('src', 'app', 'finishSaves.tsx'), /const priorPrLookup = buildExercisePrLookupBefore\(database, adaptedSession\.sessionId, exercisePrLookup\);/);
+    },
+  },
 ];

@@ -84,7 +84,12 @@ interface EmptyWorkoutScreenProps {
   recentExerciseLibraryItems: ExerciseLibraryItem[];
   defaultRestSeconds: number;
   keepScreenAwake?: boolean;
-  exercisePrLookup: ExercisePrLookup;
+  /**
+   * The records this board's Finish compares against, for the id it finishes under: without that
+   * workout's own earlier save, when the board is one carried on after it (else the same set it saved
+   * the first time is its own previous best, and the record card it earned is gone).
+   */
+  exercisePrLookupBefore: (sessionId: string | null | undefined) => ExercisePrLookup;
   language?: AppLanguage;
   onBack: () => void;
   /**
@@ -511,7 +516,7 @@ export function EmptyWorkoutScreen({
   recentExerciseLibraryItems,
   defaultRestSeconds,
   keepScreenAwake = false,
-  exercisePrLookup,
+  exercisePrLookupBefore,
   language = 'en',
   onBack,
   onSave,
@@ -1075,7 +1080,7 @@ export function EmptyWorkoutScreen({
         startedAtIso: new Date(startedAtMs ?? Date.now()).toISOString(),
         performedAtIso: new Date().toISOString(),
         elapsedSeconds,
-        exercisePrLookup,
+        exercisePrLookup: exercisePrLookupBefore(sessionIdRef.current),
         sessionId: sessionIdRef.current ?? undefined,
       });
       await onSave(draft, summary, adoptSessionId);

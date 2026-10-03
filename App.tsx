@@ -1432,6 +1432,7 @@ function VinhaApp() {
     selectedCustomProgram,
     recentExerciseBrowserItems,
     exercisePrLookup,
+    exercisePrLookupBefore,
   } = useCustomProgramViews({
     workoutTemplates,
     getWorkoutTemplateSessions,
@@ -2011,7 +2012,7 @@ function VinhaApp() {
       recentExerciseBrowserItems,
       upsertWorkoutTemplate,
       showToast,
-      exercisePrLookup,
+      exercisePrLookupBefore,
       finishLoggedWorkoutSave,
       exerciseLibrary,
       liftHistory,
