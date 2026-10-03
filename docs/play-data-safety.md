@@ -16,7 +16,7 @@ fails if a fourth appears. The policy names all three.
 |---|---|---|---|---|
 | Cloud backup (optional, Google sign-in) | `src/features/account/backupApi.ts` → `api/backup.ts` | Google ID token + the whole app database (profile, log, body data, programmes, preferences) | The backup JSON, filed under HMAC(Google `sub`) in a **private** Vercel Blob store (EU region per `docs/account-backup.md`). No email, no name, no logs of payloads. | Vercel (function and storage in Stockholm, `arn1`), Google (token verification) |
 | AI coach online mode, programme composer, photo import | `src/lib/aiCoachClient.ts` → `api/ai-coach.ts` | Question + conversation history + training summary **including latest weight, measurements, height, age, gender, goals and setup answers**; the composer brief; the downscaled photo | **Nothing by default. With consent, three separate lines each starting at no** (`aiLogChatConsent` / `aiLogComposerConsent` / `aiLogPhotoConsent`): `keepTranscript()` files the question and its answer, the brief and the proposal it produced, or the photo itself plus the rows read out of it, as `transcripts/<day>/<aiLogId>--…`. **Never the training summary** — that is sent, answered from, and dropped. Swept at 24 months by `api/prune-events.ts`; turning any one line off calls a forget route that deletes every copy under the label, whichever line made it. The same prefix also holds entries a development log wrote **before #92**, without consent, and chat copies written before #128 carry the signed-in email — both cleaned by hand before release, §3 | Vercel (function and storage in Stockholm, `arn1`), Anthropic (model, United States; deletes within 30 days, no training) |
-| Anonymous usage events | `src/features/analytics/analyticsClient.ts` → `api/events.ts` | Random install id + event names, timestamps, `step` / `path` | Batches as private blobs (Vercel, EU); deleted after 24 months by the daily cron (`api/prune-events.ts`, `docs/usage-events.md`) | Vercel (function and storage in Stockholm, `arn1`) |
+| Anonymous usage events | `src/features/analytics/analyticsClient.ts` → `api/events.ts` | Random install id + event names, timestamps, `step` / `path`; since 2026-10-04 also **error reports** (`app_error`: error class, up to five `bundle:line:col` positions, screen key, app version, platform; `operation_failed`: which operation and a closed code). Never an error message (`src/lib/errorReport.ts`) | Batches as private blobs (Vercel, EU); deleted after 24 months by the daily cron (`api/prune-events.ts`, `docs/usage-events.md`) | Vercel (function and storage in Stockholm, `arn1`) |
 
 **App version on every request (since 2026-09-28).** All three clients also send
 `x-vinha-app-version` (e.g. `1.1.0`) and `x-vinha-platform` (`android` / `ios`), so
@@ -80,6 +80,15 @@ foreground only and picks photos from the library only. Now:
 
 ## 2. Form answers
 
+> **Action for the publisher, before the build with error reports ships:** the
+> Play Console Data safety form still says no crash logs and no diagnostics.
+> Declare **Crash logs** and **Diagnostics** (collected, not shared, optional,
+> not linked to identity) as in the table below, then re-submit the form. The
+> policy already says it (updated 2026-10-04); the form is the only place left
+> that does not, and only the publisher can change it. The App Store's App
+> Privacy answers need the same update (Diagnostics → Crash Data, Other
+> Diagnostic Data; not linked to the user, not used for tracking).
+
 **Does your app collect or share any of the required user data types?** → **Yes.**
 "Collected" means transmitted off the device. Processing by a service provider
 on our behalf (Vercel, Anthropic) is *not* "sharing" under Play's definition.
@@ -92,6 +101,8 @@ on our behalf (Vercel, Anthropic) is *not* "sharing" under Play's definition.
 | Photos and videos → Photos | Yes | No | Yes | App functionality | Programme import. Ephemeral **unless** the reader ticks the photo line of the coach's consent sheet; then the image and the rows read from it are kept up to 24 months. **Declare as collected and retained** — the ephemeral-processing exemption does not cover a copy kept for two years |
 | Messages / Other user-generated content | Yes | No | Yes | App functionality | Coach questions, their answers, and composer briefs. Anthropic ≤ 30 days either way. Kept by us **only** under the matching consent line, then up to 24 months or until the reader withdraws, whichever comes first |
 | App activity → App interactions | Yes | No | Yes | Analytics | The eight usage events. Settings → Usage statistics switches them off; off drops the queue |
+| App info and performance → Crash logs | Yes (since 2026-10-04) | No | Yes | Analytics; App functionality | `app_error`: the error's class, up to five positions in the app's own code (`index.android.bundle:1:2345`), the screen, app version, platform. **No error message, no stack text beyond those positions, no user content.** Same random install id as the usage events, linked to no account; the same switch (Settings → Usage statistics) turns it off and drops the queue; same 24-month retention |
+| App info and performance → Diagnostics | Yes (since 2026-10-04) | No | Yes | Analytics; App functionality | `operation_failed`: which of save / backup / restore / load / account deletion / sign-in failed, and a short closed code (`NETWORK`, `STORAGE_FAILED`, …). Not linked to identity, not shared. Same switch and retention as above |
 | Device or other IDs | Yes | No | Yes | Analytics; App functionality | Two random ids, minted separately and linked to nothing — including to each other. The install id (analytics) resets on reinstall and is discarded when the switch is off. `aiLogId` is the coach-log label, minted on the first yes and dropped once the last line goes off; it exists only so a withdrawal can find the consented copies again |
 | Financial info, Location, Contacts, Audio, Files and docs, Calendar, Web browsing, Installed apps | No | No | — | — | — |
 

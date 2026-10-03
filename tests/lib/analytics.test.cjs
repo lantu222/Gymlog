@@ -17,8 +17,22 @@ module.exports = [
   {
     name: 'analytics: the allowlist is the whole vocabulary, and nothing outside it validates',
     run() {
+      // The two error events cannot go bare: they are their fields, and are
+      // tested field by field in tests/lib/errorReport.
+      const WITH_FIELDS = {
+        app_error: {
+          kind: 'render',
+          name: 'TypeError',
+          signature: 'a1b2c3d4e5f607',
+          frames: ['index.android.bundle:1:2345'],
+          screen: 'home/dashboard',
+          appVersion: '1.1.0',
+          platform: 'android',
+        },
+        operation_failed: { op: 'workout_save', code: 'NETWORK' },
+      };
       for (const name of ANALYTICS_EVENTS) {
-        assert.equal(isValidEvent(ok(name)), true, name);
+        assert.equal(isValidEvent(ok(name, WITH_FIELDS[name])), true, name);
       }
       // The privacy policy stakes its claim on this list being closed.
       assert.equal(isValidEvent(ok('exercise_logged')), false, 'an uninvented event does not pass');

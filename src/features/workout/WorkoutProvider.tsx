@@ -3,6 +3,7 @@ import type { FreestyleDraftSnapshot } from '../../lib/emptyWorkoutSession';
 import { AppState } from 'react-native';
 import { StorageLoadFailedScreen } from '../../components/StorageLoadFailedScreen';
 import { trackEvent } from '../analytics/analyticsClient';
+import { reportOperationFailed } from '../errorReporting/errorReporter';
 
 import { CardioActivityType, UnitPreference } from '../../types/models';
 import { ActiveCardioSession } from '../../lib/cardio';
@@ -138,6 +139,7 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
         return;
       }
       if (result.kind === 'failed') {
+        reportOperationFailed('workout_load', result.error);
         setLoadFailed(true);
         return;
       }

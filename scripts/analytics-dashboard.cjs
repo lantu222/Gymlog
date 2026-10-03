@@ -49,7 +49,50 @@ async function fetchTranscripts() {
 
 const esc = (value) => String(value).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-function render({ dailies, funnels, retention, installsSeen }, transcripts, meta) {
+/**
+ * The errors card: app errors by signature (worst first), then failed
+ * operations by op + code with their count per day. Everything is escaped —
+ * the values are validated by the server, but a page that prints data does
+ * not rely on that.
+ */
+function renderErrors({ appErrors, operations }) {
+  const errorRows = appErrors
+    .map(
+      (row) => `<tr>
+      <td class="l"><code>${esc(row.signature)}</code><br><span class="meta">${esc(row.name)} · ${esc(row.kinds.join(', '))}</span></td>
+      <td>${row.installs}</td><td>${row.count}</td>
+      <td>${esc(row.firstSeen)}<br>${esc(row.lastSeen)}</td>
+      <td class="l">${esc(row.versions.join(', ') || '-')}<br><span class="meta">${esc(row.screens.join(', ') || '-')}</span></td>
+      <td class="l"><code>${esc(row.frames.join('  ') || '-')}</code></td>
+    </tr>`,
+    )
+    .join('');
+  const operationRows = operations
+    .map(
+      (row) => `<tr>
+      <td class="l">${esc(row.op)}</td><td class="l">${esc(row.code)}</td>
+      <td>${row.total}</td><td>${row.installs}</td>
+      <td class="l">${esc(row.days.slice(-14).map((entry) => `${entry.day.slice(5)}: ${entry.count}`).join('   '))}</td>
+    </tr>`,
+    )
+    .join('');
+  return `<div class="card wide"><h2>Virheet — sovellusvirheet allekirjoituksittain, pahimmat ensin</h2>
+    ${
+      appErrors.length === 0
+        ? '<p class="meta">ei sovellusvirheitä</p>'
+        : `<table><tr><th class="l">Allekirjoitus</th><th>Asennukset</th><th>Kertaa</th><th>Ensi / viimeksi</th><th class="l">Versiot / ruudut</th><th class="l">Kehykset</th></tr>${errorRows}</table>`
+    }
+    <h2 style="margin-top:18px">Epäonnistuneet toiminnot — toiminto + koodi, päivittäin</h2>
+    ${
+      operations.length === 0
+        ? '<p class="meta">ei epäonnistuneita toimintoja</p>'
+        : `<table><tr><th class="l">Toiminto</th><th class="l">Koodi</th><th>Yhteensä</th><th>Asennukset</th><th class="l">Päivät (14 pv)</th></tr>${operationRows}</table>`
+    }
+    <p class="meta" style="margin-top:10px">Virheilmoitusten tekstiä ei lähetetä: vain virheen tyyppi, kohta koodissa (paketti:rivi:sarake — hae lähdekartasta), ruutu ja versio.</p></div>`;
+}
+
+function render({ dailies, funnels, retention, installsSeen, errors }, transcripts, meta) {
+  const errorsSection = renderErrors(errors ?? { appErrors: [], operations: [] });
   const maxActives = Math.max(1, ...dailies.map((row) => row.actives));
   const dayBars = dailies
     .slice(-30)
@@ -138,7 +181,8 @@ function render({ dailies, funnels, retention, installsSeen }, transcripts, meta
   .warn { color:var(--accent); font-weight:600; margin:-12px 0 22px; }
   table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
   th,td { text-align:right; padding:5px 8px; border-bottom:1px solid var(--line); font-size:13px; }
-  th:first-child, td:first-child { text-align:left; }
+  th:first-child, td:first-child, th.l, td.l { text-align:left; }
+  td code { font-size:11.5px; color:var(--muted); word-break:break-all; }
   th { color:var(--muted); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:0.8px; }
   .wide { grid-column:1 / -1; }
   .note { color:var(--muted); font-size:12px; margin-top:20px; }
@@ -161,6 +205,7 @@ ${meta.warning ? `<p class="warn">${esc(meta.warning)}</p>` : ''}
   <div class="card wide"><h2>Päivittäin</h2>
     <table><tr><th>Päivä</th><th>Aktiiviset</th><th>Avaukset</th><th>Treenit</th><th>Coach</th><th>Paywall</th></tr>${dailyRows}</table>
   </div>
+  ${errorsSection}
   ${transcriptSection}
 </div>
 <p class="note">Sivu on staattinen: luvut haettiin skriptillä koneellesi, selain ei kutsu mitään eikä lukusalaisuus ole tässä tiedostossa. Päivitä ajamalla analytics.cmd uudestaan.</p>

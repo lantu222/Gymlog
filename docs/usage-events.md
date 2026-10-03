@@ -1,9 +1,44 @@
 # Usage events: the pipeline and its retention
 
-The app sends eight anonymous usage events to our own Vercel endpoint (the
-vocabulary is `src/lib/analytics.ts`; the privacy policy lists every event).
-This page is the operator's view: where the data sits, how long, and what keeps
-that promise.
+The app sends ten anonymous events to our own Vercel endpoint — eight usage
+events and, since 2026-10-04, two error events (the vocabulary is
+`src/lib/analytics.ts`; the privacy policy lists every event). This page is the
+operator's view: where the data sits, how long, and what keeps that promise.
+
+## Error reports (`app_error`, `operation_failed`)
+
+Production failures ride the same pipe and the same switch — no third-party
+crash service. Shapes and validation: `src/lib/errorReport.ts` (client and
+server validate with the same code; a batch with any invalid event is rejected
+whole; per batch at most 20 `app_error` and 40 `operation_failed`, which the
+client's `takeBatch` respects). **No message field exists**: an error message
+is free text that can hold exercise names or an email.
+
+- `app_error`: `kind` (`js_fatal`, `js_error`, `render`, `unhandled_rejection`),
+  `name` (class), `signature` (hash of class + top 3 frames), up to 5
+  `bundle:line:col` frames, `screen` (`tab/screen` route key, `onboarding` or
+  `unknown`), `appVersion`, `platform`. Frames are positions in the Hermes
+  bundle: look them up in that build's source map.
+- `operation_failed`: `op` (`workout_save`, `backup_upload`, `backup_restore`,
+  `database_load`, `workout_load`, `account_delete`, `sign_in`) and a closed
+  `code` (`NETWORK`, `STORE_UNAVAILABLE`, `SERVER_ERROR`, `PAYLOAD_TOO_LARGE`,
+  `RATE_LIMITED`, `INVALID_TOKEN`, `SESSION_REVOKED`, `SESSION_EXPIRED`,
+  `STORAGE_FAILED`, `QUOTA`, `UNKNOWN`).
+- Per launch: one report per signature, at most 10 `app_error`; one per op and
+  code, at most 20 `operation_failed`. Development builds report nothing.
+- Capture: `AppErrorBoundary` at the root of `App.tsx` (`render`), the global
+  handler and Hermes' rejection tracker (`installErrorReporting`, imported first
+  by `index.ts`), and one line at each failure point (`reportOperationFailed`).
+- A **fatal** error is put on the queue with the write already issued before the
+  process ends, and sent on the next launch. Not guaranteed: that the phone
+  finishes the write before the process dies, and any crash in the first moments
+  of a launch before the queue is in memory. A database/workout load failure is
+  reported once the app next opens, because the reader's switch lives in the
+  data that did not load.
+- Reading: `node scripts/analytics-report.cjs` and `analytics.cmd` have an
+  **Errors** section — app errors by signature (installs, count, first/last seen,
+  versions, screens, frames), worst first, then failed operations by op + code
+  per day.
 
 | Piece | Where |
 |---|---|

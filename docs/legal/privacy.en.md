@@ -1,6 +1,6 @@
 # Privacy policy
 
-*Updated 3 October 2026*
+*Updated 4 October 2026*
 
 What Vinha stores, what leaves your phone, and what you can do about it.
 
@@ -90,7 +90,9 @@ Under each answer the online coach writes there is a Report link. If you use it,
 
 To see whether the app works — for example whether some step of the setup is so hard that people give up there — the app sends anonymous usage events to our own server.
 
-An event is a name and a time, plus for setup steps the step number and which path you took. Never the content: no exercise name, no weight, no measurement, no question text. The full list of events is fixed in the app’s code, and the server refuses anything outside it.
+An event is a name and a time, plus for setup steps the step number and which path you took, and for an error report the details listed below. Never the content: no exercise name, no weight, no measurement, no question text. The full list of events is fixed in the app’s code, and the server refuses anything outside it.
+
+If something goes wrong, the app also sends an error report, as one more of these events: a crash, an error on a screen, or a save, backup, restore, sign-in or account deletion that did not work. What is sent: the type of error, where in the app’s code it happened (a position in the program, not what it was working on), which screen you were on, the app version, which operating system the phone runs and, for a failed save, backup or similar, which one failed and a short code such as “network” or “storage full”. Never sent: error messages, your training data, names, notes or anything you typed — error messages can contain exactly such things, so they are not collected at all. A crash is noted on the phone as it happens and sent the next time the app is opened. Error reports follow the same switch, go only to our own server and are kept for the same time as the other events.
 
 Each install gets a random identifier, generated on your phone. It is not connected to your name, email, Google account or any advertising identity, and it resets if you reinstall the app.
 
@@ -104,6 +106,7 @@ The events go to our own server and nowhere else. They are kept for up to 24 mon
 - A workout was saved.
 - The Pro page was viewed.
 - A question was sent to the coach — the fact that one was sent, never the text.
+- The app failed or something did not work: an error report, as described above.
 
 ## Who helps us run this
 
@@ -130,7 +133,7 @@ The GDPR requires a lawful basis for each kind of processing. These are ours.
 
 ## What the app does not do
 
-- No third-party analytics and no crash-reporting tools from other companies. The only usage data is the anonymous statistics described above, sent to our own server and no one else.
+- No third-party analytics and no crash-reporting tools from other companies. The only usage data is the anonymous statistics described above, error reports included, sent to our own server and no one else.
 - No ads, no ad networks, no advertising identifier.
 - No trackers and no social media components. There is no feed, no followers and no public profile.
 - No access to your location, contacts, microphone, camera or files. A photo is read only when you pick one yourself, through the phone’s own picker, and only that photo.
@@ -183,7 +186,7 @@ On your phone, the app’s data is protected by the phone’s own lock and the s
 - Cloud backup: until you delete it in Settings, or ask us to.
 - The marker left by Delete account on an Apple account: one scrambled marker with a date and a random number your phone made for the deletion request (used only to tell that phone its deletion went through), with no name, email or training data. The server’s routine clean-up removes it once 180 days have passed and it can no longer end anything. That clean-up runs when someone signs in with Apple, so it can take a little longer.
 - Coach questions, briefs and photos: not kept by us unless you allowed it, and then for up to 24 months or until you take the permission back, whichever comes first. Anthropic deletes its own copy within 30 days either way.
-- Usage statistics: up to 24 months, then deleted automatically.
+- Usage statistics, error reports included: up to 24 months, then deleted automatically.
 - Feedback emails: as long as it takes to handle them.
 
 ## Your rights

@@ -22,9 +22,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   AnalyticsEvent,
   AnalyticsEventName,
-  MAX_BATCH_EVENTS,
+  AnalyticsEventProps,
   appendToQueue,
   isValidEvent,
+  takeBatch,
 } from '../../lib/analytics';
 import { appVersionHeaders, noteServerAnswer } from '../appUpdate/appUpdateSignal';
 
@@ -125,7 +126,7 @@ async function flush(): Promise<void> {
     return;
   }
   flushing = true;
-  const batch = state.queue.slice(0, MAX_BATCH_EVENTS);
+  const batch = takeBatch(state.queue);
   try {
     const response = await fetch(ANALYTICS_URL, {
       method: 'POST',
@@ -165,8 +166,31 @@ function scheduleFlush(): void {
  * installs that will never send it. A reader who switched statistics off
  * queues nothing either.
  */
-export function trackEvent(name: AnalyticsEventName, props?: { step?: number; path?: string }): void {
+export function trackEvent(
+  name: AnalyticsEventName,
+  props?: AnalyticsEventProps,
+  options?: { urgent?: boolean },
+): void {
   if (!ANALYTICS_URL || enabled === false) {
+    return;
+  }
+  // The process may be about to die (a fatal JS error): no await before the
+  // write is issued, or the microtask that would issue it may never run.
+  // Only possible once the queue is in memory — it is, for any crash after
+  // the first moments of a launch (app_open loads it); a crash before that
+  // falls through to the ordinary path and may be lost with the process. And
+  // the write is only *issued* here: whether the phone finishes it before the
+  // process ends is not something JavaScript can promise.
+  if (options?.urgent && memory) {
+    try {
+      const event: AnalyticsEvent = { name, at: new Date().toISOString(), ...(props ? { props } : {}) };
+      if (isValidEvent(event)) {
+        memory.queue = appendToQueue(memory.queue, event);
+        void persist();
+      }
+    } catch {
+      // Reporting a crash must not become the next one.
+    }
     return;
   }
   void (async () => {

@@ -33,6 +33,8 @@ const LEGAL_TEXT_VERSIONS = [
   // From here the fingerprint covers all three renders (android, ios, both) in
   // both languages; the entries above hashed the 'both' text only.
   { date: '2026-10-03', fingerprint: 'e5d4d3139906bfd2' },
+  // Error reports join the usage statistics (same switch, same retention).
+  { date: '2026-10-04', fingerprint: '583c0b9c42fb4708' },
 ];
 
 const IDS = ['privacy', 'terms'];

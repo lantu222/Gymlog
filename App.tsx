@@ -141,6 +141,8 @@ import { WorkoutProvider, useWorkoutContext } from './src/features/workout/Worko
 import { getWorkoutTemplateById } from './src/features/workout/workoutCatalog';
 import { AppProvider, useAppContext } from './src/state/AppProvider';
 import { registerAppIdentity } from './src/features/appUpdate/appUpdateSignal';
+import { AppErrorBoundary } from './src/features/errorReporting/AppErrorBoundary';
+import { noteRenderedScreen } from './src/features/errorReporting/errorReporter';
 import { appInfo } from './src/theme';
 
 void SplashScreen.preventAutoHideAsync().catch(() => {
@@ -590,6 +592,9 @@ function VinhaApp() {
     'path' | 'about' | 'questionnaire' | 'ready_catalog'
   >('path');
   useFunnelAnalytics({ hydrated, onboardingActive, entryFlowActive, onboardingStep, route, navigationState, preferences });
+  // Which screen an error report names. In the render body on purpose: an
+  // error thrown while drawing this route must name this route.
+  noteRenderedScreen(onboardingActive, route);
   const [busySavingReadyPick, setBusySavingReadyPick] = useState(false);
 
   // The onboarding flow state lives in memory; when the gate closes (finished)
@@ -2308,10 +2313,14 @@ function ThemedRoot() {
 }
 
 export default function App() {
+  // Outside both providers: either can throw while rendering, and the
+  // recovery screen needs neither (it takes the phone's language).
   return (
-    <AppProvider>
-      <ThemedRoot />
-    </AppProvider>
+    <AppErrorBoundary>
+      <AppProvider>
+        <ThemedRoot />
+      </AppProvider>
+    </AppErrorBoundary>
   );
 }
 
