@@ -521,6 +521,106 @@ module.exports = [
     },
   },
   {
+    name: 'error reporting: a fatal error before the queue loads is written to its own key at once, and the next launch sends it',
+    async run() {
+      await withFetch(async () => {
+        const CRASH_KEY = '@vinha/analytics/crash';
+        const storage = memoryStorage();
+        let client = loadClient(storage);
+        let reporter = loadReporter(client);
+        reporter.resetErrorReportBudget();
+
+        // First moments of a launch: the switch is unknown and no queue is in
+        // memory. No await, no flush: the process may be gone by the next tick.
+        reporter.reportAppError('js_fatal', appError(), { urgent: true });
+        const stored = JSON.parse(storage.items.get(CRASH_KEY));
+        assert.equal(stored.length, 1, 'the event was not written in the same tick');
+        assert.equal(stored[0].props.kind, 'js_fatal');
+        assert.equal(storage.items.has(STORAGE_KEY), false, 'nothing read or wrote the queue first');
+
+        // The process dies. The next launch loads the queue, the switch is on.
+        client = loadClient(storage);
+        reporter = loadReporter(client);
+        reporter.resetErrorReportBudget();
+        client.setUsageStatisticsEnabled(true);
+        await flush();
+        const queue = JSON.parse(storage.items.get(STORAGE_KEY)).queue;
+        assert.deepEqual(queue.map((event) => event.props && event.props.kind), ['js_fatal']);
+        assert.equal(storage.items.has(CRASH_KEY), false, 'a drained crash key is removed');
+        client.setUsageStatisticsEnabled(false);
+        await flush();
+        reporter.resetErrorReportBudget();
+      });
+    },
+  },
+  {
+    name: 'error reporting: the early-crash key keeps every gate — off writes nothing, an off answer erases it, a failed queue write keeps it',
+    async run() {
+      await withFetch(async () => {
+        const CRASH_KEY = '@vinha/analytics/crash';
+
+        // Switch known off: nothing is written, not even the crash key.
+        let storage = memoryStorage();
+        let client = loadClient(storage);
+        let reporter = loadReporter(client);
+        reporter.resetErrorReportBudget();
+        client.setUsageStatisticsEnabled(false);
+        await flush();
+        reporter.reportAppError('js_fatal', appError(), { urgent: true });
+        await flush();
+        assert.equal(storage.items.size, 0);
+        assert.equal(storage.writes, 0);
+
+        // Switch unknown, crash, then the stored answer is no: the crash key goes.
+        storage = memoryStorage();
+        client = loadClient(storage);
+        reporter = loadReporter(client);
+        reporter.resetErrorReportBudget();
+        reporter.reportAppError('js_fatal', appError(), { urgent: true });
+        assert.ok(storage.items.has(CRASH_KEY));
+        client.setUsageStatisticsEnabled(false);
+        await flush();
+        assert.equal(storage.items.size, 0, 'a reader who said no keeps no crash record');
+
+        // A stored crash from the last launch, then the answer is no: dropped.
+        storage = memoryStorage();
+        storage.items.set(CRASH_KEY, JSON.stringify([{ name: 'app_error', at: new Date().toISOString(), props: { kind: 'js_fatal' } }]));
+        client = loadClient(storage);
+        client.setUsageStatisticsEnabled(false);
+        await flush();
+        assert.equal(storage.items.size, 0);
+
+        // Junk under the key is ignored, the queue still loads.
+        storage = memoryStorage();
+        storage.items.set(CRASH_KEY, '{not json');
+        client = loadClient(storage);
+        client.setUsageStatisticsEnabled(true);
+        await flush();
+        assert.deepEqual(JSON.parse(storage.items.get(STORAGE_KEY)).queue, []);
+        client.setUsageStatisticsEnabled(false);
+        await flush();
+
+        // The queue write fails: the crash key stays for the next launch.
+        storage = memoryStorage();
+        storage.items.set(CRASH_KEY, JSON.stringify([{ name: 'app_error', at: new Date().toISOString(), props: { kind: 'js_fatal' } }]));
+        const setItem = storage.setItem;
+        storage.setItem = async (key, value) => {
+          if (key === STORAGE_KEY) {
+            throw new Error('disk full');
+          }
+          return setItem(key, value);
+        };
+        client = loadClient(storage);
+        client.setUsageStatisticsEnabled(true);
+        await flush();
+        assert.ok(storage.items.has(CRASH_KEY), 'the event was lost with a failed write');
+        client.setUsageStatisticsEnabled(false);
+        await flush();
+        reporter.resetErrorReportBudget();
+      });
+    },
+  },
+  {
     name: 'error boundary: a render error shows the recovery screen and reports it, and Try again remounts',
     run() {
       const reported = [];

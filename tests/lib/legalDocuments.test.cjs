@@ -196,6 +196,10 @@ module.exports = [
           '@vinha/account/apple/v1',
           '@vinha/account/signedout/v1',
           '@vinha/account/v1',
+          // An urgent error event raised before the usage queue had loaded
+          // (2026-10-03): the same events as the queue, waiting to be sent, and
+          // removed once folded into it. The queue line in the policy covers it.
+          '@vinha/analytics/crash',
           '@vinha/analytics/v1',
           '@vinha/coach/memory/pendingerase/v1',
           '@vinha/coach/memory/v1',

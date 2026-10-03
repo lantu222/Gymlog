@@ -32,6 +32,15 @@ import { appVersionHeaders, noteServerAnswer } from '../appUpdate/appUpdateSigna
 
 const ANALYTICS_URL = (process.env.EXPO_PUBLIC_ANALYTICS_URL ?? '').trim();
 const STORAGE_KEY = '@vinha/analytics/v1';
+/**
+ * Urgent events raised before the queue was in memory (hunt 3, 2026-10-03).
+ *
+ * A fatal error while the app's modules are still loading cannot go through
+ * the queue: loading it is an await, and the process dies first. This key is
+ * written without reading anything, so the write is issued in the same tick;
+ * the next launch's loadState folds it into the queue and removes it.
+ */
+const CRASH_KEY = '@vinha/analytics/crash';
 /** Small waits batch a burst of steps into one request. */
 const FLUSH_DELAY_MS = 5000;
 
@@ -41,6 +50,14 @@ interface StoredState {
 }
 
 let memory: StoredState | null = null;
+/**
+ * This launch's urgent events that found no queue in memory. The whole list is
+ * rewritten under CRASH_KEY each time, because appending would need a read. A
+ * crash loop that dies before the queue loads therefore keeps the newest
+ * launch's events, not every launch's; once a launch gets as far as loadState
+ * the key is drained and the loop's next crash is queued normally.
+ */
+let earlyEvents: AnalyticsEvent[] = [];
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 let flushing = false;
 /**
@@ -81,6 +98,14 @@ async function loadState(): Promise<StoredState | null> {
     return memory;
   }
   let loaded: StoredState | null = null;
+  let early: AnalyticsEvent[] = [];
+  try {
+    const rawCrash = await AsyncStorage.getItem(CRASH_KEY);
+    const parsedCrash = rawCrash ? (JSON.parse(rawCrash) as unknown) : [];
+    early = Array.isArray(parsedCrash) ? parsedCrash.filter(isValidEvent) : [];
+  } catch {
+    // Unreadable crash events are not worth anything more than the queue is.
+  }
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
     if (raw) {
@@ -100,21 +125,45 @@ async function loadState(): Promise<StoredState | null> {
   if (memory) {
     return memory;
   }
-  memory = loaded ?? { installId: randomUuid(), queue: [] };
-  if (!loaded) {
-    await persist();
+  const state: StoredState = loaded ?? { installId: randomUuid(), queue: [] };
+  memory = state;
+  // The key holds this launch's early events too unless one was raised after
+  // the read above; the in-process list covers that gap. From here on an
+  // urgent event finds `memory` and takes the ordinary path.
+  const seen = new Set(early.map((event) => JSON.stringify(event)));
+  for (const event of earlyEvents) {
+    if (!seen.has(JSON.stringify(event))) {
+      early.push(event);
+    }
   }
-  return memory;
+  earlyEvents = [];
+  for (const event of early) {
+    state.queue = appendToQueue(state.queue, event);
+  }
+  if (!loaded || early.length > 0) {
+    // The crash key goes only once the queue that now holds its events has
+    // been written: a failed write keeps it for the next launch.
+    if ((await persist()) && !switchedOff()) {
+      try {
+        await AsyncStorage.removeItem(CRASH_KEY);
+      } catch {
+        // A leftover is folded in again next launch, as a duplicate at worst.
+      }
+    }
+  }
+  return state;
 }
 
-async function persist(): Promise<void> {
+async function persist(): Promise<boolean> {
   if (!memory || switchedOff()) {
-    return;
+    return false;
   }
   try {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(memory));
+    return true;
   } catch {
     // Full disk loses analytics, not the app.
+    return false;
   }
 }
 
@@ -186,17 +235,24 @@ export function trackEvent(
   }
   // The process may be about to die (a fatal JS error): no await before the
   // write is issued, or the microtask that would issue it may never run.
-  // Only possible once the queue is in memory — it is, for any crash after
-  // the first moments of a launch (app_open loads it); a crash before that
-  // falls through to the ordinary path and may be lost with the process. And
-  // the write is only *issued* here: whether the phone finishes it before the
-  // process ends is not something JavaScript can promise.
-  if (options?.urgent && memory) {
+  // With the queue in memory — any crash after the first moments of a launch
+  // (app_open loads it) — the queue is written. Before that there is no queue
+  // to write, and loading it is an await the process may not survive, so the
+  // event goes under its own key with no read first (CRASH_KEY), and the next
+  // launch folds it in. In both cases the write is only *issued* here: whether
+  // the phone finishes it before the process ends is not something JavaScript
+  // can promise.
+  if (options?.urgent) {
     try {
       const event: AnalyticsEvent = { name, at: new Date().toISOString(), ...(props ? { props } : {}) };
       if (isValidEvent(event)) {
-        memory.queue = appendToQueue(memory.queue, event);
-        void persist();
+        if (memory) {
+          memory.queue = appendToQueue(memory.queue, event);
+          void persist();
+        } else {
+          earlyEvents = appendToQueue(earlyEvents, event);
+          void AsyncStorage.setItem(CRASH_KEY, JSON.stringify(earlyEvents)).catch(() => undefined);
+        }
       }
     } catch {
       // Reporting a crash must not become the next one.
@@ -236,7 +292,9 @@ export function setUsageStatisticsEnabled(next: boolean): void {
   }
   if (!next) {
     memory = null;
+    earlyEvents = [];
     void AsyncStorage.removeItem(STORAGE_KEY).catch(() => undefined);
+    void AsyncStorage.removeItem(CRASH_KEY).catch(() => undefined);
     return;
   }
   if (!ANALYTICS_URL) {
