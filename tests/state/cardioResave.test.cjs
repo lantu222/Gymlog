@@ -127,21 +127,14 @@ module.exports = [
     },
   },
   {
-    name: 'cardio: a run still running at Complete does not extend the stored run with the time the app was dead',
+    name: 'cardio: the time and the end only move forward together',
     async run() {
       const store = fakeStore();
-      const first = await store.save({ ...RUN, distanceKm: null });
-      // Its pause was lost with the clear: it came back running, and its clock counted the dead hours.
-      await store.save({ ...RUN, endedAt: '2026-10-03T14:00:00.000Z', durationSec: 21600, distanceKm: 6, running: true });
-      const row = store.databaseRef.current.cardioSessions[0];
-      assert.equal(store.databaseRef.current.cardioSessions.length, 1);
-      assert.equal(row.durationSec, first.durationSec, 'the stored time stays');
-      assert.equal(row.performedAt, first.performedAt, 'and its end');
-      assert.equal(row.distanceKm, 6, 'what the reader entered is merged all the same');
-      // Paused at Complete, the longer reading is a run that was run further.
-      await store.save({ ...RUN, endedAt: '2026-10-03T08:52:00.000Z', durationSec: 3120, running: false });
+      await store.save({ ...RUN, distanceKm: null });
+      await store.save({ ...RUN, endedAt: '2026-10-03T08:52:00.000Z', durationSec: 3120 });
       assert.equal(store.databaseRef.current.cardioSessions[0].durationSec, 3120);
-      // A longer reading that ended before the stored end is not further either.
+      assert.equal(store.databaseRef.current.cardioSessions[0].performedAt, '2026-10-03T08:52:00.000Z');
+      // A longer reading that ended before the stored end is not further.
       await store.save({ ...RUN, endedAt: '2026-10-03T08:20:00.000Z', durationSec: 4000 });
       assert.equal(store.databaseRef.current.cardioSessions[0].durationSec, 3120);
     },

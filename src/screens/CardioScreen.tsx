@@ -74,8 +74,6 @@ interface CardioScreenProps {
     durationSec: number;
     distanceKm: number | null;
     feel: CardioFeel | null;
-    /** The clock was still running at Complete: its time is not trusted to extend a stored run (see saveCardioSession). */
-    running?: boolean;
   }) => Promise<void>;
   onLeave: () => void;
 }
@@ -196,7 +194,6 @@ export function CardioScreen({
                 durationSec,
                 distanceKm,
                 feel,
-                running: activeCardio.resumedAt !== null,
               });
             } catch {
               // Save failed (App shows the toast) — keep the session so the
