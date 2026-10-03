@@ -114,16 +114,20 @@ and make sure the policy's sentence and the form agree on it.
 
 **Security practices**
 - Data encrypted in transit: **Yes** (the app talks HTTPS to Vercel; Vercel talks HTTPS to Anthropic and Google).
-- Users can request data deletion: **Yes** — in the app (Settings → Delete cloud backup; Settings → Reset all data) and by email to the address in the policy.
+- Users can request data deletion: **Yes** — in the app (Settings → Delete account / Delete cloud backup; Settings → Reset all data) and on the web without the app (Google account: the deletion page below).
 - Committed to the Play Families policy: No. Independent security review (MASA): No.
 
 **Account creation and deletion.** Google sign-in for the cloud backup counts as
 account creation → answer **Yes, optional**. Play requires an in-app deletion
-path (exists: Settings → Delete cloud backup, then Sign out) **and a public
-account-deletion URL** entered in the form. The URL can be a page on the legal
-site saying: sign in on any Android phone and press Delete cloud backup, or
-email us. Not published yet (in progress, 2026-09-16) — the form cannot be
-submitted without the URL.
+path (Settings → Delete account) **and a public account-deletion URL** that
+works "without sending the user back to the app and requiring them to
+re-download it". URL: `https://styxon.fi/vinha-fitness/legal/delete-account.fi`
+(EN: `.en`), built by `scripts/build-legal-site.cjs` from
+`src/lib/accountDeletionPage.ts` (2026-10-03). The page signs in with Google in
+the browser and sends the app's own Delete account request
+(`src/lib/webAccountDeletion.ts`); an email alone cannot find an account,
+because the server stores no name or email. Apple accounts: in the app only,
+until the web Apple sign-in in docs/ios-launch.md is built.
 
 **Is collection optional?** Yes, all of it. Backup, coach and photo import sit
 behind the user's own action, and usage events plus the install id can be

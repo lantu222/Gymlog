@@ -302,6 +302,7 @@ const suites = [
   ...require('./features/account/accountSafetyInvariant.test.cjs'),
   ...require('./features/account/backupRoundTripInvariant.test.cjs'),
   ...require('./api/backupEndpoint.test.cjs'),
+  ...require('./api/backupWebDeletion.test.cjs'),
   ...require('./api/backupAppleSession.test.cjs'),
   ...require('./state/accountBackupWiring.test.cjs'),
   ...require('./lib/hevyImport.test.cjs'),

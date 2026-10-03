@@ -11,9 +11,6 @@ on:
     branches: [main]
     paths:
       - src/lib/legalDocuments.ts
-      - src/lib/accountDeletionPage.ts
-      # The deletion page names the buttons by their in-app labels.
-      - src/lib/i18n.ts
       - scripts/build-legal-site.cjs
       - .github/workflows/legal-pages.yml
   workflow_dispatch:
@@ -38,7 +35,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx tsc -p tsconfig.test.json
+      # The account deletion page is served from styxon.fi only: it signs in
+      # with Google, whose client allows that origin and not this one.
       - run: node scripts/build-legal-site.cjs
+        env:
+          LEGAL_SITE_WITHOUT_WEB_DELETION: '1'
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist-legal

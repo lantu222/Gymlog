@@ -94,9 +94,62 @@ custom review prompts — and "Rate Vinha" opens the write-review page.
   refresh token (stored next to the revocation marker), and call `/auth/revoke`
   with the client secret on `delete-account`. Env: `APPLE_TEAM_ID`,
   `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`.
+- **Deleting an Apple account on the web.** The deletion page
+  (`styxon.fi/vinha-fitness/legal/delete-account.*`, see "Web deletion for
+  Apple accounts" below) deletes Google accounts only; an Apple account is
+  deleted in the app. App Review asks only for in-app deletion (5.1.1(v)), so
+  this does not block iOS 1.0, but the page says "for now".
 - Excluding the app's data from the iPhone's own backup (the policy now says it
   is included, under Apple's terms). The alternative would be setting
   `isExcludedFromBackup` on the AsyncStorage directory in a config plugin, as
   `plugins/withDataExtractionRules.js` does for Android; it needs a device test.
 - iPad layout (`supportsTablet: false` until it has been designed and tested).
 - Home-screen widget (needs a WidgetKit extension in Swift).
+
+## Web deletion for Apple accounts (plan, 2026-10-03)
+
+The deletion page signs a Google reader in with Google Identity Services and
+sends the app's own `DELETE` + `x-backup-action: delete-account`
+(`src/lib/webAccountDeletion.ts`). The same for Apple, in the order it has to
+happen:
+
+1. **Services ID** (Apple Developer → Identifiers → Services IDs), e.g.
+   `app.vinha.web`. Enable Sign in with Apple on it and choose **"Group with
+   an existing primary App ID" → `app.vinha`**. Grouped, Apple gives the reader
+   the same `sub` on the web as in the app, so the page finds the same blob
+   (`apple:<sub>`). Not grouped, every web deletion would delete nothing and
+   still answer 200.
+2. **Domains and return URL** on the Services ID: `styxon.fi`, return URL
+   `https://styxon.fi/vinha-fitness/legal/delete-account.fi` (and `.en`). The
+   page uses the popup flow, but Apple still requires a registered return URL.
+3. **Page**: Apple's JS SDK (`appleid.cdn-apple.com/.../appleid.auth.js`),
+   `AppleID.auth.init({ clientId: 'app.vinha.web', scope: '', redirectURI,
+   usePopup: true })`; `signIn()` returns `authorization.id_token` (and
+   `authorization.code`). No name or email is asked for.
+4. **Server, `api/backup.ts`**:
+   - `apple-session` accepts an identity token whose audience is
+     `APPLE_BUNDLE_ID` **or** the new env `APPLE_WEB_SERVICES_ID`.
+   - The page trades the token for a session (`POST`, `x-backup-action:
+     apple-session`), then sends `DELETE` + `delete-account` with it, exactly as
+     the phone does. The revocation marker then ends the phone's sessions too.
+   - CORS: `webDeletionCorsHeaders` allows only `DELETE`. Add `POST` for the
+     page's origin **only when the action is `apple-session`**, so the page can
+     never write a backup.
+5. **Token revocation together with it.** The web flow returns an
+   authorization code, the input the revocation work above ("Not in iOS 1.0")
+   needs. A code is bound to the client id that requested it, so the web code
+   is traded and revoked with a client secret whose `sub` is the Services ID,
+   the app's with `app.vinha`. Build both at once: same key (`APPLE_KEY_ID`,
+   `APPLE_PRIVATE_KEY`, `APPLE_TEAM_ID`), same `/auth/token` → `/auth/revoke`.
+6. **Texts**: `src/lib/accountDeletionPage.ts` drops "Apple accounts only in
+   the app", the form gets the Apple button next to Google's, and the privacy
+   policy's "if you can no longer open the app" sentence names Apple too (a new
+   `LEGAL_TEXT_VERSIONS` entry).
+7. **Tests**: `tests/api/backupWebDeletion.test.cjs` gets the Apple path (the
+   web audience is accepted for `apple-session` and nothing else; the `POST`
+   preflight is answered only for `apple-session`); `accountDeletionPage.test.cjs`
+   pins the Services ID on the built page.
+
+Manual steps, all in Apple Developer, after the Program membership: items 1–2
+and the Sign in with Apple key (`.p8`) for item 5. Vercel env:
+`APPLE_WEB_SERVICES_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`.

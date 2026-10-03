@@ -46,6 +46,7 @@ import { BlobNotFoundError, BlobPreconditionFailedError, del, get, head, list, p
 
 import { appUpdateRefusalBody, isAppVersionRefused } from '../src/lib/appUpdateGate';
 import { isServicePaused, servicePausedBody } from '../src/lib/serverNotice';
+import { webDeletionCorsHeaders } from '../src/lib/webAccountDeletion';
 
 type ApiRequest = {
   method?: string;
@@ -721,6 +722,17 @@ function bearerToken(req: ApiRequest): string | null {
 }
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
+  // The web deletion page (lib/webAccountDeletion): its DELETE and the
+  // browser's preflight for it, and nothing else, carry CORS headers. First,
+  // so a refusal below still reaches the page as a status it can read.
+  const cors = webDeletionCorsHeaders(req.headers.origin, req.method);
+  for (const [name, value] of Object.entries(cors ?? {})) {
+    res.setHeader(name, value);
+  }
+  if (req.method === 'OPTIONS') {
+    res.status(cors ? 204 : 405).end();
+    return;
+  }
   // The kill switch (docs/tietoturvaloukkaus.md): first, before anything is
   // read, parsed or written. api/notice stays open to say why. Deleting stays
   // open too: the policy promises the copy goes at once, and during an
