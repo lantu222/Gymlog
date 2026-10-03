@@ -32,6 +32,39 @@ interface StoredAppleSession {
   expiresAt: string;
 }
 
+/**
+ * Every write to the session row goes through here, one at a time, so that
+ * "is this still the session I renewed?" and the write that follows it cannot
+ * be split by a sign-out landing between them.
+ */
+let storageQueue: Promise<unknown> = Promise.resolve();
+function exclusive<T>(task: () => Promise<T>): Promise<T> {
+  const run = storageQueue.then(task, task);
+  storageQueue = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+/**
+ * Bumped by every sign-out. A sign-in or a renewal notes it when it starts and
+ * writes its session only if it is unchanged: one that finished after the
+ * reader signed out (Reset), or after another account signed in, used to put
+ * its session back (account audit, 2026-10-03).
+ */
+let signOutEpoch = 0;
+
+/**
+ * The name Apple gave for a sign-in that has not finished. Apple returns the
+ * full name on the first authorization only — a later one carries none — so a
+ * failed exchange or write would lose it for good. Kept here, in memory only,
+ * for the retry within this run of the app: a phone with no account holds
+ * nothing of the reader's on disk, and the row at STORAGE_KEY is only ever a
+ * session. Gone with a sign-out and once the sign-in has worked.
+ */
+let pendingName: { user: string; name: string } | null = null;
+
 /** The slice of expo-apple-authentication this file calls, typed by hand like googleAuth's. */
 interface AppleAuthModule {
   isAvailableAsync(): Promise<boolean>;
@@ -67,9 +100,15 @@ export function isAppleSignInConfigured(): boolean {
   return loadModule() !== null;
 }
 
+/**
+ * The stored session. THROWS when AsyncStorage cannot be read — a locked or
+ * busy database is no statement about the session, and the callers that sign
+ * someone out on "none" must not read it as one. A row that was read and is
+ * empty or malformed is null.
+ */
 async function loadSession(): Promise<StoredAppleSession | null> {
+  const raw = await AsyncStorage.getItem(STORAGE_KEY);
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
     if (!raw) {
       return null;
     }
@@ -93,12 +132,20 @@ async function loadSession(): Promise<StoredAppleSession | null> {
 
 /** True when this phone's account is an Apple one: the backup token comes from here. */
 export async function hasAppleSession(): Promise<boolean> {
-  return (await loadSession()) !== null;
+  try {
+    return (await loadSession()) !== null;
+  } catch {
+    return false;
+  }
 }
 
 function fullNameOf(fullName: { givenName: string | null; familyName: string | null } | null): string | null {
   const name = [fullName?.givenName, fullName?.familyName].filter((part): part is string => !!part).join(' ').trim();
   return name || null;
+}
+
+function pendingNameOf(user: string): string | null {
+  return pendingName && pendingName.user === user ? pendingName.name : null;
 }
 
 /** The email claim from the identity token: Apple sends `email` on the credential only the first time. */
@@ -123,6 +170,7 @@ export async function signInWithApple(): Promise<GoogleSignInResult> {
   if (!module) {
     return { status: 'unavailable' };
   }
+  const epoch = signOutEpoch;
   let credential;
   try {
     if (!(await module.isAvailableAsync())) {
@@ -133,6 +181,12 @@ export async function signInWithApple(): Promise<GoogleSignInResult> {
     const code = (error as { code?: unknown } | null)?.code;
     return { status: code === 'ERR_REQUEST_CANCELED' ? 'cancelled' : 'failed' };
   }
+  // The name is on this authorization only. Kept before anything that can
+  // fail, and handed on once the sign-in has worked.
+  const authorizedName = fullNameOf(credential.fullName);
+  if (authorizedName) {
+    pendingName = { user: credential.user, name: authorizedName };
+  }
   if (!credential.identityToken) {
     return { status: 'failed' };
   }
@@ -140,20 +194,37 @@ export async function signInWithApple(): Promise<GoogleSignInResult> {
   if (!session.ok) {
     return { status: 'failed' };
   }
-  try {
-    await AsyncStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ user: credential.user, sessionToken: session.sessionToken, expiresAt: session.expiresAt }),
-    );
-  } catch {
+  const keptName = authorizedName ?? pendingNameOf(credential.user);
+  const written = await exclusive(async (): Promise<'written' | 'superseded' | 'failed'> => {
+    if (epoch !== signOutEpoch) {
+      // The reader signed out (Reset) while this was on its way: not theirs to keep.
+      return 'superseded';
+    }
+    try {
+      await AsyncStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ user: credential.user, sessionToken: session.sessionToken, expiresAt: session.expiresAt }),
+      );
+      return 'written';
+    } catch {
+      return 'failed';
+    }
+  });
+  if (written === 'superseded') {
+    return { status: 'cancelled' };
+  }
+  if (written === 'failed') {
     return { status: 'failed' };
   }
+  // The name leaves with the account, which the hook stores.
+  const name = keptName;
+  pendingName = null;
   return {
     status: 'signed_in',
     account: {
       sub: `${APPLE_SUB_PREFIX}${credential.user}`,
       email: credential.email ?? emailFromIdentityToken(credential.identityToken),
-      name: fullNameOf(credential.fullName),
+      name,
       idToken: session.sessionToken,
     },
   };
@@ -164,10 +235,21 @@ export async function signInWithApple(): Promise<GoogleSignInResult> {
  * `signed_out` when Apple says the sign-in was revoked or the session has run
  * out (months offline): the reader signs in again, which is one Face ID, and
  * the backup hook says so rather than failing silently.
+ *
+ * `expectedUser` is the Apple user of the account the caller is acting for. A
+ * session that is another user's is not this account's: it is never sent for
+ * it, whatever left it on the phone.
  */
-export async function getFreshAppleToken(): Promise<FreshIdTokenResult> {
-  const session = await loadSession();
-  if (!session) {
+export async function getFreshAppleToken(expectedUser: string): Promise<FreshIdTokenResult> {
+  const epoch = signOutEpoch;
+  let session: StoredAppleSession | null;
+  try {
+    session = await loadSession();
+  } catch {
+    // The row could not be read: nothing is known, so nobody is signed out.
+    return { status: 'error' };
+  }
+  if (!session || session.user !== expectedUser) {
     return { status: 'signed_out' };
   }
   const remaining = Date.parse(session.expiresAt) - Date.now();
@@ -193,22 +275,79 @@ export async function getFreshAppleToken(): Promise<FreshIdTokenResult> {
     const renewed = await renewAppleSession(session.sessionToken);
     if (renewed.ok) {
       const next = { user: session.user, sessionToken: renewed.sessionToken, expiresAt: renewed.expiresAt };
-      try {
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        // Not kept: this backup still uses the fresh one, the next renews again.
+      // Written only if this is still the session that was renewed: a sign-out
+      // or another account's sign-in since the request went out has moved on,
+      // and the old one must not come back.
+      const outcome = await exclusive(async (): Promise<'written' | 'moved' | 'unkept'> => {
+        if (epoch !== signOutEpoch) {
+          return 'moved';
+        }
+        let current: StoredAppleSession | null;
+        try {
+          current = await loadSession();
+        } catch {
+          return 'moved';
+        }
+        if (!current || current.user !== session.user || current.sessionToken !== session.sessionToken) {
+          return 'moved';
+        }
+        try {
+          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+          return 'written';
+        } catch {
+          return 'unkept';
+        }
+      });
+      if (outcome === 'moved') {
+        // Nothing of this call's is left standing; whoever asked is acting for
+        // a sign-in that is no longer there, or another call renewed first.
+        const now = epoch === signOutEpoch ? await loadSession().catch(() => null) : null;
+        if (now && now.user === expectedUser && Date.parse(now.expiresAt) - Date.now() >= EXPIRY_MARGIN_MS) {
+          return { status: 'ok', idToken: now.sessionToken };
+        }
+        return { status: 'error' };
       }
+      // 'unkept': not saved. This backup still uses the fresh one, the next renews again.
       return { status: 'ok', idToken: next.sessionToken };
     }
   }
   return { status: 'ok', idToken: session.sessionToken };
 }
 
+/**
+ * Renews the session of this Apple user when it is inside its renewal window,
+ * whether or not anything needs backing up. The renewal used to ride on a
+ * backup only, so a phone that sat unused for the whole window ran the session
+ * out and was signed out at its next change. A failure here is nothing: it is
+ * tried again at the next foreground, and never signs anyone out.
+ */
+export async function renewAppleSessionIfDue(expectedUser: string): Promise<void> {
+  try {
+    const session = await loadSession();
+    if (!session || session.user !== expectedUser) {
+      return;
+    }
+    const remaining = Date.parse(session.expiresAt) - Date.now();
+    if (remaining >= RENEW_WINDOW_MS || remaining < EXPIRY_MARGIN_MS) {
+      return;
+    }
+    await getFreshAppleToken(expectedUser);
+  } catch {
+    // Offline or busy: the next foreground tries again.
+  }
+}
+
 /** Apple has no app-side sign-out; forgetting the session is the whole of it. */
 export async function signOutApple(): Promise<void> {
-  try {
-    await AsyncStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // A session that cannot be removed is still never sent: the account record is gone.
-  }
+  // Synchronously, before any await: whatever is still on its way no longer
+  // gets to write.
+  signOutEpoch += 1;
+  pendingName = null;
+  await exclusive(async () => {
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // A session that cannot be removed is still never sent: the account record is gone.
+    }
+  });
 }

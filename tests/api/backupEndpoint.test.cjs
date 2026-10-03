@@ -20,12 +20,15 @@ function fakeBlobStore() {
   class BlobError extends Error {}
   class BlobNotFoundError extends BlobError {}
   class BlobPreconditionFailedError extends BlobError {}
-  const state = { body: null, etag: null, writes: 0, failNextPut: null };
+  const state = { body: null, etag: null, writes: 0, failNextPut: null, failHead: false };
   return {
     state,
     BlobNotFoundError,
     BlobPreconditionFailedError,
     async head() {
+      if (state.failHead) {
+        throw new Error('store unavailable');
+      }
       if (state.body === null) {
         throw new BlobNotFoundError();
       }
@@ -119,7 +122,8 @@ module.exports = [
         // B's copy stays.
         const stale = await call('PUT', { body: copy('phone-a-2'), version: read.body.version });
         assert.equal(stale.status, 412, "phone A's older data was written over phone B's");
-        assert.deepEqual(stale.body, { ok: false, error: 'BACKUP_CHANGED' });
+        // The copy the store holds now rides along, so a phone can recognise its own.
+        assert.deepEqual(stale.body, { ok: false, error: 'BACKUP_CHANGED', version: '"etag-2"' });
         assert.equal(JSON.parse(store.body).exportedAt, 'phone-b-1');
 
         // A first backup where a copy already is: refused the same way.
@@ -131,7 +135,16 @@ module.exports = [
         await call('DELETE');
         const afterDelete = await call('PUT', { body: copy('phone-b-2'), version: '"etag-2"' });
         assert.equal(afterDelete.status, 412);
+        assert.deepEqual(afterDelete.body, { ok: false, error: 'BACKUP_CHANGED', version: null });
+
         assert.equal(store.body, null);
+
+        // A store that cannot say what it holds is not "no copy": the field is left out.
+        await call('PUT', { body: copy('phone-b-3'), version: 'none' });
+        store.failHead = true;
+        const unknown = await call('PUT', { body: copy('phone-a-3'), version: '"etag-nope"' });
+        assert.equal(unknown.status, 412);
+        assert.deepEqual(unknown.body, { ok: false, error: 'BACKUP_CHANGED' });
       });
     },
   },

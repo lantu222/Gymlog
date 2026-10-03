@@ -225,4 +225,26 @@ module.exports = [
       assert.match(reset, /await resetDatabase\(databaseRef\.current\.preferences\)/);
     },
   },
+  {
+    name: 'reset: a "no" to usage statistics stays a no, a yes goes back to the default',
+    async run() {
+      for (const [before, after] of [
+        [false, false],
+        [true, true],
+      ]) {
+        const fake = createFakeAsyncStorage();
+        const database = loadDatabaseModule(fake, 'fi_FI');
+        const used = usedInstall('fi');
+        used.preferences.usageStatisticsEnabled = before;
+        await database.saveDatabase(used);
+        await database.savePreferences(used.preferences);
+        const cleared = await database.resetDatabase(used.preferences);
+        const reloaded = await database.loadDatabase();
+        for (const snapshot of [cleared, reloaded]) {
+          assert.equal(snapshot.preferences.usageStatisticsEnabled, after, 'usageStatisticsEnabled=' + before + ' after reset');
+          assert.equal(snapshot.workoutSessions.length, 0);
+        }
+      }
+    },
+  },
 ];

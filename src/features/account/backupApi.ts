@@ -126,8 +126,8 @@ export async function downloadBackup(idToken: string): Promise<BackupDownloadRes
  */
 export async function deleteBackup(
   idToken: string,
-  options: { account?: boolean } = {},
-): Promise<{ ok: boolean; error?: string; definite?: boolean }> {
+  options: { account?: boolean; requestId?: string } = {},
+): Promise<{ ok: boolean; error?: string; definite?: boolean; deleteRequestId?: string | null }> {
   if (!BACKUP_API_URL) {
     return { ok: false };
   }
@@ -138,23 +138,47 @@ export async function deleteBackup(
       headers: {
         authorization: `Bearer ${idToken}`,
         ...(options.account ? { 'x-backup-action': 'delete-account' } : {}),
+        // Lets the server say, when it later turns this phone away because the
+        // account is gone, whether the delete that did it was this phone's.
+        ...(options.account && options.requestId ? { 'x-delete-request-id': options.requestId } : {}),
         ...appVersionHeaders(),
       },
       signal,
     });
     // The server's own yes, not just a 2xx from whatever answered.
-    const body = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+    const body = (await response.json().catch(() => null)) as {
+      ok?: boolean;
+      error?: string;
+      deleteRequestId?: unknown;
+    } | null;
     noteServerAnswer(response.status, body);
     // The server turning the sign-in itself away — SESSION_REVOKED, SESSION_EXPIRED
     // or INVALID_TOKEN; the hook signs an Apple session out on the first two — is
     // told apart from a store that could not answer.
-    // `definite`: the server answered and it was not a failure of its own (a
-    // 4xx). A 5xx or no answer at all leaves it open whether the delete went
-    // through, which is what "Delete account" has to remember.
+    // `definite`: the server itself answered — its own JSON, a boolean `ok` or
+    // an `error` code — and it was not a failure of its own (a 4xx). A 5xx, no
+    // answer at all, a page that is not the server's (a captive portal), and
+    // a 429 (the rate limit answers before the request is read) leave it open
+    // whether the delete went through, which is what "Delete account" has to
+    // remember. A 401 with the server's code is the server's own answer.
     if (response.status === 401 && typeof body?.error === 'string') {
-      return { ok: false, error: body.error, definite: true };
+      return {
+        ok: false,
+        error: body.error,
+        definite: true,
+        // A present null is this server saying the marker names no request.
+        ...(typeof body.deleteRequestId === 'string' && body.deleteRequestId
+          ? { deleteRequestId: body.deleteRequestId }
+          : body.deleteRequestId === null
+            ? { deleteRequestId: null }
+            : {}),
+      };
     }
-    return { ok: response.ok && body?.ok === true, ...(response.status < 500 ? { definite: true } : {}) };
+    const serverJson = typeof body?.ok === 'boolean' || typeof body?.error === 'string';
+    return {
+      ok: response.ok && body?.ok === true,
+      ...(response.status < 500 && response.status !== 429 && serverJson ? { definite: true } : {}),
+    };
   } catch {
     return { ok: false };
   } finally {

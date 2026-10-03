@@ -1,6 +1,6 @@
 # Tietosuojaseloste
 
-*Päivitetty 2.10.2026*
+*Päivitetty 3.10.2026*
 
 Mitä Vinha tallentaa, mikä lähtee puhelimestasi ja mitä voit sille tehdä.
 
@@ -60,7 +60,9 @@ Varmuuskopion säilyttää Vercel, palvelintarjoajamme, Euroopan unionin alueell
 
 Asetukset → Poista pilvivarmuuskopio poistaa palvelinkopion heti. Uloskirjautuminen ei poista sitä, eikä puhelimen tietojen nollaus — nollaus kirjaa sinut ensin ulos juuri siksi, ettei tyhjä varmuuskopio koskaan korvaisi täyttä. Kopio odottaa, kunnes kirjaudut uudelleen. Jos et enää pääse sovellukseen, kirjaudu samalla tilillä millä tahansa puhelimella ja poista se sieltä, tai kirjoita meille.
 
-Asetukset → Poista tili tekee saman ja enemmän: se poistaa palvelinkopion, kirjaa sinut ulos tästä puhelimesta ja päättää oman palvelimemme Apple-tilille antaman kirjautumisen, joten muut Applella kirjautuneet puhelimesi kirjautuvat ulos, kun ne seuraavan kerran varmuuskopioivat. Treenitiedot tässä puhelimessa säilyvät; Nollaa kaikki tiedot tyhjentää ne erikseen. Sen jälkeen palvelimellamme ei ole sinusta mitään, paitsi Apple-tilillä yksi sekoitettu merkintä päivämäärineen, joka kertoo, että sitä ennen tehdyt kirjautumiset ovat päättyneet, jottei vanhaa kirjautumista voi käyttää uudelleen. Siinä ei ole nimeä, sähköpostia eikä treenitietoja.
+Asetukset → Poista tili tekee saman ja enemmän: se poistaa palvelinkopion, kirjaa sinut ulos tästä puhelimesta, pyytää palvelintamme poistamaan kaikki kopiot, jotka AI-valmentaja on säilyttänyt sinusta (vain jos olit sallinut sen, kuten kohdassa ”AI-valmentaja” kerrotaan), ja päättää oman palvelimemme Apple-tilille antaman kirjautumisen: muut Applella kirjautuneet puhelimesi kirjautuvat ulos seuraavalla pyynnöllään palvelimellemme, eikä ennen poistoa Applella tehdyllä kirjautumisella voi enää aloittaa uutta. Treenitiedot tässä puhelimessa säilyvät; Nollaa kaikki tiedot tyhjentää ne erikseen. Nimettömät käyttötilastot eivät ole sidottu tiliisi, joten tilin poistaminen ei poista niitä; ne säilyvät enintään 24 kuukautta, kuten kohdassa ”Käyttötilastot” kerrotaan. Näiden lisäksi palvelimellamme ei sen jälkeen ole sinusta mitään, paitsi Apple-tilillä yksi sekoitettu merkintä päivämäärineen, joka kertoo, että sitä ennen tehdyt kirjautumiset ovat päättyneet, jottei vanhaa kirjautumista voi käyttää uudelleen. Siinä on myös satunnainen luku, jonka puhelimesi teki tätä pyyntöä varten ja jota käytetään vain kertomaan sille puhelimelle, että poisto onnistui. Siinä ei ole nimeä, sähköpostia eikä treenitietoja.
+
+Asetukset → Nollaa kaikki tiedot poistaa kaiken tästä puhelimesta ja kirjaa sinut ulos. Se säilyttää pilvivarmuuskopion, joka odottaa sinua yllä kerrotulla tavalla, ja säilyttää valintasi käyttötilastoista: jos olit kytkenyt ne pois, ne pysyvät poissa.
 
 ## AI-valmentaja
 
@@ -179,7 +181,7 @@ Puhelimessasi sovelluksen tietoja suojaavat puhelimen oma lukitus ja Androidin j
 - Android-varmuuskopio: ei mitään säilytettävää — Androidin oma varmuuskopiointi on tälle sovellukselle pois päältä.
 - iPhonen varmuuskopio: jos iCloud-varmuuskopiointi tai tietokoneelle tehtävä varmuuskopio on päällä, sovelluksen tiedot säilyvät siinä niin kauan kuin Apple tai sinä säilytätte sitä varmuuskopiota — Applen ehtojen mukaan, ei meidän.
 - Pilvivarmuuskopio: kunnes poistat sen asetuksista tai pyydät meitä poistamaan sen.
-- Tilin poiston jättämä merkintä Apple-tilillä: yksi sekoitettu merkintä päivämäärineen, jossa ei ole nimeä, sähköpostia eikä treenitietoja. Palvelimen rutiinisiivous poistaa sen, kun 180 päivää on kulunut eikä se enää voi päättää mitään. Siivous ajetaan, kun joku kirjautuu Applella, joten siinä voi mennä hieman pidempään.
+- Tilin poiston jättämä merkintä Apple-tilillä: yksi sekoitettu merkintä päivämäärineen sekä satunnainen luku, jonka puhelimesi teki poistopyyntöä varten (käytetään vain kertomaan sille puhelimelle, että poisto onnistui); nimeä, sähköpostia tai treenitietoja siinä ei ole. Palvelimen rutiinisiivous poistaa sen, kun 180 päivää on kulunut eikä se enää voi päättää mitään. Siivous ajetaan, kun joku kirjautuu Applella, joten siinä voi mennä hieman pidempään.
 - Valmentajan kysymykset, kuvaukset ja kuvat: emme säilytä niitä, ellet ole antanut lupaa. Luvan kanssa enintään 24 kuukautta tai siihen asti kun peruutat luvan, kumpi tulee ensin. Anthropic poistaa oman kopionsa 30 päivän kuluessa joka tapauksessa.
 - Käyttötilastot: enintään 24 kuukautta, sen jälkeen automaattinen poisto.
 - Palautesähköpostit: niin kauan kuin niiden käsittely vaatii.
@@ -192,7 +194,7 @@ Suurimman osan näistä teet itse sovelluksessa keneltäkään kysymättä. Muis
 
 - Näe ne: Asetukset → Omat tiedot näyttää profiilisi ja Kehitys lokisi. Pilvivarmuuskopio on sama data, joten meidän puolellamme ei ole mitään lisää näytettävää.
 - Korjaa ne: muokkaa profiiliasi tai mitä tahansa kirjattua treeniä tai merkintää.
-- Poista ne: Asetukset → Nollaa kaikki tiedot tyhjentää puhelimen, Asetukset → Poista pilvivarmuuskopio tyhjentää palvelinkopion ja Asetukset → Poista tili tyhjentää palvelinkopion ja kirjaa sinut ulos. Sovelluksen poistaminen poistaa myös puhelimen kopion. Käyttötilastoja ei voi jäljittää sinuun, joten niistä ei löydy mitään sinun.
+- Poista ne: Asetukset → Nollaa kaikki tiedot tyhjentää puhelimen, Asetukset → Poista pilvivarmuuskopio tyhjentää palvelinkopion ja Asetukset → Poista tili tyhjentää palvelinkopion ja ne valmentajan kopiot, joiden säilyttämisen olit sallinut, ja kirjaa sinut ulos. Sovelluksen poistaminen poistaa myös puhelimen kopion. Käyttötilastoja ei voi jäljittää sinuun, joten niistä ei löydy mitään sinun.
 - Ota ne mukaasi: Asetukset → Vie ohjelma (CSV) lähettää ohjelmasi tai jokaisen kirjatun sarjan CSV-tekstinä valitsemaasi sovellukseen.
 - Peruuta suostumus tai vastusta: poista pilvivarmuuskopio ja kirjaudu ulos; lakkaa lähettämästä kysymyksiä valmentajalle; kytke käyttötilastot pois asetuksista.
 - Valita: kirjoita ensin osoitteeseen santeriylonen@gmail.com, jotta voimme korjata asian. Sinulla on myös oikeus tehdä valitus tietosuojaviranomaiselle — Suomessa tietosuojavaltuutetun toimistolle, tietosuoja.fi tai tietosuoja@om.fi.

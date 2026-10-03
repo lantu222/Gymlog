@@ -342,6 +342,66 @@ export function phoneDataIsInCopy(
   });
 }
 
+/** The shape of a "Delete account" request id: 128 random bits as hex (x-delete-request-id). */
+export function isDeleteRequestId(value: unknown): value is string {
+  return typeof value === 'string' && /^[0-9a-f]{32}$/.test(value);
+}
+
+/**
+ * How a "Delete account" retry that met an ended session reads (the server's
+ * 401 SESSION_REVOKED). 'done': this phone's own delete went through, its
+ * answer lost. 'ended': the account was deleted by someone else.
+ *
+ * The revocation marker carries the id of the request that wrote it, and the
+ * answer hands it back; the phone's own id settles it. An answer without an id
+ * (a server from before) leaves the old guess: a pending record means this
+ * phone sent one.
+ */
+export function revokedDeleteOutcome(input: {
+  pendingBefore: boolean;
+  ownRequestId: string;
+  answerRequestId: string | null | undefined;
+}): 'done' | 'ended' {
+  if (typeof input.answerRequestId === 'string' && input.answerRequestId) {
+    return input.answerRequestId === input.ownRequestId ? 'done' : 'ended';
+  }
+  // This server answered that its marker names no request: another phone, or
+  // an app too old to send one, deleted the account. Not this phone's.
+  if (input.answerRequestId === null) {
+    return 'ended';
+  }
+  return input.pendingBefore ? 'done' : 'ended';
+}
+
+/**
+ * Whether a cloud copy that refused this phone's upload is this phone's own
+ * work, so the upload may be retried onto it without asking anyone.
+ *
+ * Only when the copy is exactly what this phone sent or confirmed: its
+ * fingerprint (accountBackupFingerprint of the whole payload — settings, the
+ * name book, programmes and plans included, device-only fields left out) is one
+ * of the `inFlightFingerprints` kept before each request, whose answer may never
+ * have come back, or is the last confirmed upload's (`lastBackupFingerprint`).
+ *
+ * An earlier version also took a copy that held nothing this phone lacked. That
+ * cannot tell this phone catching up from another phone having deleted a row,
+ * dropped a programme or changed a setting — the counts it leaned on lag a copy
+ * behind after a lost answer, and settings and the name book were never in them
+ * (review of 1a30bc80, 2026-10-03). Anything else is another phone's copy and
+ * is asked about.
+ */
+export function isCopyPhonesOwnWork(input: {
+  inFlightFingerprints: readonly string[];
+  lastBackupFingerprint?: string | null;
+  copy: AccountBackupPayload;
+}): boolean {
+  const known = [...input.inFlightFingerprints, ...(input.lastBackupFingerprint ? [input.lastBackupFingerprint] : [])];
+  return (
+    known.length > 0 &&
+    known.includes(accountBackupFingerprint(input.copy.database as AppDatabase, input.copy.workoutHistory))
+  );
+}
+
 export function uploadNeedsConsent(input: {
   signedOutSubs: readonly string[];
   sub: string;
@@ -683,9 +743,23 @@ export type BackupLookResult = ({ kind: 'backup' } & BackupCounts) | { kind: 'no
  * an upload kept the fingerprint of what it sent.
  */
 export function isCloudCopyThisPhones(
-  sync: Pick<BackupSyncState, 'cloudVersion' | 'lastBackupAt'> & { lastBackupFingerprint: string | null },
+  sync: Pick<BackupSyncState, 'cloudVersion' | 'lastBackupAt'> & {
+    lastBackupFingerprint: string | null;
+    /** What the uploads last sent were made of, kept before each request (see isCopyPhonesOwnWork). */
+    uploadInFlightFingerprints?: readonly string[];
+  },
   remote: { version: string | null; payload: AccountBackupPayload },
 ): boolean {
+  // An upload whose answer never came back may have landed, and then the
+  // versions differ although the copy is this phone's own.
+  if (
+    sync.uploadInFlightFingerprints?.length &&
+    sync.uploadInFlightFingerprints.includes(
+      accountBackupFingerprint(remote.payload.database as AppDatabase, remote.payload.workoutHistory),
+    )
+  ) {
+    return true;
+  }
   if (sync.cloudVersion !== null && remote.version !== null) {
     return sync.cloudVersion === remote.version;
   }

@@ -1094,8 +1094,10 @@ const EN = {
   'settings.resetData': 'Reset all data',
   'settings.resetData.sub': 'Clear everything on this device.',
   'settings.resetData.busy': 'Available once the cloud backup has finished',
-  'settings.resetDialog.message':
-    'This clears workouts, sessions, bodyweight, progress, measurements, and saved preferences on this device.',
+  // Said as it is: the sign-out is part of the reset, and the cloud copy is not.
+  'settings.resetDialog.message': 'Everything on this phone is deleted.',
+  'settings.resetDialog.message.signedIn':
+    'Everything on this phone is deleted and you are signed out. Your cloud backup stays — sign in again to restore it.',
   'settings.resetDialog.confirm': 'Reset',
 
   // ── Exercise tags (category/equipment → display label) ─────────────────
@@ -1662,6 +1664,8 @@ const EN = {
   'account.signIn.sub': 'Back up your training data',
   'account.noBackupYet': 'No backup yet',
   'account.backupNow': 'Back up now',
+  'account.backupPaused.otherPhone': 'Backup paused — your cloud copy changed on another phone. Tap Back up now to choose.',
+  'account.backupPaused.smallerPhone': 'Backup paused — this phone holds far less than your cloud copy. Tap Back up now to choose.',
   'account.backupFailed': 'Backup failed — your data is safe on this device',
   'account.signInFailed': 'Sign-in failed',
   'account.signInUnavailable': 'Sign-in needs an app update',
@@ -1674,10 +1678,11 @@ const EN = {
   'account.deleteAccount.message':
     'This deletes your cloud backup from our server and signs you out on this phone. The training data on this phone stays — Reset all data clears that separately.',
   'account.deleteAccount.message.apple':
-    'This deletes your cloud backup from our server and signs you out on this phone. Your other phones signed in with Apple are signed out the next time they back up. The training data on this phone stays — Reset all data clears that separately.',
+    'This deletes your cloud backup from our server and signs you out on this phone. Your other phones signed in with Apple are signed out the next time they connect to our server. The training data on this phone stays — Reset all data clears that separately.',
   'account.deleteAccount.done.title': 'Account deleted',
   'account.deleteAccount.done.body': 'Your cloud backup is deleted and you are signed out. Your training data is still on this phone.',
   'account.deleteAccount.failed': 'Could not delete the account. Check your connection and try again.',
+  'account.sessionEnded': 'Signed out — your sign-in had ended. Sign in again to continue.',
   'account.deleteAccount.ended.title': 'Signed out',
   'account.deleteAccount.ended.body':
     'This account was already deleted from another phone, or its sign-in had ended, so you are now signed out. Sign in again if you want to delete it.',
@@ -4328,8 +4333,9 @@ const FI: Record<I18nKey, string> = {
   'settings.resetData': 'Nollaa kaikki tiedot',
   'settings.resetData.sub': 'Tyhjentää kaiken tältä laitteelta.',
   'settings.resetData.busy': 'Käytettävissä, kun pilvivarmuuskopiointi on valmis',
-  'settings.resetDialog.message':
-    'Tämä tyhjentää treenit, sessiot, kehonpainon, kehityksen, mitat ja tallennetut asetukset tältä laitteelta.',
+  'settings.resetDialog.message': 'Kaikki tässä puhelimessa poistetaan.',
+  'settings.resetDialog.message.signedIn':
+    'Kaikki tässä puhelimessa poistetaan ja sinut kirjataan ulos. Pilvivarmuuskopiosi säilyy — kirjaudu uudelleen palauttaaksesi sen.',
   'settings.resetDialog.confirm': 'Nollaa',
 
   // ── Exercise tags ──────────────────────────────────────────────────────
@@ -4803,6 +4809,8 @@ const FI: Record<I18nKey, string> = {
   'account.signIn.sub': 'Varmuuskopioi treenidatasi',
   'account.noBackupYet': 'Ei vielä varmuuskopiota',
   'account.backupNow': 'Varmuuskopioi nyt',
+  'account.backupPaused.otherPhone': 'Varmuuskopiointi tauolla — pilvikopio muuttui toisella puhelimella. Valitse napauttamalla Varmuuskopioi nyt.',
+  'account.backupPaused.smallerPhone': 'Varmuuskopiointi tauolla — tällä puhelimella on paljon vähemmän tietoa kuin pilvikopiossa. Valitse napauttamalla Varmuuskopioi nyt.',
   'account.backupFailed': 'Varmuuskopiointi epäonnistui — datasi on tallessa tällä laitteella',
   'account.signInFailed': 'Kirjautuminen epäonnistui',
   'account.signInUnavailable': 'Kirjautuminen vaatii sovelluspäivityksen',
@@ -4815,10 +4823,11 @@ const FI: Record<I18nKey, string> = {
   'account.deleteAccount.message':
     'Tämä poistaa pilvivarmuuskopion palvelimeltamme ja kirjaa sinut ulos tästä puhelimesta. Treenitiedot tässä puhelimessa säilyvät — Nollaa kaikki tiedot tyhjentää ne erikseen.',
   'account.deleteAccount.message.apple':
-    'Tämä poistaa pilvivarmuuskopion palvelimeltamme ja kirjaa sinut ulos tästä puhelimesta. Muut puhelimesi, joihin olet kirjautunut Applella, kirjautuvat ulos, kun ne seuraavan kerran varmuuskopioivat. Treenitiedot tässä puhelimessa säilyvät — Nollaa kaikki tiedot tyhjentää ne erikseen.',
+    'Tämä poistaa pilvivarmuuskopion palvelimeltamme ja kirjaa sinut ulos tästä puhelimesta. Muut puhelimesi, joihin olet kirjautunut Applella, kirjautuvat ulos, kun ne seuraavan kerran ottavat yhteyttä palvelimeemme. Treenitiedot tässä puhelimessa säilyvät — Nollaa kaikki tiedot tyhjentää ne erikseen.',
   'account.deleteAccount.done.title': 'Tili poistettu',
   'account.deleteAccount.done.body': 'Pilvivarmuuskopio on poistettu ja olet kirjautunut ulos. Treenitietosi ovat edelleen tässä puhelimessa.',
   'account.deleteAccount.failed': 'Tiliä ei voitu poistaa. Tarkista yhteys ja yritä uudelleen.',
+  'account.sessionEnded': 'Kirjauduit ulos — kirjautumisesi oli päättynyt. Kirjaudu uudelleen jatkaaksesi.',
   'account.deleteAccount.ended.title': 'Kirjauduit ulos',
   'account.deleteAccount.ended.body':
     'Tämä tili oli jo poistettu toiselta puhelimelta tai sen kirjautuminen oli päättynyt, joten sinut kirjattiin ulos. Kirjaudu uudelleen, jos haluat poistaa sen.',

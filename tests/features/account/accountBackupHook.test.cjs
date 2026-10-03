@@ -168,6 +168,7 @@ async function withHook({ local, stored = null, cloud = null }, scenario) {
       isAccountSignInConfigured: () => true,
       signInWith: async () => google.signIn,
       getFreshIdToken: async () => google.silent,
+      renewSessionIfDue: async () => undefined,
       signOutAccount: async () => {
         calls.signedOut += 1;
       },
@@ -698,7 +699,7 @@ module.exports = [
         assert.notEqual(env.store.account, null);
 
         env.google.silent = { status: 'signed_out' };
-        assert.equal((await env.api.backUpOrAsk()).kind, 'failed');
+        assert.equal((await env.api.backUpOrAsk()).kind, 'ended');
         await env.settle();
         assert.equal(env.api.state.status, 'signed_out');
         assert.equal(env.store.account, null);
@@ -841,7 +842,9 @@ module.exports = [
         env.server.gates.delete.resolve();
         assert.equal(await pending, 'done');
         await env.settle();
-        assert.deepEqual(env.calls.deleteOptions, [{ account: true }], 'the server was not told this is the account');
+        assert.equal(env.calls.deleteOptions.length, 1);
+        assert.equal(env.calls.deleteOptions[0].account, true, 'the server was not told this is the account');
+        assert.match(env.calls.deleteOptions[0].requestId, /^[0-9a-f]{32}$/, 'the request carried no id of its own');
         assert.equal(env.server.blob, null);
         assert.equal(env.store.account, null);
         assert.equal(env.api.state.status, 'signed_out');
@@ -896,16 +899,16 @@ module.exports = [
             env.google.silent = apple;
             if (operation === 'upload') {
               env.server.uploadError = code;
-              assert.equal((await env.api.backUpOrAsk()).kind, 'cancelled', label);
+              assert.equal((await env.api.backUpOrAsk()).kind, 'ended', label);
             } else if (operation === 'download') {
               env.server.downloadError = code;
-              assert.equal((await env.api.backUpOrAsk()).kind, 'cancelled', label);
+              assert.equal((await env.api.backUpOrAsk()).kind, 'ended', label);
             } else {
               env.server.deleteError = code;
               const outcome = await env.api[operation === 'delete' ? 'deleteRemoteBackup' : 'deleteAccount']();
               // "Delete account" on a phone that never tried before is told the account was deleted
               // elsewhere (or its sign-in ended) — never "deleted": nothing was deleted by this tap.
-              assert.equal(outcome, operation === 'deleteAccount' ? 'ended' : 'cancelled', label);
+              assert.equal(outcome, 'ended', label);
             }
             await env.settle();
             assert.equal(env.store.account, null, `${label}: the account record stayed`);
@@ -922,7 +925,7 @@ module.exports = [
       await withHook({ local: database(), cloud: cloudCopy(local) }, async (env) => {
         env.google.signIn = { status: 'signed_in', account: { sub: 'apple:001', email: null, name: null, idToken: 'vs1.fresh.mac' } };
         env.server.downloadError = 'SESSION_REVOKED';
-        assert.equal((await env.api.signIn()).kind, 'cancelled');
+        assert.equal((await env.api.signIn()).kind, 'ended');
         await env.settle();
         assert.equal(env.api.state.status, 'signed_out', 'a refused sign-in left the reader signed in');
         assert.equal(env.store.account, null);

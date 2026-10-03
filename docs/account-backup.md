@@ -146,7 +146,54 @@ read the marker answers 502, not 401. A marker that cannot be parsed is resolved
 ONCE to the store's `uploadedAt` and rewritten in valid form (the SDK's
 `uploadedAt` is "now" when the store sends no Last-Modified, so a marker read
 afresh each time would refuse every session for ever); a rewrite the store
-refuses is a 502.
+refuses is a 502. Only a body that was read IN FULL and then does not parse is
+"unparseable": a stream error part-way through a valid marker is a 502 and the
+marker is left alone (rewriting it would date it with the store's time, which can
+be later than its own).
+
+**Identity-token replay (2026-10-03).** An Apple identity token lives ten
+minutes and the exchange (`apple-session`) accepts it as often as it is sent, so
+a token issued before Delete account could buy a fresh 180-day session after it.
+The exchange now reads the account's marker and refuses a token with
+`(iat + 1) * 1000 <= revokedAtMs` (`iat` is whole seconds, so the end of that
+second is the latest it can have been issued) — `401 { error: "SESSION_REVOKED" }`,
+not `INVALID_TOKEN`. A token Apple issues after the deletion is later than the
+marker, in the same second too, and works. A token with no `iat` counts as
+issued at 0 (refused once any marker exists). A store that cannot be read is a
+502.
+
+**The delete request id (2026-10-03).** The phone may send
+`x-delete-request-id: <32 lowercase hex characters>` on the delete-account
+`DELETE` (anything else is ignored). It is stored in the marker as
+`deleteRequestId` on both stamps (and kept when a corrupt marker that still
+names it is rewritten). A `401 SESSION_REVOKED` caused by that marker — on a
+request, a renewal or an exchange — carries `{ ok: false, error:
+"SESSION_REVOKED", deleteRequestId }`, and nothing else is added. The requester
+holds a session or identity token of the same account, so it shows nothing to
+anyone else; a phone whose delete answer was lost compares it with the id it
+sent to tell its own deletion from another phone's. A marker written before this
+has no field, and the body then has none. The id is a random number with no
+meaning to anyone but the phone that made it; the policy's "one scrambled marker
+with a date" does not yet name it.
+
+**Marker clean-up is conditional.** A stale marker is removed with
+`del(url, { ifMatch })` (single URL; `BlobPreconditionFailedError` when the
+copy changed — @vercel/blob 2.8.0 `del`), never unconditionally: a Delete
+account stamping the same pathname while the removal was in flight would
+otherwise be erased. The ETag `ifMatch` compares is the API's (`head`), which
+may be written differently from the content response's header `get` reads
+(quotes, `W/`); it is fetched with `head`, must equal (normalised) the one read
+with the content, and is the one the `del` names. Anything else — the marker
+moved, the forms do not match, the condition fails, the store errors — keeps the
+marker, and never fails the request. A mismatch between the two forms logs one
+line (`backup stale marker etag forms differ: get=<shape> head=<shape>`, shapes
+like `strong-quoted-len34`, never the value), so forms that can never match —
+and stale markers that therefore never go — leave a trace.
+
+**412 BACKUP_CHANGED** now also carries `version`, the copy the store holds at
+that moment (`null` only when there is truly no copy; left out when the store
+could not say), so a phone whose own write was retried by the SDK after the
+first attempt committed can recognise its own copy.
 
 **What the phone is told.** A refused Apple session is answered `401` with
 `SESSION_REVOKED` (the marker) or `SESSION_EXPIRED`; a session that does not
