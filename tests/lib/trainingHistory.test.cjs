@@ -81,6 +81,23 @@ module.exports = [
     },
   },
   {
+    name: 'the stalled run holds only logs at the run weight, not a lighter log of its first session',
+    run() {
+      const { stalledRunPoints } = require('../../.test-dist/lib/trainingHistory.js');
+      const sessions = [0, 1, 2].map((index) => session(`s${index}`, 'Push', at((2 - index) * 4), 3000));
+      const lift = buildLiftHistories(sessions, [
+        log('s0', 'Bench Press', 100, [10, 8, 6], { id: 's0-a' }),
+        log('s0', 'Bench Press', 102.5, [6, 6, 6], { id: 's0-b', orderIndex: 1 }),
+        log('s1', 'Bench Press', 102.5, [6, 6, 6]),
+        log('s2', 'Bench Press', 102.5, [6, 5, 4]),
+      ])[0];
+      const run = stalledRunPoints(lift);
+      assert.deepEqual(run.map((point) => point.sessionId), ['s0', 's1', 's2']);
+      assert.ok(run.every((point) => point.topSetWeightKg === 102.5), 'no lighter log in the run');
+      assert.deepEqual(run[0].setReps, [6, 6, 6]);
+    },
+  },
+  {
     name: 'two logs of one workout merge the way a rep gain is judged: top reps or reps per set',
     run() {
       // s0 8/6/6 (top 8, average 6.7). s1 logs 8/5/5 and 7/7/7: the second has

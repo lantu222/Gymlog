@@ -20,7 +20,11 @@
  * tag is annotated with the code it shipped (`versionCode=N`). Google Play
  * rejects a repeated code, and the build only finds that out after it is done.
  * When the newest Android tag records no code (made by hand, or before this),
- * the operator states it once: --released-code N.
+ * the operator records it once: `node scripts/releaseGuard.cjs --platform android
+ * --record-code N`, which annotates that tag (and pushes it) so the guard
+ * remembers. `--released-code N` states it for one run only; npm forwards extra
+ * arguments to the last command of a script, so neither goes through
+ * `npm run release:android` — call the script with node.
  *
  * It also prints what went in since the last release, the start of the
  * "what's new" text, and writes it to release-notes/<platform>-<version>.md
@@ -89,7 +93,8 @@ function parseGradleVersion(text) {
   return { versionCode: code ? Number(code[1]) : null, versionName: name ? name[1] : null };
 }
 
-const PREBUILD = 'CI=1 npx expo prebuild --clean';
+// The repo's shell is PowerShell, where `CI=1 cmd` is not a command; bash is the other half.
+const PREBUILD = 'npx expo prebuild --clean (PowerShell: $env:CI=1; npx expo prebuild --clean, bash: CI=1 npx expo prebuild --clean)';
 
 /** What the guard prints about the build number — true for the platform. */
 function buildLine({ platform, version, versionCode }) {
@@ -159,8 +164,10 @@ function decide({ platform, version, tags, versionCode, taggedCodes = {}, declar
           previous,
           reason:
             `Tagi ${tagFor(platform, previous)} ei kerro mikä versionCode sen buildissa oli, joten seuraavan rajaa ei tiedetä. ` +
-            'Aja kerran: node scripts/releaseGuard.cjs --platform android --released-code N ' +
-            '(N = julkaistun buildin versionCode, Play Consolesta), ja merkitse jatkossa julkaisu komennolla release:android:done.',
+            'Aja kerran: node scripts/releaseGuard.cjs --platform android --record-code N ' +
+            `(N = julkaistun buildin versionCode, Play Consolesta; komento merkitsee koodin tagiin ${tagFor(platform, previous)} ja työntää sen, ` +
+            'joten se muistetaan). Älä käytä npm run release:android -- ...: npm antaa argumentit vain ketjun viimeiselle komennolle. ' +
+            'Jatkossa julkaisu merkitään komennolla release:android:done.',
         };
       }
       const recorded = Object.values(taggedCodes).filter(isBuildCode);
@@ -221,7 +228,36 @@ function releaseNotes({ platform, version, previous, subjects }) {
 }
 
 function git(args) {
-  return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  // stderr is piped, not dropped: a failed command carries it on the error, so a
+  // push that git refused can say why.
+  return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+}
+
+/**
+ * Why a push failed, in the operator's terms: git's own text, and whether the
+ * remote could not be reached (try again later) or answered no (a person has
+ * to look — the tag exists there, or the remote moved).
+ */
+function describePushFailure(tag, error) {
+  const text = String(error?.stderr ?? '').trim() || String(error?.message ?? error).trim();
+  // Authentication and permission failures print "Could not read from remote"
+  // too, so they are named first: origin answered, and no retry will change it.
+  const refused = /authentication failed|permission denied|access denied|publickey|denied to|http (?:401|403)|error: (?:401|403)|requested url returned error: (?:401|403)|remote rejected|rejected|non-fast-forward|already exists|stale info/i;
+  const unreachable =
+    /could not resolve host|unable to access|could not read from remote|does not appear to be a git repository|connection (?:refused|timed out|reset)|timed out|network is unreachable|unable to connect|repository not found|no route to host/i;
+  // "failed to push some refs" follows a rejection and a network failure alike,
+  // so neither signal is taken from that line.
+  const kind = refused.test(text) ? 'rejected' : unreachable.test(text) ? 'unreachable' : /failed to push some refs/i.test(text) ? 'rejected' : 'unknown';
+  const head = {
+    unreachable: `Tagin ${tag} työntö originiin epäonnistui: origin ei vastaa.`,
+    rejected: `Tagin ${tag} työntö originiin epäonnistui: origin hylkäsi sen.`,
+    unknown: `Tagin ${tag} työntö originiin epäonnistui.`,
+  }[kind];
+  const advice =
+    kind === 'rejected'
+      ? 'Tarkista tunnistautuminen ja oikeudet sekä mitä originissa on tälle tagille (git ls-remote --tags origin); älä pakota työntöä ennen sitä.'
+      : `Tagi ${tag} on vain tällä koneella. Aja sama komento uudelleen kun origin vastaa.`;
+  return `${head}\n${text.split('\n').map((line) => `  git: ${line}`).join('\n')}\n${advice}`;
 }
 
 function readApp() {
@@ -280,7 +316,7 @@ function markRelease({ platform, version, versionCode, run }) {
       run(['push', 'origin', tag]);
       return null;
     } catch (error) {
-      return `Tagin ${tag} työntö originiin epäonnistui: ${String(error?.message ?? error).split('\n')[0]}\n${retry}`;
+      return describePushFailure(tag, error);
     }
   };
 
@@ -334,9 +370,141 @@ function markRelease({ platform, version, versionCode, run }) {
   return { code: 0, lines };
 }
 
+/**
+ * Records the versionCode a release shipped on its (existing) tag: the tag is
+ * re-made as an annotated `versionCode=N` tag on the SAME commit and pushed
+ * over the old one. This is the remedy for a newest tag that records no code;
+ * unlike `--released-code` it is remembered, in the tag. A tag that records a
+ * different code, or that points at another commit on origin, is refused: that
+ * is two stories about one release.
+ */
+function recordCode({ platform, tag, code, run }) {
+  if (platform !== 'android') {
+    return { code: 1, lines: ['--record-code kuuluu Androidille: käytä --platform android.'] };
+  }
+  if (!isBuildCode(code)) {
+    return { code: 1, lines: [`--record-code vaatii positiivisen kokonaisluvun (versionCode), sai "${code}".`] };
+  }
+  let name = tag;
+  if (!name) {
+    const newest = releasedVersions('android', run(['tag', '--list']).split('\n').filter(Boolean))[0];
+    if (!newest) {
+      return { code: 1, lines: ['Android-tageja ei ole: ei ole mihin merkitä. Anna tagi: --tag android-vX.Y.Z.'] };
+    }
+    name = tagFor('android', newest);
+  }
+  if (run(['tag', '--list', name]) !== name) {
+    return { code: 1, lines: [`Tagia ${name} ei ole tällä koneella. Hae tagit (git fetch --tags) tai anna oikea --tag.`] };
+  }
+  const recorded =
+    run(['cat-file', '-t', name]) === 'tag' ? parseVersionCode(run(['tag', '--list', '--format=%(contents)', name])) : null;
+  if (recorded !== null && recorded !== code) {
+    return {
+      code: 1,
+      lines: [`Tagi ${name} kertoo jo versionCoden ${recorded}, ei ${code}. Selvitä kumpi meni kauppaan; tagia ei muuteta.`],
+    };
+  }
+  const full = run(['rev-parse', `${name}^{commit}`]);
+
+  // Everything about origin is settled BEFORE the local tag is touched, so an
+  // origin that cannot be asked, one that holds another commit, or one that
+  // records another code leaves this checkout exactly as it was.
+  let rows;
+  try {
+    rows = run(['ls-remote', '--tags', 'origin', `refs/tags/${name}`, `refs/tags/${name}^{}`]);
+  } catch (error) {
+    return {
+      code: 1,
+      lines: [
+        `Originiin ei saada yhteyttä, joten tagin ${name} tilaa siellä ei tiedetä. Tagiin ei koskettu. Aja sama komento uudelleen kun origin vastaa.`,
+        `  git: ${String(error?.stderr ?? error?.message ?? error).trim()}`,
+      ],
+    };
+  }
+  const remote = rows === '' ? [] : rows.split('\n').map((row) => row.split('\t'));
+  const remoteObject = remote.find(([, ref]) => ref === `refs/tags/${name}`)?.[0] ?? null;
+  const remoteCommit = remote.find(([, ref]) => ref?.endsWith('^{}'))?.[0] ?? remoteObject;
+  if (remoteCommit && remoteCommit !== full) {
+    return {
+      code: 1,
+      lines: [
+        `Tagi ${name} osoittaa täällä commitiin ${full.slice(0, 7)} mutta originissa commitiin ${remoteCommit.slice(0, 7)}: ` +
+          'ne kertovat eri julkaisusta. Selvitä kumpi on se mikä kauppaan meni; tagiin ei koskettu.',
+      ],
+    };
+  }
+
+  // What origin's own annotation says, read from the object itself: the local
+  // tag can be a bare one while origin's already records a code.
+  let remoteRecorded = null;
+  if (remoteObject) {
+    const probe = `refs/vinha-check/${name}`;
+    try {
+      run(['fetch', '--quiet', 'origin', `+refs/tags/${name}:${probe}`]);
+      remoteRecorded = run(['cat-file', '-t', probe]) === 'tag' ? parseVersionCode(run(['for-each-ref', probe, '--format=%(contents)'])) : null;
+    } catch (error) {
+      return {
+        code: 1,
+        lines: [
+          `Originin tagia ${name} ei saatu luettua. Tagiin ei koskettu. Aja sama komento uudelleen kun origin vastaa.`,
+          `  git: ${String(error?.stderr ?? error?.message ?? error).trim()}`,
+        ],
+      };
+    } finally {
+      try {
+        run(['update-ref', '-d', probe]);
+      } catch {
+        // Nothing to clean up when the fetch never made it.
+      }
+    }
+  }
+  if (remoteRecorded !== null && remoteRecorded !== code) {
+    return {
+      code: 1,
+      lines: [
+        `Tagi ${name} kertoo originissa versionCoden ${remoteRecorded}, ei ${code}. Selvitä kumpi meni kauppaan; tagiin ei koskettu.`,
+      ],
+    };
+  }
+  if (remoteRecorded === code) {
+    // Origin already says it; make this checkout say the same, with origin's own object.
+    if (run(['rev-parse', name]) !== remoteObject) {
+      run(['update-ref', `refs/tags/${name}`, remoteObject]);
+    }
+    return { code: 0, lines: [`Tagi ${name} kertoo versionCoden ${code} myös originissa.`] };
+  }
+
+  const lines = [];
+  if (recorded === null) {
+    run(['tag', '--force', '-a', name, '-m', `versionCode=${code}`, full]);
+    lines.push(`Tagi ${name} (${full.slice(0, 7)}) merkitty: versionCode=${code}.`);
+  }
+  try {
+    // Only this tag, and only if origin still holds what was just read: the
+    // lease turns a tag moved by someone else in between into a refusal.
+    run(['push', `--force-with-lease=refs/tags/${name}:${remoteObject ?? ''}`, 'origin', `refs/tags/${name}`]);
+  } catch (error) {
+    return { code: 1, lines: [...lines, describePushFailure(name, error)] };
+  }
+  return { code: 0, lines: [...lines, `Tagi ${name} työnnetty originiin. Guard muistaa nyt koodin ${code}.`] };
+}
+
+/** `--name value` or `--name=value`; undefined when absent, '' when given without a value. */
 function argValue(args, name) {
-  const index = args.indexOf(name);
-  return index >= 0 ? args[index + 1] : undefined;
+  const index = args.findIndex((arg) => arg === name || arg.startsWith(`${name}=`));
+  if (index < 0) {
+    return undefined;
+  }
+  if (args[index].startsWith(`${name}=`)) {
+    return args[index].slice(name.length + 1);
+  }
+  const next = args[index + 1];
+  return next === undefined || next.startsWith('--') ? '' : next;
+}
+
+/** A positive integer from a flag's text, null when the text is not one. */
+function codeFromFlag(text) {
+  return /^\d+$/.test(String(text ?? '').trim()) && Number(text) > 0 ? Number(text) : null;
 }
 
 async function confirm(question) {
@@ -360,6 +528,31 @@ async function main(args) {
   }
   const tags = git(['tag', '--list']).split('\n').filter(Boolean);
 
+  const recordFlag = argValue(args, '--record-code');
+  const tagFlag = argValue(args, '--tag');
+  if (tagFlag === '') {
+    console.error('--tag vaatii tagin nimen (esim. --tag android-v1.1.0).');
+    return 1;
+  }
+  if (recordFlag !== undefined) {
+    const result = recordCode({
+      platform,
+      tag: tagFlag,
+      code: codeFromFlag(recordFlag),
+      run: git,
+    });
+    for (const line of result.lines) {
+      (result.code === 0 ? console.log : console.error)(line);
+    }
+    return result.code;
+  }
+
+  const releasedFlag = argValue(args, '--released-code');
+  if (releasedFlag !== undefined && codeFromFlag(releasedFlag) === null) {
+    console.error(`--released-code vaatii positiivisen kokonaisluvun (julkaistun buildin versionCode), sai "${releasedFlag}".`);
+    return 1;
+  }
+
   if (args.includes('--mark')) {
     const result = markRelease({ platform, version, versionCode, run: git });
     for (const line of result.lines) {
@@ -375,7 +568,7 @@ async function main(args) {
     tags,
     versionCode,
     taggedCodes: android ? readTaggedCodes() : {},
-    declaredCode: Number(argValue(args, '--released-code')),
+    declaredCode: codeFromFlag(releasedFlag) ?? undefined,
     gradle: android ? readGradle() : undefined,
   });
   if (!decision.ok) {
@@ -420,6 +613,8 @@ module.exports = {
   compareVersions,
   decide,
   markRelease,
+  recordCode,
+  describePushFailure,
   parseGradleVersion,
   parseVersionCode,
   releaseNotes,

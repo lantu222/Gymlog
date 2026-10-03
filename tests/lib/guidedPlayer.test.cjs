@@ -1316,4 +1316,22 @@ module.exports = [
       assert.equal(resolveWalkAddAnchor(null, 'bench', undefined, order), 'bench');
     },
   },
+  {
+    name: 'recordWalkAddedSlot: the inserted slot is kept against its intro, in order, and feeds the next anchor',
+    run() {
+      const { recordWalkAddedSlot, resolveWalkAddAnchor } = require('../../.test-dist/lib/guidedPlayer.js');
+      const order = ['bench', 'curl', 'pushdown', 'row'];
+      const start = { bench: { names: ['Curl'], slotIds: [] } };
+      const one = recordWalkAddedSlot(start, 'bench', 'curl');
+      assert.deepEqual(one.bench, { names: ['Curl'], slotIds: ['curl'] });
+      assert.deepEqual(start.bench.slotIds, [], 'the previous map is not mutated');
+      // The names written by the add are kept, the slots follow in order.
+      const two = recordWalkAddedSlot(one, 'bench', 'pushdown');
+      assert.deepEqual(two.bench.slotIds, ['curl', 'pushdown']);
+      assert.equal(resolveWalkAddAnchor('bench', 'bench', two.bench, order), 'pushdown');
+      // The same slot is not recorded twice; another intro is its own entry.
+      assert.equal(recordWalkAddedSlot(two, 'bench', 'pushdown'), two);
+      assert.deepEqual(recordWalkAddedSlot({}, 'row', 'x').row, { names: [], slotIds: ['x'] });
+    },
+  },
 ];

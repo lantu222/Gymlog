@@ -56,6 +56,7 @@ import {
   formatGuidedTarget,
   getGuidedBackTargetIndex,
   guidedBlockLastSlotId,
+  recordWalkAddedSlot,
   resolveWalkAddAnchor,
   type WalkAddedLifts,
   getGuidedInitials,
@@ -2542,13 +2543,7 @@ function GuidedPlayer({
       return;
     }
     walkInsertRef.current = null;
-    setWalkAdded((current) => {
-      const entry = current[pending.introSlotId] ?? { names: [], slotIds: [] };
-      return {
-        ...current,
-        [pending.introSlotId]: { ...entry, slotIds: [...entry.slotIds, insertedSlotId] },
-      };
-    });
+    setWalkAdded((current) => recordWalkAddedSlot(current, pending.introSlotId, insertedSlotId));
   }, [exercises]);
 
   /**

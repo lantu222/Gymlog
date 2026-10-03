@@ -342,7 +342,15 @@ export function stalledRunPoints(lift: Pick<LiftHistory, 'points' | 'stalledSess
     }
     start = index;
   }
-  return collapseBySession(lift.points.slice(start));
+  // The walk goes by session, so a lighter log of the first stalled session (a
+  // lift logged at a lighter weight earlier in the same workout) sits inside the
+  // slice. The run is the points at the run's weight, as `buildLiftHistories`
+  // counts it.
+  const latest = lift.points[lift.points.length - 1];
+  const atRunWeight = latest
+    ? lift.points.slice(start).filter((point) => Math.abs(point.topSetWeightKg - latest.topSetWeightKg) < 0.001)
+    : [];
+  return collapseBySession(atRunWeight);
 }
 
 /**

@@ -45,4 +45,21 @@ module.exports = [
       assert.match(app, /useRouteBack\(\{[\s\S]*?leaveFinishedScreen,[\s\S]*?\}\);/);
     },
   },
+  {
+    name: 'summary Back leaves the exit route in place, so a second Back before the transition lands still goes Home',
+    run() {
+      const back = read('src/app/useRouteBack.ts');
+      const branch = back.slice(back.indexOf("route.screen === 'summary') {"));
+      const body = branch.slice(0, branch.indexOf('return true;'));
+      assert.doesNotMatch(body, /summaryExitRouteRef\.current = /);
+      // Both ways into the summary set the exit just before routing there, so
+      // leaving it in place cannot leak into a later summary.
+      const saves = read('src/app/finishSaves.tsx');
+      const sets =
+        saves.match(
+          /summaryExitRouteRef\.current = ROOT_ROUTES\.home;\s*(?:workout\.clearCompletedWorkout\(\);\s*)?replaceRoute\(\{ tab: 'workout', screen: 'summary' \}\);/g,
+        ) ?? [];
+      assert.equal(sets.length, 2);
+    },
+  },
 ];

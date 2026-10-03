@@ -1612,3 +1612,23 @@ export function resolveWalkAddAnchor(
   }
   return anchor ?? blockLastSlotId ?? introSlotId;
 }
+
+/**
+ * Records the slot a walk-up add got against the intro it was added from, so
+ * `resolveWalkAddAnchor` has something to anchor the next add on. Returns a
+ * new map; a slot already recorded is not recorded twice.
+ */
+export function recordWalkAddedSlot(
+  current: Record<string, WalkAddedLifts>,
+  introSlotId: string,
+  insertedSlotId: string,
+): Record<string, WalkAddedLifts> {
+  const entry = current[introSlotId] ?? { names: [], slotIds: [] };
+  if (entry.slotIds.includes(insertedSlotId)) {
+    return current;
+  }
+  return {
+    ...current,
+    [introSlotId]: { ...entry, slotIds: [...entry.slotIds, insertedSlotId] },
+  };
+}

@@ -120,7 +120,7 @@ module.exports = [
       const bare = at(6, { '1.1.0': 5, '1.2.0': null });
       assert.equal(bare.ok, false);
       assert.match(bare.reason, /android-v1\.2\.0/);
-      assert.match(bare.reason, /--released-code/);
+      assert.match(bare.reason, /--record-code/);
       // Only bare tags.
       assert.equal(at(2, { '1.1.0': null, '1.2.0': null }).ok, false);
       // Declared: the code that build shipped, and the build goes above it.
@@ -296,7 +296,7 @@ module.exports = [
         const bare = run('--platform', 'android');
         assert.notEqual(bare.code, 0, bare.out);
         assert.match(bare.out, /android-v1\.1\.0/);
-        assert.match(bare.out, /--released-code/);
+        assert.match(bare.out, /--record-code/);
         const low = run('--platform', 'android', '--released-code', '8');
         assert.notEqual(low.code, 0, low.out);
         setApp('1.2.0', 9);
@@ -316,6 +316,291 @@ module.exports = [
       } finally {
         cleanup();
       }
+    },
+  },
+  {
+    /**
+     * `--released-code N` could not pass through `npm run release:android`
+     * (npm hands extra arguments to the last command of the script) and was
+     * not remembered. `--record-code N` annotates the existing tag with the
+     * code and pushes it, so the guard remembers; run with node directly.
+     */
+    name: 'release guard --record-code: annotates the newest bare tag on its own commit and pushes it',
+    run() {
+      const { git, remote, work, setApp, run, cleanup } = makeRepo();
+      try {
+        git(work, 'remote', 'add', 'origin', remote);
+        setApp('1.1.0', 8);
+        git(work, 'add', '.');
+        git(work, 'commit', '--quiet', '-m', 'First');
+        const shipped = git(work, 'rev-parse', 'HEAD');
+        git(work, 'tag', 'android-v1.1.0'); // set by hand: records nothing
+        git(work, 'push', '--quiet', 'origin', 'android-v1.1.0');
+        fs.writeFileSync(path.join(work, 'later.txt'), 'later');
+        git(work, 'add', '.');
+        git(work, 'commit', '--quiet', '-m', 'Second');
+        setApp('1.2.0', 9);
+
+        // The stop message names the remedy that works from this shell.
+        const stopped = run('--platform', 'android');
+        assert.notEqual(stopped.code, 0, stopped.out);
+        assert.match(stopped.out, /node scripts\/releaseGuard\.cjs --platform android --record-code N/);
+        assert.match(stopped.out, /npm run release:android -- /);
+
+        // Bad numbers are errors, not silence (--released-code used to be ignored).
+        assert.notEqual(run('--platform', 'android', '--record-code').code, 0);
+        assert.notEqual(run('--platform', 'android', '--record-code', 'abc').code, 0);
+        assert.notEqual(run('--platform', 'android', '--released-code=abc').code, 0);
+        // The equals form is read, for one run.
+        assert.equal(run('--platform', 'android', '--released-code=8').code, 0);
+        assert.notEqual(run('--platform', 'android', '--released-code=9').code, 0);
+
+        const recorded = run('--platform', 'android', '--record-code=8');
+        assert.equal(recorded.code, 0, recorded.out);
+        assert.equal(git(work, 'cat-file', '-t', 'android-v1.1.0'), 'tag');
+        assert.equal(git(work, 'tag', '--list', '--format=%(contents)', 'android-v1.1.0'), 'versionCode=8');
+        assert.equal(git(work, 'rev-parse', 'android-v1.1.0^{commit}'), shipped, 'the commit is the one that shipped');
+        // On origin too: a lightweight tag was replaced by the annotated one.
+        const onOrigin = git(work, 'ls-remote', '--tags', remote);
+        assert.match(onOrigin, /refs\/tags\/android-v1\.1\.0\^\{\}/);
+        assert.ok(onOrigin.includes(shipped));
+
+        // Remembered: no flag needed now.
+        assert.equal(run('--platform', 'android').code, 0);
+        setApp('1.2.0', 8);
+        assert.notEqual(run('--platform', 'android').code, 0);
+        setApp('1.2.0', 9);
+
+        // Again: nothing to do. A different number is two stories: refused.
+        const again = run('--platform', 'android', '--record-code', '8');
+        assert.equal(again.code, 0, again.out);
+        assert.match(again.out, /myös originissa/);
+        const other = run('--platform', 'android', '--record-code', '7');
+        assert.notEqual(other.code, 0, other.out);
+        assert.equal(git(work, 'tag', '--list', '--format=%(contents)', 'android-v1.1.0'), 'versionCode=8');
+      } finally {
+        cleanup();
+      }
+    },
+  },
+  {
+    name: 'release guard --record-code: a tag that points elsewhere on origin is left alone, an unreachable origin retries',
+    run() {
+      const { dir, git, remote, work, setApp, run, cleanup } = makeRepo();
+      try {
+        git(work, 'remote', 'add', 'origin', remote);
+        setApp('1.1.0', 8);
+        git(work, 'add', '.');
+        git(work, 'commit', '--quiet', '-m', 'First');
+        git(work, 'tag', 'android-v1.1.0');
+        git(work, 'push', '--quiet', 'origin', 'android-v1.1.0');
+        // Locally the tag moves to another commit (made on another machine's story).
+        fs.writeFileSync(path.join(work, 'later.txt'), 'later');
+        git(work, 'add', '.');
+        git(work, 'commit', '--quiet', '-m', 'Second');
+        git(work, 'tag', '-f', 'android-v1.1.0');
+        const diverged = run('--platform', 'android', '--record-code', '8');
+        assert.notEqual(diverged.code, 0, diverged.out);
+        assert.match(diverged.out, /eri julkaisusta/);
+        assert.match(git(work, 'ls-remote', '--tags', remote), /android-v1\.1\.0$/m, 'origin is untouched');
+
+        // Origin gone: nothing is touched here, and the same command works later.
+        git(work, 'tag', '-f', 'android-v1.1.0', 'HEAD~1');
+        git(work, 'remote', 'set-url', 'origin', path.join(dir, 'does-not-exist.git'));
+        const offline = run('--platform', 'android', '--record-code', '8');
+        assert.notEqual(offline.code, 0, offline.out);
+        assert.match(offline.out, /ei saada yhteyttä/);
+        assert.equal(git(work, 'cat-file', '-t', 'android-v1.1.0'), 'commit', 'the local tag is still the bare one');
+        git(work, 'remote', 'set-url', 'origin', remote);
+        const back = run('--platform', 'android', '--record-code', '8');
+        assert.equal(back.code, 0, back.out);
+        assert.match(back.out, /työnnetty/);
+      } finally {
+        cleanup();
+      }
+    },
+  },
+  {
+    /**
+     * A failed push hid git's own words behind "epäonnistui", and an origin
+     * that was down read the same as one that said no.
+     */
+    name: 'release guard: a failed tag push says what git said, and whether origin was unreachable or refused it',
+    run() {
+      const down = guard.describePushFailure('android-v1.1.0', {
+        message: 'Command failed: git push',
+        stderr:
+          "fatal: unable to access 'https://example.invalid/r.git/': Could not resolve host: example.invalid\n",
+      });
+      assert.match(down, /origin ei vastaa/);
+      assert.match(down, /Could not resolve host: example\.invalid/);
+      assert.match(down, /Aja sama komento uudelleen/);
+
+      const refused = guard.describePushFailure('android-v1.1.0', {
+        message: 'Command failed: git push',
+        stderr:
+          'To origin\n ! [rejected]        android-v1.1.0 -> android-v1.1.0 (already exists)\nerror: failed to push some refs\n',
+      });
+      assert.match(refused, /origin hylkäsi/);
+      assert.match(refused, /already exists/);
+      assert.doesNotMatch(refused, /Aja sama komento uudelleen/, 'retrying does not help a refusal');
+
+      // Through the real script: a remote that is not there.
+      const { dir, git, work, setApp, run, cleanup } = makeRepo();
+      try {
+        setApp('1.2.0', 4);
+        git(work, 'add', '.');
+        git(work, 'commit', '--quiet', '-m', 'First');
+        git(work, 'remote', 'add', 'origin', path.join(dir, 'does-not-exist.git'));
+        const result = run('--platform', 'android', '--mark');
+        assert.notEqual(result.code, 0, result.out);
+        assert.match(result.out, /origin ei vastaa/);
+        assert.match(result.out, /does not appear to be a git repository|Could not read from remote/i);
+      } finally {
+        cleanup();
+      }
+    },
+  },
+  {
+    /**
+     * --record-code read only the LOCAL tag's code. Origin's annotated tag on the
+     * same commit with another code was overwritten by the forced push.
+     */
+    name: 'release guard --record-code: origin’s own annotation is read before anything is pushed or annotated',
+    run() {
+      const { git, remote, work, setApp, run, cleanup } = makeRepo();
+      try {
+        git(work, 'remote', 'add', 'origin', remote);
+        setApp('1.1.0', 8);
+        git(work, 'add', '.');
+        git(work, 'commit', '--quiet', '-m', 'First');
+        // Origin holds an annotated tag saying 5; this checkout has a bare one.
+        git(work, 'tag', '-a', 'android-v1.1.0', '-m', 'versionCode=5');
+        git(work, 'push', '--quiet', 'origin', 'android-v1.1.0');
+        const originObject = git(work, 'rev-parse', 'android-v1.1.0');
+        git(work, 'tag', '-d', 'android-v1.1.0');
+        git(work, 'tag', 'android-v1.1.0');
+        setApp('1.2.0', 9);
+
+        const other = run('--platform', 'android', '--record-code', '7');
+        assert.notEqual(other.code, 0, other.out);
+        assert.match(other.out, /originissa versionCoden 5/);
+        assert.equal(git(remote, 'rev-parse', 'android-v1.1.0'), originObject, 'origin kept its tag');
+        assert.equal(git(remote, 'tag', '--list', '--format=%(contents)', 'android-v1.1.0'), 'versionCode=5');
+        assert.equal(git(work, 'cat-file', '-t', 'android-v1.1.0'), 'commit', 'the local tag is untouched');
+        assert.equal(git(work, 'for-each-ref', 'refs/vinha-check'), '', 'the probe ref is cleaned up');
+
+        // The same code: origin already says it, so this checkout takes origin's tag.
+        const same = run('--platform', 'android', '--record-code', '5');
+        assert.equal(same.code, 0, same.out);
+        assert.equal(git(work, 'rev-parse', 'android-v1.1.0'), originObject);
+        assert.equal(git(remote, 'rev-parse', 'android-v1.1.0'), originObject);
+        assert.equal(git(work, 'for-each-ref', 'refs/vinha-check'), '');
+        assert.equal(run('--platform', 'android').code, 0, 'and the guard reads it');
+
+        // Only after those checks: a code origin has not got is pushed, with a lease.
+        git(work, 'tag', '-d', 'android-v1.1.0');
+        git(remote, 'tag', '-d', 'android-v1.1.0');
+        git(work, 'tag', 'android-v1.1.0');
+        git(work, 'push', '--quiet', 'origin', 'android-v1.1.0');
+        const done = run('--platform', 'android', '--record-code', '8');
+        assert.equal(done.code, 0, done.out);
+        assert.equal(git(remote, 'tag', '--list', '--format=%(contents)', 'android-v1.1.0'), 'versionCode=8');
+      } finally {
+        cleanup();
+      }
+    },
+  },
+  {
+    name: 'release guard --record-code: the push carries a lease on what origin was read to hold',
+    run() {
+      const calls = [];
+      const make = (remoteRows) => (args) => {
+        calls.push(args);
+        const key = args.join(' ');
+        if (key.startsWith('tag --list --format')) return '';
+        if (key === 'tag --list android-v1.1.0') return 'android-v1.1.0';
+        if (key.startsWith('cat-file -t')) return 'commit';
+        if (key.startsWith('rev-parse android-v1.1.0^{commit}')) return 'c'.repeat(40);
+        if (key.startsWith('ls-remote')) return remoteRows;
+        if (key.startsWith('fetch') || key.startsWith('update-ref') || key.startsWith('tag --force')) return '';
+        if (args[0] === 'push') return '';
+        throw new Error(`unexpected git call: ${key}`);
+      };
+      const lightweight = `${'c'.repeat(40)}\trefs/tags/android-v1.1.0`;
+      guard.recordCode({ platform: 'android', tag: 'android-v1.1.0', code: 8, run: make(lightweight) });
+      const push = calls.find((args) => args[0] === 'push');
+      assert.deepEqual(push, ['push', `--force-with-lease=refs/tags/android-v1.1.0:${'c'.repeat(40)}`, 'origin', 'refs/tags/android-v1.1.0']);
+      assert.ok(!calls.some((args) => args.includes('--force') && args[0] === 'push'), 'no bare force');
+
+      // A tag origin does not have yet: the lease expects it to be absent.
+      calls.length = 0;
+      guard.recordCode({ platform: 'android', tag: 'android-v1.1.0', code: 8, run: make('') });
+      assert.deepEqual(
+        calls.find((args) => args[0] === 'push'),
+        ['push', '--force-with-lease=refs/tags/android-v1.1.0:', 'origin', 'refs/tags/android-v1.1.0'],
+      );
+    },
+  },
+  {
+    name: 'release guard: --tag without a name is an error, and an auth failure is not called unreachable',
+    run() {
+      const { git, work, setApp, run, cleanup } = makeRepo();
+      try {
+        setApp('1.1.0', 8);
+        git(work, 'add', '.');
+        git(work, 'commit', '--quiet', '-m', 'First');
+        const bare = run('--platform', 'android', '--record-code', '8', '--tag');
+        assert.notEqual(bare.code, 0, bare.out);
+        assert.match(bare.out, /--tag vaatii/);
+        const empty = run('--platform', 'android', '--record-code', '8', '--tag=');
+        assert.notEqual(empty.code, 0, empty.out);
+      } finally {
+        cleanup();
+      }
+
+      const auth = guard.describePushFailure('android-v1.1.0', {
+        stderr:
+          'git@github.com: Permission denied (publickey).\nfatal: Could not read from remote repository.\n\nPlease make sure you have the correct access rights\n',
+      });
+      assert.match(auth, /origin hylkäsi/);
+      assert.doesNotMatch(auth, /origin ei vastaa/);
+      const https = guard.describePushFailure('t', {
+        stderr: "fatal: Authentication failed for 'https://github.com/o/r.git/'\n",
+      });
+      assert.match(https, /origin hylkäsi/);
+      const lease = guard.describePushFailure('t', { stderr: '! [rejected] t -> t (stale info)\nerror: failed to push some refs\n' });
+      assert.match(lease, /origin hylkäsi/);
+    },
+  },
+  {
+    name: 'release guard: the prebuild remedy is runnable from PowerShell as well as bash',
+    run() {
+      const reasons = [
+        guard.buildLine({ platform: 'android', version: '1.1.0', versionCode: 4 }),
+        guard.decide({
+          platform: 'android',
+          version: '1.1.0',
+          tags: [],
+          versionCode: 4,
+          gradle: null,
+        }).reason,
+        guard.decide({
+          platform: 'android',
+          version: '1.1.0',
+          tags: [],
+          versionCode: 4,
+          gradle: { versionCode: 3, versionName: '1.1.0' },
+        }).reason,
+      ];
+      for (const text of reasons) {
+        assert.ok(text.includes('$env:CI=1; npx expo prebuild --clean'), text);
+        assert.ok(text.includes('CI=1 npx expo prebuild --clean'), text);
+      }
+      // The docs give the same two forms.
+      const docs = fs.readFileSync(path.join(__dirname, '../../docs/ios-launch.md'), 'utf8');
+      assert.ok(docs.includes('$env:CI=1; npx expo prebuild --clean'));
+      assert.match(docs, /--record-code N/);
     },
   },
 ];
