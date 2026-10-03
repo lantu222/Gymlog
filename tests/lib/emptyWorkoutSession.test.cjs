@@ -595,7 +595,17 @@ module.exports = [
       const extra = { ...draft([true, true]), exercises: [...board([true, true]), { localKey: 'l3', name: 'Curl', sets: [{ localKey: 's4', kg: '20', reps: '12', done: true }] }] };
       const kept = discardSavedFreestyleDraft(extra, database);
       assert.ok(kept && kept.exercises.length === 3, 'a draft with a set the saved workout lacks stays');
-      assert.equal(kept.sessionId, 'session_a_b', 'under an id of its own');
+      assert.equal(kept.sessionId, 'session_a', 'under its own id: its Finish merges into the saved workout (mergeStoredBoardLogs)');
+      // When the draft was written against when the save landed: a draft written before the save is that save less
+      // its last edits (the draft trails the board by 400 ms), and goes whatever it holds; one written after it is the
+      // board carried on, and stays.
+      const timed = { ...database, workoutSessions: [{ id: 'session_a', performedAt: '2026-10-03T10:00:00.000Z' }] };
+      const at = (iso) => Date.parse(iso);
+      const changedWeight = { ...draft([true, true]), exercises: board([true, true]).map((lift, index) => (index === 0 ? { ...lift, sets: [{ ...lift.sets[0], kg: '57.5' }, lift.sets[1]] } : lift)) };
+      assert.equal(discardSavedFreestyleDraft({ ...changedWeight, savedAtMs: at('2026-10-03T09:59:59.700Z') }, timed), null, 'a weight changed in the last 400 ms before Finish: the draft is behind its save, and goes');
+      assert.equal(discardSavedFreestyleDraft({ ...extra, savedAtMs: at('2026-10-03T10:00:00.000Z') }, timed), null, 'written in the same moment as the save is not after it');
+      assert.equal(discardSavedFreestyleDraft({ ...extra, savedAtMs: at('2026-10-03T10:05:00.000Z') }, timed).sessionId, 'session_a', 'written after the save: the board carried on, kept');
+      assert.equal(discardSavedFreestyleDraft({ ...changedWeight, savedAtMs: 0 }, timed).sessionId, 'session_a', 'a draft that does not say when it was written is judged by its sets alone');
       assert.equal(discardSavedFreestyleDraft(draft([true, true], 'session_b'), database).sessionId, 'session_b', 'a draft of an unsaved workout is untouched');
       assert.equal(discardSavedFreestyleDraft({ ...draft([true, true]), sessionId: null }, database).sessionId, null, 'an old draft with no id stays');
       assert.equal(discardSavedFreestyleDraft(null, database), null);

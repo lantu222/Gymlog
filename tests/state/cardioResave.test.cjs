@@ -3,7 +3,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const ts = require('typescript');
 
-const { findSavedCardioRun, mergeContinuedCardioRun } = require('../../.test-dist/lib/cardio.js');
+const { findSavedCardioRun, mergeContinuedCardioRun, settleSavedCardioRun } = require('../../.test-dist/lib/cardio.js');
+const { workoutReducer, workoutInitialState } = require('../../.test-dist/features/workout/workoutState.js');
 
 const ROOT = path.join(__dirname, '..', '..');
 
@@ -165,6 +166,38 @@ module.exports = [
       await store.save({ ...RUN, activityType: 'walk' });
       assert.equal(store.databaseRef.current.cardioSessions.length, 3);
       assert.equal(store.commits, 4, 'the first save, the distance entered on a re-Complete, and the two new runs');
+    },
+  },
+  {
+    name: 'a saved run that came back running is stopped where it was saved; one resumed after its save runs on',
+    run() {
+      const startedAt = '2026-10-03T09:00:00.000Z';
+      const savedAt = '2026-10-03T09:30:00.000Z';
+      const sessions = [{ id: 'c1', activityType: 'run', startedAt, performedAt: savedAt, durationSec: 1800, distanceKm: 5, feel: null }];
+      // The pause and the clear both lost: back running, resumed at the start, eight hours later on the clock.
+      const lostPause = { activityType: 'run', startedAt, accumulatedMs: 0, resumedAt: startedAt, pausedAt: null };
+      assert.deepEqual(settleSavedCardioRun(lostPause, sessions), { ...lostPause, accumulatedMs: 1800 * 1000, resumedAt: null, pausedAt: savedAt });
+      // Paused already, or resumed after its save (the reader carrying on), or not saved at all: nothing to settle.
+      assert.equal(settleSavedCardioRun({ ...lostPause, resumedAt: null, pausedAt: savedAt, accumulatedMs: 1800 * 1000 }, sessions), null);
+      assert.equal(settleSavedCardioRun({ ...lostPause, accumulatedMs: 1800 * 1000, resumedAt: '2026-10-03T17:00:00.000Z' }, sessions), null);
+      assert.equal(settleSavedCardioRun({ ...lostPause, startedAt: '2026-10-03T08:00:00.000Z', resumedAt: '2026-10-03T08:00:00.000Z' }, sessions), null);
+      assert.equal(settleSavedCardioRun({ ...lostPause, activityType: 'walk' }, sessions), null);
+      assert.equal(settleSavedCardioRun(null, sessions), null);
+
+      // The reducer takes it only for the same run.
+      let state = { ...workoutInitialState, hydrated: true, activeCardio: lostPause };
+      const settled = settleSavedCardioRun(lostPause, sessions);
+      // A pause or a resume dispatched between the read and the settle is the reader's, and stands.
+      const pausedSince = workoutReducer(state, { type: 'cardio/pause', payload: { nowMs: Date.parse('2026-10-03T17:00:00.000Z') } });
+      assert.equal(workoutReducer(pausedSince, { type: 'cardio/settle', payload: { session: settled, wasResumedAt: startedAt } }), pausedSince);
+      const other = workoutReducer(state, { type: 'cardio/settle', payload: { session: { ...settled, startedAt: '2026-10-03T07:00:00.000Z' }, wasResumedAt: startedAt } });
+      assert.equal(other, state, 'another run is not put over this one');
+      state = workoutReducer(state, { type: 'cardio/settle', payload: { session: settled, wasResumedAt: startedAt } });
+      assert.deepEqual(state.activeCardio, settled);
+
+      // App settles it once both stores have loaded.
+      const app = fs.readFileSync(path.join(ROOT, 'App.tsx'), 'utf8').replace(/\r\n/g, '\n');
+      assert.match(app, /if \(!hydrated \|\| !workout\.hydrated\) \{\s*return;\s*\}\s*const settled = settleSavedCardioRun\(activeCardio, cardioSessions\);\s*if \(settled\) \{\s*settleCardio\(settled, activeCardio\?\.resumedAt \?\? null\);/);
     },
   },
 ];

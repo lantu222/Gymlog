@@ -104,6 +104,11 @@ interface WorkoutContextValue {
   resumeCardio: () => void;
   clearCardio: () => void;
   /**
+   * Puts the run back as given (a saved run that came back running, stopped where it was saved), if
+   * it is still the run that was read: running since `wasResumedAt`.
+   */
+  settleCardio: (session: ActiveCardioSession, wasResumedAt: string | null) => void;
+  /**
    * Replaces the workout history with a cloud backup, through the same
    * normalizer the stored bundle goes through on load. The active session is
    * deliberately dropped: a backup restore is a new phone or an explicit
@@ -378,6 +383,9 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
       },
       clearCardio() {
         dispatch({ type: 'cardio/clear' });
+      },
+      settleCardio(session, wasResumedAt) {
+        dispatch({ type: 'cardio/settle', payload: { session, wasResumedAt } });
       },
       async restoreHistoryFromBackup(history) {
         // The live session, the run and the free workout are put away, all

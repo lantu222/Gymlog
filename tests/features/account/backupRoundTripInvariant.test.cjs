@@ -2089,7 +2089,7 @@ function guardAgainstDrift() {
       app.includes('await commit(exact);'),
     'AppProvider.restoreDatabaseFromBackup changed: rebuild the phone model in props() from it',
   );
-  assert.ok(read('App.tsx').includes('liveSession: hasWorkoutInProgress(workout),'), 'App.tsx no longer tells the backup hook about a workout in progress through hasWorkoutInProgress');
+  assert.ok(read('App.tsx').includes('liveSession: hasWorkoutInProgress({ ...workout, freestyleDraft }),'), 'App.tsx no longer tells the backup hook about a workout in progress through hasWorkoutInProgress');
   const inProgress = require(path.join(DIST, 'lib', 'accountBackup.js')).hasWorkoutInProgress;
   for (const key of ['activeSession', 'activeCardio', 'freestyleDraft']) {
     assert.equal(inProgress({ activeSession: null, activeCardio: null, freestyleDraft: null, [key]: {} }), true, `a ${key} is a workout in progress`);

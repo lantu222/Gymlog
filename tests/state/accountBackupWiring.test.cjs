@@ -184,7 +184,9 @@ module.exports = [
       // pinned `activeSession !== null || activeCardio !== null` written out
       // here, and a free workout left open was restored over unasked
       // (persistence audit, 2026-09-20).
-      assert.match(hookCall, /liveSession: hasWorkoutInProgress\(workout\),/);
+      assert.match(hookCall, /liveSession: hasWorkoutInProgress\(\{ \.\.\.workout, freestyleDraft \}\),/);
+      // The board the screen would get: a saved workout's leftover draft is not a workout in progress.
+      assert.match(app, /const freestyleDraft = discardSavedFreestyleDraft\(workout\.freestyleDraft, database\);/);
       assert.match(app, /import \{ hasWorkoutInProgress \} from '\.\/src\/lib\/accountBackup';/);
       const accountHook = read('src', 'features', 'account', 'useAccountBackup.ts');
       assert.match(accountHook, /if \(hasLocalDataWorthKeeping\(latestRef\.current\.database, latestRef\.current\.liveSession\)\) \{/);

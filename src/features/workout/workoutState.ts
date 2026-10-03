@@ -170,6 +170,8 @@ export type WorkoutAction =
   | { type: 'cardio/pause'; payload: { nowMs: number } }
   | { type: 'cardio/resume'; payload: { nowMs: number } }
   | { type: 'cardio/clear' }
+  /** The run put back as a whole (lib/cardio settleSavedCardioRun), when it is still the same run. */
+  | { type: 'cardio/settle'; payload: { session: ActiveCardioSession; wasResumedAt: string | null } }
   | { type: 'freestyle/save'; payload: { snapshot: FreestyleDraftSnapshot } }
   | { type: 'freestyle/clear' }
   | { type: 'session/openFinishSummary' }
@@ -1656,13 +1658,19 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
      * prefill can find it.
      *
      * Additive by construction: it writes under its own slot key and touches
-     * no existing entry, so a lift with guided history keeps it and only gains
-     * a newer entry when the freestyle session really is newer — which is what
-     * "what you last did" means.
+     * no other session's entry, so a lift with guided history keeps it and
+     * only gains a newer entry when the freestyle session really is newer —
+     * which is what "what you last did" means. The session's own earlier
+     * entries go first: a board finished again (merged into its save) is
+     * recorded again, and two entries of one session ate the ten-entry cap and
+     * doubled it in the progression gate.
      */
     case 'history/recordLogged': {
       const { performedAt, sessionId, templateName, exercises } = action.payload;
-      const slotHistory: WorkoutHistoryStore['slotHistory'] = { ...state.history.slotHistory };
+      const slotHistory: WorkoutHistoryStore['slotHistory'] = {};
+      Object.entries(state.history.slotHistory).forEach(([key, entries]) => {
+        slotHistory[key] = key.startsWith('logged:') ? entries.filter((item) => item.sessionId !== sessionId) : entries;
+      });
 
       exercises.forEach((exercise) => {
         const name = exercise.exerciseName?.trim();
@@ -2112,6 +2120,17 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
         return state;
       }
       return { ...state, activeCardio: null };
+
+    case 'cardio/settle':
+      // Only the run as it was read: a pause or a resume dispatched since is the reader's, and stands.
+      if (
+        !state.activeCardio ||
+        state.activeCardio.startedAt !== action.payload.session.startedAt ||
+        state.activeCardio.resumedAt !== action.payload.wasResumedAt
+      ) {
+        return state;
+      }
+      return { ...state, activeCardio: action.payload.session };
 
     case 'session/openFinishSummary':
       if (!state.activeSession) {

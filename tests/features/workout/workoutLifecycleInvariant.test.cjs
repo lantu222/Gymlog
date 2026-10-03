@@ -384,6 +384,8 @@ function freshWorld() {
     pendingExpectation: [],
     /** The guided finish's sets by identity (slot|set|moment logged), for a merge with what is stored under its id. */
     pendingByIdentity: new Map(),
+    /** The free workout board's done sets by place (lift key|set position), for a merge with its earlier save. */
+    pendingByPlace: null,
     /** The moments the finishing session took back (set/undo). */
     pendingTakenBack: new Set(),
     /** What the database must hold under the id the finish landed under: its sets, or the merge with what was stored. */
@@ -522,10 +524,16 @@ async function launch(options = {}) {
     // reached the screen unfiltered (a database read behind the draft's), the save layer's own case.
     const kept = options.stale ? draft : emptyWorkout.discardSavedFreestyleDraft(draft, proc.dbRef.current);
     if (!kept) {
-      // Dropped: every set the draft holds as done must be in the saved session it names.
+      // Dropped: every set the draft holds as done must be in the saved session it names - unless the draft was
+      // written before that save, which is the board as it stood at Finish and so supersedes it (a weight changed
+      // in the last 400 ms before Finish is in the save, not in the draft).
       const saved = world.expectedDb.get(draft.sessionId);
       const lost = saved ? subtractSets(doneSetsOfBoard(draft.exercises), saved.sets) : doneSetsOfBoard(draft.exercises);
-      if (lost.length > 0) {
+      const superseded = Boolean(saved) && draft.savedAtMs > 0 && draft.savedAtMs <= saved.at;
+      if (superseded && lost.length > 0) {
+        count('board written before its save dropped');
+      }
+      if (lost.length > 0 && !superseded) {
         fail('1', `a restored free workout board was dropped with ${lost.length} done sets (${lost.join(' ')}) that no saved workout holds`);
       }
       count('leftover board dropped');
@@ -540,6 +548,7 @@ async function launch(options = {}) {
         lastEditMs: world.now,
         dirty: kept.sessionId !== draft.sessionId,
         sessionId: emptyWorkout.resolveFreestyleSessionId(kept),
+        draftSavedAtMs: kept.savedAtMs,
       };
       if (kept.sessionId !== draft.sessionId) {
         count('restored board kept under a new id');
@@ -1008,7 +1017,19 @@ function finishDeps(proc, ev) {
         if (landedAs) {
           const prior = world.expectedDb.get(landedAs);
           if (!prior) {
-            world.expectedDb.set(landedAs, { sets: expected, lifts: world.pendingLifts, byIdentity: world.pendingByIdentity });
+            world.expectedDb.set(landedAs, { sets: expected, lifts: world.pendingLifts, byIdentity: world.pendingByIdentity, byPlace: world.pendingByPlace, at: world.now });
+          } else if (input.mergeStored && input.mergeBy === 'place' && landedAs === input.sessionId) {
+            // A free workout board carried on under its saved id, merged into that save by place: a lift's key on the
+            // board and the set's position in it. A done set on the board is saved as it stands; a stored set whose
+            // place the board holds nothing done at stays. Built from the board alone, held to exactly by checkDatabase.
+            if (!prior.byPlace) {
+              fail('2', `a free workout was merged into ${landedAs}, which no free workout save wrote`);
+            }
+            const merged = new Map(prior.byPlace);
+            world.pendingByPlace.forEach((value, place) => merged.set(place, value));
+            const sets = setMultiset([...merged.values()]);
+            world.pendingSaved = sets;
+            world.expectedDb.set(landedAs, { sets, lifts: world.pendingLifts, byPlace: merged, at: world.now });
           } else if (input.mergeStored && landedAs === input.sessionId) {
             // The same workout finished again, merged with what is stored. The expectation is built here from the
             // shadow alone: a set is the slot, its place and the moment it was logged. A set the finish holds is
@@ -1027,7 +1048,7 @@ function finishDeps(proc, ev) {
             world.pendingByIdentity.forEach((value, identity) => merged.set(identity, value));
             const sets = setMultiset([...merged.values()]);
             world.pendingSaved = sets;
-            world.expectedDb.set(landedAs, { sets, lifts: world.pendingLifts, byIdentity: merged });
+            world.expectedDb.set(landedAs, { sets, lifts: world.pendingLifts, byIdentity: merged, at: world.now });
           }
         }
         return summary;
@@ -1135,6 +1156,7 @@ async function finishGuided(ev) {
   }
   world.pendingTakenBack = new Set(world.shadow.session?.takenBack ?? []);
   world.pendingSaved = world.pendingExpectation;
+  world.pendingByPlace = null;
   world.pendingLifts = null;
   world.lastSave = null;
   world.toasts = [];
@@ -1335,14 +1357,21 @@ async function finishFreestyle(ev) {
   world.toasts = [];
   world.lastSave = null;
   const doneSets = [];
+  const byPlace = new Map();
   for (const exercise of board.exercises) {
-    for (const set of exercise.sets) {
+    exercise.sets.forEach((set, position) => {
       if (set.done && emptyWorkout.isLoggableFreestyleSet(set)) {
-        doneSets.push({ reps: parseNumberInput(set.reps), kg: parseNumberInput(set.kg) ?? 0, key: `${exercise.localKey}/${set.localKey}` });
+        const value = { reps: parseNumberInput(set.reps), kg: parseNumberInput(set.kg) ?? 0, key: `${exercise.localKey}/${set.localKey}` };
+        doneSets.push(value);
+        if (exercise.name.trim().length > 0) {
+          byPlace.set(`${exercise.localKey}|${position}`, value);
+        }
       }
-    }
+    });
   }
   world.pendingExpectation = setMultiset(doneSets);
+  world.pendingByPlace = byPlace;
+  world.pendingByIdentity = null;
   world.pendingLifts = liftSignatureOf(board.exercises);
   if (ev.during) {
     world.duringSave = async () => {
@@ -1397,19 +1426,21 @@ async function finishFreestyle(ev) {
     world.fsAtDraft = null;
     dispatch(proc, { type: 'freestyle/clear' });
     proc.fs = null;
-    if (repeated) {
-      // The same finish again: the same session, so nothing is saved twice.
-      if (world.lastSave || proc.dbRef.current.workoutSessions.length !== sessionsBefore) {
-        fail('2', 'the free workout board was saved a second time: a session with these sets is already in the database');
+    if (idHeld) {
+      // A board under the id of its own earlier save is that workout carried on (or finished again): merged into that
+      // save under the same id, never a second workout beside it with every shared set counted twice. checkDatabase
+      // holds the stored rows to the merge.
+      if (proc.dbRef.current.workoutSessions.length !== sessionsBefore) {
+        fail('2', 'a free workout board finished again under its saved id was saved as a second workout');
       }
-      count('free workout board finished again, saved once');
+      if (!world.lastSave || world.lastSave.outcome !== 'resolved' || world.lastSave.sessionId !== startId) {
+        fail('2', `the free workout's ${doneSets.length} sets were shown as saved and not merged into the workout under its id`);
+      }
+      checkDatabase(proc.dbRef.current, 'after a free workout board was finished again');
+      count(repeated ? 'free workout board finished again, saved once' : 'free workout board carried on, merged into its save');
     } else {
-      // Different sets under an id that is taken: they are a workout of their own and must be written, under another id.
       if (!world.lastSave || world.lastSave.outcome !== 'resolved' || proc.dbRef.current.workoutSessions.length !== sessionsBefore + 1) {
-        fail('2', `the free workout's ${doneSets.length} sets were shown as saved and never written${idHeld ? ' (the board still wore the id of an earlier saved workout)' : ''}`);
-      }
-      if (idHeld && world.lastSave.sessionId === startId) {
-        fail('2', 'a second workout was saved under the id of an earlier one');
+        fail('2', `the free workout's ${doneSets.length} sets were shown as saved and never written`);
       }
     }
     count('free workout saved');
@@ -1431,15 +1462,16 @@ async function finishFreestyle(ev) {
     if (!proc.fs) {
       fail('2', 'a free workout whose save failed lost its board');
     }
-    if (idHeld && !repeated && proc.fs.sessionId === startId) {
-      fail('2', 'the save filed these sets under another id and the board still wears the taken one: a kill now would read them as saved');
+    if (idHeld && proc.fs.sessionId !== startId) {
+      fail('2', 'a board whose merge into its saved workout failed left that id: its retry would be saved beside it');
     }
   } finally {
     storage.fault.writeDb = 0;
     storage.fault.dbSkip = 0;
     proc.fsFinishing = false;
   }
-  if (saved && proc.dbRef.current.workoutTemplates.length !== templatesBefore + (repeated ? 0 : 1)) {
+  // A board merged into its earlier save keeps the template that save hangs on: no new one.
+  if (saved && proc.dbRef.current.workoutTemplates.length !== templatesBefore + (idHeld ? 0 : 1)) {
     fail('2', 'a free workout that saved did not leave exactly its one template');
   }
   await settle(proc);
@@ -1948,8 +1980,11 @@ async function relaunch(ev) {
   compareLogged(loggedSetsOf(proc.state.activeSession), durable.session?.sets ?? new Map(), 'after the launch');
   checkDatabase(proc.dbRef.current, 'after the launch (database as stored)');
   checkSessionSanity(proc.state.activeSession);
-  if (!ev.stale && proc.fs && world.expectedDb.has(proc.fs.sessionId)) {
-    fail('2', `a free workout board came back under the id of a workout that is already saved (${proc.fs.sessionId})`);
+  // A board may come back under the id of its saved workout only when it was carried on after that save (its Finish
+  // merges into it); one written before the save is that save, less its last edits.
+  const savedUnderBoard = proc.fs ? world.expectedDb.get(proc.fs.sessionId) : undefined;
+  if (!ev.stale && savedUnderBoard && !(proc.fs.draftSavedAtMs > savedUnderBoard.at)) {
+    fail('2', `a free workout board written before its save came back under that save's id (${proc.fs.sessionId})`);
   }
 }
 
@@ -2246,7 +2281,7 @@ module.exports = [
       };
       // A draft that reaches the screen under a saved id with more sets (a database read behind the draft's):
       // the save layer is what stands between those sets and a summary over a write that never happened.
-      cases['a stale board under a saved id, sets added: written under another id'] = [
+      cases['a stale board under a saved id, sets added: merged into that save'] = [
         ev('fsAdd'), ev('fsType', { valid: true }), ev('fsTick'), ev('wait', { dt: 1500 }), ev('fsFinish', { dt: 1500 }), ev('kill', { early: true, stale: true }),
         ev('fsAddSet'), ev('fsType', { valid: true, r: 11 }), ev('fsTick'), ev('wait', { dt: 1500 }), ev('fsFinish', { dt: 1500 }),
       ];
@@ -2272,6 +2307,18 @@ module.exports = [
           const saves = [...world.expectedDb.keys()].length;
           assert.ok(saves >= 1, `${name}: expected the first workout and the next one saved, saw ${saves}`);
         }
+        // A weight changed and Finish pressed inside the draft's 400 ms, the clear lost: the draft on disk holds the old
+        // weight, a set the save does not. It was written before the save, so it is that save less its last edit: it
+        // does not come back, and nothing is saved twice (bug hunt 2026-10-03: it came back, and its Finish wrote every
+        // set again under `<id>_b`).
+        const lagging = [
+          ev('fsAdd'), ev('fsType', { valid: true }), ev('fsTick'), ev('wait', { dt: 1500 }),
+          ev('fsType', { valid: true, r: 4, dt: 80 }), ev('fsFinish', { dt: 80 }), ev('kill', { early: true }),
+        ];
+        const failure = await runSequence(lagging, SEED);
+        assert.equal(failure, null, `lagging draft: ${failure?.message}`);
+        assert.equal(world.expectedDb.size, 1, 'one workout saved');
+        assert.equal(world.proc.fs, null, 'the board written before its save does not come back');
       });
     },
   },
