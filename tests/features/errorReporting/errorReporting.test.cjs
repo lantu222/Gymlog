@@ -953,8 +953,8 @@ module.exports = [
         globalThis.setTimeout = savedSet;
       }
 
-      // Wired: the workout tab and the finish screens are drawn inside the area boundary, and the provider marks its
-      // reducer (where the stored bundle is applied) and its summary.
+      // Wired: the workout tab and the finish screens are drawn inside the area boundary, the provider marks its
+      // reducer (where the stored bundle is applied), and the shell marks its read of the session for Home.
       const app = read('App.tsx');
       assert.match(app, /const inWorkoutArea = \(node: React\.ReactNode\) => \(node == null \? node : <WorkoutAreaBoundary>\{node\}<\/WorkoutAreaBoundary>\);/);
       assert.match(app, /content = inWorkoutArea\(renderWorkoutTab\(\{/);
@@ -962,7 +962,7 @@ module.exports = [
       const provider = read('src', 'features', 'workout', 'WorkoutProvider.tsx');
       assert.match(provider, /useReducer\(markedWorkoutReducer, workoutInitialState\)/);
       assert.match(provider, /const markedWorkoutReducer: typeof workoutReducer = \(state, action\) => markingWorkoutFailures\(\(\) => workoutReducer\(state, action\)\);/);
-      assert.match(provider, /markingWorkoutFailures\(\(\) => selectWorkoutSummary\(state\)\)/);
+      assert.match(app, /const homeActiveWorkoutSummary = useMemo\(\(\) => markingWorkoutFailures\(\(\) => \{/, 'the session read for Home on every route');
     },
   },
   {

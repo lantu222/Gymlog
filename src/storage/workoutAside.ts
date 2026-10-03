@@ -170,15 +170,21 @@ export async function setWorkoutBundleAside(): Promise<boolean> {
  * back one. Null when no slot holds anything.
  */
 export async function readNewestWorkoutAsideCopy(): Promise<{ key: string; text: string } | null> {
+  return (await asideCopiesNewestFirst())[0] ?? null;
+}
+
+/** Every slot that holds something, in the order a restore tries them (readNewestWorkoutAsideCopy). */
+async function asideCopiesNewestFirst(): Promise<Array<{ key: string; text: string }>> {
   const numbered = `${WORKOUT_ASIDE_STORAGE_KEY}/`;
   const order = (key: string) => (key === WORKOUT_ASIDE_STORAGE_KEY ? 0 : Number(key.slice(numbered.length)));
+  const copies: Array<{ key: string; text: string }> = [];
   for (const key of (await asideKeys()).sort((a, b) => order(b) - order(a))) {
     const text = await readLarge(key);
     if (text !== null && !isEmptyBundleText(text)) {
-      return { key, text };
+      copies.push({ key, text });
     }
   }
-  return null;
+  return copies;
 }
 
 /** Whether Settings has a copy to bring back. False when the copies cannot be read. */
@@ -194,7 +200,9 @@ export async function hasWorkoutAsideCopy(): Promise<boolean> {
  * Brings the newest set-aside copy back (Settings' Restore set-aside workout).
  *
  * Never deletes, in this order: `read` turns the copy into what the app shows
- * (it throws for a copy that does not parse: 'unreadable', and nothing moves);
+ * (it throws for a copy that does not parse, which stays where it is and is
+ * passed over for the next one: 'unreadable' only when none can be read, and
+ * then nothing moves);
  * `liveText`, the workout data the app holds now, is copied aside first (not
  * over another copy; an empty bundle is not copied); `show` stores and shows
  * the copy; only once that resolved does the copy's slot go, and only while it
@@ -206,16 +214,24 @@ export async function bringBackWorkoutAside<T>(
   read: (text: string) => T,
   show: (value: T) => Promise<void>,
 ): Promise<'restored' | 'none' | 'unreadable'> {
-  const copy = await readNewestWorkoutAsideCopy();
-  if (!copy) {
+  const copies = await asideCopiesNewestFirst();
+  if (copies.length === 0) {
     return 'none';
   }
-  let value: T;
-  try {
-    value = read(copy.text);
-  } catch {
+  let found: { key: string; text: string; value: T } | null = null;
+  for (const candidate of copies) {
+    try {
+      found = { ...candidate, value: read(candidate.text) };
+      break;
+    } catch {
+      // Kept, and passed over: an older copy that reads still comes back.
+    }
+  }
+  if (!found) {
     return 'unreadable';
   }
+  const { key, text, value } = found;
+  const copy = { key, text };
   if (!isEmptyBundleText(liveText)) {
     await putCopy(liveText);
   }

@@ -293,6 +293,15 @@ module.exports = [
     name: 'workout aside: a restore whose copy will not parse, or whose write is refused, leaves every copy where it was',
     async run() {
       const { fake, bringBackWorkoutAside } = load();
+      // An unreadable newest copy is passed over for an older one that reads; that older one comes back.
+      const older = load();
+      older.fake.rows.set(ASIDE, bundle);
+      older.fake.rows.set(`${ASIDE}/1`, 'garbage');
+      const back = [];
+      assert.equal(await older.bringBackWorkoutAside('{}', JSON.parse, async (value) => back.push(value)), 'restored');
+      assert.deepEqual(back, [JSON.parse(bundle)]);
+      assert.equal(older.fake.rows.get(`${ASIDE}/1`), 'garbage', 'the unreadable copy stays');
+
       fake.rows.set(ASIDE, 'not json, but the reader\'s');
       const live = JSON.stringify({ history: { sessions: [{ id: 'now' }] } });
       assert.equal(await bringBackWorkoutAside(live, JSON.parse, async () => assert.fail('shown')), 'unreadable');

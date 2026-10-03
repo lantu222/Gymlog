@@ -772,10 +772,6 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       // backup with "backed up" on screen (break round, 2026-09-28). Asked
       // instead; until answered, signed in and nothing sent — the automatic
       // backup held too, or it would send it a few seconds later anyway.
-      if (base.cloudCopyDeletedAt) {
-        // "Back up now" after the copy was deleted elsewhere (copyWasDeleted): still asked.
-        return await askToBackUpAgain(idToken, base);
-      }
       const signedOutSubs = await loadSignedOutAccounts();
       ensureCurrent(generation);
       if (
@@ -789,6 +785,11 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         pendingUploadRef.current = { idToken, account: held };
         await persistAccount(held);
         return confirmUpload('other_account', base);
+      }
+      if (base.cloudCopyDeletedAt) {
+        // "Back up now" after the copy was deleted elsewhere (copyWasDeleted): still asked. After the question
+        // above, which says whose data it is when that is the matter.
+        return await askToBackUpAgain(idToken, base);
       }
       await forgetSignedOutAccount();
       // The payload is read once the upload starts: a sign-out (Reset) during
@@ -918,6 +919,10 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         if (kept === 'done') {
           await forgetSignedOutAccount();
         }
+        if (kept === 'gone') {
+          // The copy shown was deleted while the question was open: the row says so, and a new copy is asked for.
+          await copyWasDeleted(idToken, current, false, generation);
+        }
         return kept === 'done' ? 'done' : 'failed';
       } catch (error) {
         if (error instanceof SessionEnded) {
@@ -932,7 +937,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [applyRestore, persistAccount, tokenForAnswer, uploadCurrent],
+    [applyRestore, copyWasDeleted, persistAccount, tokenForAnswer, uploadCurrent],
   );
 
   const resolveUploadChoice = useCallback(

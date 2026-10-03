@@ -1573,6 +1573,39 @@ module.exports = [
         assert.equal(env.api.state.backupPaused, 'other_phone');
         assert.equal(env.store.account.cloudCopyDeletedAt ?? null, null);
       });
+
+      // After a relaunch the stored mark alone says it: nothing sent, and "Back up now" asks.
+      const marked = {
+        ...syncedAccount(local),
+        lastBackupAt: null,
+        lastBackupItemCount: null,
+        lastBackupHistoryCount: null,
+        lastBackupFingerprint: null,
+        autoBackupPaused: true,
+        cloudVersion: null,
+        cloudCopyDeletedAt: '2026-10-03T20:00:00.000Z',
+      };
+      await withHook({ local, stored: marked, cloud: null }, async (env) => {
+        assert.equal(env.api.state.backupPaused, 'copy_deleted');
+        await env.edit((db) => ({ ...db, workoutSessions: [...db.workoutSessions, workout('mine')] }));
+        await env.advance(QUIET_MS);
+        await env.foreground();
+        assert.equal(env.calls.upload, 0);
+        assert.equal((await env.api.backUpOrAsk()).reason, 'copy_deleted');
+        assert.equal(env.server.blob, null);
+      });
+
+      // "Keep this phone's data" over a copy deleted while the question was open: no copy is made, and the row says why.
+      await withHook({ local, stored: syncedAccount(local), cloud: cloudCopy(local) }, async (env) => {
+        env.server.blob = cloudCopy(database({ workoutSessions: workouts(5) }));
+        assert.equal((await env.api.backUpOrAsk()).kind, 'choice');
+        await env.settle();
+        env.server.blob = null;
+        assert.equal(await env.api.resolveRestoreChoice('keep_local'), 'failed');
+        await env.settle();
+        assert.equal(env.server.blob, null);
+        assert.equal(env.api.state.backupPaused, 'copy_deleted');
+      });
     },
   },
   {

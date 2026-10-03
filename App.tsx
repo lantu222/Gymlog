@@ -142,6 +142,7 @@ import { getWorkoutTemplateById } from './src/features/workout/workoutCatalog';
 import { AppProvider, useAppContext } from './src/state/AppProvider';
 import { AppErrorBoundary } from './src/features/errorReporting/AppErrorBoundary';
 import { WorkoutAreaBoundary } from './src/features/errorReporting/WorkoutAreaBoundary';
+import { markingWorkoutFailures } from './src/features/errorReporting/workoutFailure';
 import { noteRenderedScreen } from './src/features/errorReporting/errorReporter';
 
 void SplashScreen.preventAutoHideAsync().catch(() => {
@@ -730,7 +731,9 @@ function VinhaApp() {
     proCompletionMoment,
     proCoachSpecimen,
   } = useProInsights({ database, preferences });
-  const homeActiveWorkoutSummary = useMemo(() => {
+  // Read on every route, from the first render after the stored workout is loaded: a session the app cannot
+  // read fails here before any workout screen is drawn, and is marked as the workout's (errorReporting/workoutFailure).
+  const homeActiveWorkoutSummary = useMemo(() => markingWorkoutFailures(() => {
     if (!workout.activeSession || !isWorkoutInProgress(workout.activeSession)) {
       return null;
     }
@@ -751,7 +754,7 @@ function VinhaApp() {
       nextExercise: activeExercise?.exerciseName ?? null,
       meta: `${pluralize(remainingSets, 'set')} left | Started ${formatTime(workout.activeSession.startedAt)}`,
     };
-  }, [workout.activeSession]);
+  }), [workout.activeSession]);
   /**
    * Go to the session that is already running, if there is one.
    *

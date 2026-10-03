@@ -8,11 +8,11 @@
  * crash happened on the workout screen or while the workout data was loaded).
  *
  * So a failure is marked where the workout is: thrown while drawing a screen of
- * the workout tab (WorkoutAreaBoundary), or while the workout provider applied
- * an action to its state — loading the stored bundle is one, `session/hydrate` —
- * or read its summary (WorkoutProvider). The root boundary asks isWorkoutFailure.
- * Home also draws a little of the workout (its card); a crash there is not
- * marked, and "Try again" stays.
+ * the workout tab (WorkoutAreaBoundary), while the workout provider applied an
+ * action to its state — loading the stored bundle is one, `session/hydrate` —
+ * or while the shell read the session in progress for Home's card, which it
+ * does on every route from the first render after loading (App.tsx
+ * homeActiveWorkoutSummary). The root boundary asks isWorkoutFailure.
  *
  * A WeakSet of the thrown objects, not a flag: a flag set by one failure would
  * still be set when an unrelated one arrives. A thrown primitive (a string)

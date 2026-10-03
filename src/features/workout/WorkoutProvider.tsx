@@ -252,7 +252,7 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
     });
   }, [state.activeSession, state.activeCardio, state.freestyleDraft, state.hydrated, state.history]);
 
-  const completionSummary = markingWorkoutFailures(() => selectWorkoutSummary(state));
+  const completionSummary = selectWorkoutSummary(state);
 
   const value = useMemo<WorkoutContextValue>(
     () => ({
