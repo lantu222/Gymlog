@@ -9,6 +9,7 @@ import { CARD_SHADOW, SectionLabel, ToggleSwitch } from '../components/SettingsU
 import type { SignInProvider } from '../features/account/accountAuth';
 import { buildFeedbackMailto } from '../lib/feedbackLink';
 import { formatDateNumeric } from '../lib/format';
+import { LEGAL_ENTITY } from '../lib/legalDocuments';
 import { t } from '../lib/i18n';
 import { resolveProEntitlement } from '../lib/proEntitlement';
 import { Theme, darkTheme, useTheme, useThemedStyles } from '../theming';
@@ -724,7 +725,7 @@ export function SettingsScreen({
           </View>
         </View>
 
-        <Text style={styles.footer}>Vinha · v{appInfo.version}</Text>
+        <Text style={styles.footer}>Vinha · v{appInfo.version} · {LEGAL_ENTITY.name}</Text>
       </ScrollView>
 
       <ConfirmDialog
