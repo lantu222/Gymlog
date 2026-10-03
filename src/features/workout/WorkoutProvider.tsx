@@ -43,6 +43,8 @@ interface WorkoutContextValue {
   resumeWorkout: () => void;
   finishWorkout: (performedAt?: string) => void;
   discardWorkout: () => void;
+  /** The running session saves under another id: its Finish found its own taken by another workout. */
+  adoptSessionId: (sessionId: string) => void;
   clearCompletedWorkout: () => void;
   /** Erase the whole training record this provider holds: session, cardio and per-slot history. */
   resetWorkoutData: () => Promise<void>;
@@ -279,6 +281,9 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
       },
       discardWorkout() {
         dispatch({ type: 'session/discardWorkout' });
+      },
+      adoptSessionId(sessionId) {
+        dispatch({ type: 'session/adoptSessionId', payload: { sessionId } });
       },
       clearCompletedWorkout() {
         dispatch({ type: 'session/clearCompletedSession' });

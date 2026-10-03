@@ -266,6 +266,51 @@ export function resolveFreestyleSaveTarget(
 }
 
 /**
+ * Which session a guided Finish writes, when its id may already name a stored workout.
+ *
+ * The guided session's save lands before its clear, and the clear (a bundle write nobody awaits)
+ * can be lost: the session then returns active under an id the database already holds, and the
+ * reader can add sets and Finish again (bug hunt 2026-10-03). Three answers, none of which drops
+ * a set:
+ *  - the stored workout holds exactly these sets: it is the finish that landed, nothing to write;
+ *  - the stored workout's sets are all among these (sets were only added): the same workout,
+ *    finished further, so its rows are replaced in place under the same id. Nothing stored is lost
+ *    and nothing is counted twice;
+ *  - the stored workout holds a set these do not (one was corrected or removed since): replacing
+ *    it would lose that set, so these are saved under an id of their own (a duplicate beats a
+ *    loss), which the caller hands to the session before writing.
+ */
+export function resolveGuidedSaveTarget(
+  database: SavedSessions,
+  sessionId: string,
+  logs: ReadonlyArray<CountedLog>,
+): { sessionId: string; alreadySaved: boolean; replaceStored: boolean } {
+  if (canReplaceStoredWorkout(database, sessionId, logs)) {
+    return { sessionId, alreadySaved: false, replaceStored: true };
+  }
+  return { ...resolveFreestyleSaveTarget(database, sessionId, logs), replaceStored: false };
+}
+
+/**
+ * Whether the workout stored under `sessionId` can be replaced by these logs without losing a set:
+ * every set it holds is among them (and they are more than it holds). The decision above asks it of
+ * the database it read; the write asks it again of the database it is about to write, because the
+ * two reads can differ, and a replace that is no longer lossless is saved under an id of its own.
+ */
+export function canReplaceStoredWorkout(
+  database: SavedSessions,
+  sessionId: string,
+  logs: ReadonlyArray<CountedLog>,
+): boolean {
+  if (!database.workoutSessions.some((session) => session.id === sessionId)) {
+    return false;
+  }
+  const saving = liftsOf(logs);
+  const stored = liftsOf(database.exerciseLogs.filter((log) => log.sessionId === sessionId));
+  return !sameLifts(stored, saving) && liftsContained(stored, saving);
+}
+
+/**
  * How long a stored draft's clock stays the session's clock.
  *
  * Long enough to cover the thing the draft exists for — a process killed

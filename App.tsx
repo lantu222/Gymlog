@@ -8,6 +8,7 @@ import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 
 import { AppShell } from './src/components/AppShell';
+import { isWorkoutInProgress } from './src/lib/activeWorkout';
 import { discardSavedFreestyleDraft } from './src/lib/emptyWorkoutSession';
 import { formatTime, pluralize } from './src/lib/format';
 import { HistoryScrollMemory } from './src/lib/historyScrollMemory';
@@ -713,7 +714,7 @@ function VinhaApp() {
     proCoachSpecimen,
   } = useProInsights({ database, preferences });
   const homeActiveWorkoutSummary = useMemo(() => {
-    if (!workout.activeSession) {
+    if (!workout.activeSession || !isWorkoutInProgress(workout.activeSession)) {
       return null;
     }
 
@@ -751,7 +752,7 @@ function VinhaApp() {
   function navigateToActiveWorkout(options?: { message?: string; resume?: boolean }) {
     // A finished session still held until its summary clears it is not a workout
     // to go back to: Start has to start, not open yesterday's player.
-    if (!workout.activeSession || workout.activeSession.status === 'completed') {
+    if (!workout.activeSession || !isWorkoutInProgress(workout.activeSession)) {
       return false;
     }
 

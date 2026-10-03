@@ -91,7 +91,8 @@ module.exports = [
       const player = read('src', 'screens', 'GuidedPlayerScreen.tsx');
       assert.match(
         player,
-        /BackHandler\.addEventListener\('hardwareBackPress', \(\) => \{\s*if \(mode === 'player'\) \{\s*setExitOpen\(true\);\s*return true;\s*\}\s*onLeave\(\);\s*return true;\s*\}\);/,
+        // The one new first line is the save lock: while Finish saves the player answers back and does nothing.
+        /BackHandler\.addEventListener\('hardwareBackPress', \(\) => \{(?:\s*\/\/[^\n]*)*\s*if \(isSavingWorkout\) \{\s*return true;\s*\}\s*if \(mode === 'player'\) \{\s*setExitOpen\(true\);\s*return true;\s*\}\s*onLeave\(\);\s*return true;\s*\}\);/,
       );
     },
   },

@@ -314,7 +314,7 @@ module.exports = [
       assert.match(homeScreenSource, /const heroStartsSession = Boolean\(nextPlanSession\)/);
       assert.match(i18nSource, /'home\.resumeWorkout': 'Resume workout'/);
       assert.match(i18nSource, /'home\.resumeWorkout': 'Jatka treeniä'/);
-      assert.match(shellSource, /hasActiveSession=\{workout\.activeSession !== null && workout\.activeSession\.status !== 'completed'\}/);
+      assert.match(shellSource, /hasActiveSession=\{isWorkoutInProgress\(workout\.activeSession\)\}/);
       assert.match(homeScreenSource, /if \(!nextPlanSession && onFindProgram\)/);
       assert.match(i18nSource, /'home\.startWorkout': 'Start workout'/);
       assert.match(i18nSource, /'home\.findProgram': 'Find a program'/);

@@ -85,7 +85,7 @@ module.exports = [
       const finish = save.slice(0, recordAt);
       assert.match(finish, /\} catch \(error\) \{[\s\S]{0,400}await deleteWorkoutTemplate\(workoutTemplateId\)\.catch\(\(\) => undefined\);\s*throw error;/, 'a session save that fails must take its template with it');
       // Through the one per-session rule both finishes share (#bugs 2026-10-01).
-      assert.ok(finish.indexOf('countWorkoutCompleted(sessionId)') > finish.indexOf('await saveCompletedWorkoutSession('), 'the event must fire after the save, not before');
+      assert.ok(finish.indexOf('countWorkoutCompleted(landedAs)') > finish.indexOf('await saveCompletedWorkoutSession('), 'the event must fire after the save, not before');
     },
   },
   {

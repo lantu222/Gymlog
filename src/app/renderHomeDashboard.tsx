@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { availableSignInProviders } from '../features/account/accountAuth';
+import { isWorkoutInProgress } from '../lib/activeWorkout';
 import type { HomePrompt } from '../lib/homePrompts';
 import { isMeasurementCardKey } from '../lib/homeStatCards';
 import { SessionAdaptation, withoutSessionDrop, withSessionDrop, withSessionSwap } from '../lib/sessionAdaptation';
@@ -248,7 +249,7 @@ export function renderHomeDashboard(deps: HomeDashboardDeps): React.ReactNode {
       tailoringPreferences={preferences}
       exerciseLibrary={exerciseBrowserItems}
       // Paused counts: it is still a session the button resumes.
-      hasActiveSession={workout.activeSession !== null && workout.activeSession.status !== 'completed'}
+      hasActiveSession={isWorkoutInProgress(workout.activeSession)}
       onPickTodaySession={(sessionId) => void handlePickTodaySession(sessionId)}
       // Ready programmes are immutable at runtime, so the pencil is simply
       // not offered for them rather than offered and inert.

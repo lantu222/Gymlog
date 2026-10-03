@@ -1,5 +1,6 @@
 import { createId } from '../lib/ids';
 import { normalizeExerciseLogDraft } from '../lib/exerciseLog';
+import { canReplaceStoredWorkout, resolveFreestyleSaveTarget } from '../lib/emptyWorkoutSession';
 import { getSessionTotals } from '../lib/sessionTotals';
 import { exerciseLogRepository, workoutSessionRepository } from '../storage/repositories';
 import { AppDatabase, ExerciseLog, ExerciseLogDraft, WorkoutSession } from '../types/models';
@@ -21,6 +22,11 @@ export interface SessionSaveSummary {
    */
   exercisesCompleted: number;
   durationMinutes: number;
+  /**
+   * Set by the save provider from the result's wasStored: the workout was already stored when this
+   * save ran, so the caller does not count it again (see PersistCompletedWorkoutResult).
+   */
+  wasStored?: boolean;
 }
 
 export interface PersistCompletedWorkoutInput {
@@ -38,12 +44,25 @@ export interface PersistCompletedWorkoutInput {
    */
   durationMinutes?: number;
   legacyShapeMismatches?: string[];
+  /**
+   * The stored workout under this id is this one, finished further (resolveGuidedSaveTarget): its
+   * rows are replaced instead of the save being dropped as a duplicate. What the reader added to
+   * the stored row afterwards (a note, a rename, the feel) stays.
+   */
+  replaceStored?: boolean;
 }
 
 export interface PersistCompletedWorkoutResult {
   database: AppDatabase;
   didPersist: boolean;
   summary: SessionSaveSummary;
+  /**
+   * The workout was already stored when this save ran: the same finish again, a stored workout
+   * finished further, or the same sets found under the id the write walked to. It was counted
+   * (analytics) when it first landed, so the caller does not count it again. Absent: this save wrote
+   * a workout of its own.
+   */
+  wasStored?: boolean;
 }
 
 /** The pure result of building one completed workout: no database involved. */
@@ -211,11 +230,48 @@ export function persistCompletedWorkoutSessionToDatabase(
     };
   }
 
-  if (workoutSessionRepository.findById(database, input.sessionId)) {
+  const stored = workoutSessionRepository.findById(database, input.sessionId);
+  if (stored && !(input.replaceStored && canReplaceStoredWorkout(database, input.sessionId, input.logs))) {
+    // The id names a stored workout, and these sets are not a longer finish of it. The caller decided
+    // on another read of the database, and this is the one written: the same finish again is already
+    // saved, and any other is a workout of its own under the id resolveFreestyleSaveTarget walks to.
+    // Dropping it as a duplicate (what a taken id used to mean) reported a save that did not happen
+    // once the stored sets and these differed. The summary names the id they landed under, which the
+    // caller takes over.
+    const target = resolveFreestyleSaveTarget(database, input.sessionId, input.logs);
+    const own =
+      target.sessionId === input.sessionId
+        ? record
+        : buildCompletedWorkoutRecord({ ...input, sessionId: target.sessionId, replaceStored: false }, createIdFn);
+    if (!own) {
+      return { database, didPersist: false, summary: createEmptySummary() };
+    }
+    if (target.alreadySaved) {
+      return { database, didPersist: false, summary: own.summary, wasStored: true };
+    }
     return {
-      database,
-      didPersist: false,
+      database: exerciseLogRepository.appendMany(workoutSessionRepository.append(database, own.session), own.logs),
+      didPersist: true,
+      summary: own.summary,
+    };
+  }
+  if (stored) {
+    const replaced: WorkoutSession = {
+      ...record.session,
+      workoutNameSnapshot: stored.workoutNameSnapshot,
+      sessionNotes: stored.sessionNotes ?? null,
+      ...(stored.feel !== undefined ? { feel: stored.feel } : {}),
+    };
+    const without: AppDatabase = {
+      ...database,
+      workoutSessions: database.workoutSessions.map((session) => (session.id === input.sessionId ? replaced : session)),
+      exerciseLogs: database.exerciseLogs.filter((log) => log.sessionId !== input.sessionId),
+    };
+    return {
+      database: exerciseLogRepository.appendMany(without, record.logs),
+      didPersist: true,
       summary: record.summary,
+      wasStored: true,
     };
   }
 

@@ -175,6 +175,8 @@ export type WorkoutAction =
   | { type: 'session/openFinishSummary' }
   | { type: 'session/finishWorkout'; payload?: { performedAt?: string } }
   | { type: 'session/discardWorkout' }
+  /** The running session takes another id (a Finish whose id a stored workout holds): see resolveGuidedSaveTarget. */
+  | { type: 'session/adoptSessionId'; payload: { sessionId: string } }
   | { type: 'session/clearCompletedSession' }
   /** "Reset all data": nothing of the training record survives, not even the per-slot history. */
   | { type: 'session/resetAll'; payload: { nowMs: number } };
@@ -2129,6 +2131,22 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
         ...state,
         activeSession: null,
         completionSummary: null,
+      };
+
+    // Before the save, so the finish state, the slot history, the summary and the stored row all name
+    // one id. A finished session's id is its history's key: never changed after the fact.
+    case 'session/adoptSessionId':
+      if (
+        !state.activeSession ||
+        state.activeSession.status === 'completed' ||
+        !action.payload.sessionId ||
+        state.activeSession.sessionId === action.payload.sessionId
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        activeSession: { ...state.activeSession, sessionId: action.payload.sessionId },
       };
 
     case 'session/clearCompletedSession':

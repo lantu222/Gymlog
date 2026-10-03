@@ -8,7 +8,8 @@ import type { FreestyleFinishSummary } from '../lib/emptyWorkoutSession';
 import { sessionRecordedWork } from '../lib/exerciseLog';
 import { t } from '../lib/i18n';
 import { createId } from '../lib/ids';
-import { resolveFreestyleSaveTarget } from '../lib/emptyWorkoutSession';
+import { buildExercisePrLookup } from '../lib/workoutCompletionSummary';
+import { resolveFreestyleSaveTarget, resolveGuidedSaveTarget } from '../lib/emptyWorkoutSession';
 import { computePostSessionInsight } from '../lib/postSessionInsight';
 import { buildMuscleFocus, getVolumeDeltaVsPrevious } from '../lib/workoutCompleteView';
 import { ROOT_ROUTES } from '../navigation/routes';
@@ -49,7 +50,7 @@ type WorkoutContextValue = ReturnType<typeof useWorkoutContext>;
 export interface FinishSavesDeps {
   workout: Pick<
     WorkoutContextValue,
-    'activeSession' | 'discardWorkout' | 'finishWorkout' | 'clearCompletedWorkout' | 'recordLoggedWorkout'
+    'activeSession' | 'discardWorkout' | 'adoptSessionId' | 'finishWorkout' | 'clearCompletedWorkout' | 'recordLoggedWorkout'
   >;
   database: AppContextValue['database'];
   /** The database as it stands now (AppProvider's ref), not the render's snapshot. */
@@ -123,7 +124,15 @@ export function createFinishSaves(deps: FinishSavesDeps) {
     }
 
     const fallbackRoute = getWorkoutLoggerFallbackRoute();
-    await updatePreferences({ trainingFirstRunDismissed: true });
+    // The reader's choice is what this does, and a preference is not allowed to refuse it: a
+    // refused write (a full disk) threw here before the discard, so Discard did nothing, and
+    // Finish over a session with nothing lifted, which ends here, left a blank Finish screen
+    // (bug hunt 2026-10-03). Logged and let go, as the post-save write is.
+    try {
+      await updatePreferences({ trainingFirstRunDismissed: true });
+    } catch (preferencesError) {
+      console.error('Failed to record the first-run dismissal', preferencesError);
+    }
     workout.discardWorkout();
     setFinishSaveState({ status: 'idle', sessionId: null });
     navigateBack(fallbackRoute);
@@ -137,13 +146,45 @@ export function createFinishSaves(deps: FinishSavesDeps) {
       return;
     }
 
-    const adaptedSession = adaptCompletedWorkoutSessionForAppDatabase(activeSession);
+    const adaptedFromSession = adaptCompletedWorkoutSessionForAppDatabase(activeSession);
     // Nothing lifted is nothing to keep, even when skips, a swap or a note
     // left logs behind (#bugs 2026-10-01).
-    if (!sessionRecordedWork(adaptedSession.logs)) {
+    if (!sessionRecordedWork(adaptedFromSession.logs)) {
       await handleDiscardWorkout();
       return;
     }
+    // A session whose save landed and whose clear was lost comes back active on the next launch
+    // (the bundle write behind the finish is not awaited), and the reader can add sets to it and
+    // Finish again. The database refuses a second row under the same id and says nothing, so those
+    // sets were shown as saved and never written (bug hunt 2026-10-03). The same question the free
+    // workout board asks (#277), with one more answer (resolveGuidedSaveTarget): exactly these sets
+    // under the id is the finish that landed; sets only added since replace that row in place; a
+    // stored set these lack (corrected, removed) means these are saved under an id of their own,
+    // since a duplicate beats a loss. Read from the database as it stands now, not this render's
+    // snapshot.
+    const saveTarget = resolveGuidedSaveTarget(
+      getDatabase(),
+      adaptedFromSession.sessionId,
+      adaptedFromSession.logs,
+    );
+    // A new id is the session's own before anything is saved: the finish state below, the route
+    // guard (which resets a finish state whose id is not the running session's), the slot history
+    // finishing stamps and the stored row all have to name one id, and a failed save has to leave
+    // the session under the id its retry will use.
+    if (saveTarget.sessionId !== adaptedFromSession.sessionId) {
+      workout.adoptSessionId(saveTarget.sessionId);
+    }
+    let adaptedSession =
+      saveTarget.sessionId === adaptedFromSession.sessionId
+        ? adaptedFromSession
+        : { ...adaptedFromSession, sessionId: saveTarget.sessionId };
+    // A replace keeps the stored row's name (a rename made since is the reader's), so the summary
+    // names the workout the way History will: when the write did replace it, and not when it fell
+    // back to an id of its own (below).
+    const keptName = saveTarget.replaceStored
+      ? getDatabase().workoutSessions.find((row) => row.id === adaptedSession.sessionId)?.workoutNameSnapshot
+      : undefined;
+    const keptNameId = adaptedSession.sessionId;
 
     finishInFlightRef.current = true;
     setFinishSaveState({
@@ -158,16 +199,32 @@ export function createFinishSaves(deps: FinishSavesDeps) {
       const summary = await saveCompletedWorkoutSession({
         ...adaptedSession,
         performedAt: adaptedSession.performedAt,
+        replaceStored: saveTarget.replaceStored,
       });
       if (!summary.sessionId || !summary.performedAt) {
         throw new Error('Workout save did not produce a valid summary');
       }
+      // Counted at its first save only: a workout the write found already stored (a finish that landed
+      // and whose clear was lost, one finished further, or the same sets found under the id it walked
+      // to) was counted when it first landed. The write says which, since it read the database it wrote.
+      const alreadyCounted = summary.wasStored === true;
+      // The write read the database itself and may have filed these sets under another id than the
+      // decision did (the stored workout changed in between): the session takes that id before
+      // anything below stamps the history or opens the summary.
+      if (summary.sessionId !== adaptedSession.sessionId) {
+        workout.adoptSessionId(summary.sessionId);
+        adaptedSession = { ...adaptedSession, sessionId: summary.sessionId };
+        setFinishSaveState({ status: 'saving', sessionId: summary.sessionId });
+      }
+      const shownName = keptName !== undefined && summary.sessionId === keptNameId ? keptName : adaptedSession.workoutNameSnapshot;
       // Once per session. A write after this one can fail — the preferences
       // below — and the retry saves again, which hands back the session
       // already stored: counted on every pass, one workout was two
       // (analytics audit, 2026-09-21).
       saved = true;
-      countWorkoutCompleted(adaptedSession.sessionId);
+      if (!alreadyCounted) {
+        countWorkoutCompleted(adaptedSession.sessionId);
+      }
 
       // Only after the database save is verified: finishing flips the session
       // to 'completed' and stamps slot history. Doing it before the save meant
@@ -176,6 +233,24 @@ export function createFinishSaves(deps: FinishSavesDeps) {
       workout.finishWorkout(adaptedSession.performedAt);
 
       const sessionExerciseLogs = buildExerciseLogsForCompletedSession(adaptedSession.sessionId, adaptedSession.logs);
+      // What came before this workout is not this workout. A restored session finished again has its
+      // earlier version stored under the same id, in the snapshot this closure holds, and compared
+      // against it the finish was its own previous best and its own prior session. Left out by id,
+      // the record cards included (their lookup is rebuilt without it).
+      const holdsOwnEarlierVersion = database.workoutSessions.some((row) => row.id === adaptedSession.sessionId);
+      const priorSessions = holdsOwnEarlierVersion
+        ? database.workoutSessions.filter((row) => row.id !== adaptedSession.sessionId)
+        : database.workoutSessions;
+      const priorExerciseLogs = holdsOwnEarlierVersion
+        ? database.exerciseLogs.filter((log) => log.sessionId !== adaptedSession.sessionId)
+        : database.exerciseLogs;
+      const priorPrLookup = holdsOwnEarlierVersion
+        ? buildExercisePrLookup({
+            exerciseLogs: priorExerciseLogs,
+            workoutSessions: priorSessions,
+            exerciseTemplates: database.exerciseTemplates,
+          })
+        : exercisePrLookup;
       const insight = computePostSessionInsight(
         {
           completedSession: {
@@ -185,8 +260,8 @@ export function createFinishSaves(deps: FinishSavesDeps) {
             setsCompleted: summary.setsCompleted,
           },
           sessionExerciseLogs,
-          allPriorSessions: database.workoutSessions,
-          allPriorExerciseLogs: database.exerciseLogs,
+          allPriorSessions: priorSessions,
+          allPriorExerciseLogs: priorExerciseLogs,
           lastInsightSessionId: preferences.lastInsightSessionId,
           lastInsightType: preferences.lastInsightType,
           unitPreference,
@@ -198,12 +273,12 @@ export function createFinishSaves(deps: FinishSavesDeps) {
         exercises: adaptedSession.exercises,
         exerciseTemplates: database.exerciseTemplates,
         exerciseLibrary,
-        exercisePrLookup,
+        exercisePrLookup: priorPrLookup,
         language: preferences.appLanguage,
       });
       setCompletionSummary({
         sessionId: adaptedSession.sessionId,
-        workoutName: adaptedSession.workoutNameSnapshot,
+        workoutName: shownName,
         performedAt: summary.performedAt,
         durationMinutes: summary.durationMinutes,
         setsCompleted: summary.setsCompleted,
@@ -218,11 +293,11 @@ export function createFinishSaves(deps: FinishSavesDeps) {
         volumeDeltaKg: getVolumeDeltaVsPrevious(
           {
             sessionId: adaptedSession.sessionId,
-            workoutName: adaptedSession.workoutNameSnapshot,
+            workoutName: shownName,
             performedAt: summary.performedAt,
             totalVolumeKg: summary.totalVolume,
           },
-          database.workoutSessions,
+          priorSessions,
         ),
         muscles: buildMuscleFocus(adaptedSession.exercises, exerciseLibrary),
         exerciseCards: completionCards.exerciseCards,
@@ -307,10 +382,12 @@ export function createFinishSaves(deps: FinishSavesDeps) {
       // written, so a failed save or a kill leaves these sets under an id of their own.
       adoptSessionId?.(sessionId);
     }
+    // The id the sets are stored under, which the write may have walked on from the one asked for.
+    let landedAs = sessionId;
     if (!alreadySaved) {
       const workoutTemplateId = await upsertWorkoutTemplate(draft);
       try {
-        await saveCompletedWorkoutSession({
+        const landed = await saveCompletedWorkoutSession({
           sessionId,
           workoutTemplateId,
           workoutNameSnapshot: summary.workoutName,
@@ -318,6 +395,7 @@ export function createFinishSaves(deps: FinishSavesDeps) {
           startedAt: summary.startedAt,
           performedAt: summary.performedAt,
         });
+        landedAs = landed.sessionId ?? sessionId;
       } catch (error) {
         // The template is written first so the session can name it. A session
         // that did not land must not leave the template behind — the retry made
@@ -328,7 +406,7 @@ export function createFinishSaves(deps: FinishSavesDeps) {
         throw error;
       }
       // Counted once it is on disk, by the guided path's own rule.
-      countWorkoutCompleted(sessionId);
+      countWorkoutCompleted(landedAs);
       /**
        * Remembered for the next time these lifts come up.
        *
@@ -342,7 +420,7 @@ export function createFinishSaves(deps: FinishSavesDeps) {
        */
       workout.recordLoggedWorkout({
         performedAt: summary.performedAt,
-        sessionId,
+        sessionId: landedAs,
         templateName: summary.workoutName,
         exercises: summary.logs.map((log) => ({
           exerciseName: log.exerciseNameSnapshot,
@@ -359,7 +437,7 @@ export function createFinishSaves(deps: FinishSavesDeps) {
     }
     setCompletionSummary({
       ...summary,
-      sessionId,
+      sessionId: landedAs,
       // Freestyle sessions have no plan identity: no previous-session
       // comparison, and muscle focus comes from the logged drafts.
       volumeDeltaKg: null,
