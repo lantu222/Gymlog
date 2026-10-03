@@ -938,7 +938,10 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
           // hangs on the record must not hold the answer. A timeout is
           // "unreadable" — the write stands.
           again = await Promise.race([
-            verifyAppleSession(token, pathSecret),
+            // Caught here, not only by the try: a look that fails after the
+            // timer has won would otherwise be an unhandled rejection, which
+            // Node turns into a crash of the function.
+            verifyAppleSession(token, pathSecret).catch(() => null),
             new Promise<null>((resolve) => {
               timer = setTimeout(() => resolve(null), POST_WRITE_CHECK_BUDGET_MS);
             }),
