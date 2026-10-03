@@ -170,7 +170,7 @@ interface AppContextValue {
    * stored database goes through on load — an old backup gets defaults, not a
    * crash, and the exercise library is reseeded exactly like on load.
    */
-  restoreDatabaseFromBackup: (input: Partial<AppDatabase>) => Promise<AppDatabase>;
+  restoreDatabaseFromBackup: (input: Partial<AppDatabase>, options?: { rollback?: boolean }) => Promise<AppDatabase>;
   /**
    * Writes a parsed Hevy export into the history, through the same
    * persistence path a finished live workout takes. Session ids are
@@ -1308,8 +1308,17 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     });
   }
 
-  function restoreDatabaseFromBackup(input: Partial<AppDatabase>) {
+  function restoreDatabaseFromBackup(input: Partial<AppDatabase>, options: { rollback?: boolean } = {}) {
     return runExclusive(async () => {
+      if (options.rollback) {
+        // The phone's own database from before a restore that failed, put
+        // back as it was. Through the merge below, its privacy answers and
+        // terms acceptance were merged a second time with the ones the
+        // failed restore had just written.
+        const exact = input as AppDatabase;
+        await commit(exact);
+        return exact;
+      }
       const restored = normalizeDatabase(input);
       // Pro is not restored: the server stores whatever a signed-in caller
       // uploads, so a backup with a far-off promo date was a permanent Pro for

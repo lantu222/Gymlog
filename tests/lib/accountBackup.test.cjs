@@ -108,6 +108,9 @@ module.exports = [
         bodyweightCount: 3,
         measurementCount: 0,
         readyProgramCount: 0,
+        nameBookCount: 0,
+        strengthGoalCount: 0,
+        coachGoalCount: 0,
       });
     },
   },
@@ -229,6 +232,9 @@ module.exports = [
         bodyweightCount: 0,
         measurementCount: 0,
         readyProgramCount: 0,
+        nameBookCount: 0,
+        strengthGoalCount: 0,
+        coachGoalCount: 0,
         workoutInProgress: false,
       });
       assert.equal(summary.keepingLocalShrinksCloud, true);
@@ -287,6 +293,9 @@ module.exports = [
         bodyweightCount: 200,
         measurementCount: 0,
         readyProgramCount: 0,
+        nameBookCount: 0,
+        strengthGoalCount: 0,
+        coachGoalCount: 0,
         workoutInProgress: true,
       });
       assert.equal(runner.keepingLocalShrinksCloud, false);
@@ -613,6 +622,36 @@ module.exports = [
       const en = confirmUploadCopy({ email: 'other@example.com', local }, 'en');
       assert.match(en.body, /Back it up to other@example\.com\?$/);
       assert.equal(en.skip, 'Not now');
+    },
+  },
+  {
+    // A phone holding only what the reader wrote (their lift names, a strength target, a goal told to the coach)
+    // is asked about, and the question has to show it: "0 workouts" beside a one-tap "Keep this phone" hid it.
+    name: 'account backup: the question counts the lift names, strength goals and coach goals each side holds, in both languages',
+    run() {
+      const { confirmUploadCopy } = require('../../.test-dist/lib/accountBackupCopy.js');
+      const database = makeDatabase({
+        exerciseNameBook: [{ alias: 'a' }, { alias: 'b' }],
+        preferences: { appLanguage: 'fi', strengthGoals: [{ exerciseName: 'Deadlift', targetKg: 180 }], coachGoals: [{ id: 'g1' }, { id: 'g2' }, { id: 'g3' }] },
+      });
+      const counted = countBackupContents(database);
+      assert.equal(counted.nameBookCount, 2);
+      assert.equal(counted.strengthGoalCount, 1);
+      assert.equal(counted.coachGoalCount, 3);
+      assert.equal(countBackupContents({}).nameBookCount, 0, 'an old backup without the collection counts none');
+      assert.equal(countBackupContents({ preferences: { strengthGoals: 'x', coachGoals: null } }).coachGoalCount, 0);
+      const local = { ...counted, workoutInProgress: false };
+      const only = { workoutCount: 0, customProgramCount: 0, readyProgramCount: 0, cardioCount: 0, bodyweightCount: 0, measurementCount: 0 };
+      const en = confirmUploadCopy({ email: null, local: { ...only, nameBookCount: 2, strengthGoalCount: 1, coachGoalCount: 3, workoutInProgress: false } }, 'en');
+      assert.match(en.body, /(2 saved lift names, 1 strength goal, 3 coach goals)/);
+      const fi = confirmUploadCopy({ email: null, local: { ...only, nameBookCount: 1, strengthGoalCount: 2, coachGoalCount: 1, workoutInProgress: false } }, 'fi');
+      assert.match(fi.body, /(1 tallennettu liikenimi, 2 voimatavoitetta, 1 valmentajan tavoite)/);
+      const question = restoreQuestionCopy(
+        { cloud: { exportedAt: '2026-09-12T10:00:00.000Z', ...only }, local: { ...local, ...only, nameBookCount: 1 }, keepingLocalShrinksCloud: false, localFromOtherAccount: false },
+        'en',
+      );
+      assert.match(question.body, /1 saved lift name/, 'the phone side shows what it holds');
+      assert.doesNotMatch(question.body, /This phone[^.]*0 workouts/);
     },
   },
 ];

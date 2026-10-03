@@ -44,6 +44,15 @@ function contentsList(contents: BackupContents & { workoutInProgress?: boolean }
     contents.measurementCount > 0
       ? count(contents.measurementCount, language, 'account.count.measurements', 'account.count.measurements.one')
       : null,
+    // What the reader wrote: a phone holding only these is asked about too, and "0 workouts" beside a one-tap
+    // "Keep this phone" hid what that would replace.
+    contents.nameBookCount > 0 ? count(contents.nameBookCount, language, 'account.count.nameBook', 'account.count.nameBook.one') : null,
+    contents.strengthGoalCount > 0
+      ? count(contents.strengthGoalCount, language, 'account.count.strengthGoals', 'account.count.strengthGoals.one')
+      : null,
+    contents.coachGoalCount > 0
+      ? count(contents.coachGoalCount, language, 'account.count.coachGoals', 'account.count.coachGoals.one')
+      : null,
     // Restoring puts it away, so it is on the scale with the rest.
     contents.workoutInProgress ? t(language, 'account.count.inProgress') : null,
   ].filter((part): part is string => part !== null);

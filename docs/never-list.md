@@ -44,7 +44,7 @@ rather than adding a parallel check.
   bodyweight, measurements, cardio, name book and settings (device-only fields
   excepted), across versions; a restore never silently drops newer local data
   without the reader choosing it.
-  [backup round-trip invariant: next]
+  [backup round-trip invariant: `tests/features/account/backupRoundTripInvariant.test.cjs`]
 
 ## N6 Success is never claimed before it happened
 
@@ -52,7 +52,10 @@ rather than adding a parallel check.
   resolved (CLAUDE.md rule). Covered inside each invariant above; for the
   workout save, the lifecycle invariant checks that the finished mark, the
   completion summary and the summary route only appear once the session is on
-  disk.
+  disk. For the backup, the round-trip invariant checks that "backed up" means
+  the store holds the copy (and that a refused or over-size upload leaves the
+  old copy untouched and says nothing of success) and that "restored" means both
+  stores are on disk.
 
 ## Running the workout lifecycle invariant
 
@@ -67,3 +70,22 @@ values that rerun it. `WORKOUT_INVARIANT_STATS=1` prints what the sequences
 reached. There are no relaxations: the two behaviours the first run found (a
 finished session blocking Start, and a free workout board saved twice) are
 fixed and held as invariants.
+
+## Running the backup round-trip invariant
+
+```powershell
+npx tsc -p tsconfig.test.json
+node tests/run-tests.cjs
+```
+
+1000 random databases plus the 16 past releases are backed up through the real
+client and endpoint and restored on the same phone, a new one, one holding other
+data and one last signed in to another account; older releases' own payload
+builders (`tests/fixtures/backup-history`, rebuilt with `build-payloads.cjs`) and
+payloads at the gzip threshold and the 4 MiB cap are run too. A failure prints the
+shortest case and the `BACKUP_ROUNDTRIP_REPLAY` that reruns it; also
+`BACKUP_ROUNDTRIP_SEED`, `BACKUP_ROUNDTRIP_SEQUENCES`, `BACKUP_ROUNDTRIP_STATS=1`.
+
+The first run found two behaviours on main, both fixed and held as fixed cases: a restore whose
+history write is refused is rolled back exactly (not through the restore merge), and a name book,
+strength goals or coach goals the reader wrote count as data worth keeping, so a restore over them asks.

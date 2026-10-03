@@ -204,7 +204,7 @@ module.exports = [
       const apply = hook.slice(hook.indexOf('const applyRestore = useCallback('), hook.indexOf('const askRestoreOrKeep = useCallback('));
       assert.match(
         apply,
-        /const database = await restoreDatabase\(payload\.database\);\s*ensureCurrent\(generation\);\s*let history: WorkoutHistoryStore;\s*try \{\s*history = await restoreWorkoutHistory\(payload\.workoutHistory\);\s*\} catch \(error\) \{\s*if \(generationRef\.current === generation\) \{\s*try \{\s*await restoreDatabase\(previous\);[\s\S]*?throw error;\s*\}\s*ensureCurrent\(generation\);/,
+        /const database = await restoreDatabase\(payload\.database\);\s*ensureCurrent\(generation\);\s*let history: WorkoutHistoryStore;\s*try \{\s*history = await restoreWorkoutHistory\(payload\.workoutHistory\);\s*\} catch \(error\) \{\s*if \(generationRef\.current === generation\) \{\s*try \{\s*await restoreDatabase\(previous, \{ rollback: true \}\);[\s\S]*?throw error;\s*\}\s*ensureCurrent\(generation\);/,
       );
     },
   },
