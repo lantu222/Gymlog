@@ -161,6 +161,25 @@ export function readChunkManifest(head: string): ChunkManifest | null {
 }
 
 /**
+ * A head that claims to be a manifest, whether or not it reads as one.
+ *
+ * Every value stored here is JSON and starts with `{`, so a head beginning
+ * with the prefix was written as a manifest and later damaged. It is never the
+ * value itself: handed on as one it fails to parse, the caller sets that one
+ * line aside, and the empty value it then saves sweeps the parts the line
+ * used to name.
+ *
+ * A manifest is one short line. The remains `describeIncompleteChunks` keeps
+ * under a corrupt key also start with the prefix, on purpose, and run on over
+ * many lines: those are stored values like any other and read back as such.
+ */
+export function isDamagedChunkManifest(head: string): boolean {
+  return (
+    head.startsWith(MANIFEST_PREFIX) && head.length <= 64 && !/[\r\n]/.test(head) && readChunkManifest(head) === null
+  );
+}
+
+/**
  * The parts joined back into the value, or null when any is missing or the
  * result is not the length the manifest wrote down.
  */

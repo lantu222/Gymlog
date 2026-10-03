@@ -27,29 +27,10 @@ const { createFakeAsyncStorage, loadAgainstFake } = require('./fakeAsyncStorage.
  * What the invariant does NOT promise: a quarantined blob is not loaded back
  * automatically, only kept. A collection or element that was itself corrupted
  * may be dropped or defaulted.
- *
- * KNOWN_GAPS lists the failures this found on main. They are tolerated by
- * signature so a NEW class of failure still fails the suite, and every one of
- * them fails outright with STORAGE_INVARIANT_STRICT=1. A gap leaves this list
- * only by being fixed.
  */
 
-const STRICT = process.env.STORAGE_INVARIANT_STRICT === '1';
 const FUZZ_CASES = 2400;
 const FUZZ_SEED = 0x5eed2026;
-
-const KNOWN_GAPS = {
-  // A manifest row that is no longer a manifest (a corrupted head, parts
-  // intact) reads back as the value itself: largeItem.ts:79-82 hands the head
-  // string on, it fails JSON.parse, loadDatabase's catch keeps only that one
-  // line under the corrupt key (database.ts:1382) and then saves the empty
-  // database (database.ts:1402), whose write sweeps `#0..` as unreferenced
-  // (largeItem.ts:136). Every part is deleted with no copy kept. The workout
-  // bundle takes the same path (workoutPersistence.ts:286 then the first save).
-  // Needs a damaged head row, which a multiSet transaction does not produce by
-  // itself; it is here because the parts were readable and the loader removed them.
-  'chunk|corrupt-manifest': 'parts swept after a damaged manifest',
-};
 
 const FIXTURE_DIR = path.join(__dirname, '..', 'fixtures', 'storage-history');
 const DB_KEYS = ['@vinha/database/v1', '@gymlog/database/v1'];
@@ -782,6 +763,21 @@ async function chunkFaults(rows) {
       problems.push({ label, problem: `opened empty; ${survivingParts.length} surviving parts were swept and the corrupt copy holds none of their sessions` });
     }
   }
+  // The workout bundle reads through the same writer: a damaged head, intact
+  // parts, and its first save must not take the parts with it.
+  {
+    const map = new Map(rows);
+    map.set('@vinha/workout/v1', 'vinha-chunks:3:abc');
+    const app = open([...map.entries()]);
+    const loaded = await app.workout.loadWorkoutBundle();
+    await app.workout.saveWorkoutBundle(loaded);
+    const kept = await app.large.getLargeItem(WK_CORRUPT);
+    if (loaded.history.sessions.length > 0) {
+      problems.push({ label: 'corrupt-manifest-workout', problem: 'a damaged manifest loaded as if whole' });
+    } else if (kept === null || (kept.match(/wk_long_/g) || []).length === 0) {
+      problems.push({ label: 'corrupt-manifest-workout', problem: 'the workout parts were swept and the corrupt copy holds none of their sessions' });
+    }
+  }
   return problems;
 }
 
@@ -844,11 +840,7 @@ function reportGaps(label, failures) {
   for (const failure of failures) {
     for (const problem of failure.problems) {
       const sig = signature(failure.testCase, problem);
-      if (KNOWN_GAPS[sig] && !STRICT) {
-        known.set(sig, (known.get(sig) || 0) + 1);
-      } else {
-        unknown.push({ failure, problem, sig });
-      }
+      unknown.push({ failure, problem, sig });
     }
   }
   return { unknown, known };
@@ -886,12 +878,7 @@ module.exports = [
       const fixtures = loadFixtures();
       const rows = await checkLongHistory(fixtures[fixtures.length - 1]);
       const problems = [...(await chunkFaults(rows)), ...(await shortenedHistoryNeverParses())];
-      const gaps = problems.filter((entry) => !(KNOWN_GAPS[`chunk|${entry.label}`] && !STRICT));
-      assert.deepEqual(gaps, [], gaps.map((entry) => `${entry.label}: ${entry.problem}`).join('\n'));
-      // A gap that no longer reproduces has been fixed: take it off the list.
-      for (const gap of Object.keys(KNOWN_GAPS).filter((name) => name.startsWith('chunk|'))) {
-        assert.ok(problems.some((entry) => `chunk|${entry.label}` === gap), `${gap} no longer reproduces; remove it from KNOWN_GAPS`);
-      }
+      assert.deepEqual(problems, [], problems.map((entry) => `${entry.label}: ${entry.problem}`).join('\n'));
     },
   },
   {
