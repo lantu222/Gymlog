@@ -1146,9 +1146,10 @@ async function finishGuided(ev) {
     return;
   }
   if (session.status === 'completed') {
-    // Held as finished until its summary clears it: the player is not reachable for it (navigateToActiveWorkout
-    // refuses it), so there is no Finish to press. Finishing it here made a failed save "leave no resumable session"
-    // that no reader could have reached (bug hunt 5, 2026-10-03: seeds 1-8, 777, 4242, 31337).
+    // Held as finished until its summary clears it, and saved already: no caller opens the player for it
+    // (navigateToActiveWorkout refuses it), so there is no Finish to press. Finishing it here made a failed save
+    // "leave no resumable session" that no reader could have reached (bug hunt 5, 2026-10-03: it failed at seeds 1,
+    // 2, 3 and 777 within 30 000 sequences).
     count('finish not offered: the session is already finished');
     return;
   }
@@ -1461,8 +1462,9 @@ async function finishFreestyle(ev) {
       fail('2', 'a free workout whose save failed left its template behind');
     }
     // A failed write leaves the database in memory as it was. A board with no earlier save has no row; one under the id
-    // of its own earlier save is that row, as it was stored: the failed merge changed none of it. (Read as "any row
-    // under that id", a failed merge into a stored row looked like a leaked one: bug hunt 5, 2026-10-03.)
+    // of its own earlier save keeps that row with the sets it was stored with (checkDatabase: every saved session holds
+    // exactly its expected sets, and no row stands without a resolved save). (Read as "any row under that id", a
+    // failed merge into a stored row looked like a leaked one: bug hunt 5, 2026-10-03.)
     if (!idHeld && world.lastSave && proc.dbRef.current.workoutSessions.some((row) => row.id === world.lastSave.sessionId)) {
       fail('2', 'a free workout whose save failed is in the database in memory');
     }

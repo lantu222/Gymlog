@@ -587,11 +587,10 @@ module.exports = [
       // A finished session held until its summary clears it is saved, not in progress (bug hunt 2026-10-03): the
       // same answer isWorkoutInProgress gives every other caller.
       assert.equal(hasWorkoutInProgress({ ...none, activeSession: { sessionId: 's', status: 'completed' } }), false);
-      assert.equal(
-        hasLocalDataWorthKeeping(makeDatabase(), hasWorkoutInProgress({ ...none, activeSession: { sessionId: 's', status: 'completed' } })),
-        false,
-        'an otherwise empty phone holding a finished session restores without a question about a workout in progress',
-      );
+      const cloudCopy = buildAccountBackupPayload(makeDatabase({ workoutSessions: [{}] }), HISTORY, '2026-09-20T12:00:00.000Z');
+      const finished = describeRestoreChoice(cloudCopy, makeDatabase({ workoutSessions: [{}] }), hasWorkoutInProgress({ ...none, activeSession: { sessionId: 's', status: 'completed' } }), HISTORY);
+      assert.equal(finished.local.workoutInProgress, false, 'the question does not call a saved workout one in progress');
+      assert.doesNotMatch(restoreQuestionCopy(finished, 'en').body, /workout in progress/);
       assert.equal(hasWorkoutInProgress({ ...none, activeCardio: { activityType: 'run' } }), true);
       const draft = { exercises: [{ localKey: 'k', name: 'Bench Press', sets: [{ localKey: 's', kg: '80', reps: '8', done: true }] }] };
       assert.equal(hasWorkoutInProgress({ ...none, freestyleDraft: draft }), true, 'the free workout was not counted');

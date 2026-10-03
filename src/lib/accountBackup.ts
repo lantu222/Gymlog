@@ -265,8 +265,8 @@ export function describeRestoreChoice(
  *
  * A guided session held as 'completed' is a finished one waiting for its summary to clear it, saved
  * already: not a workout in progress, the same answer every other caller gets (isWorkoutInProgress).
- * Counted, it put "This phone has a workout in progress" in the restore question, and made an
- * otherwise empty phone ask before a restore (bug hunt 2026-10-03).
+ * Counted, it put "This phone has a workout in progress" in the restore question over a workout
+ * that is in History already (bug hunt 2026-10-03). Its saved row still counts as data worth keeping.
  */
 export function hasWorkoutInProgress(player: {
   activeSession: { status?: string } | null | undefined;
