@@ -948,7 +948,11 @@ export function ProgramsHomeScreen({
                 accessibilityRole="button"
                 accessibilityLabel={`${t(language, entry.labelKey)}, ${categoryCounts[entry.key]}`}
                 onPress={() => setSheet({ kind: 'category', key: entry.key })}
-                style={({ pressed }) => [styles.catTileWrap, pressed && styles.pressed]}
+                style={({ pressed }) => [
+                  styles.catTileWrap,
+                  allCategories && styles.catTileWrapGrid,
+                  pressed && styles.pressed,
+                ]}
               >
                 {/* One container decision, and this is it: a solid disc in the
                     category's own ink with the mark knocked out in white.
@@ -1733,12 +1737,17 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderColor: theme.border,
   },
   // ── Category tiles ───────────────────────────────────────────────────
+  // Expanded, the nine tiles fill the width three to a row (#bugs
+  // 2026-10-03): fixed 78-wide cells wrapped three to a row left a third of
+  // the screen empty, and the narrow cell broke "Rasvanpoltto" mid-word.
   tileGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
     rowGap: 16,
     paddingVertical: 4,
+  },
+  catTileWrapGrid: {
+    width: '33.333%',
   },
   tileRow: {
     gap: 12,
