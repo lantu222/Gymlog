@@ -35,7 +35,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx tsc -p tsconfig.test.json
+      # The account deletion page is served from styxon.fi only: it signs in
+      # with Google, whose client allows that origin and not this one.
       - run: node scripts/build-legal-site.cjs
+        env:
+          LEGAL_SITE_WITHOUT_WEB_DELETION: '1'
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist-legal

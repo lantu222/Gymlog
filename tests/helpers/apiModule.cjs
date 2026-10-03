@@ -38,7 +38,7 @@ function loadApiModule(relativeFile, stubs = {}) {
 
 /** A request the handler can take, and the response it wrote. */
 async function callHandler(handler, request) {
-  const result = { status: 200, body: null };
+  const result = { status: 200, body: null, headers: {} };
   const res = {
     status(code) {
       result.status = code;
@@ -47,7 +47,9 @@ async function callHandler(handler, request) {
     json(value) {
       result.body = value;
     },
-    setHeader() {},
+    setHeader(name, value) {
+      result.headers[name.toLowerCase()] = value;
+    },
     end(text) {
       result.body = text ? JSON.parse(text) : null;
     },

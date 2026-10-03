@@ -260,3 +260,28 @@ them would orphan every existing backup.
 Setup: nothing on the server beyond the existing env (`APPLE_BUNDLE_ID` only if
 the bundle id ever changes). On Apple's side, the App ID needs the "Sign in
 with Apple" capability; EAS sets it from `ios.usesAppleSignIn`.
+
+## Deleting from the web page (2026-10-03)
+
+`styxon.fi/vinha-fitness/legal/delete-account.{fi,en}` (the Play Data safety
+deletion URL) signs a reader in with Google in the browser and sends the app's
+own request: `DELETE` with the ID token and `x-backup-action: delete-account`.
+The token comes from the same **Web** OAuth client as the app's
+(`GOOGLE_WEB_CLIENT_ID`), so the server checks it as it checks the app's, and
+the `sub`, hence the blob, is the same.
+
+- **Google Cloud Console**: that Web client's *Authorized JavaScript origins*
+  must list `https://styxon.fi` and `https://www.styxon.fi`, or Google refuses
+  the sign-in on the page.
+- **CORS** (`src/lib/webAccountDeletion.ts`): only `DELETE` and its preflight
+  from those two origins get an `Access-Control-Allow-Origin`. A `GET` with a
+  token is not preflighted by method, so it gets none; the browser then keeps
+  the backup from the page.
+- The page cannot reach the coach copies (they are filed under the phone's
+  `aiLogId`, not the account); the page and the policy say so, and they expire
+  with the 24-month prune.
+- Apple accounts: in the app only, until the plan in docs/ios-launch.md.
+- Publishing: `npx tsc -p tsconfig.test.json && node scripts/build-legal-site.cjs`
+  (reads `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` from `.env.local`), copy
+  `dist-legal/` into the styxon.fi site, upload. The API change needs a Vercel
+  deploy first, or the page's request is refused by the browser.

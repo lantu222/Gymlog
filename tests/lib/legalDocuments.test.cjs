@@ -35,8 +35,9 @@ const LEGAL_TEXT_VERSIONS = [
   { date: '2026-10-03', fingerprint: 'e5d4d3139906bfd2' },
   // Error reports join the usage statistics (same switch, same retention).
   { date: '2026-10-04', fingerprint: '7444fcea5efd63d0' },
-  // The crash screen's set-aside copy joins the bookkeeping line.
-  { date: '2026-10-05', fingerprint: '877f77b1df1b5f15' },
+  // The crash screen's set-aside copy joins the bookkeeping line; account
+  // deletion without the app, on the web page.
+  { date: '2026-10-05', fingerprint: '75c46b9081ec08fb' },
 ];
 
 const IDS = ['privacy', 'terms'];
