@@ -16,9 +16,9 @@ No ads, no trackers, no selling of data. If something in this policy is unclear,
 
 ## Who is responsible
 
-Santeri Ylönen (Finland) publishes Vinha Fitness (“Vinha”) and is the data controller — the one responsible for how your data is handled — for everything described in this policy.
+Styxon Studio (sole trader Santeri Ylönen, business ID 3321575-3, Finland) publishes Vinha Fitness (“Vinha”) and is the data controller — the one responsible for how your data is handled — for everything described in this policy.
 
-Questions about this policy or your data: santeriylonen@gmail.com.
+Questions about this policy or your data: privacy@vinha.app.
 
 ## What the app stores on your phone
 
@@ -200,7 +200,7 @@ Most of these you exercise yourself, inside the app, without asking anyone. For 
 - Delete it: Settings → Reset all data clears the phone, Settings → Delete cloud backup clears the server copy, and Settings → Delete account clears the server copy and any coach copies you had allowed us to keep, and signs you out. Uninstalling the app removes the phone copy too. Usage statistics cannot be traced back to you, so there is nothing of yours to find in them.
 - Take it with you: Settings → Export plan (CSV) sends your programme, or every logged set, as CSV text to any app you choose.
 - Withdraw consent or object: delete the cloud backup and sign out; stop sending questions to the coach; switch usage statistics off in Settings.
-- Complain: write to santeriylonen@gmail.com first, so we can put it right. You also have the right to complain to the data protection authority — in Finland, the Office of the Data Protection Ombudsman, tietosuoja.fi or tietosuoja@om.fi.
+- Complain: write to privacy@vinha.app first, so we can put it right. You also have the right to complain to the data protection authority — in Finland, the Office of the Data Protection Ombudsman, tietosuoja.fi or tietosuoja@om.fi.
 
 ## Children
 

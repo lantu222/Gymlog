@@ -16,9 +16,9 @@ Ei mainoksia, ei seurantaa, ei tietojen myyntiä. Jos jokin tässä selosteessa 
 
 ## Kuka vastaa
 
-Santeri Ylönen (Suomi) julkaisee Vinha Fitness -sovelluksen (”Vinha”) ja on rekisterinpitäjä eli se, joka vastaa tietojesi käsittelystä kaikessa, mitä tässä selosteessa kuvataan.
+Styxon Studio (toiminimi, haltija Santeri Ylönen, Y-tunnus 3321575-3, Suomi) julkaisee Vinha Fitness -sovelluksen (”Vinha”) ja on rekisterinpitäjä eli se, joka vastaa tietojesi käsittelystä kaikessa, mitä tässä selosteessa kuvataan.
 
-Kysymykset tästä selosteesta tai tiedoistasi: santeriylonen@gmail.com.
+Kysymykset tästä selosteesta tai tiedoistasi: privacy@vinha.app.
 
 ## Mitä sovellus tallentaa puhelimeesi
 
@@ -200,7 +200,7 @@ Suurimman osan näistä teet itse sovelluksessa keneltäkään kysymättä. Muis
 - Poista ne: Asetukset → Nollaa kaikki tiedot tyhjentää puhelimen, Asetukset → Poista pilvivarmuuskopio tyhjentää palvelinkopion ja Asetukset → Poista tili tyhjentää palvelinkopion ja ne valmentajan kopiot, joiden säilyttämisen olit sallinut, ja kirjaa sinut ulos. Sovelluksen poistaminen poistaa myös puhelimen kopion. Käyttötilastoja ei voi jäljittää sinuun, joten niistä ei löydy mitään sinun.
 - Ota ne mukaasi: Asetukset → Vie ohjelma (CSV) lähettää ohjelmasi tai jokaisen kirjatun sarjan CSV-tekstinä valitsemaasi sovellukseen.
 - Peruuta suostumus tai vastusta: poista pilvivarmuuskopio ja kirjaudu ulos; lakkaa lähettämästä kysymyksiä valmentajalle; kytke käyttötilastot pois asetuksista.
-- Valita: kirjoita ensin osoitteeseen santeriylonen@gmail.com, jotta voimme korjata asian. Sinulla on myös oikeus tehdä valitus tietosuojaviranomaiselle — Suomessa tietosuojavaltuutetun toimistolle, tietosuoja.fi tai tietosuoja@om.fi.
+- Valita: kirjoita ensin osoitteeseen privacy@vinha.app, jotta voimme korjata asian. Sinulla on myös oikeus tehdä valitus tietosuojaviranomaiselle — Suomessa tietosuojavaltuutetun toimistolle, tietosuoja.fi tai tietosuoja@om.fi.
 
 ## Lapset
 
