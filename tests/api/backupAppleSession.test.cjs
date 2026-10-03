@@ -54,6 +54,16 @@ function pathBlobStore() {
     afterList: null,
     // { release: Promise } — the first write to revoked/ waits for it, after saying it got there.
     holdMarkerPut: null,
+    // { pathname, reached, release } — the next del of that pathname waits for release, after saying it got there.
+    holdDel: null,
+    // What a del was asked, in order: { pathname, ifMatch }.
+    delCalls: [],
+    // Every write that was accepted, in order: { pathname, body }.
+    putLog: [],
+    // Rewrites the etag get() reports (the content response's header can be written differently from the API's).
+    getEtag: (etag) => etag,
+    // A predicate on the pathname: the next read of it hands out a body that fails part-way.
+    breakBodyOnce: null,
     /** A blob that was written at a given time, without going through the endpoint. */
     seed(pathname, body, uploadedMs) {
       blobs.set(pathname, body);
@@ -64,7 +74,7 @@ function pathBlobStore() {
       if (!blobs.has(pathname)) {
         throw new BlobNotFoundError();
       }
-      return { etag: '"etag"' };
+      return { etag: pathname.startsWith('revoked/') ? `"v${versions.get(pathname) ?? 0}"` : '"etag"' };
     },
     async get(pathname) {
       if (store.failGets?.(pathname)) {
@@ -78,10 +88,18 @@ function pathBlobStore() {
               statusCode: 200,
               stream: new Blob([body]).stream(),
               blob: {
-                etag: `"v${versions.get(pathname) ?? 0}"`,
+                etag: store.getEtag(`"v${versions.get(pathname) ?? 0}"`),
                 uploadedAt: store.lastModifiedMissing ? new Date(Date.now()) : new Date(uploaded.get(pathname) ?? Date.now()),
               },
             };
+      if (answer && store.breakBodyOnce?.(pathname)) {
+        store.breakBodyOnce = null;
+        answer.stream = new ReadableStream({
+          pull(controller) {
+            controller.error(new TypeError('terminated'));
+          },
+        });
+      }
       store.afterGet?.(pathname);
       return answer;
     },
@@ -116,13 +134,23 @@ function pathBlobStore() {
       if (options.ifMatch && pathname.startsWith('revoked/') && options.ifMatch !== `"v${versions.get(pathname) ?? 0}"`) {
         throw new BlobPreconditionFailedError();
       }
+      store.putLog.push({ pathname, body });
       blobs.set(pathname, body);
       uploaded.set(pathname, Date.now());
       versions.set(pathname, (versions.get(pathname) ?? 0) + 1);
       return { etag: '"etag"' };
     },
-    async del(pathnames) {
+    async del(pathnames, options = {}) {
       for (const pathname of [].concat(pathnames)) {
+        store.delCalls.push({ pathname, ifMatch: options.ifMatch });
+        if (store.holdDel && !store.holdDel.taken && store.holdDel.pathname === pathname) {
+          store.holdDel.taken = true;
+          store.holdDel.reached();
+          await store.holdDel.release;
+        }
+        if (options.ifMatch && options.ifMatch !== `"v${versions.get(pathname) ?? 0}"`) {
+          throw new BlobPreconditionFailedError();
+        }
         blobs.delete(pathname);
       }
     },
@@ -614,9 +642,8 @@ module.exports = [
         store.failList = true;
         clock.advance(182 * DAY);
         const fresh = (await exchange(appleToken())).body.sessionToken;
-        assert.equal(markers(blobs), 1);
         assert.equal((await call('GET', fresh)).status, 404);
-        assert.equal(markers(blobs), 0, 'the read did not remove the old marker');
+        assert.equal(markers(blobs), 0, 'the account’s own requests did not remove its old marker');
       });
     },
   },
@@ -694,8 +721,9 @@ module.exports = [
         assert.equal(JSON.parse(blobs.get(path)).revokedAtMs, later, 'the rewrite moved a valid marker backwards');
         // A session issued before that later stamp is ended by it, as the deletion meant.
         clock.advance(1);
-        const between = (await exchange(appleToken())).body.sessionToken;
-        assert.equal((await call('GET', between)).status, 401);
+        const between = await exchange(appleToken());
+        assert.equal(between.status, 401, 'a sign-in before that later stamp bought a session');
+        assert.equal(between.body.error, 'SESSION_REVOKED');
       });
     },
   },
@@ -716,6 +744,240 @@ module.exports = [
         const retry = await call('DELETE', session, { 'x-backup-action': 'delete-account' });
         assert.equal(retry.status, 401);
         assert.equal(retry.body.error, 'SESSION_REVOKED');
+      });
+    },
+  },
+  {
+    name: 'apple backup: a marker body that fails part-way is a 502 and is left as it was — never rewritten with the store’s time',
+    async run() {
+      const markerOf = (blobs) => [...blobs.keys()].find((key) => key.startsWith('revoked/'));
+      await withEndpoint(async ({ call, exchange, blobs, clock, store }) => {
+        const old = (await exchange(appleToken())).body.sessionToken;
+        assert.equal((await call('DELETE', old, { 'x-backup-action': 'delete-account' })).status, 200);
+        const path = markerOf(blobs);
+        const before = blobs.get(path);
+        clock.advance(60 * 1000);
+        const fresh = (await exchange(appleToken())).body.sessionToken;
+
+        // The store sends no Last-Modified, so a rewrite would date the marker "now" and refuse `fresh`.
+        store.lastModifiedMissing = true;
+        const puts = store.putLog.length;
+        for (const request of [
+          () => call('GET', fresh),
+          () => call('POST', fresh, { 'x-backup-action': 'apple-renew' }),
+          () => exchange(appleToken()),
+        ]) {
+          store.breakBodyOnce = (pathname) => pathname === path;
+          const answer = await request();
+          assert.equal(answer.status, 502, 'a stream error on a valid marker was not a store failure');
+          assert.equal(answer.body.error, 'STORE_UNAVAILABLE');
+          assert.equal(store.putLog.length, puts, 'a marker that could not be read was rewritten');
+          assert.equal(blobs.get(path), before);
+        }
+        // The next read is the marker as it always was.
+        clock.advance(1000);
+        assert.equal((await call('GET', fresh)).status, 404);
+        assert.equal((await call('GET', old)).status, 401);
+      });
+    },
+  },
+  {
+    name: 'apple backup: a stale marker is removed only if it is still the copy that was read — a Delete account stamped meanwhile survives',
+    async run() {
+      const { createHmac } = require('node:crypto');
+      const DAY = 24 * 60 * 60 * 1000;
+      const pathOf = (sub) => `revoked/${createHmac('sha256', 'test-secret').update(`revoked:apple:${sub}`).digest('hex')}.json`;
+      const held = (store, pathname) => {
+        let reached;
+        const gotThere = new Promise((resolve) => (reached = resolve));
+        let release;
+        store.holdDel = { pathname, taken: false, reached, release: new Promise((resolve) => (release = resolve)) };
+        return { gotThere, release };
+      };
+
+      // A request from the account itself: its del of the stale marker is in flight when Delete account lands.
+      await withEndpoint(async ({ call, exchange, blobs, clock, store }) => {
+        const phoneA = (await exchange(appleToken())).body.sessionToken;
+        clock.advance(5);
+        const phoneB = (await exchange(appleToken())).body.sessionToken;
+        const path = pathOf('apple-user-1');
+        store.seed(path, JSON.stringify({ revokedAtMs: Date.now() - 200 * DAY }), Date.now() - 200 * DAY);
+        const hold = held(store, path);
+        const bGet = call('GET', phoneB);
+        await hold.gotThere;
+        clock.advance(5);
+        assert.equal((await call('DELETE', phoneA, { 'x-backup-action': 'delete-account' })).status, 200);
+        hold.release();
+        assert.equal((await bGet).status, 404, 'a phone whose request began before the deletion was answered');
+        assert.ok(blobs.has(path), 'a stale-marker removal erased the revocation written meanwhile');
+        assert.ok(JSON.parse(blobs.get(path)).revokedAtMs > Date.now() - DAY);
+        clock.advance(1000);
+        for (const answer of [
+          await call('GET', phoneB),
+          await call('PUT', phoneB, { 'x-backup-expected-version': 'none' }, copy('resurrected')),
+          await call('POST', phoneB, { 'x-backup-action': 'apple-renew' }),
+        ]) {
+          assert.equal(answer.status, 401);
+          assert.equal(answer.body.error, 'SESSION_REVOKED');
+        }
+        const markerDels = store.delCalls.filter((entry) => entry.pathname.startsWith('revoked/'));
+        assert.ok(markerDels.length > 0 && markerDels.every((entry) => entry.ifMatch), 'a marker was deleted unconditionally');
+      });
+
+      // The sweep: the same, from another account's sign-in.
+      await withEndpoint(async ({ call, exchange, blobs, clock, store }) => {
+        const phoneA = (await exchange(appleToken())).body.sessionToken;
+        clock.advance(5);
+        const path = pathOf('apple-user-1');
+        store.seed(path, JSON.stringify({ revokedAtMs: Date.now() - 200 * DAY }), Date.now() - 200 * DAY);
+        const hold = held(store, path);
+        const sweeping = exchange(appleToken({ sub: 'someone-else' }));
+        await hold.gotThere;
+        clock.advance(5);
+        assert.equal((await call('DELETE', phoneA, { 'x-backup-action': 'delete-account' })).status, 200);
+        hold.release();
+        assert.equal((await sweeping).status, 200);
+        assert.ok(blobs.has(path), 'the sweep erased the revocation written after it re-read the marker');
+        clock.advance(1000);
+        assert.equal((await call('GET', phoneA)).body.error, 'SESSION_REVOKED');
+      });
+
+      // A stale marker nobody touches is still removed — conditionally on the copy read, however the store writes its ETags.
+      for (const [label, getEtag, removed] of [
+        ['the same form', (etag) => etag, true],
+        ['a weak, unquoted form of the same value', (etag) => `W/${etag.replace(/"/g, '')}`, true],
+        ['a form that cannot be matched', () => 'some-other-scheme', false],
+      ]) {
+        await withEndpoint(async ({ call, exchange, blobs, clock, store }) => {
+          const session = (await exchange(appleToken())).body.sessionToken;
+          clock.advance(5);
+          const path = pathOf('apple-user-1');
+          store.seed(path, JSON.stringify({ revokedAtMs: Date.now() - 200 * DAY }), Date.now() - 200 * DAY);
+          store.getEtag = getEtag;
+          assert.equal((await call('GET', session)).status, 404, `${label}: the request failed`);
+          assert.equal(blobs.has(path), !removed, `${label}: ${removed ? 'a stale marker stayed' : 'a marker was removed without a matching ETag'}`);
+          const dels = store.delCalls.filter((entry) => entry.pathname === path);
+          assert.equal(dels.length, removed ? 1 : 0, label);
+          assert.ok(dels.every((entry) => entry.ifMatch), `${label}: unconditional del`);
+        });
+      }
+    },
+  },
+  {
+    name: 'apple backup: an identity token issued before Delete account cannot buy a session after it — a new sign-in still can',
+    async run() {
+      await withEndpoint(async ({ call, exchange, clock, store }) => {
+        const early = appleToken(); // issued now, and good for ten minutes
+        const session = (await exchange(appleToken())).body.sessionToken;
+        assert.equal((await exchange(early)).status, 200, 'the token is good before the deletion (and more than once)');
+        clock.advance(2000);
+        assert.equal((await call('DELETE', session, { 'x-backup-action': 'delete-account' })).status, 200);
+
+        const replay = await exchange(early);
+        assert.equal(replay.status, 401, 'a pre-deletion identity token bought a fresh session');
+        assert.equal(replay.body.error, 'SESSION_REVOKED');
+        assert.equal(replay.body.sessionToken, undefined);
+        // Another Apple ID's token is nobody's business of this marker.
+        assert.equal((await exchange(appleToken({ sub: 'apple-user-2', iat: Math.floor(Date.now() / 1000) - 600 }))).status, 200);
+
+        // A token Apple issues after the deletion is a new sign-in: this second, and the next.
+        const same = await exchange(appleToken());
+        assert.equal(same.status, 200);
+        assert.equal((await call('PUT', same.body.sessionToken, { 'x-backup-expected-version': 'none' }, copy('again'))).status, 200);
+        clock.advance(1500);
+        assert.equal((await exchange(appleToken())).status, 200);
+
+        // A token that names no issue time cannot be shown to be newer than the deletion.
+        const [header, payload] = appleToken().split('.');
+        const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+        delete claims.iat;
+        const bare = `${header}.${Buffer.from(JSON.stringify(claims)).toString('base64url')}`;
+        const resigned = `${bare}.${sign('RSA-SHA256', Buffer.from(bare), privateKey).toString('base64url')}`;
+        assert.equal((await exchange(resigned)).status, 401);
+
+        // A store that cannot be read is a 502 to try again, not a 401 that signs the phone out.
+        store.failGets = (pathname) => pathname.startsWith('revoked/');
+        assert.equal((await exchange(appleToken())).status, 502);
+      });
+    },
+  },
+  {
+    name: 'apple backup: x-delete-request-id is kept in both marker stamps and handed back, with the error and nothing else, to a session the marker refuses',
+    async run() {
+      const id = '0123456789abcdef0123456789abcdef';
+      const markerOf = (blobs) => [...blobs.keys()].find((key) => key.startsWith('revoked/'));
+      const deleteWith = (call, session, requestId) =>
+        call('DELETE', session, { 'x-backup-action': 'delete-account', ...(requestId === undefined ? {} : { 'x-delete-request-id': requestId }) });
+
+      await withEndpoint(async ({ call, exchange, blobs, store }) => {
+        const phoneA = (await exchange(appleToken())).body.sessionToken;
+        const phoneB = (await exchange(appleToken())).body.sessionToken;
+        assert.equal((await deleteWith(call, phoneA, id)).status, 200);
+        const stamps = store.putLog.filter((entry) => entry.pathname.startsWith('revoked/'));
+        assert.equal(stamps.length, 2);
+        for (const stamp of stamps) {
+          assert.equal(JSON.parse(stamp.body).deleteRequestId, id, 'a stamp lost the request id');
+        }
+
+        // Every refusal by that marker names it — the phone that sent it, and another phone of the account.
+        for (const session of [phoneA, phoneB]) {
+          for (const answer of [
+            await call('GET', session),
+            await call('PUT', session, { 'x-backup-expected-version': 'none' }, copy('x')),
+            await call('DELETE', session),
+            await call('POST', session, { 'x-backup-action': 'apple-renew' }),
+          ]) {
+            assert.equal(answer.status, 401);
+            assert.deepEqual(answer.body, { ok: false, error: 'SESSION_REVOKED', deleteRequestId: id });
+          }
+        }
+        // …and so does an identity token from before it.
+        const early = await exchange(appleToken({ iat: Math.floor(Date.now() / 1000) - 600 }));
+        assert.deepEqual(early.body, { ok: false, error: 'SESSION_REVOKED', deleteRequestId: id });
+        // Not an INVALID_TOKEN, and not a Google token's refusal.
+        assert.equal((await call('GET', 'vs1.nonsense')).body.deleteRequestId, undefined);
+        assert.equal((await call('GET', 'google-id-token')).status, 404);
+
+        // A corrupt marker that still names its request keeps it through the rewrite.
+        store.seed(markerOf(blobs), JSON.stringify({ revokedAtMs: 'not a time', deleteRequestId: id }), Date.now() + 1000);
+        const refused = await call('GET', phoneB);
+        assert.deepEqual(refused.body, { ok: false, error: 'SESSION_REVOKED', deleteRequestId: id });
+        assert.equal(JSON.parse(blobs.get(markerOf(blobs))).deleteRequestId, id);
+      });
+
+      // Anything that is not 32 lowercase hex characters is ignored; so is no header, and an old marker has no field.
+      for (const bad of ['0123456789ABCDEF0123456789ABCDEF', '0123456789abcdef0123456789abcde', `${id}0`, 'g'.repeat(32), '', ' ', '{"x":1}']) {
+        await withEndpoint(async ({ call, exchange, store }) => {
+          const session = (await exchange(appleToken())).body.sessionToken;
+          assert.equal((await deleteWith(call, session, bad)).status, 200, JSON.stringify(bad));
+          for (const stamp of store.putLog) {
+            assert.equal(JSON.parse(stamp.body).deleteRequestId, undefined, `${JSON.stringify(bad)} was stored`);
+          }
+          assert.deepEqual((await call('GET', session)).body, { ok: false, error: 'SESSION_REVOKED' });
+        });
+      }
+      await withEndpoint(async ({ call, exchange, store }) => {
+        const session = (await exchange(appleToken())).body.sessionToken;
+        assert.equal((await deleteWith(call, session)).status, 200);
+        assert.deepEqual((await call('GET', session)).body, { ok: false, error: 'SESSION_REVOKED' });
+        // A marker written before the id existed.
+        store.seed(
+          [...store.blobs.keys()].find((key) => key.startsWith('revoked/')),
+          JSON.stringify({ revokedAtMs: Date.now() }),
+          Date.now(),
+        );
+        assert.deepEqual((await call('GET', session)).body, { ok: false, error: 'SESSION_REVOKED' });
+      });
+
+      // The second stamp failing: the phone's retry meets the first stamp's id, which is how it knows the deletion was its own.
+      await withEndpoint(async ({ call, exchange, store }) => {
+        const session = (await exchange(appleToken())).body.sessionToken;
+        let stamps = 0;
+        store.failPuts = (pathname) => pathname.startsWith('revoked/') && (stamps += 1) === 2;
+        assert.equal((await deleteWith(call, session, id)).status, 502);
+        const retry = await deleteWith(call, session, 'fedcba9876543210fedcba9876543210');
+        assert.equal(retry.status, 401);
+        assert.deepEqual(retry.body, { ok: false, error: 'SESSION_REVOKED', deleteRequestId: id });
       });
     },
   },

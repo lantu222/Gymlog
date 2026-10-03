@@ -34,7 +34,9 @@
  *   other; with `none` it writes only where there is no copy yet. When the
  *   store holds anything else it answers 412 BACKUP_CHANGED and writes
  *   nothing. The phone then reads the copy and asks the reader restore-or-keep,
- *   the question it already asks when it holds far less than the cloud.
+ *   the question it already asks when it holds far less than the cloud. The 412
+ *   body carries `version`, the copy the store holds now (null when none), so a
+ *   phone can recognise a copy it wrote itself.
  * - PUT without the header is a build from before versions, and still
  *   overwrites: refusing it would stop every installed phone backing up until
  *   the reader updates, which is a worse loss than the one this closes.
@@ -168,6 +170,15 @@ const APPLE_RENEW_ACTION = 'apple-renew';
  * session that sent it.
  */
 const DELETE_ACCOUNT_ACTION = 'delete-account';
+/**
+ * On a Delete account DELETE: an id the phone made for this attempt (32
+ * lowercase hex characters; anything else is ignored). It is stored in the
+ * revocation marker, and a refusal because of that marker carries it back as
+ * `deleteRequestId`, so a phone whose answer was lost can tell its own deletion
+ * from another phone's. Only a session of the same account is ever shown it.
+ */
+const DELETE_REQUEST_ID_HEADER = 'x-delete-request-id';
+const DELETE_REQUEST_ID = /^[0-9a-f]{32}$/;
 
 type AppleKey = { kty: string; n: string; e: string; kid?: string; alg?: string };
 let appleKeys: { keys: AppleKey[]; fetchedAt: number } | null = null;
@@ -201,15 +212,19 @@ function sameText(a: string, b: string): boolean {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-/** Verifies an Apple identity token (RS256, Apple's published keys) for this app. */
-async function verifyAppleIdentityToken(idToken: string, bundleId: string): Promise<{ sub: string } | null> {
+/**
+ * Verifies an Apple identity token (RS256, Apple's published keys) for this app.
+ * `iat` is the second Apple issued it in — 0 when the token names none, which
+ * the replay check then treats as issued before any deletion.
+ */
+async function verifyAppleIdentityToken(idToken: string, bundleId: string): Promise<{ sub: string; iat: number } | null> {
   const parts = idToken.split('.');
   if (parts.length !== 3) {
     return null;
   }
   const [headerPart, payloadPart, signaturePart] = parts;
   const header = decodeSegment<{ alg?: string; kid?: string }>(headerPart);
-  const payload = decodeSegment<{ iss?: string; aud?: string; sub?: string; exp?: number }>(payloadPart);
+  const payload = decodeSegment<{ iss?: string; aud?: string; sub?: string; exp?: number; iat?: number }>(payloadPart);
   if (!header || !payload || header.alg !== 'RS256' || !header.kid) {
     return null;
   }
@@ -236,7 +251,7 @@ async function verifyAppleIdentityToken(idToken: string, bundleId: string): Prom
   if (typeof payload.exp !== 'number' || payload.exp * 1000 < Date.now()) {
     return null;
   }
-  return { sub: payload.sub };
+  return { sub: payload.sub, iat: typeof payload.iat === 'number' && Number.isFinite(payload.iat) ? payload.iat : 0 };
 }
 
 function appleSessionKey(pathSecret: string): Buffer {
@@ -298,10 +313,21 @@ const REVOCATION_WRITE_OPTIONS = {
  * What a marker says, and when the store wrote it. `revokedAtMs` is null for
  * a marker that cannot be parsed. The SDK's `uploadedAt` is always a date: the
  * store's Last-Modified, or the moment of the read when the store sends none.
+ * `deleteRequestId` is the id of the Delete account request that wrote it, when
+ * it carried one (see DELETE_REQUEST_ID_HEADER).
+ *
+ * Only a body that was READ in full and then does not parse is "unreadable"
+ * (revokedAtMs null). A read that fails part-way says nothing about the
+ * marker — a valid one would be rewritten with the store's time, which can be
+ * a LATER time than its own, ending sessions it never ended — so it is a
+ * StoreUnavailable, the same 502 as a failed get.
  */
-async function readRevocationMarker(
-  pathname: string,
-): Promise<{ revokedAtMs: number | null; uploadedAtMs: number; etag: string | null } | null> {
+async function readRevocationMarker(pathname: string): Promise<{
+  revokedAtMs: number | null;
+  uploadedAtMs: number;
+  etag: string | null;
+  deleteRequestId: string | null;
+} | null> {
   let stored;
   try {
     stored = await get(pathname, { access: 'private', useCache: false });
@@ -314,11 +340,21 @@ async function readRevocationMarker(
   if (!stored || stored.statusCode !== 200) {
     return null;
   }
-  let revokedAtMs: number | null = null;
+  let text: string;
   try {
-    const record = JSON.parse(await new Response(stored.stream).text()) as { revokedAtMs?: unknown };
+    text = await new Response(stored.stream).text();
+  } catch {
+    throw new StoreUnavailable();
+  }
+  let revokedAtMs: number | null = null;
+  let deleteRequestId: string | null = null;
+  try {
+    const record = JSON.parse(text) as { revokedAtMs?: unknown; deleteRequestId?: unknown };
     if (typeof record.revokedAtMs === 'number' && Number.isFinite(record.revokedAtMs)) {
       revokedAtMs = record.revokedAtMs;
+    }
+    if (typeof record.deleteRequestId === 'string' && DELETE_REQUEST_ID.test(record.deleteRequestId)) {
+      deleteRequestId = record.deleteRequestId;
     }
   } catch {
     // Unreadable: the caller resolves it.
@@ -328,7 +364,40 @@ async function readRevocationMarker(
     revokedAtMs,
     uploadedAtMs: Number.isFinite(uploadedAtMs) ? uploadedAtMs : Date.now(),
     etag: stored.blob.etag || null,
+    deleteRequestId,
   };
+}
+
+/**
+ * Removes a marker that was read as stale — only if it is still the copy that
+ * was read. A new Delete account stamps the same pathname, and an unconditional
+ * `del` landing after it would erase a fresh revocation and give the deleted
+ * account's sessions their life back. So: the store's own current ETag is
+ * fetched with `head` (the API's form, which `ifMatch` compares against; the
+ * content response's header that `get` reads may be written differently), must
+ * be the copy that was read, and is what `del` is conditional on. Anything
+ * else — the marker moved, the forms cannot be matched, the condition fails, the
+ * store errors — keeps the marker. It is housekeeping: a marker kept costs
+ * nothing, one removed wrongly ends someone's deletion.
+ */
+async function removeStaleMarker(pathname: string, readEtag: string | null): Promise<void> {
+  if (!readEtag) {
+    return;
+  }
+  try {
+    const current = (await head(pathname)).etag;
+    if (!current || etagCore(current) !== etagCore(readEtag)) {
+      return;
+    }
+    await del(pathname, { ifMatch: current });
+  } catch {
+    // BlobPreconditionFailedError (written since), not found, or a store error: kept.
+  }
+}
+
+/** An ETag without its quotes and weak prefix, for comparing the API's form with a response header's. */
+function etagCore(etag: string): string {
+  return etag.trim().replace(/^W\//, '').replace(/^"(.*)"$/, '$1');
 }
 
 /**
@@ -349,26 +418,34 @@ async function readRevocationMarker(
  * fail its condition, and that is handled the same way. (The window that stays
  * open is the store's own: `ifMatch` is the only atomicity there is.)
  */
-async function revokedAtOf(sub: string, secret: string): Promise<number | null> {
+async function revocationOf(
+  sub: string,
+  secret: string,
+): Promise<{ revokedAtMs: number; deleteRequestId: string | null } | null> {
   const pathname = revocationPathname(sub, secret);
   const marker = await readRevocationMarker(pathname);
   if (!marker) {
     return null;
   }
   let revokedAtMs = marker.revokedAtMs;
+  let deleteRequestId = marker.deleteRequestId;
+  let etag = marker.etag;
   if (revokedAtMs === null) {
     revokedAtMs = marker.uploadedAtMs;
     try {
-      await put(pathname, JSON.stringify({ revokedAtMs }), {
-        ...REVOCATION_WRITE_OPTIONS,
-        ...(marker.etag ? { ifMatch: marker.etag } : {}),
-      });
+      await put(
+        pathname,
+        JSON.stringify({ revokedAtMs, ...(deleteRequestId ? { deleteRequestId } : {}) }),
+        { ...REVOCATION_WRITE_OPTIONS, ...(marker.etag ? { ifMatch: marker.etag } : {}) },
+      );
+      // The copy that was read is gone; whatever is stored now is not it.
+      etag = null;
       console.error('backup revocation marker was unreadable: rewritten as revoked at its write time');
     } catch (error) {
       if (!(error instanceof BlobPreconditionFailedError)) {
         throw new StoreUnavailable();
       }
-      // Written by someone else since it was read — most likely a deletion's
+      // Written by someone else since it was read � most likely a deletion's
       // own stamp. Whatever is there now is the answer, never an older time.
       const current = await readRevocationMarker(pathname);
       if (!current) {
@@ -378,14 +455,16 @@ async function revokedAtOf(sub: string, secret: string): Promise<number | null> 
         throw new StoreUnavailable();
       }
       revokedAtMs = current.revokedAtMs;
+      deleteRequestId = current.deleteRequestId;
+      etag = current.etag;
     }
   }
   if (revokedAtMs + REVOCATION_KEPT_MS < Date.now()) {
-    // Removing it is housekeeping: failing to is not worth failing a request.
-    await del(pathname).catch(() => undefined);
+    // Removing it is housekeeping, and only of the copy that was read.
+    await removeStaleMarker(pathname, etag);
     return null;
   }
-  return revokedAtMs;
+  return { revokedAtMs, deleteRequestId };
 }
 
 /** The sweep's bounds: pages of 100, at most 5 pages a run, and 1.5 s of the request's time. */
@@ -403,7 +482,7 @@ async function sweepListed(blobs: Array<{ pathname: string; uploadedAt: Date }>)
     // listing (a new deletion of the same account) is not the stale one.
     const marker = await readRevocationMarker(blob.pathname).catch(() => null);
     if (marker && (marker.revokedAtMs ?? marker.uploadedAtMs) + REVOCATION_KEPT_MS < Date.now()) {
-      await del(blob.pathname).catch(() => undefined);
+      await removeStaleMarker(blob.pathname, marker.etag);
     }
   }
 }
@@ -479,9 +558,18 @@ async function purgeOldRevocations(): Promise<void> {
  */
 type SessionVerdict =
   | { ok: true; sub: string }
-  | { ok: false; error: 'INVALID_TOKEN' | 'SESSION_REVOKED' | 'SESSION_EXPIRED' };
+  | { ok: false; error: 'INVALID_TOKEN' | 'SESSION_EXPIRED' }
+  // `deleteRequestId`: the Delete account request behind the marker, when it carried one.
+  | { ok: false; error: 'SESSION_REVOKED'; deleteRequestId: string | null };
 
-const INVALID_SESSION: SessionVerdict = { ok: false, error: 'INVALID_TOKEN' };
+/** The 401 body for a refused session: the revoking request's id rides along, and nothing else. */
+function refusalBody(verdict: Extract<SessionVerdict, { ok: false }>): Record<string, unknown> {
+  return verdict.error === 'SESSION_REVOKED' && verdict.deleteRequestId
+    ? { ok: false, error: verdict.error, deleteRequestId: verdict.deleteRequestId }
+    : { ok: false, error: verdict.error };
+}
+
+const INVALID_SESSION: Extract<SessionVerdict, { ok: false }> = { ok: false, error: 'INVALID_TOKEN' };
 
 async function verifyAppleSession(token: string, pathSecret: string): Promise<SessionVerdict> {
   const [payload, mac, extra] = token.slice(APPLE_SESSION_PREFIX.length).split('.');
@@ -508,11 +596,30 @@ async function verifyAppleSession(token: string, pathSecret: string): Promise<Se
       : typeof claims.iat === 'number'
         ? claims.iat * 1000
         : (claims.exp - APPLE_SESSION_DAYS * 24 * 60 * 60) * 1000;
-  const revokedAtMs = await revokedAtOf(sub, pathSecret);
-  if (revokedAtMs !== null && issuedAtMs <= revokedAtMs) {
-    return { ok: false, error: 'SESSION_REVOKED' };
+  const revocation = await revocationOf(sub, pathSecret);
+  if (revocation !== null && issuedAtMs <= revocation.revokedAtMs) {
+    return { ok: false, error: 'SESSION_REVOKED', deleteRequestId: revocation.deleteRequestId };
   }
   return { ok: true, sub };
+}
+
+/**
+ * An Apple identity token is good for ten minutes and for as many exchanges as
+ * anyone cares to make, so one issued before a Delete account would otherwise
+ * buy a fresh 180-day session after it. Refused when the token could have been
+ * issued before the marker: `iat` is whole seconds, so the latest moment it can
+ * be is the end of that second. A new sign-in's token is a later second, or the
+ * same second as a marker stamped within it, and passes.
+ */
+async function appleIdentityRevoked(
+  apple: { sub: string; iat: number },
+  pathSecret: string,
+): Promise<Extract<SessionVerdict, { ok: false }> | null> {
+  const revocation = await revocationOf(`apple:${apple.sub}`, pathSecret);
+  if (revocation !== null && (apple.iat + 1) * 1000 <= revocation.revokedAtMs) {
+    return { ok: false, error: 'SESSION_REVOKED', deleteRequestId: revocation.deleteRequestId };
+  }
+  return null;
 }
 
 /** Deterministic, unguessable pathname for one account's backup. */
@@ -622,7 +729,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       }
     }
     if (!current.ok) {
-      res.status(401).json({ ok: false, error: current.error });
+      res.status(401).json(refusalBody(current));
       return;
     }
     const renewed = issueAppleSession(current.sub.slice('apple:'.length), pathSecret);
@@ -642,7 +749,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       current = INVALID_SESSION;
     }
     if (!current.ok) {
-      res.status(401).json({ ok: false, error: current.error });
+      res.status(401).json(refusalBody(current));
       return;
     }
     res.status(200).json({ ok: true, ...renewed });
@@ -653,7 +760,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       res.status(405).json({ ok: false, error: 'METHOD_NOT_ALLOWED' });
       return;
     }
-    let apple: { sub: string } | null = null;
+    let apple: { sub: string; iat: number } | null = null;
     try {
       apple = await verifyAppleIdentityToken(token, (process.env.APPLE_BUNDLE_ID ?? '').trim() || 'app.vinha');
     } catch {
@@ -664,18 +771,36 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       res.status(401).json({ ok: false, error: 'INVALID_TOKEN' });
       return;
     }
+    // Not a token Apple issued before this account was deleted (see appleIdentityRevoked).
+    try {
+      const revoked = await appleIdentityRevoked(apple, pathSecret);
+      if (revoked) {
+        console.error('backup SESSION_REVOKED (identity token older than the account deletion)');
+        res.status(401).json(refusalBody(revoked));
+        return;
+      }
+    } catch (error) {
+      if (error instanceof StoreUnavailable) {
+        console.error('backup revocation record unreadable');
+        res.status(502).json({ ok: false, error: 'STORE_UNAVAILABLE' });
+        return;
+      }
+      throw error;
+    }
     await purgeOldRevocations();
     res.status(200).json({ ok: true, ...issueAppleSession(apple.sub, pathSecret) });
     return;
   }
 
   let identity: VerifiedIdentity | null = null;
-  let refusal: 'INVALID_TOKEN' | 'SESSION_REVOKED' | 'SESSION_EXPIRED' = 'INVALID_TOKEN';
+  let refusal = INVALID_SESSION;
   try {
     if (token.startsWith(APPLE_SESSION_PREFIX)) {
       const verdict = await verifyAppleSession(token, pathSecret);
       identity = verdict.ok ? { sub: verdict.sub } : null;
-      refusal = verdict.ok ? 'INVALID_TOKEN' : verdict.error;
+      if (!verdict.ok) {
+        refusal = verdict;
+      }
     } else {
       identity = await verifyGoogleIdToken(token, clientId);
     }
@@ -690,8 +815,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     identity = null;
   }
   if (!identity) {
-    console.error(`backup ${refusal}`);
-    res.status(401).json({ ok: false, error: refusal });
+    console.error(`backup ${refusal.error}`);
+    res.status(401).json(refusalBody(refusal));
     return;
   }
 
@@ -738,7 +863,11 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         if (!conflict) {
           throw error;
         }
-        res.status(412).json({ ok: false, error: 'BACKUP_CHANGED' });
+        // The copy the store holds now rides along, so a phone whose own
+        // write was retried by the SDK after the first attempt had already
+        // committed (and so fails against its own copy) can recognise it.
+        const current = await storedVersion(pathname).catch(() => null);
+        res.status(412).json({ ok: false, error: 'BACKUP_CHANGED', version: current });
         return;
       }
       // Success is reported only after the store accepted the write — the
@@ -804,13 +933,20 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       if (action === DELETE_ACCOUNT_ACTION && identity.sub.startsWith('apple:')) {
         try {
           const marker = revocationPathname(identity.sub, pathSecret);
-          await put(marker, JSON.stringify({ revokedAtMs: Date.now() }), REVOCATION_WRITE_OPTIONS);
+          const requestHeader = req.headers[DELETE_REQUEST_ID_HEADER];
+          const requestId = (Array.isArray(requestHeader) ? requestHeader[0] : requestHeader)?.trim();
+          const stamp = () =>
+            JSON.stringify({
+              revokedAtMs: Date.now(),
+              ...(requestId && DELETE_REQUEST_ID.test(requestId) ? { deleteRequestId: requestId } : {}),
+            });
+          await put(marker, stamp(), REVOCATION_WRITE_OPTIONS);
           // Written again with the time the first write RETURNED. The first
           // is stamped before the store has it, so a renewal that was minted
           // and checked while that write was in flight outlives it; anything
           // minted before this second stamp is refused by it, and the
           // renewal's second look sees at least the first.
-          await put(marker, JSON.stringify({ revokedAtMs: Date.now() }), REVOCATION_WRITE_OPTIONS);
+          await put(marker, stamp(), REVOCATION_WRITE_OPTIONS);
         } catch (error) {
           console.error('backup revocation failed:', error instanceof Error ? error.message.slice(0, 200) : 'unknown');
           res.status(502).json({ ok: false, error: 'STORE_UNAVAILABLE' });

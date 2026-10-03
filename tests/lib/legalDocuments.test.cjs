@@ -756,8 +756,13 @@ module.exports = [
       // or training data, and nothing removes it by itself — each of those
       // is a sentence in the policy, in both languages.
       const server = read('api/backup.ts');
-      // The marker is exactly a date: a field added here is a field the policy does not describe.
-      assert.match(server, /JSON\.stringify\(\{ revokedAtMs: Date\.now\(\) \}\)/, 'the revocation marker is not just a date any more');
+      // The marker is a date and, when the phone sent one, the random id of the request (x-delete-request-id,
+      // 32 hex characters validated server-side): a field added beyond those is a field the policy does not describe.
+      assert.match(
+        server,
+        /JSON\.stringify\(\{\s*revokedAtMs: Date\.now\(\),\s*\.\.\.\(requestId && DELETE_REQUEST_ID\.test\(requestId\) \? \{ deleteRequestId: requestId \} : \{\}\),\s*\}\)/,
+        'the revocation marker is more than a date and the request id now',
+      );
       // The policy says the server's clean-up removes it after 180 days: the code has to.
       assert.match(server, /const REVOCATION_KEPT_MS = \(APPLE_SESSION_DAYS \+ 1\) \* 24 \* 60 \* 60 \* 1000;/);
       assert.match(server, /await purgeOldRevocations\(\);\s*res\.status\(200\)\.json\(\{ ok: true, \.\.\.issueAppleSession\(apple\.sub/, 'sign-ins no longer sweep old markers');

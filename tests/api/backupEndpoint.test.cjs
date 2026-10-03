@@ -119,7 +119,8 @@ module.exports = [
         // B's copy stays.
         const stale = await call('PUT', { body: copy('phone-a-2'), version: read.body.version });
         assert.equal(stale.status, 412, "phone A's older data was written over phone B's");
-        assert.deepEqual(stale.body, { ok: false, error: 'BACKUP_CHANGED' });
+        // The copy the store holds now rides along, so a phone can recognise its own.
+        assert.deepEqual(stale.body, { ok: false, error: 'BACKUP_CHANGED', version: '"etag-2"' });
         assert.equal(JSON.parse(store.body).exportedAt, 'phone-b-1');
 
         // A first backup where a copy already is: refused the same way.
@@ -131,6 +132,7 @@ module.exports = [
         await call('DELETE');
         const afterDelete = await call('PUT', { body: copy('phone-b-2'), version: '"etag-2"' });
         assert.equal(afterDelete.status, 412);
+        assert.deepEqual(afterDelete.body, { ok: false, error: 'BACKUP_CHANGED', version: null });
         assert.equal(store.body, null);
       });
     },
