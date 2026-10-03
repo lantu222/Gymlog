@@ -22,6 +22,7 @@ if (!fs.existsSync(compiled)) {
 }
 
 const { buildLegalDocument } = require(compiled);
+const { buildAccountDeletionPage } = require(path.join(__dirname, '..', '.test-dist', 'lib', 'accountDeletionPage.js'));
 
 const outDir = path.join(__dirname, '..', 'dist-legal');
 fs.rmSync(outDir, { recursive: true, force: true });
@@ -35,7 +36,7 @@ const STYLE = `
   h1 { font-size: 1.8rem; line-height: 1.2; margin: 0 0 0.25rem; }
   h2 { font-size: 1.15rem; margin: 2rem 0 0.5rem; }
   p { margin: 0.6rem 0; }
-  ul { margin: 0.6rem 0; padding-left: 1.4rem; }
+  ul, ol { margin: 0.6rem 0; padding-left: 1.4rem; }
   li { margin: 0.3rem 0; }
   .updated { color: #6b6478; font-style: italic; margin: 0 0 1.5rem; }
   .summary { font-size: 1.05rem; }
@@ -79,6 +80,31 @@ ${sections}`;
   return page(language, `${doc.title} – Vinha`, body);
 }
 
+// The account deletion page: numbered steps, then what goes and what stays.
+// The privacy policy is linked by its extensionless path, the form the host
+// serves it under.
+function renderDeletionPage(language) {
+  const doc = buildAccountDeletionPage(language);
+  const sections = doc.sections
+    .map((section) => {
+      const steps = section.steps?.length
+        ? `<ol>\n${section.steps.map((text) => `<li>${escapeHtml(text)}</li>`).join('\n')}\n</ol>`
+        : '';
+      const paragraphs = (section.body ?? []).map((text) => `<p>${escapeHtml(text)}</p>`).join('\n');
+      const bullets = section.bullets?.length
+        ? `<ul>\n${section.bullets.map((text) => `<li>${escapeHtml(text)}</li>`).join('\n')}\n</ul>`
+        : '';
+      return `<h2>${escapeHtml(section.heading)}</h2>\n${steps}\n${paragraphs}\n${bullets}`;
+    })
+    .join('\n');
+  const privacy = buildLegalDocument('privacy', language).title;
+  const body = `<h1>${escapeHtml(doc.title)}</h1>
+<p class="summary">${escapeHtml(doc.summary)}</p>
+${sections}
+<p><a href="privacy.${language}">${escapeHtml(privacy)}</a></p>`;
+  return page(language, doc.title, body);
+}
+
 const written = [];
 const titles = {};
 for (const id of ['privacy', 'terms']) {
@@ -88,6 +114,12 @@ for (const id of ['privacy', 'terms']) {
     titles[file] = buildLegalDocument(id, language).title;
     written.push(file);
   }
+}
+for (const language of ['fi', 'en']) {
+  const file = `delete-account.${language}.html`;
+  fs.writeFileSync(path.join(outDir, file), renderDeletionPage(language), 'utf8');
+  titles[file] = buildAccountDeletionPage(language).title;
+  written.push(file);
 }
 
 // The landing page the Play listing can point at directly. Finnish first,
@@ -99,11 +131,13 @@ const indexBody = `<h1>Vinha</h1>
 <ul>
 <li><a href="privacy.fi.html">${escapeHtml(titles['privacy.fi.html'])}</a></li>
 <li><a href="terms.fi.html">${escapeHtml(titles['terms.fi.html'])}</a></li>
+<li><a href="delete-account.fi.html">${escapeHtml(titles['delete-account.fi.html'])}</a></li>
 </ul>
 <h2>In English</h2>
 <ul>
 <li><a href="privacy.en.html">${escapeHtml(titles['privacy.en.html'])}</a></li>
 <li><a href="terms.en.html">${escapeHtml(titles['terms.en.html'])}</a></li>
+<li><a href="delete-account.en.html">${escapeHtml(titles['delete-account.en.html'])}</a></li>
 </ul>
 </nav>`;
 fs.writeFileSync(path.join(outDir, 'index.html'), page('fi', 'Vinha – dokumentit', indexBody), 'utf8');

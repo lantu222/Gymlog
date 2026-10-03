@@ -11,6 +11,9 @@ on:
     branches: [main]
     paths:
       - src/lib/legalDocuments.ts
+      - src/lib/accountDeletionPage.ts
+      # The deletion page names the buttons by their in-app labels.
+      - src/lib/i18n.ts
       - scripts/build-legal-site.cjs
       - .github/workflows/legal-pages.yml
   workflow_dispatch:
