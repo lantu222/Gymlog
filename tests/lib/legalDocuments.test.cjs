@@ -32,7 +32,7 @@ const LEGAL_TEXT_VERSIONS = [
   { date: '2026-10-02', fingerprint: 'de881a6024122a47' },
   // From here the fingerprint covers all three renders (android, ios, both) in
   // both languages; the entries above hashed the 'both' text only.
-  { date: '2026-10-03', fingerprint: '7d906a544fd500bf' },
+  { date: '2026-10-03', fingerprint: 'e5d4d3139906bfd2' },
 ];
 
 const IDS = ['privacy', 'terms'];
@@ -778,6 +778,8 @@ module.exports = [
         const fi = renderLegalDocumentMarkdown(buildLegalDocument('privacy', 'fi', platform));
         assert.match(en, /Settings → Delete account does the same and more: it deletes the server copy, signs you out on this phone/);
         assert.match(en, /one scrambled marker with a date/);
+        assert.match(en, /It also holds a random number your phone made for that request, used only to tell that phone its deletion went through/);
+        assert.match(en, /one scrambled marker with a date and a random number your phone made for the deletion request/);
         assert.match(en, /The server’s routine clean-up removes it once 180 days have passed/);
         assert.match(en, /That clean-up runs when someone signs in with Apple, so it can take a little longer/);
         assert.doesNotMatch(en, /write to us and we delete it/, 'the policy promises a deletion on request that nobody can perform — the marker has no email on it');
@@ -789,6 +791,8 @@ module.exports = [
         assert.match(en, /does not take Vinha off the list of apps you use Sign in with Apple with/);
         assert.match(fi, /Asetukset → Poista tili tekee saman ja enemmän/);
         assert.match(fi, /yksi sekoitettu merkintä päivämäärineen/);
+        assert.match(fi, /Siinä on myös satunnainen luku, jonka puhelimesi teki tätä pyyntöä varten ja jota käytetään vain kertomaan sille puhelimelle, että poisto onnistui/);
+        assert.match(fi, /yksi sekoitettu merkintä päivämäärineen sekä satunnainen luku, jonka puhelimesi teki poistopyyntöä varten/);
         assert.match(fi, /Palvelimen rutiinisiivous poistaa sen, kun 180 päivää on kulunut/);
         assert.match(fi, /Siivous ajetaan, kun joku kirjautuu Applella, joten/);
         assert.doesNotMatch(fi, /Sitä ei poisteta automaattisesti/);
