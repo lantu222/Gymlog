@@ -20,7 +20,7 @@ import {
 } from './workoutCompletionSummary';
 import { buildPersistedSessionNames } from './workoutEditorNaming';
 import { buildSupersetRuns, isSupersetLinked, normalizeSupersetGroups } from './supersetGrouping';
-import { ExerciseBodyPart, ExerciseLogDraft, WorkoutTemplateDraft } from '../types/models';
+import { AppDatabase, ExerciseBodyPart, ExerciseLogDraft, WorkoutTemplateDraft } from '../types/models';
 
 // ── add-sheet muscle filter ──────────────────────────────────────────────
 
@@ -142,6 +142,59 @@ export interface FreestyleDraftSnapshot {
 /** The session id of a board: its draft's, or a new one when it starts. */
 export function resolveFreestyleSessionId(draft: { sessionId?: string | null } | null | undefined): string {
   return draft?.sessionId ? draft.sessionId : createId('session');
+}
+
+/**
+ * A restored draft whose workout is already saved is not a board to come back to.
+ *
+ * Finish saves first and clears the draft with a write nobody awaits; when that
+ * write is lost (a kill, a refused disk) the board returns after launch under an
+ * id the database already holds. Opened, it would be a finished workout's rows
+ * waiting to be saved a second time — or, worse, the start of a new workout
+ * wearing the old one's id. The saved workout is the truth, so the draft goes.
+ */
+export function discardSavedFreestyleDraft(
+  draft: FreestyleDraftSnapshot | null,
+  savedSessionIds: ReadonlyArray<string>,
+): FreestyleDraftSnapshot | null {
+  if (!draft || !draft.sessionId) {
+    return draft;
+  }
+  return savedSessionIds.includes(draft.sessionId) ? null : draft;
+}
+
+type CountedSet = { reps?: number; weight?: number; status?: string; outcome?: string | null };
+
+/** The sets a log kept as done, as "reps@weight", sorted: what two saves are compared by. */
+function doneSetKeys(sets: ReadonlyArray<CountedSet>): string[] {
+  return sets
+    .filter((set) => set.status === 'completed' || set.outcome === 'completed')
+    .map((set) => `${set.reps}@${set.weight}`)
+    .sort();
+}
+
+/**
+ * Which session a free workout's Finish saves, and whether there is anything to save.
+ *
+ * Under the board's own id, so a retry of the same finish is the same session —
+ * but only a true retry. A session already stored under that id with exactly the
+ * sets being saved is the finish that already landed: nothing to write. One
+ * stored with other sets is somebody else's workout wearing a stale id, and
+ * claiming it saved would drop what was just logged; these sets get an id of
+ * their own.
+ */
+export function resolveFreestyleSaveTarget(
+  database: Pick<AppDatabase, 'workoutSessions' | 'exerciseLogs'>,
+  sessionId: string,
+  logs: ReadonlyArray<{ sets: ReadonlyArray<CountedSet> }>,
+): { sessionId: string; alreadySaved: boolean } {
+  if (!database.workoutSessions.some((session) => session.id === sessionId)) {
+    return { sessionId, alreadySaved: false };
+  }
+  const stored = doneSetKeys(database.exerciseLogs.filter((log) => log.sessionId === sessionId).flatMap((log) => log.sets ?? []));
+  const saving = doneSetKeys(logs.flatMap((log) => log.sets ?? []));
+  const same = stored.length === saving.length && stored.every((key, index) => key === saving[index]);
+  return same ? { sessionId, alreadySaved: true } : { sessionId: createId('session'), alreadySaved: false };
 }
 
 /**

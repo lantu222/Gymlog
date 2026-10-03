@@ -367,7 +367,6 @@ function freshWorld() {
     fsAtDraft: null,
     expectedDb: new Map(),
     seenSessionIds: new Set(),
-    savedFsKeys: new Set(),
     keyCounter: 0,
     proc: null,
     toasts: [],
@@ -494,6 +493,12 @@ async function launch() {
         fail('1', `a launch whose ${kind} read failed wrote to storage`);
       }
     }
+  } else if (bundle.value.freestyleDraft && !emptyWorkout.discardSavedFreestyleDraft(bundle.value.freestyleDraft, proc.dbRef.current.workoutSessions.map((session) => session.id))) {
+    // App.tsx hands the screen no draft for a saved workout; its mount effect clears the empty board's draft.
+    count('leftover board dropped');
+    world.fsAtDraft = null;
+    dispatch(proc, { type: 'freestyle/clear' });
+    await settle(proc);
   } else if (bundle.value.freestyleDraft) {
     const draft = bundle.value.freestyleDraft;
     proc.fs = {
@@ -886,6 +891,7 @@ function finishDeps(proc, ev) {
       },
     },
     database,
+    getDatabase: () => proc.dbRef.current,
     preferences: database.preferences,
     unitPreference: 'kg',
     exerciseLibrary: database.exerciseLibrary,
@@ -1124,6 +1130,7 @@ function fsTouch(proc) {
   if (proc.fs.exercises.length === 0) {
     // An empty board clears the draft at once.
     proc.fs.dirty = false;
+    proc.fs.sessionId = emptyWorkout.resolveFreestyleSessionId(null);
     world.fsAtDraft = null;
     dispatch(proc, { type: 'freestyle/clear' });
   }
@@ -1176,7 +1183,10 @@ async function finishFreestyle(ev) {
     exercisePrLookup: { byLibraryItemId: {}, byName: {} },
     sessionId: board.sessionId,
   });
-  const repeated = doneSets.some((set) => world.savedFsKeys.has(set.key));
+  // A true retry: a session already saved under this board's id with exactly these sets. Anything else must be written.
+  const priorSave = world.expectedDb.get(board.sessionId);
+  const repeated = Boolean(priorSave) && JSON.stringify(setMultiset(doneSets)) === JSON.stringify(priorSave.sets);
+  const idHeld = world.expectedDb.has(board.sessionId);
   const sessionsBefore = proc.dbRef.current.workoutSessions.length;
   let saved = false;
   try {
@@ -1195,13 +1205,20 @@ async function finishFreestyle(ev) {
     dispatch(proc, { type: 'freestyle/clear' });
     proc.fs = null;
     if (repeated) {
-      // The board came back after a save that landed: the same session, so nothing is saved again.
+      // The same finish again: the same session, so nothing is saved twice.
       if (world.lastSave || proc.dbRef.current.workoutSessions.length !== sessionsBefore) {
         fail('2', 'the free workout board was saved a second time: a session with these sets is already in the database');
       }
       count('free workout board finished again, saved once');
+    } else {
+      // Different sets under an id that is taken: they are a workout of their own and must be written, under another id.
+      if (!world.lastSave || world.lastSave.outcome !== 'resolved' || proc.dbRef.current.workoutSessions.length !== sessionsBefore + 1) {
+        fail('2', `the free workout's ${doneSets.length} sets were shown as saved and never written${idHeld ? ' (the board still wore the id of an earlier saved workout)' : ''}`);
+      }
+      if (idHeld && world.lastSave.sessionId === board.sessionId) {
+        fail('2', 'a second workout was saved under the id of an earlier one');
+      }
     }
-    doneSets.forEach((set) => world.savedFsKeys.add(set.key));
     count('free workout saved');
   } catch (error) {
     if (error instanceof Violation) {
@@ -1615,8 +1632,8 @@ const HANDLERS = {
     }
     const rnd = stream(ev.r);
     const set = pick(rnd, pick(rnd, board.exercises).sets);
-    set.kg = rnd() < 0.15 ? pick(rnd, ['825', '', 'abc']) : formatNumber((1 + int(rnd, 160)) * 2.5, ev.comma);
-    set.reps = rnd() < 0.15 ? pick(rnd, ['8,5', '0', '']) : String(1 + int(rnd, 30));
+    set.kg = !ev.valid && rnd() < 0.15 ? pick(rnd, ['825', '', 'abc']) : formatNumber((1 + int(rnd, 160)) * 2.5, ev.comma);
+    set.reps = !ev.valid && rnd() < 0.15 ? pick(rnd, ['8,5', '0', '']) : String(1 + int(rnd, 30));
     fsTouch(world.proc);
   },
 
@@ -1713,6 +1730,9 @@ async function relaunch(ev) {
   compareLogged(loggedSetsOf(proc.state.activeSession), durable.session?.sets ?? new Map(), 'after the launch');
   checkDatabase(proc.dbRef.current, 'after the launch (database as stored)');
   checkSessionSanity(proc.state.activeSession);
+  if (proc.fs && world.expectedDb.has(proc.fs.sessionId)) {
+    fail('2', `a free workout board came back under the id of a workout that is already saved (${proc.fs.sessionId})`);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1976,6 +1996,26 @@ module.exports = [
         }
         if (STATS) {
           console.log([...STATS].sort().map(([key, n]) => `${n} ${key}`).join('\n'));
+        }
+      });
+    },
+  },
+  {
+    name: 'workout lifecycle: a saved free workout whose clear was lost is not a board to come back to - the next workout (a new one, or the old rows with sets added) is written, never shown as saved',
+    async run() {
+      const ev = (t, extra = {}) => ({ t, dt: 250, r: 7, ...extra });
+      const saved = [ev('fsAdd'), ev('fsType', { valid: true }), ev('fsTick'), ev('wait', { dt: 1500 }), ev('fsFinish', { dt: 1500 }), ev('kill', { early: true })];
+      const another = [ev('fsAdd'), ev('fsType', { valid: true, r: 9 }), ev('fsTick'), ev('wait', { dt: 1500 }), ev('fsFinish', { dt: 1500 })];
+      const cases = {
+        'remove every lift, log a new workout': [...saved, ev('fsRemove'), ...another],
+        'keep the rows, add and correct sets': [...saved, ev('fsAddSet'), ev('fsType', { valid: true }), ev('fsTick'), ev('wait', { dt: 1500 }), ev('fsFinish', { dt: 1500 }), ...another],
+      };
+      await withEnvironment(async () => {
+        for (const [name, events] of Object.entries(cases)) {
+          const failure = await runSequence(events, SEED);
+          assert.equal(failure, null, `${name}: ${failure?.message} (at step ${failure ? failure.step + 1 : 0} of ${events.map(describe).join(', ')})`);
+          const saves = [...world.expectedDb.keys()].length;
+          assert.ok(saves >= 2, `${name}: expected the first workout and the next one saved, saw ${saves}`);
         }
       });
     },

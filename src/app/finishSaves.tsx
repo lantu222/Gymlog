@@ -7,6 +7,7 @@ import type { FreestyleFinishSummary } from '../lib/emptyWorkoutSession';
 import { sessionRecordedWork } from '../lib/exerciseLog';
 import { t } from '../lib/i18n';
 import { createId } from '../lib/ids';
+import { resolveFreestyleSaveTarget } from '../lib/emptyWorkoutSession';
 import { computePostSessionInsight } from '../lib/postSessionInsight';
 import { buildMuscleFocus, getVolumeDeltaVsPrevious } from '../lib/workoutCompleteView';
 import { ROOT_ROUTES } from '../navigation/routes';
@@ -50,6 +51,8 @@ export interface FinishSavesDeps {
     'activeSession' | 'discardWorkout' | 'finishWorkout' | 'clearCompletedWorkout' | 'recordLoggedWorkout'
   >;
   database: AppContextValue['database'];
+  /** The database as it stands now (AppProvider's ref), not the render's snapshot. */
+  getDatabase: () => AppContextValue['database'];
   preferences: AppContextValue['preferences'];
   unitPreference: AppContextValue['unitPreference'];
   exerciseLibrary: AppContextValue['exerciseLibrary'];
@@ -76,6 +79,7 @@ export function createFinishSaves(deps: FinishSavesDeps) {
   const {
     workout,
     database,
+    getDatabase,
     preferences,
     unitPreference,
     exerciseLibrary,
@@ -282,12 +286,15 @@ export function createFinishSaves(deps: FinishSavesDeps) {
   // template first, then the completed session, and only then the summary
   // screen — a failed save must leave the logger open with its sets intact.
   const finishLoggedWorkoutSave = async (draft: WorkoutTemplateDraft, summary: FreestyleFinishSummary) => {
-    // The board's own id (FreestyleDraftSnapshot.sessionId), not one per attempt: a save that
-    // landed while the write clearing the board did not brings the board back, and its second
-    // Finish used to save the same workout under a second id. Saved already, it saves nothing
-    // and goes on to the summary.
-    const sessionId = summary.sessionId ?? createId('session');
-    const alreadySaved = database.workoutSessions.some((session) => session.id === sessionId);
+    // The board's own id (FreestyleDraftSnapshot.sessionId), not one per attempt, so a retry of a
+    // finish that already landed saves nothing and goes on to the summary. Only a true retry: a
+    // stored session under this id with other sets gets these sets a new id, never a summary
+    // over a write that did not happen. Read from the database as it stands now.
+    const { sessionId, alreadySaved } = resolveFreestyleSaveTarget(
+      getDatabase(),
+      summary.sessionId ?? createId('session'),
+      summary.logs,
+    );
     if (!alreadySaved) {
       const workoutTemplateId = await upsertWorkoutTemplate(draft);
       try {
@@ -338,8 +345,8 @@ export function createFinishSaves(deps: FinishSavesDeps) {
       });
     }
     setCompletionSummary({
-      sessionId,
       ...summary,
+      sessionId,
       // Freestyle sessions have no plan identity: no previous-session
       // comparison, and muscle focus comes from the logged drafts.
       volumeDeltaKg: null,

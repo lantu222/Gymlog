@@ -538,8 +538,14 @@ export function EmptyWorkoutScreen({
    * brought back from a draft was started when that draft was, and is not
    * started again.
    */
-  /** Made once, kept with the draft: Finish saves under it, so saving the same board twice is one session. */
-  const [sessionId] = useState(() => resolveFreestyleSessionId(freestyleDraft));
+  /**
+   * Made when the board starts, kept with the draft: Finish saves under it. Made anew whenever the board
+   * is emptied, so an id never outlives the workout it named.
+   */
+  const sessionIdRef = useRef<string | null>(null);
+  if (sessionIdRef.current === null) {
+    sessionIdRef.current = resolveFreestyleSessionId(freestyleDraft);
+  }
   const startCountedRef = useRef(freestyleDraft != null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [rest, setRest] = useState<{ totalSeconds: number; endsAtMs: number; startedAtMs: number } | null>(() =>
@@ -576,9 +582,11 @@ export function EmptyWorkoutScreen({
   useEffect(() => {
     const sink = draftSinkRef.current;
     if (exercises.length === 0) {
+      sessionIdRef.current = resolveFreestyleSessionId(null);
       sink.onClearDraft?.();
       return undefined;
     }
+    const sessionId = sessionIdRef.current as string;
     pendingDraftRef.current = { exercises, startedAtMs, rest, sessionId };
     const timer = setTimeout(() => {
       draftTimerRef.current = null;
@@ -1021,7 +1029,7 @@ export function EmptyWorkoutScreen({
         performedAtIso: new Date().toISOString(),
         elapsedSeconds,
         exercisePrLookup,
-        sessionId,
+        sessionId: sessionIdRef.current ?? undefined,
       });
       await onSave(draft, summary);
       // On disk: nothing left to resume, and no pending write to put it back.
