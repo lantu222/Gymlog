@@ -479,6 +479,7 @@ const suites = [
   ...require('./storage/runningSetMatchesPlans.test.cjs'),
   ...require('./lib/storageChunks.test.cjs'),
   ...require('./storage/largeItem.test.cjs'),
+  ...require('./storage/workoutAside.test.cjs'),
   ...require('./storage/coachAdviceMemoryStore.test.cjs'),
   ...require('./storage/preferencesWithBlob.test.cjs'),
   ...require('./storage/loadWithRetry.test.cjs'),

@@ -34,7 +34,7 @@ const LEGAL_TEXT_VERSIONS = [
   // both languages; the entries above hashed the 'both' text only.
   { date: '2026-10-03', fingerprint: 'e5d4d3139906bfd2' },
   // Error reports join the usage statistics (same switch, same retention).
-  { date: '2026-10-04', fingerprint: '7444fcea5efd63d0' },
+  { date: '2026-10-04', fingerprint: 'a83bc2dfe04c8bb4' },
 ];
 
 const IDS = ['privacy', 'terms'];
@@ -206,6 +206,9 @@ module.exports = [
           '@vinha/database/corrupt',
           '@vinha/database/v1',
           '@vinha/preferences/v1',
+          // The workout in progress, put aside from the crash screen when the
+          // reader asks (2026-10-03); the same bookkeeping line names it.
+          '@vinha/workout/aside',
           // The workout bundle's own quarantine slot (2026-09-15). The same
           // "copy of a damaged data file" line in the policy covers it.
           '@vinha/workout/corrupt',

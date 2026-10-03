@@ -134,7 +134,7 @@ const privacyEn = (p: LegalPlatform): LegalSection[] => [
       'What the coach has advised you in the last three weeks: the one-sentence summary of each answer and the date it was given, at most ten of them. It is kept so the coach does not repeat advice you have already had, it is deleted as it ages past three weeks, and it stays on this phone — the cloud backup below does not carry it.',
       'Preferences: language, units, theme, notification and sound settings, default rest time, training breaks.',
       'Pro status: whether Pro is on, when it was bought or cancelled, and the dates until which a promo code or a free trial keeps it on.',
-      'Small bookkeeping: whether the rating prompt or the online-coach notice has been shown, the summary file the home-screen widget reads, the queue of usage events waiting to be sent, a marker that the coach’s advice memory still needs erasing after a restore if a first attempt could not reach the disk, and a copy of a damaged data file if the app ever finds one — it is set aside rather than deleted, so a broken file is not a lost training log.',
+      'Small bookkeeping: whether the rating prompt or the online-coach notice has been shown, the summary file the home-screen widget reads, the queue of usage events waiting to be sent, a marker that the coach’s advice memory still needs erasing after a restore if a first attempt could not reach the disk, a copy of a damaged data file if the app ever finds one, and the workout in progress if the app keeps crashing and you choose to put it aside — both are set aside rather than deleted, so a broken file is not a lost training log.',
     ],
   },
   ...(p !== 'ios'
@@ -399,7 +399,7 @@ const privacyFi = (p: LegalPlatform): LegalSection[] => [
       'Mitä valmentaja on neuvonut sinulle viimeisten kolmen viikon aikana: kunkin vastauksen yhden lauseen tiivistelmä ja päivä, jona se annettiin, enintään kymmenen kappaletta. Se säilytetään, jottei valmentaja toista jo antamaansa neuvoa, se poistuu kolmea viikkoa vanhetessaan, ja se pysyy tässä puhelimessa — alla kuvattu pilvivarmuuskopio ei kanna sitä mukanaan.',
       'Asetukset: kieli, yksiköt, teema, ilmoitus- ja ääniasetukset, oletuslepoaika, treenitauot.',
       'Pro-tila: onko Pro päällä, milloin se ostettiin tai peruttiin, ja päivät, joihin asti kampanjakoodi tai ilmainen kokeilu pitää sen päällä.',
-      'Pientä kirjanpitoa: onko arviointipyyntö tai verkkovalmentajan ilmoitus jo näytetty, tiivistelmätiedosto, jota kotinäytön widget lukee, jono lähetystä odottavia käyttötapahtumia, merkintä siitä, että valmentajan muisti pitää yhä tyhjentää palautuksen jälkeen, jos ensimmäinen yritys ei tavoittanut levyä, sekä kopio vaurioituneesta datatiedostosta, jos sovellus sellaisen joskus löytää — se siirretään sivuun eikä poisteta, jotta rikkoutunut tiedosto ei ole menetetty treeniloki.',
+      'Pientä kirjanpitoa: onko arviointipyyntö tai verkkovalmentajan ilmoitus jo näytetty, tiivistelmätiedosto, jota kotinäytön widget lukee, jono lähetystä odottavia käyttötapahtumia, merkintä siitä, että valmentajan muisti pitää yhä tyhjentää palautuksen jälkeen, jos ensimmäinen yritys ei tavoittanut levyä, kopio vaurioituneesta datatiedostosta, jos sovellus sellaisen joskus löytää, sekä käynnissä oleva treeni, jos sovellus kaatuilee ja valitset sen siirtämisen sivuun — ne siirretään sivuun eikä poisteta, jotta rikkoutunut tiedosto ei ole menetetty treeniloki.',
     ],
   },
   ...(p !== 'ios'

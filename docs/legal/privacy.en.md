@@ -32,7 +32,7 @@ Everything below is either entered by you or worked out by the app from what you
 - What the coach has advised you in the last three weeks: the one-sentence summary of each answer and the date it was given, at most ten of them. It is kept so the coach does not repeat advice you have already had, it is deleted as it ages past three weeks, and it stays on this phone — the cloud backup below does not carry it.
 - Preferences: language, units, theme, notification and sound settings, default rest time, training breaks.
 - Pro status: whether Pro is on, when it was bought or cancelled, and the dates until which a promo code or a free trial keeps it on.
-- Small bookkeeping: whether the rating prompt or the online-coach notice has been shown, the summary file the home-screen widget reads, the queue of usage events waiting to be sent, a marker that the coach’s advice memory still needs erasing after a restore if a first attempt could not reach the disk, and a copy of a damaged data file if the app ever finds one — it is set aside rather than deleted, so a broken file is not a lost training log.
+- Small bookkeeping: whether the rating prompt or the online-coach notice has been shown, the summary file the home-screen widget reads, the queue of usage events waiting to be sent, a marker that the coach’s advice memory still needs erasing after a restore if a first attempt could not reach the disk, a copy of a damaged data file if the app ever finds one, and the workout in progress if the app keeps crashing and you choose to put it aside — both are set aside rather than deleted, so a broken file is not a lost training log.
 
 ## Android backup
 
