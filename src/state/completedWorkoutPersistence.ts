@@ -1,5 +1,6 @@
 import { createId } from '../lib/ids';
 import { normalizeExerciseLogDraft } from '../lib/exerciseLog';
+import { canReplaceStoredWorkout, resolveFreestyleSaveTarget } from '../lib/emptyWorkoutSession';
 import { getSessionTotals } from '../lib/sessionTotals';
 import { exerciseLogRepository, workoutSessionRepository } from '../storage/repositories';
 import { AppDatabase, ExerciseLog, ExerciseLogDraft, WorkoutSession } from '../types/models';
@@ -218,6 +219,25 @@ export function persistCompletedWorkoutSessionToDatabase(
   }
 
   const stored = workoutSessionRepository.findById(database, input.sessionId);
+  if (stored && input.replaceStored && !canReplaceStoredWorkout(database, input.sessionId, input.logs)) {
+    // The caller decided on another read of the database. Against the one written, replacing would
+    // lose a stored set (or there is nothing to replace): these are the same finish already stored
+    // or a workout of their own, under the id resolveFreestyleSaveTarget walks to. The summary names
+    // the id they landed under, which the caller takes over.
+    const target = resolveFreestyleSaveTarget(database, input.sessionId, input.logs);
+    const own = buildCompletedWorkoutRecord({ ...input, sessionId: target.sessionId, replaceStored: false }, createIdFn);
+    if (!own) {
+      return { database, didPersist: false, summary: createEmptySummary() };
+    }
+    if (target.alreadySaved) {
+      return { database, didPersist: false, summary: own.summary };
+    }
+    return {
+      database: exerciseLogRepository.appendMany(workoutSessionRepository.append(database, own.session), own.logs),
+      didPersist: true,
+      summary: own.summary,
+    };
+  }
   if (stored && input.replaceStored) {
     const replaced: WorkoutSession = {
       ...record.session,

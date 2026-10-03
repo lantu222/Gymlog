@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useRef, useState 
 
 import { StorageLoadFailedScreen } from '../components/StorageLoadFailedScreen';
 import { resolveDeviceLanguage } from '../storage/deviceLocale';
-import { findSavedCardioRun } from '../lib/cardio';
+import { findSavedCardioRun, mergeContinuedCardioRun } from '../lib/cardio';
 import { createId } from '../lib/ids';
 import { preferencesForRestore } from '../lib/accountBackup';
 import { withPendingAiLogDeletion, withoutAiLogDeletions } from '../lib/aiLogDeletion';
@@ -1136,12 +1136,6 @@ export function AppProvider({ children }: React.PropsWithChildren) {
   }): Promise<CardioSession> {
     return runExclusive(async () => {
       const current = databaseRef.current;
-      // A run already stored is this save landing again (its clear was lost and the run came back
-      // on relaunch): it is saved, so nothing is written and Complete carries on.
-      const stored = findSavedCardioRun(current.cardioSessions ?? [], input);
-      if (stored) {
-        return stored;
-      }
       const session: CardioSession = {
         id: createId('cardio_session'),
         activityType: input.activityType,
@@ -1156,6 +1150,23 @@ export function AppProvider({ children }: React.PropsWithChildren) {
         distanceKm: input.distanceKm && input.distanceKm > 0 ? input.distanceKm : null,
         feel: input.feel ?? null,
       };
+
+      // A run already stored is this save landing again (its clear was lost and the run came back
+      // on relaunch): one run, one row. Landing again as it was, nothing is written; run further
+      // before Complete, the stored row takes the longer finish under its own id, and a run is
+      // never shortened by it.
+      const stored = findSavedCardioRun(current.cardioSessions ?? [], input);
+      if (stored) {
+        const merged = mergeContinuedCardioRun(stored, session);
+        if (merged === stored) {
+          return stored;
+        }
+        await commit({
+          ...current,
+          cardioSessions: (current.cardioSessions ?? []).map((row) => (row.id === stored.id ? merged : row)),
+        });
+        return merged;
+      }
 
       await commit({
         ...current,

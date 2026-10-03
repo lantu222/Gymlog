@@ -8,6 +8,7 @@ import type { FreestyleFinishSummary } from '../lib/emptyWorkoutSession';
 import { sessionRecordedWork } from '../lib/exerciseLog';
 import { t } from '../lib/i18n';
 import { createId } from '../lib/ids';
+import { buildExercisePrLookup } from '../lib/workoutCompletionSummary';
 import { resolveFreestyleSaveTarget, resolveGuidedSaveTarget } from '../lib/emptyWorkoutSession';
 import { computePostSessionInsight } from '../lib/postSessionInsight';
 import { buildMuscleFocus, getVolumeDeltaVsPrevious } from '../lib/workoutCompleteView';
@@ -173,10 +174,16 @@ export function createFinishSaves(deps: FinishSavesDeps) {
     if (saveTarget.sessionId !== adaptedFromSession.sessionId) {
       workout.adoptSessionId(saveTarget.sessionId);
     }
-    const adaptedSession =
+    let adaptedSession =
       saveTarget.sessionId === adaptedFromSession.sessionId
         ? adaptedFromSession
         : { ...adaptedFromSession, sessionId: saveTarget.sessionId };
+    // A replace keeps the stored row's name (a rename made since is the reader's), so the summary
+    // names the workout the way History will.
+    const keptName = saveTarget.replaceStored
+      ? getDatabase().workoutSessions.find((row) => row.id === adaptedSession.sessionId)?.workoutNameSnapshot
+      : undefined;
+    const shownName = keptName ?? adaptedSession.workoutNameSnapshot;
 
     finishInFlightRef.current = true;
     setFinishSaveState({
@@ -196,12 +203,26 @@ export function createFinishSaves(deps: FinishSavesDeps) {
       if (!summary.sessionId || !summary.performedAt) {
         throw new Error('Workout save did not produce a valid summary');
       }
+      // Counted at its first save only: a workout found stored under its id (a finish that landed
+      // and whose clear was lost, or one finished further) was counted when it first landed.
+      const alreadyCounted =
+        saveTarget.alreadySaved || (saveTarget.replaceStored && summary.sessionId === adaptedSession.sessionId);
+      // The write read the database itself and may have filed these sets under another id than the
+      // decision did (the stored workout changed in between): the session takes that id before
+      // anything below stamps the history or opens the summary.
+      if (summary.sessionId !== adaptedSession.sessionId) {
+        workout.adoptSessionId(summary.sessionId);
+        adaptedSession = { ...adaptedSession, sessionId: summary.sessionId };
+        setFinishSaveState({ status: 'saving', sessionId: summary.sessionId });
+      }
       // Once per session. A write after this one can fail — the preferences
       // below — and the retry saves again, which hands back the session
       // already stored: counted on every pass, one workout was two
       // (analytics audit, 2026-09-21).
       saved = true;
-      countWorkoutCompleted(adaptedSession.sessionId);
+      if (!alreadyCounted) {
+        countWorkoutCompleted(adaptedSession.sessionId);
+      }
 
       // Only after the database save is verified: finishing flips the session
       // to 'completed' and stamps slot history. Doing it before the save meant
@@ -210,6 +231,24 @@ export function createFinishSaves(deps: FinishSavesDeps) {
       workout.finishWorkout(adaptedSession.performedAt);
 
       const sessionExerciseLogs = buildExerciseLogsForCompletedSession(adaptedSession.sessionId, adaptedSession.logs);
+      // What came before this workout is not this workout. A restored session finished again has its
+      // earlier version stored under the same id, in the snapshot this closure holds, and compared
+      // against it the finish was its own previous best and its own prior session. Left out by id,
+      // the record cards included (their lookup is rebuilt without it).
+      const holdsOwnEarlierVersion = database.workoutSessions.some((row) => row.id === adaptedSession.sessionId);
+      const priorSessions = holdsOwnEarlierVersion
+        ? database.workoutSessions.filter((row) => row.id !== adaptedSession.sessionId)
+        : database.workoutSessions;
+      const priorExerciseLogs = holdsOwnEarlierVersion
+        ? database.exerciseLogs.filter((log) => log.sessionId !== adaptedSession.sessionId)
+        : database.exerciseLogs;
+      const priorPrLookup = holdsOwnEarlierVersion
+        ? buildExercisePrLookup({
+            exerciseLogs: priorExerciseLogs,
+            workoutSessions: priorSessions,
+            exerciseTemplates: database.exerciseTemplates,
+          })
+        : exercisePrLookup;
       const insight = computePostSessionInsight(
         {
           completedSession: {
@@ -219,8 +258,8 @@ export function createFinishSaves(deps: FinishSavesDeps) {
             setsCompleted: summary.setsCompleted,
           },
           sessionExerciseLogs,
-          allPriorSessions: database.workoutSessions,
-          allPriorExerciseLogs: database.exerciseLogs,
+          allPriorSessions: priorSessions,
+          allPriorExerciseLogs: priorExerciseLogs,
           lastInsightSessionId: preferences.lastInsightSessionId,
           lastInsightType: preferences.lastInsightType,
           unitPreference,
@@ -232,12 +271,12 @@ export function createFinishSaves(deps: FinishSavesDeps) {
         exercises: adaptedSession.exercises,
         exerciseTemplates: database.exerciseTemplates,
         exerciseLibrary,
-        exercisePrLookup,
+        exercisePrLookup: priorPrLookup,
         language: preferences.appLanguage,
       });
       setCompletionSummary({
         sessionId: adaptedSession.sessionId,
-        workoutName: adaptedSession.workoutNameSnapshot,
+        workoutName: shownName,
         performedAt: summary.performedAt,
         durationMinutes: summary.durationMinutes,
         setsCompleted: summary.setsCompleted,
@@ -252,11 +291,11 @@ export function createFinishSaves(deps: FinishSavesDeps) {
         volumeDeltaKg: getVolumeDeltaVsPrevious(
           {
             sessionId: adaptedSession.sessionId,
-            workoutName: adaptedSession.workoutNameSnapshot,
+            workoutName: shownName,
             performedAt: summary.performedAt,
             totalVolumeKg: summary.totalVolume,
           },
-          database.workoutSessions,
+          priorSessions,
         ),
         muscles: buildMuscleFocus(adaptedSession.exercises, exerciseLibrary),
         exerciseCards: completionCards.exerciseCards,

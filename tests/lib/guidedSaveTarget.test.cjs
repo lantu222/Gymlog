@@ -1,4 +1,6 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const { createEmptyDatabase } = require('../../.test-dist/data/seed.js');
 const { resolveGuidedSaveTarget } = require('../../.test-dist/lib/emptyWorkoutSession.js');
@@ -82,6 +84,45 @@ module.exports = [
 
       const noStored = persistCompletedWorkoutSessionToDatabase(createEmptyDatabase('en'), input(more, { replaceStored: true }));
       assert.equal(noStored.database.workoutSessions.length, 1, 'the flag with nothing stored is an ordinary save');
+    },
+  },
+  {
+    name: 'a replace the write finds no longer lossless is saved under an id of its own instead, and says which',
+    run() {
+      // The decision read a database where the stored workout was a subset; the one written holds a set the
+      // finish lacks (the stored workout changed in between).
+      const stale = [lift('Bench Press', 0, [set(8, 80, 0), set(8, 82.5, 1)])];
+      const database = saved(stale);
+      const finish = [lift('Bench Press', 0, [set(8, 80, 0), set(6, 85, 2)])];
+      const result = persistCompletedWorkoutSessionToDatabase(database, input(finish, { replaceStored: true }));
+      assert.equal(result.didPersist, true);
+      assert.equal(result.summary.sessionId, 'session_a_b', 'the id it landed under');
+      assert.deepEqual(setsOf(result.database, 'session_a'), setsOf(database, 'session_a'), 'the stored workout is untouched');
+      assert.deepEqual(setsOf(result.database, 'session_a_b').sort(), ['Bench Press:6@85', 'Bench Press:8@80']);
+      // The same sets already stored under the walked id are not written again.
+      const again = persistCompletedWorkoutSessionToDatabase(result.database, input(finish, { replaceStored: true }));
+      assert.equal(again.didPersist, false);
+      assert.equal(again.summary.sessionId, 'session_a_b');
+      assert.equal(again.database.workoutSessions.length, 2);
+    },
+  },
+  {
+    name: 'guided finish of a restored workout: not counted twice, compared with what came before it and not with itself, named as History names it',
+    run() {
+      const source = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'app', 'finishSaves.tsx'), 'utf8').replace(/\r\n/g, '\n');
+      const fn = source.slice(source.indexOf('async function handleConfirmFinishWorkout()'), source.indexOf('const finishLoggedWorkoutSave = async'));
+      // Counted at the first save only.
+      assert.match(fn, /const alreadyCounted =\s*saveTarget\.alreadySaved \|\| \(saveTarget\.replaceStored && summary\.sessionId === adaptedSession\.sessionId\);/);
+      assert.match(fn, /if \(!alreadyCounted\) \{\s*countWorkoutCompleted\(adaptedSession\.sessionId\);\s*\}/);
+      // The insight, the record cards and the volume delta read the history without this session's own earlier version.
+      assert.match(fn, /allPriorSessions: priorSessions,\s*allPriorExerciseLogs: priorExerciseLogs,/);
+      assert.match(fn, /exercisePrLookup: priorPrLookup,/);
+      assert.match(fn, /priorSessions,\s*\),/);
+      assert.doesNotMatch(fn, /allPriorSessions: database\.workoutSessions/);
+      // A replace keeps the stored name, and the summary shows it.
+      assert.match(fn, /workoutName: shownName,/);
+      // The id the write filed the sets under is the session's before anything is stamped.
+      assert.ok(fn.indexOf('workout.adoptSessionId(summary.sessionId)') < fn.indexOf('workout.finishWorkout('));
     },
   },
   {

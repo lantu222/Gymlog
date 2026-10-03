@@ -285,14 +285,29 @@ export function resolveGuidedSaveTarget(
   sessionId: string,
   logs: ReadonlyArray<CountedLog>,
 ): { sessionId: string; alreadySaved: boolean; replaceStored: boolean } {
-  if (database.workoutSessions.some((session) => session.id === sessionId)) {
-    const saving = liftsOf(logs);
-    const stored = liftsOf(database.exerciseLogs.filter((log) => log.sessionId === sessionId));
-    if (!sameLifts(stored, saving) && liftsContained(stored, saving)) {
-      return { sessionId, alreadySaved: false, replaceStored: true };
-    }
+  if (canReplaceStoredWorkout(database, sessionId, logs)) {
+    return { sessionId, alreadySaved: false, replaceStored: true };
   }
   return { ...resolveFreestyleSaveTarget(database, sessionId, logs), replaceStored: false };
+}
+
+/**
+ * Whether the workout stored under `sessionId` can be replaced by these logs without losing a set:
+ * every set it holds is among them (and they are more than it holds). The decision above asks it of
+ * the database it read; the write asks it again of the database it is about to write, because the
+ * two reads can differ, and a replace that is no longer lossless is saved under an id of its own.
+ */
+export function canReplaceStoredWorkout(
+  database: SavedSessions,
+  sessionId: string,
+  logs: ReadonlyArray<CountedLog>,
+): boolean {
+  if (!database.workoutSessions.some((session) => session.id === sessionId)) {
+    return false;
+  }
+  const saving = liftsOf(logs);
+  const stored = liftsOf(database.exerciseLogs.filter((log) => log.sessionId === sessionId));
+  return !sameLifts(stored, saving) && liftsContained(stored, saving);
 }
 
 /**

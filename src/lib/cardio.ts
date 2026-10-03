@@ -164,6 +164,26 @@ export function findSavedCardioRun<T extends Pick<CardioSession, 'activityType' 
 }
 
 /**
+ * The stored run, carried on: a run that was saved, whose clear was lost, came back paused and was
+ * run further. The stored row takes the longer finish under its own id (one run, one row): the new
+ * duration, end, distance and feel. Never shortened: an incoming run that is not longer is the
+ * save landing again, or an older reading, and the stored row stays as it is. A distance or feel the
+ * new finish left empty stays what was stored.
+ */
+export function mergeContinuedCardioRun(stored: CardioSession, incoming: CardioSession): CardioSession {
+  if (!(incoming.durationSec > stored.durationSec)) {
+    return stored;
+  }
+  return {
+    ...stored,
+    performedAt: incoming.performedAt,
+    durationSec: incoming.durationSec,
+    distanceKm: incoming.distanceKm ?? stored.distanceKm ?? null,
+    feel: incoming.feel ?? stored.feel ?? null,
+  };
+}
+
+/**
  * Live cardio session state. Elapsed time is derived from timestamps so it
  * survives backgrounding and process death: accumulatedMs counts finished
  * running stretches, resumedAt marks the current one (null = paused).

@@ -991,8 +991,23 @@ function finishDeps(proc, ev) {
       try {
         const summary = await proc.part.persistCompletedWorkoutSession(input);
         attempt.outcome = 'resolved';
-        if (summary.sessionId && (!world.expectedDb.has(input.sessionId) || input.replaceStored)) {
-          world.expectedDb.set(input.sessionId, { sets: expected, lifts: world.pendingLifts });
+        // The id the sets landed under: the write may file them elsewhere than the caller asked (it reads the database itself).
+        const landedAs = summary.sessionId;
+        attempt.sessionId = landedAs ?? attempt.sessionId;
+        if (landedAs) {
+          const prior = world.expectedDb.get(landedAs);
+          if (!prior) {
+            world.expectedDb.set(landedAs, { sets: expected, lifts: world.pendingLifts });
+          } else if (input.replaceStored && landedAs === input.sessionId) {
+            // A replace overwrites what is expected under the id, so it is held to what the expectation was: every set
+            // the stored workout held survives it, with multiplicity. (Without this the invariant accepts whatever the
+            // code under test decided to replace.)
+            const lost = subtractSets(prior.sets, expected);
+            if (lost.length > 0) {
+              fail('2', `a save replaced stored session ${landedAs} and dropped ${lost.length} of the sets it held (${lost.join(' ')}): ${prior.sets.length} stored, ${expected.length} after`);
+            }
+            world.expectedDb.set(landedAs, { sets: expected, lifts: world.pendingLifts });
+          }
         }
         return summary;
       } catch (error) {
