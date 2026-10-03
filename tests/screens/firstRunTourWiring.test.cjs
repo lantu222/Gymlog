@@ -117,7 +117,9 @@ module.exports = [
       // that shipped an hour ago was checking fourteen beats out of sixteen.
       const dict = read('src/lib/i18n.ts');
       const entries = [...dict.matchAll(/'(tour\.(?:home|progress|profile)\.[a-zA-Z]+)':\s*(['"])([\s\S]*?)\2,/g)];
-      assert.equal(entries.length, 18, 'nine section beats in two dictionaries');
+      // Home's five section beats; Progress and Profile lost theirs on
+      // 2026-10-03, and the pattern still matches them so a revival is seen.
+      assert.equal(entries.length, 10, 'five section beats in two dictionaries');
       for (const [, key, , text] of entries) {
         assert.ok(text.length > 20, `${key} is suspiciously short, did the match stop early: ${text}`);
         // Verbs that ask for a press. "Painamalla X voit…" describes what a
@@ -315,18 +317,15 @@ module.exports = [
     },
   },
   {
-    name: 'first-run tour: Progress and Profile register two targets each and their scrollers',
+    // User 2026-10-03: the tour runs on Home only. Progress and Profile kept
+    // two beats each until then; neither screen registers anything now.
+    name: 'first-run tour: Progress and Profile carry no tour targets or scrollers',
     run() {
-      const progress = stripComments(progressSource);
-      assert.match(progress, /register\('progress\.chart', node\)/);
-      assert.match(progress, /register\('progress\.calendar', node\)/);
-      assert.match(progress, /useTourScroller\('progress', tourTargets\)/);
-      assert.match(progress, /onScroll=\{tourScroller\.onScroll\}/);
-      const profile = stripComments(profileSource);
-      assert.match(profile, /register\('profile\.milestone', node\)/);
-      assert.match(profile, /register\('profile\.settings', node\)/);
-      assert.match(profile, /useTourScroller\('profile', tourTargets\)/);
-      assert.match(profile, /onScroll=\{tourScroller\.onScroll\}/);
+      for (const source of [progressSource, profileSource]) {
+        const screen = stripComments(source);
+        assert.doesNotMatch(screen, /tourTargets/);
+        assert.doesNotMatch(screen, /useTourScroller/);
+      }
       // The one hook is where the scroller is registered and the offset kept.
       const hook = stripComments(read('src/features/tour/useTourScroller.ts'));
       assert.match(hook, /tourTargets\.registerScroller\(surface, \{/);

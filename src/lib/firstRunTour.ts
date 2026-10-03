@@ -24,9 +24,15 @@
 import { cutCornerPath } from './cutCorner';
 import type { I18nKey } from './i18n';
 
-export type TourSurface = 'home' | 'progress' | 'profile';
+/**
+ * Home is the only surface (user 2026-10-03): the tour runs once, on Home,
+ * and nowhere else. Progress and Profile had two beats each that a reader
+ * met on their first visit to the tab; those are gone. An old install's
+ * stored 'progress'/'profile' entries are dropped by the normaliser.
+ */
+export type TourSurface = 'home';
 
-export const TOUR_SURFACES: readonly TourSurface[] = ['home', 'progress', 'profile'];
+export const TOUR_SURFACES: readonly TourSurface[] = ['home'];
 
 /** Every element a screen or the bar can register for the tour to point at. */
 export type TourTargetId =
@@ -36,10 +42,6 @@ export type TourTargetId =
   | 'home.workoutChevron'
   | 'home.program'
   | 'home.cards'
-  | 'progress.chart'
-  | 'progress.calendar'
-  | 'profile.milestone'
-  | 'profile.settings'
   | 'bar.pill'
   | 'bar.home'
   | 'bar.programs'
@@ -129,16 +131,6 @@ export function resolveTourBeats(surface: TourSurface, options: { hasProgram: bo
       beats.push({ kind: 'bar', stops: TOUR_BAR_STOPS });
       return beats;
     }
-    case 'progress':
-      return [
-        { kind: 'section', target: 'progress.chart', place: 'below', copyKey: 'tour.progress.chart' },
-        { kind: 'section', target: 'progress.calendar', place: 'above', copyKey: 'tour.progress.calendar' },
-      ];
-    case 'profile':
-      return [
-        { kind: 'section', target: 'profile.milestone', place: 'below', copyKey: 'tour.profile.milestone' },
-        { kind: 'section', target: 'profile.settings', place: 'below', copyKey: 'tour.profile.settings' },
-      ];
     default:
       return [];
   }
@@ -416,11 +408,7 @@ export function markTourSeen(seen: readonly TourSurface[], surface: TourSurface)
   return seen.includes(surface) ? [...seen] : [...seen, surface];
 }
 
-/**
- * Which surface a route is the root of, if the tour has one for it. Progress
- * only counts on its overview: the chart and the calendar live there, and a
- * reader who arrived on Records would be shown a tour of things not on screen.
- */
+/** Which surface a route is the root of, if the tour has one for it: Home's dashboard only. */
 export function resolveTourSurface(route: {
   tab: string;
   screen: string;
@@ -428,12 +416,6 @@ export function resolveTourSurface(route: {
 }): TourSurface | null {
   if (route.tab === 'home' && route.screen === 'dashboard') {
     return 'home';
-  }
-  if (route.tab === 'progress' && route.screen === 'list') {
-    return route.section === undefined || route.section === 'overview' ? 'progress' : null;
-  }
-  if (route.tab === 'profile' && route.screen === 'list') {
-    return 'profile';
   }
   return null;
 }
