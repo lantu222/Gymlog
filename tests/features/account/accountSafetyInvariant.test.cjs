@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { callHandler, loadApiModule, withEnv } = require('../../helpers/apiModule.cjs');
-const { createClock, createHookRuntime, flush, requireWithStubs } = require('../../helpers/hookHarness.cjs');
+const { createClock, createHookRuntime, deferred, flush, requireWithStubs } = require('../../helpers/hookHarness.cjs');
 const { createFakeAsyncStorage } = require('../../storage/fakeAsyncStorage.cjs');
 
 /**
@@ -31,9 +31,12 @@ const { createFakeAsyncStorage } = require('../../storage/fakeAsyncStorage.cjs')
  * the credential state the test sets), Google (tokeninfo and the native
  * sign-in module), AsyncStorage, the clock (Date.now is a counter the test
  * moves) and the app's two providers (they only hold the database).
- * Not simulated: two operations of one phone in flight at once, and two phones
- * hitting the endpoint at the same instant (the race docs/account-backup.md
- * describes).
+ * Simulated since 2026-10-03: an operation held open across a sign-out (and a
+ * sign-in to another account) and then released — the `overlap` event. Its
+ * request's answer, or its closing account write, is held while the reader
+ * signs out and in again, then let through; see invariant 7.
+ * Not simulated: two phones hitting the endpoint at the same instant (the race
+ * docs/account-backup.md describes).
  *
  * Invariants, after every step:
  *  1. No account's cloud copy holds a workout logged under another account,
@@ -50,6 +53,13 @@ const { createFakeAsyncStorage } = require('../../storage/fakeAsyncStorage.cjs')
  *  5. A signed-out phone holds no Apple session and no account record.
  *  6. No step throws or leaves a promise rejected, and what the hook says
  *     (signed in / out) is what is stored.
+ *  7. What an operation that sign-out overtook says or writes late — an answer
+ *     (SESSION_REVOKED included), a closing account write — changes nothing: the
+ *     stored account, the signed-out marks and the "sign-in ended" notice are
+ *     what they were just before it was let through. (Held-operation shapes found
+ *     by hunt 3, 2026-10-03: a late SESSION_REVOKED signed the NEXT account out;
+ *     a late closing write's "forget the signed-out marks" erased the mark that
+ *     sign-out had just written.)
  *
  * KNOWN GAPS — none. The first run (2026-10-02) failed on main in two places:
  *  - 5: a phone signed out by Apple (credential revoked, session run out) kept
@@ -78,6 +88,7 @@ const CLIENT_ID = 'client.apps.googleusercontent.com';
 const BUNDLE_ID = 'app.vinha';
 const ACCOUNT_KEY = '@vinha/account/v1';
 const APPLE_SESSION_KEY = '@vinha/account/apple/v1';
+const SIGNED_OUT_KEY = '@vinha/account/signedout/v1';
 const START_MS = Date.UTC(2026, 9, 2, 12, 0, 0);
 
 const SEQUENCES = Number(process.env.ACCOUNT_SAFETY_SEQUENCES) || 2000;
@@ -282,9 +293,22 @@ async function serverCall(req, who) {
   if (fault) {
     world.fault = null;
   }
-  const deliver = (result) => {
+  const deliver = async (result) => {
     count(`answer ${action ?? req.method} ${result.status} ${result.body?.error ?? ''}${vs1 ? ' (vs1)' : ''}`);
-    who?.seen.push({ status: result.status, error: result.body?.error, vs1, op: action ?? req.method });
+    // The overlap event holds one answer back: the server did its part, the phone has not heard yet.
+    const hold = who?.hold;
+    let stale = false;
+    if (hold?.kind === 'request' && hold.armed) {
+      if (hold.skip > 0) {
+        hold.skip -= 1;
+      } else {
+        hold.armed = false;
+        hold.reached = true;
+        await hold.gate.promise;
+        stale = true;
+      }
+    }
+    who?.seen.push({ status: result.status, error: result.body?.error, vs1, op: action ?? req.method, stale });
     return respond(result.status, result.body);
   };
   if (fault?.kind === 'invalid') {
@@ -481,7 +505,7 @@ function loadPhone(name, createEmptyDatabase) {
     },
     '@react-native-async-storage/async-storage': { __esModule: true, default: storage },
   });
-  return {
+  const phone = {
     name,
     storage,
     runtime,
@@ -497,10 +521,29 @@ function loadPhone(name, createEmptyDatabase) {
     puts: 0,
     leftBehind: null,
     deletedByMe: false,
+    hold: null,
   };
+  // The overlap event's held write: applied at the call, as the native executor orders it, but not
+  // finished until the test lets it — the closing account write of an operation that sign-out then overtakes.
+  const rawSetItem = storage.setItem;
+  storage.setItem = async (key, value) => {
+    await rawSetItem.call(storage, key, value);
+    const hold = phone.hold;
+    if (hold?.kind === 'write' && hold.armed && key === ACCOUNT_KEY) {
+      if (hold.skip > 0) {
+        hold.skip -= 1;
+      } else {
+        hold.armed = false;
+        hold.reached = true;
+        await hold.gate.promise;
+      }
+    }
+  };
+  return phone;
 }
 
 function resetPhone(phone) {
+  phone.hold = null;
   phone.storage.rows.clear();
   phone.runtime.unmount();
   phone.listeners.clear();
@@ -575,6 +618,8 @@ const ownerOfWorkout = (id) => id.split('|')[1];
 // ---------------------------------------------------------------------------
 
 const REQUEST_EVENTS = new Set(['signIn', 'backUp', 'auto', 'answer', 'deleteRemote', 'deleteAccount']);
+// What an overlap's held answer may be: mostly the endings that sign a phone out, which is what a late one must not repeat.
+const OVERLAP_FAULTS = [null, null, { kind: 'deleted_elsewhere' }, { kind: 'deleted_elsewhere' }, { kind: 'g401', code: 'SESSION_REVOKED' }, { kind: 'g401', code: 'SESSION_EXPIRED' }, { kind: 'net_after' }, { kind: 'bad502' }];
 const FAULTS = [
   { kind: 'invalid' },
   { kind: 'bad502' },
@@ -632,11 +677,19 @@ function generate(random) {
     } else if (roll < 0.93) {
       event.t = 'corruptMarker';
       event.account = pick(['P1', 'P2']);
+    } else if (roll < 0.99) {
+      // An operation's answer or closing write held open while the reader signs out (and maybe in again).
+      event.t = 'overlap';
+      event.hold = { kind: pick(['request', 'write']), nth: pick([0, 0, 1, 1, 1, 2]) };
+      event.op = pick(['auto', 'backUp', 'answer']);
+      event.yes = random() < 0.5;
+      event.account = random() < 0.6 ? pick(event.phone === 'A' ? ACCOUNTS : ['G1', 'G2', 'P1']) : null;
+      event.fault = pick(OVERLAP_FAULTS) ?? undefined;
     } else {
       event.t = 'clock';
       event.dt = pick([1 * DAY, 1 * DAY, 20 * DAY, 20 * DAY, 151 * DAY, 160 * DAY, 179 * DAY + 23 * 3600000, 181 * DAY, 400 * DAY]);
     }
-    if (REQUEST_EVENTS.has(event.t) && random() < 0.3) {
+    if (event.t !== 'overlap' && REQUEST_EVENTS.has(event.t) && random() < 0.3) {
       event.fault = pick(FAULTS);
     }
     events.push(event);
@@ -653,7 +706,14 @@ function parseEvents(text) {
     const [kindAndPhone, arg] = head.split(':');
     const [t, phone = 'A'] = kindAndPhone.split('@');
     const event = { t, phone, dt: 5000 };
-    if (arg === 'yes' || arg === 'no') {
+    if (t === 'overlap') {
+      // overlap@A:<request|write>.<nth>.<auto|backUp|answer>.<account|->
+      const [kind, nth, op, account] = arg.split('.');
+      event.hold = { kind, nth: Number(nth) };
+      event.op = op;
+      event.yes = false;
+      event.account = account && account !== '-' ? account : null;
+    } else if (arg === 'yes' || arg === 'no') {
       event.yes = arg === 'yes';
     } else if (t === 'clock') {
       event.dt = Number(arg) * DAY;
@@ -670,6 +730,10 @@ function parseEvents(text) {
 
 const PHONELESS = new Set(['clock', 'elsewhere', 'appleRevoked', 'corruptMarker']);
 function describe(event) {
+  if (event.t === 'overlap') {
+    const fault = event.fault ? ` +${event.fault.kind}${event.fault.code ? `:${event.fault.code}` : ''}` : '';
+    return `overlap@${event.phone}:${event.hold.kind}.${event.hold.nth}.${event.op}.${event.account ?? '-'}${fault}`;
+  }
   const where = PHONELESS.has(event.t) ? '' : `@${event.phone}`;
   const account = event.account ? `(${event.account})` : '';
   const yes = event.yes === undefined ? '' : event.yes ? '(yes)' : '(no)';
@@ -826,11 +890,101 @@ async function runEvent(event) {
     case 'googleLost':
       phone.google = null;
       break;
+    case 'overlap':
+      if (!outcome.wasSignedIn) {
+        outcome.skipped = true;
+        break;
+      }
+      await overlap(phone, event, outcome);
+      break;
     default:
       throw new Error(`unknown event ${event.t}`);
   }
   await settle(phone);
   return outcome;
+}
+
+/** What a late, overtaken operation must leave exactly as it is (invariant 7). */
+function snapshot(phone) {
+  render(phone);
+  return {
+    account: phone.storage.rows.get(ACCOUNT_KEY) ?? null,
+    marks: phone.storage.rows.get(SIGNED_OUT_KEY) ?? null,
+    notice: phone.api.sessionEndedNotice,
+  };
+}
+
+/**
+ * One operation of the phone held open — its Nth request's answer, or its Nth
+ * account write, not yet finished — while the reader signs out and, maybe, in as
+ * another account; then the held thing is let through. The two operations of one
+ * phone in flight at once that this file used to leave out.
+ */
+let lastOverlap = null;
+async function overlap(phone, event, outcome) {
+  lastOverlap = { reached: false, stale: [], late: null };
+  const hold = { kind: event.hold.kind, skip: event.hold.nth, armed: true, reached: false, gate: deferred() };
+  phone.hold = hold;
+  let operation = null;
+  let asked = null;
+  let late = null;
+  if (event.op === 'auto') {
+    phone.clock.advance(QUIET_MS);
+  } else if (event.op === 'backUp') {
+    const account = storedAccount(phone);
+    operation = phone.api.backUpOrAsk().then((result) => {
+      asked = account ? { account: accountOfSub(account.sub), result } : null;
+      late = result.kind;
+    });
+  } else {
+    operation = answer(phone, event.yes);
+  }
+  render(phone);
+  for (let round = 0; round < 80 && !hold.reached; round += 1) {
+    await flush();
+    render(phone);
+    if (phone.api.phase === 'idle') {
+      break;
+    }
+  }
+  // The faults were for the held operation; the sign-in below meets a healthy network.
+  world.fault = null;
+  world.store.failGets = null;
+  world.store.failPuts = null;
+  if (!hold.reached) {
+    // The operation ended without ever getting that far: nothing was overtaken.
+    phone.hold = null;
+    await operation;
+    if (asked) {
+      noteQuestion(phone, asked.account, asked.result);
+    }
+    return;
+  }
+  count(`overlap held ${hold.kind} of ${event.op}`);
+  lastOverlap.reached = true;
+  await phone.api.signOut();
+  phone.q = null;
+  phone.seen = [];
+  if (event.account) {
+    if (isApple(event.account)) {
+      world.nextApple = event.account;
+    } else {
+      world.nextGoogle = event.account;
+    }
+    const result = await phone.api.signIn(isApple(event.account) ? 'apple' : 'google');
+    count(`overlap then signIn ${event.account} -> ${result.kind}`);
+    noteQuestion(phone, event.account, result);
+  }
+  await settle(phone);
+  const before = snapshot(phone);
+  hold.gate.resolve();
+  phone.hold = null;
+  await operation;
+  await settle(phone);
+  outcome.overlap = { before, after: snapshot(phone), stale: phone.seen.filter((entry) => entry.stale), late };
+  lastOverlap.stale = outcome.overlap.stale;
+  lastOverlap.late = late;
+  count(`overlap released after ${event.account ? 'a sign-in' : 'sign-out'}${outcome.overlap.stale.length ? ` (answered ${outcome.overlap.stale[0].status} ${outcome.overlap.stale[0].error ?? ''})` : ''}`);
 }
 
 /** Remembers what was asked: the answer is only ever a yes or a no to that. */
@@ -887,7 +1041,7 @@ function sessionStillTrusted(session) {
   return !world.appleRevoked.has(session.user) && Date.parse(session.expiresAt) - Date.now() >= 60 * 60 * 1000;
 }
 
-const signingOutEvent =(event) => event.t === 'signOut' || event.t === 'reset' || event.t === 'deleteAccount';
+const signingOutEvent = (event) => event.t === 'signOut' || event.t === 'reset' || event.t === 'deleteAccount' || event.t === 'overlap';
 
 function checkAfter(outcome) {
   const { event, phone } = outcome;
@@ -957,7 +1111,8 @@ function checkAfter(outcome) {
   // 4. What signs a phone out.
   if (outcome.wasSignedIn) {
     const over = phone.seen.find(
-      (entry) => entry.vs1 && entry.op !== 'apple-renew' && entry.status === 401 && (entry.error === 'SESSION_REVOKED' || entry.error === 'SESSION_EXPIRED'),
+      (entry) =>
+        !entry.stale && entry.vs1 && entry.op !== 'apple-renew' && entry.status === 401 && (entry.error === 'SESSION_REVOKED' || entry.error === 'SESSION_EXPIRED'),
     );
     const signedOut = storedAccount(phone) === null;
     if (over && !signedOut) {
@@ -966,6 +1121,25 @@ function checkAfter(outcome) {
     const explained = signingOutEvent(event) && (event.t !== 'deleteAccount' || outcome.deleteResult === 'done' || outcome.deleteResult === 'ended');
     if (signedOut && !explained && !over && !outcome.reason) {
       bad(`4: ${phone.name} was signed out by ${describe(event)} with no SESSION_* answer and no lost credential (answers seen: ${JSON.stringify(phone.seen)})`);
+    }
+  }
+
+  // 7. What an overtaken operation says or writes late changes nothing.
+  if (outcome.overlap) {
+    const { before, after, stale, late } = outcome.overlap;
+    const what = `${describe(event)}${stale.length ? ` (its held answer: ${stale[0].status} ${stale[0].error ?? ''})` : ''}`;
+    if (after.account !== before.account) {
+      bad(`7: ${phone.name}'s stored account changed when an operation sign-out had overtaken was let through (${what}): ${before.account ? JSON.parse(before.account).sub : 'none'} -> ${after.account ? JSON.parse(after.account).sub : 'none'}`);
+    }
+    if (after.marks !== before.marks) {
+      bad(`7: ${phone.name}'s signed-out marks changed when an operation sign-out had overtaken was let through (${what}): ${before.marks} -> ${after.marks}`);
+    }
+    if (late === 'choice' || late === 'confirm_upload') {
+      // The question was parked for an account that has left: its answer could only say "restore failed".
+      bad(`7: ${phone.name} was handed a "${late}" question by an operation sign-out had overtaken (${what})`);
+    }
+    if (after.notice !== before.notice) {
+      bad(`7: ${phone.name}'s "sign-in ended" notice changed when an operation sign-out had overtaken was let through (${what})`);
     }
   }
 
@@ -1112,7 +1286,55 @@ async function withWorld(run) {
   }
 }
 
+/**
+ * The four shapes hunt 3 found (2026-10-03), run exactly: the random run above
+ * reaches them only now and then. Each also asserts that the hold was reached
+ * and what was held, so a change to the harness cannot turn them into
+ * sequences that never exercise anything.
+ */
+const PINNED_OVERLAPS = [
+  {
+    // A late SESSION_REVOKED to the request of the account that left signed the next account out.
+    name: "a late SESSION_REVOKED answer does not sign out the account that signed in since",
+    replay: 'signIn@A:P2,elsewhere:P2,log@A,overlap@A:request.0.auto.P2',
+    check: (last) => assert.deepEqual(last.stale.map((entry) => entry.error), ['SESSION_REVOKED']),
+  },
+  {
+    // A late closing write of a backup forgot the signed-out mark sign-out had just written.
+    name: 'a backup\'s closing write, let through after sign-out, does not erase the signed-out mark',
+    replay: 'signIn@B:P1,overlap@B:write.1.backUp.-',
+    check: () => undefined,
+  },
+  {
+    // The same for the closing write of a restore the reader chose.
+    name: "a restore's closing write, let through after sign-out, does not erase the signed-out mark",
+    replay: 'signIn@A:G1,log@A,backUp@A,signIn@B:G1,log@B,backUp@B,log@A,backUp@A,overlap@A:write.0.answer.-',
+    check: () => undefined,
+  },
+  {
+    // The restore-or-keep question parked after sign-out took the account away was handed out anyway.
+    name: 'the restore-or-keep question is not handed out once sign-out has overtaken it',
+    replay: 'signIn@A:G1,log@A,backUp@A,signIn@B:G1,log@B,backUp@B,log@A,overlap@A:write.1.backUp.G2',
+    check: (last) => assert.notEqual(last.late, 'choice'),
+  },
+];
+
 module.exports = [
+  {
+    name: 'account safety: an operation held open across sign-out and let through late changes nothing (pinned shapes of hunt 3)',
+    async run() {
+      await withWorld(async () => {
+        for (const shape of PINNED_OVERLAPS) {
+          lastOverlap = null;
+          const events = parseEvents(shape.replay);
+          const failure = await runSequence(events);
+          assert.equal(failure, null, `${shape.name}: ${failure?.message} (at step ${failure ? failure.step + 1 : 0} of ${events.map(describe).join(', ')})`);
+          assert.ok(lastOverlap?.reached, `${shape.name}: the hold was never reached, so nothing was tested`);
+          shape.check(lastOverlap);
+        }
+      });
+    },
+  },
   {
     name: `account safety: ${SEQUENCES} random sequences over two phones, Google and Apple accounts, the real client and the real endpoint, break no invariant`,
     async run() {

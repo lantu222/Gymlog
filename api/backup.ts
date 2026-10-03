@@ -441,19 +441,49 @@ async function revocationOf(
   let etag = marker.etag;
   if (revokedAtMs === null) {
     revokedAtMs = marker.uploadedAtMs;
+    let lostRace = false;
     try {
-      await put(
-        pathname,
-        JSON.stringify({ revokedAtMs, ...(deleteRequestId ? { deleteRequestId } : {}) }),
-        { ...REVOCATION_WRITE_OPTIONS, ...(marker.etag ? { ifMatch: marker.etag } : {}) },
-      );
-      // The copy that was read is gone; whatever is stored now is not it.
-      etag = null;
-      console.error('backup revocation marker was unreadable: rewritten as revoked at its write time');
+      // The condition is the store's own current ETag, from `head` — the form
+      // `ifMatch` compares against — and only when it is the copy that was
+      // read (as removeStaleMarker does). `get`'s header can be written
+      // differently (weak, unquoted), and named as the condition it failed
+      // every time: the re-read below found the same unreadable marker and the
+      // account got a 502 for ever (hunt 3, 2026-10-03).
+      let ifMatch: string | undefined;
+      if (marker.etag) {
+        try {
+          const current = (await head(pathname)).etag;
+          if (current && etagCore(current) === etagCore(marker.etag)) {
+            ifMatch = current;
+          } else {
+            console.error(`backup marker rewrite etag forms differ: get=${etagShape(marker.etag)} head=${etagShape(current)}`);
+            lostRace = true;
+          }
+        } catch (error) {
+          if (!(error instanceof BlobNotFoundError)) {
+            throw error;
+          }
+          // Gone since it was read: the re-read below says so.
+          lostRace = true;
+        }
+      }
+      if (!lostRace) {
+        await put(
+          pathname,
+          JSON.stringify({ revokedAtMs, ...(deleteRequestId ? { deleteRequestId } : {}) }),
+          { ...REVOCATION_WRITE_OPTIONS, ...(ifMatch ? { ifMatch } : {}) },
+        );
+        // The copy that was read is gone; whatever is stored now is not it.
+        etag = null;
+        console.error('backup revocation marker was unreadable: rewritten as revoked at its write time');
+      }
     } catch (error) {
       if (!(error instanceof BlobPreconditionFailedError)) {
         throw new StoreUnavailable();
       }
+      lostRace = true;
+    }
+    if (lostRace) {
       // Written by someone else since it was read — most likely a deletion's
       // own stamp. Whatever is there now is the answer, never an older time.
       const current = await readRevocationMarker(pathname);
@@ -889,6 +919,35 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         res.status(412).json(body);
         return;
       }
+      // An Apple session that passed its check before Delete account landed
+      // can write after it, and a first backup (`none`) or a write from a
+      // build before versions asks the store for nothing that would stop it:
+      // the deleted account's copy came back. So the record is looked at once
+      // more now that the write is done, and the copy just written is taken
+      // away again — only that copy (its own ETag), never a newer one written
+      // since. Answered as every other request of a revoked session is. A
+      // record that cannot be read here leaves the write standing: the check
+      // before it passed, and the next request meets the store's answer.
+      if (token.startsWith(APPLE_SESSION_PREFIX)) {
+        let again: SessionVerdict | null = null;
+        try {
+          again = await verifyAppleSession(token, pathSecret);
+        } catch {
+          again = null;
+        }
+        if (again && !again.ok && again.error === 'SESSION_REVOKED') {
+          try {
+            await del(pathname, written.etag ? { ifMatch: written.etag } : undefined);
+          } catch (error) {
+            // Written over since (not ours any more), already gone, or the store
+            // cannot say: the answer is the same, and the log says which kind.
+            console.error('backup write after account deletion could not be taken back:', error instanceof Error ? error.message.slice(0, 200) : 'unknown');
+          }
+          console.error('backup SESSION_REVOKED (revoked while its write was in flight)');
+          res.status(401).json(refusalBody(again));
+          return;
+        }
+      }
       // Success is reported only after the store accepted the write — the
       // same rule the app applies to saved workouts.
       res.status(200).json({ ok: true, savedAt: new Date().toISOString(), version: written.etag || null });
@@ -970,6 +1029,21 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
           console.error('backup revocation failed:', error instanceof Error ? error.message.slice(0, 200) : 'unknown');
           res.status(502).json({ ok: false, error: 'STORE_UNAVAILABLE' });
           return;
+        }
+        // The copy once more, now that the sessions are refused. A write that
+        // had passed its check before the first stamp can land between the
+        // first delete and here (a first backup, or a build from before
+        // versions, names no copy to fail against); one that lands after the
+        // stamps takes itself back (the PUT branch). Failing is a 502 as at
+        // the first delete.
+        try {
+          await del(pathname);
+        } catch (error) {
+          if (!(error instanceof BlobNotFoundError)) {
+            console.error('backup DELETE failed:', error instanceof Error ? error.message.slice(0, 200) : 'unknown');
+            res.status(502).json({ ok: false, error: 'STORE_UNAVAILABLE' });
+            return;
+          }
         }
       }
       res.status(200).json({ ok: true });

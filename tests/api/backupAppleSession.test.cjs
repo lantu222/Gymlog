@@ -56,6 +56,8 @@ function pathBlobStore() {
     holdMarkerPut: null,
     // { pathname, reached, release } — the next del of that pathname waits for release, after saying it got there.
     holdDel: null,
+    // { reached, release } — the next write to backups/ waits for release before it lands, after saying it got there.
+    holdBackupPut: null,
     // What a del was asked, in order: { pathname, ifMatch }.
     delCalls: [],
     // Every write that was accepted, in order: { pathname, body }.
@@ -74,7 +76,7 @@ function pathBlobStore() {
       if (!blobs.has(pathname)) {
         throw new BlobNotFoundError();
       }
-      return { etag: pathname.startsWith('revoked/') ? `"v${versions.get(pathname) ?? 0}"` : '"etag"' };
+      return { etag: `"v${versions.get(pathname) ?? 0}"` };
     },
     async get(pathname) {
       if (store.failGets?.(pathname)) {
@@ -126,6 +128,12 @@ function pathBlobStore() {
       if (store.failPuts?.(pathname)) {
         throw new Error('store unavailable');
       }
+      if (store.holdBackupPut && pathname.startsWith('backups/')) {
+        const hold = store.holdBackupPut;
+        store.holdBackupPut = null;
+        hold.reached();
+        await hold.release;
+      }
       if (store.holdMarkerPut && !store.holdMarkerPut.taken && pathname.startsWith('revoked/')) {
         store.holdMarkerPut.taken = true;
         store.holdMarkerPut.reached();
@@ -138,7 +146,7 @@ function pathBlobStore() {
       blobs.set(pathname, body);
       uploaded.set(pathname, Date.now());
       versions.set(pathname, (versions.get(pathname) ?? 0) + 1);
-      return { etag: '"etag"' };
+      return { etag: `"v${versions.get(pathname)}"` };
     },
     async del(pathnames, options = {}) {
       for (const pathname of [].concat(pathnames)) {
@@ -200,6 +208,8 @@ async function withEndpoint(scenario) {
 }
 
 const copy = (label) => JSON.stringify({ version: 1, exportedAt: label, database: {}, workoutHistory: {} });
+
+const backupsIn = (blobs) => [...blobs.keys()].filter((key) => key.startsWith('backups/'));
 
 module.exports = [
   {
@@ -987,6 +997,178 @@ module.exports = [
         const retry = await deleteWith(call, session, 'fedcba9876543210fedcba9876543210');
         assert.equal(retry.status, 401);
         assert.deepEqual(retry.body, { ok: false, error: 'SESSION_REVOKED', deleteRequestId: id });
+      });
+    },
+  },
+  {
+    name: 'apple backup: a write that passed its check before Delete account cannot bring the deleted copy back',
+    async run() {
+      const hold = (store) => {
+        let reached;
+        const gotThere = new Promise((resolve) => (reached = resolve));
+        let release;
+        store.holdBackupPut = { reached, release: new Promise((resolve) => (release = resolve)) };
+        return { gotThere, release };
+      };
+
+      // The phone's own write — no copy named (a first backup) or no header at all (a build from before versions) —
+      // verified, and in flight while the account is deleted from another phone: it lands after the deletion.
+      for (const [label, headers] of [
+        ['a first backup (none)', { 'x-backup-expected-version': 'none' }],
+        ['a build from before versions (no header)', {}],
+      ]) {
+        await withEndpoint(async ({ call, exchange, blobs, store }) => {
+          const phoneA = (await exchange(appleToken())).body.sessionToken;
+          const phoneB = (await exchange(appleToken())).body.sessionToken;
+          const held = hold(store);
+          const inFlight = call('PUT', phoneB, headers, copy('history'));
+          await held.gotThere;
+          assert.equal((await call('DELETE', phoneA, { 'x-backup-action': 'delete-account' })).status, 200);
+          held.release();
+          const answer = await inFlight;
+          assert.equal(answer.status, 401, `${label}: the write of a revoked session was answered ${answer.status}`);
+          assert.equal(answer.body.error, 'SESSION_REVOKED');
+          assert.deepEqual(backupsIn(blobs), [], `${label}: the deleted account's copy came back`);
+        });
+      }
+
+      // A write that lands between the delete of the copy and the stamps — no session is refused yet — is
+      // taken away by the delete's own second pass.
+      await withEndpoint(async ({ call, exchange, blobs, store }) => {
+        const phoneA = (await exchange(appleToken())).body.sessionToken;
+        const phoneB = (await exchange(appleToken())).body.sessionToken;
+        await call('PUT', phoneB, { 'x-backup-expected-version': 'none' }, copy('before'));
+        let reached;
+        const gotThere = new Promise((resolve) => (reached = resolve));
+        let release;
+        store.holdMarkerPut = { reached, release: new Promise((resolve) => (release = resolve)) };
+        const deleting = call('DELETE', phoneA, { 'x-backup-action': 'delete-account' });
+        await gotThere; // the copy is deleted, the first stamp is not written
+        assert.deepEqual(backupsIn(blobs), []);
+        assert.equal((await call('PUT', phoneB, {}, copy('landed in the gap'))).status, 200, 'the session is still good until the stamp');
+        assert.equal(backupsIn(blobs).length, 1);
+        release();
+        assert.equal((await deleting).status, 200);
+        assert.deepEqual(backupsIn(blobs), [], 'the delete left the copy that landed in its gap');
+        assert.equal(store.delCalls.filter((entry) => entry.pathname.startsWith('backups/')).length, 2, 'the copy was deleted once, not twice');
+      });
+
+      // The second delete failing is a 502, as the first: the reader is not told the account is gone.
+      await withEndpoint(async ({ call, exchange, store }) => {
+        const session = (await exchange(appleToken())).body.sessionToken;
+        let dels = 0;
+        const del = store.del;
+        store.del = async (...args) => {
+          if (String(args[0]).startsWith('backups/') && (dels += 1) === 2) {
+            throw new Error('store unavailable');
+          }
+          return del(...args);
+        };
+        const answer = await call('DELETE', session, { 'x-backup-action': 'delete-account' });
+        assert.equal(answer.status, 502);
+        assert.deepEqual(answer.body, { ok: false, error: 'STORE_UNAVAILABLE' });
+      });
+
+      // Taking the write back is only of the copy that was written: one a new sign-in wrote since stays.
+      await withEndpoint(async ({ call, exchange, blobs, clock, store }) => {
+        const phoneA = (await exchange(appleToken())).body.sessionToken;
+        const phoneB = (await exchange(appleToken())).body.sessionToken;
+        const held = hold(store);
+        const inFlight = call('PUT', phoneB, {}, copy('stale'));
+        await held.gotThere;
+        assert.equal((await call('DELETE', phoneA, { 'x-backup-action': 'delete-account' })).status, 200);
+        clock.advance(5000);
+        const fresh = (await exchange(appleToken())).body.sessionToken;
+        // The stale write lands, and its take-back waits at the store while the new account writes over it.
+        const path = `backups/${require('node:crypto').createHmac('sha256', 'test-secret').update('apple:apple-user-1').digest('hex')}.json`;
+        let reached;
+        const gotThere = new Promise((resolve) => (reached = resolve));
+        let release;
+        store.holdDel = { pathname: path, reached, release: new Promise((resolve) => (release = resolve)) };
+        held.release();
+        await gotThere;
+        assert.equal((await call('PUT', fresh, {}, copy('new account copy'))).status, 200);
+        release();
+        assert.equal((await inFlight).status, 401);
+        assert.equal(backupsIn(blobs).length, 1, 'the take-back removed a copy it did not write');
+        assert.equal(JSON.parse(blobs.get(backupsIn(blobs)[0])).exportedAt, 'new account copy');
+      });
+
+      // Nothing changes for the ordinary write: an unrevoked session, Apple or Google, is answered as before.
+      await withEndpoint(async ({ call, exchange, blobs }) => {
+        const session = (await exchange(appleToken())).body.sessionToken;
+        const first = await call('PUT', session, { 'x-backup-expected-version': 'none' }, copy('one'));
+        assert.equal(first.status, 200);
+        assert.equal(first.body.ok, true);
+        assert.ok(first.body.version);
+        const second = await call('PUT', session, { 'x-backup-expected-version': first.body.version }, copy('two'));
+        assert.equal(second.status, 200);
+        assert.equal(JSON.parse(blobs.get(backupsIn(blobs)[0])).exportedAt, 'two');
+        assert.equal((await call('PUT', 'google-id-token', { 'x-backup-expected-version': 'none' }, copy('g'))).status, 200);
+      });
+    },
+  },
+  {
+    name: 'apple backup: an unreadable marker is rewritten on the ETag head() reports — a differently written get() ETag no longer fails it for ever',
+    async run() {
+      const markerOf = (blobs) => [...blobs.keys()].find((key) => key.startsWith('revoked/'));
+      for (const [label, getEtag] of [
+        ['a weak form', (etag) => `W/${etag}`],
+        ['a bare form', (etag) => etag.replace(/"/g, '')],
+      ]) {
+        await withEndpoint(async ({ call, exchange, blobs, clock, store }) => {
+          const old = (await exchange(appleToken())).body.sessionToken;
+          assert.equal((await call('DELETE', old, { 'x-backup-action': 'delete-account' })).status, 200);
+          store.seed(markerOf(blobs), '{ this is not json', Date.now() + 1000);
+          store.getEtag = getEtag;
+          for (let read = 0; read < 2; read += 1) {
+            const refused = await call('GET', old);
+            assert.equal(refused.status, 401, `${label}, read ${read}: the account was left on a ${refused.status}`);
+            assert.equal(refused.body.error, 'SESSION_REVOKED');
+          }
+          assert.ok(Number.isFinite(JSON.parse(blobs.get(markerOf(blobs))).revokedAtMs), `${label}: the marker was left unreadable`);
+          clock.advance(5000);
+          assert.equal((await call('GET', (await exchange(appleToken())).body.sessionToken)).status, 404, `${label}: a new sign-in was refused`);
+          // The rewrite named the ETag head() gave, not get()'s.
+          const rewrites = store.putLog.filter((entry) => entry.pathname === markerOf(blobs));
+          assert.ok(rewrites.length >= 3, label);
+        });
+      }
+
+      // A form that cannot be matched to head()'s is the old answer — a 502 to try again, nothing rewritten, and the log says
+      // so in shapes only (never a value).
+      await withEndpoint(async ({ call, exchange, blobs, store }) => {
+        const logged = [];
+        console.error = (...args) => logged.push(args.join(' '));
+        const old = (await exchange(appleToken())).body.sessionToken;
+        assert.equal((await call('DELETE', old, { 'x-backup-action': 'delete-account' })).status, 200);
+        store.seed(markerOf(blobs), 'garbage', Date.now() - 1000);
+        store.getEtag = () => 'some-other-scheme';
+        const puts = store.putLog.length;
+        assert.equal((await call('GET', old)).status, 502);
+        assert.equal(store.putLog.length, puts, 'a marker was rewritten without a matching ETag');
+        assert.equal(blobs.get(markerOf(blobs)), 'garbage');
+        const traces = logged.filter((line) => line.includes('marker rewrite etag forms differ'));
+        assert.equal(traces.length, 1);
+        assert.match(traces[0], /get=strong-bare-len\d+ head=strong-quoted-len\d+$/);
+        assert.ok(!traces[0].includes('some-other-scheme'), 'the log line carries an ETag value');
+      });
+
+      // A marker that moves between the read and the rewrite still ends in the re-read, as before.
+      await withEndpoint(async ({ call, exchange, blobs, store }) => {
+        const old = (await exchange(appleToken())).body.sessionToken;
+        assert.equal((await call('DELETE', old, { 'x-backup-action': 'delete-account' })).status, 200);
+        const path = markerOf(blobs);
+        store.seed(path, 'garbage', Date.now() - 1000);
+        const later = Date.now() + 60 * 1000;
+        let reads = 0;
+        store.afterGet = (pathname) => {
+          if (pathname === path && (reads += 1) === 1) {
+            store.seed(path, JSON.stringify({ revokedAtMs: later }), Date.now());
+          }
+        };
+        assert.equal((await call('GET', old)).status, 401);
+        assert.equal(JSON.parse(blobs.get(path)).revokedAtMs, later);
       });
     },
   },

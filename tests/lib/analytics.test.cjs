@@ -38,6 +38,24 @@ module.exports = [
       // The privacy policy stakes its claim on this list being closed.
       assert.equal(isValidEvent(ok('exercise_logged')), false, 'an uninvented event does not pass');
       assert.equal(isValidEvent(ok('screen_view')), false);
+      // The timestamp is toISOString's shape and nothing else: V8 parses "Oct 3 2026 (anything)", and what is in the
+      // parentheses would be stored verbatim.
+      for (const at of [
+        'Oct 3 2026 (Bench press 100kg a@b.c)',
+        '2026-10-03T10:00:00.000Z (anything)',
+        `Oct 3 2026 (${'x'.repeat(1000)})`,
+        '2026-10-03',
+        '2026-10-03T10:00:00+03:00',
+        '2026-10-03T10:00:00.000',
+        '2026-13-45T10:00:00.000Z' ,
+        '',
+        5,
+      ]) {
+        assert.equal(isValidEvent({ name: 'app_open', at }), false, `at ${JSON.stringify(at).slice(0, 40)} was accepted`);
+      }
+      for (const at of ['2026-10-03T10:00:00.000Z', '2026-10-03T10:00:00Z', '2026-10-03T10:00:00.5Z', new Date().toISOString()]) {
+        assert.equal(isValidEvent({ name: 'app_open', at }), true, at);
+      }
       assert.equal(isValidEvent({ ...ok('app_open'), extra: 'x' }), false, 'unknown top-level key rejects');
       assert.equal(isValidEvent(ok('onboarding_step', { step: 3 })), true);
       assert.equal(isValidEvent(ok('onboarding_step', { path: 'questionnaire' })), true);
@@ -64,6 +82,9 @@ module.exports = [
       // What is still refused is not a batch.
       assert.equal(acceptBatch({ ...good, installId: 'not-a-uuid' }), null);
       assert.equal(acceptBatch({ ...good, sentAt: 'yesterday' }), null);
+      // Date.parse alone reads a parenthesised comment as nothing, so free text rode along into the store.
+      assert.equal(acceptBatch({ ...good, sentAt: 'Oct 3 2026 (Bench press 100kg a@b.c)' }), null);
+      assert.equal(acceptBatch({ ...good, sentAt: '2026-10-03' }), null, 'only what toISOString writes');
       assert.equal(acceptBatch({ ...good, events: [] }), null);
       assert.equal(acceptBatch({ ...good, events: 'app_open' }), null);
       assert.equal(acceptBatch(null), null);

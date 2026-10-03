@@ -141,7 +141,7 @@ module.exports = [
       // 2026-09-21; run in tests/features/account).
       assert.match(backup, /local: countBackup\(latestRef\.current\.database, latestRef\.current\.workoutHistory\),\s*unseen: remote\.ok && !isCloudCopyThisPhones\(current, remote\),\s*\}\);\s*if \(decision === 'settle'\)/);
       assert.match(backup, /if \(decision === 'settle'\) \{\s*return await settleWithRemote\(idToken, current, remote, generation\);/);
-      assert.match(backup, /if \(decision === 'ask' && remote\.ok\) \{\s*return await askRestoreOrKeep\(idToken, current, remote\.payload, remote\.version\);/);
+      assert.match(backup, /if \(decision === 'ask' && remote\.ok\) \{\s*return await askRestoreOrKeep\(idToken, current, remote\.payload, remote\.version, generation\);/);
       assert.match(hook, /const running = runBackup\(false\)\.then\(\(outcome\) => outcome\.kind === 'backed_up'\);/);
       assert.match(hook, /const backUpOrAsk = useCallback\(\(\) => runBackup\(true\)/);
       // Sign-in settles through the same function, so the two cannot drift.

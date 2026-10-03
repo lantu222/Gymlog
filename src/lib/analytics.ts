@@ -95,6 +95,25 @@ export const MAX_OPERATION_FAILURES_PER_BATCH = 40;
 
 const INSTALL_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * What Date.prototype.toISOString writes, which is the only thing the client
+ * ever sends. `Date.parse` alone let free text through: V8 reads
+ * "Oct 3 2026 (anything at all)" as a date, the parentheses being a comment,
+ * and the endpoint stores the string verbatim — an open text field in a batch
+ * that is meant to have none, with no length cap (hunt 3, 2026-10-03).
+ */
+const ISO_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
+const ISO_TIMESTAMP_MAX_LENGTH = 30;
+
+function isIsoTimestamp(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    value.length <= ISO_TIMESTAMP_MAX_LENGTH &&
+    ISO_TIMESTAMP_PATTERN.test(value) &&
+    !Number.isNaN(Date.parse(value))
+  );
+}
+
 export function isValidEventName(name: unknown): name is AnalyticsEventName {
   return typeof name === 'string' && (ANALYTICS_EVENTS as readonly string[]).includes(name);
 }
@@ -111,7 +130,7 @@ export function isValidEvent(value: unknown): value is AnalyticsEvent {
   if (!isValidEventName(candidate.name)) {
     return false;
   }
-  if (typeof candidate.at !== 'string' || Number.isNaN(Date.parse(candidate.at))) {
+  if (!isIsoTimestamp(candidate.at)) {
     return false;
   }
   const keys = Object.keys(candidate).filter((key) => key !== 'name' && key !== 'at' && key !== 'props');
@@ -174,7 +193,7 @@ export function acceptBatch(payload: unknown): AcceptedBatch | null {
   if (typeof candidate.installId !== 'string' || !INSTALL_ID_PATTERN.test(candidate.installId)) {
     return null;
   }
-  if (typeof candidate.sentAt !== 'string' || Number.isNaN(Date.parse(candidate.sentAt))) {
+  if (!isIsoTimestamp(candidate.sentAt)) {
     return null;
   }
   if (!Array.isArray(candidate.events) || candidate.events.length === 0 || candidate.events.length > MAX_BATCH_EVENTS) {
