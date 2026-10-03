@@ -49,6 +49,7 @@ import {
   FreestyleDraftSnapshot,
   FreestyleExerciseSnapshot,
   resolveFreestyleDraftStart,
+  resolveFreestyleSessionId,
 } from '../lib/emptyWorkoutSession';
 import { getExerciseTemplateDefaults, getPopularExerciseLibraryItems, getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import { bodyPartLabel, I18nKey, t } from '../lib/i18n';
@@ -86,7 +87,16 @@ interface EmptyWorkoutScreenProps {
   exercisePrLookup: ExercisePrLookup;
   language?: AppLanguage;
   onBack: () => void;
-  onSave: (draft: WorkoutTemplateDraft, summary: FreestyleFinishSummary) => Promise<void> | void;
+  /**
+   * `adoptSessionId` is how the save tells the board it filed these sets under another id than the
+   * board's own (the board's was taken by another workout): the board keeps the new one, so a
+   * failure or a kill cannot leave these sets under an id that says they are saved.
+   */
+  onSave: (
+    draft: WorkoutTemplateDraft,
+    summary: FreestyleFinishSummary,
+    adoptSessionId?: (sessionId: string) => void,
+  ) => Promise<void> | void;
   /**
    * The session in flight, from the workout provider: read once, on mount,
    * so a process the OS reclaimed mid-session reopens on the same board.
@@ -537,6 +547,14 @@ export function EmptyWorkoutScreen({
    * brought back from a draft was started when that draft was, and is not
    * started again.
    */
+  /**
+   * Made when the board starts, kept with the draft: Finish saves under it. Made anew whenever the board
+   * is emptied, so an id never outlives the workout it named.
+   */
+  const sessionIdRef = useRef<string | null>(null);
+  if (sessionIdRef.current === null) {
+    sessionIdRef.current = resolveFreestyleSessionId(freestyleDraft);
+  }
   const startCountedRef = useRef(freestyleDraft != null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [rest, setRest] = useState<{ totalSeconds: number; endsAtMs: number; startedAtMs: number } | null>(() =>
@@ -547,7 +565,7 @@ export function EmptyWorkoutScreen({
   /** The write that has not happened yet, so a discard can take it with it. */
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** What that write would save, so leaving can write it now instead. */
-  const pendingDraftRef = useRef<{ exercises: typeof exercises; startedAtMs: typeof startedAtMs; rest: typeof rest } | null>(null);
+  const pendingDraftRef = useRef<{ exercises: typeof exercises; startedAtMs: typeof startedAtMs; rest: typeof rest; sessionId: string } | null>(null);
   /*
    * Leaving without a discard writes the pending edit rather than dropping it.
    *
@@ -573,13 +591,15 @@ export function EmptyWorkoutScreen({
   useEffect(() => {
     const sink = draftSinkRef.current;
     if (exercises.length === 0) {
+      sessionIdRef.current = resolveFreestyleSessionId(null);
       sink.onClearDraft?.();
       return undefined;
     }
-    pendingDraftRef.current = { exercises, startedAtMs, rest };
+    const sessionId = sessionIdRef.current as string;
+    pendingDraftRef.current = { exercises, startedAtMs, rest, sessionId };
     const timer = setTimeout(() => {
       draftTimerRef.current = null;
-      sink.onSaveDraft?.({ exercises, startedAtMs, rest, savedAtMs: Date.now() });
+      sink.onSaveDraft?.({ exercises, startedAtMs, rest, sessionId, savedAtMs: Date.now() });
     }, 400);
     draftTimerRef.current = timer;
     return () => {
@@ -600,6 +620,22 @@ export function EmptyWorkoutScreen({
    * and wrote the discarded board straight back (CI review of #162). The
    * timer goes first, then the clear.
    */
+  /**
+   * The save filed the board's sets under another id (see onSave): the board keeps it, and hands it to
+   * the provider at once, with the pending write taken first so the old id is not written over it.
+   */
+  const adoptSessionId = (id: string) => {
+    sessionIdRef.current = id;
+    if (draftTimerRef.current !== null) {
+      clearTimeout(draftTimerRef.current);
+      draftTimerRef.current = null;
+    }
+    const pending = pendingDraftRef.current;
+    if (pending) {
+      pendingDraftRef.current = { ...pending, sessionId: id };
+      draftSinkRef.current.onSaveDraft?.({ ...pending, sessionId: id, savedAtMs: Date.now() });
+    }
+  };
   const discardDraft = () => {
     if (draftTimerRef.current !== null) {
       clearTimeout(draftTimerRef.current);
@@ -839,6 +875,11 @@ export function EmptyWorkoutScreen({
     // returning early before this left the sheet standing open on a button
     // the reader had just pressed.
     setSheetVisible(false);
+    // The board is locked while Finish is saving: what is typed or ticked after the press is not in
+    // the save, and the board is cleared the moment it lands.
+    if (finishingRef.current) {
+      return;
+    }
     if (!items.length) {
       return;
     }
@@ -852,6 +893,9 @@ export function EmptyWorkoutScreen({
   };
 
   const removeExercise = (exerciseKey: string) => {
+    if (finishingRef.current) {
+      return;
+    }
     setExercises((current) => current.filter((exercise) => exercise.localKey !== exerciseKey));
     // The rest belonged to a lift; over an empty board it froze — the tick is
     // gated on having lifts — and covered the quick list, with Skip the only
@@ -880,7 +924,10 @@ export function EmptyWorkoutScreen({
     setPendingRemoval({ key: exerciseKey, name });
   };
 
-  const patchSet = (exerciseKey: string, setKey: string, patch: Partial<{ kg: string; reps: string }>) =>
+  const patchSet = (exerciseKey: string, setKey: string, patch: Partial<{ kg: string; reps: string }>) => {
+    if (finishingRef.current) {
+      return;
+    }
     setExercises((current) =>
       current.map((exercise) =>
         exercise.localKey === exerciseKey
@@ -909,6 +956,7 @@ export function EmptyWorkoutScreen({
           : exercise,
       ),
     );
+  };
 
   /**
    * One more set — of every lift in the block, when the lift is in one.
@@ -918,7 +966,10 @@ export function EmptyWorkoutScreen({
    * back into the state linking exists to prevent (user 2026-09-11, "yksi
    * sarjan lisäys tarkoittaa että molemmat nousee yhden").
    */
-  const addSet = (exerciseKey: string) =>
+  const addSet = (exerciseKey: string) => {
+    if (finishingRef.current) {
+      return;
+    }
     setExercises((current) => {
       const index = current.findIndex((exercise) => exercise.localKey === exerciseKey);
       if (index === -1) {
@@ -931,8 +982,12 @@ export function EmptyWorkoutScreen({
           : exercise,
       );
     });
+  };
 
   const toggleSetDone = (exerciseKey: string, setKey: string) => {
+    if (finishingRef.current) {
+      return;
+    }
     const exercise = exercises.find((entry) => entry.localKey === exerciseKey);
     const set = exercise?.sets.find((entry) => entry.localKey === setKey);
     if (!exercise || !set) {
@@ -985,6 +1040,9 @@ export function EmptyWorkoutScreen({
    * the second idea this feature exists to avoid.
    */
   const toggleSupersetLink = (exerciseKey: string) => {
+    if (finishingRef.current) {
+      return;
+    }
     setExercises((current) => {
       const index = current.findIndex((entry) => entry.localKey === exerciseKey);
       if (index === -1 || index >= current.length - 1) {
@@ -1018,8 +1076,9 @@ export function EmptyWorkoutScreen({
         performedAtIso: new Date().toISOString(),
         elapsedSeconds,
         exercisePrLookup,
+        sessionId: sessionIdRef.current ?? undefined,
       });
-      await onSave(draft, summary);
+      await onSave(draft, summary, adoptSessionId);
       // On disk: nothing left to resume, and no pending write to put it back.
       discardDraft();
     } catch {

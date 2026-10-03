@@ -180,7 +180,11 @@ export interface WorkoutTabDeps {
   upsertWorkoutTemplate: (draft: WorkoutTemplateDraft) => Promise<string>;
   showToast: (message: string) => void;
   exercisePrLookup: React.ComponentProps<typeof EmptyWorkoutScreen>['exercisePrLookup'];
-  finishLoggedWorkoutSave: (draft: WorkoutTemplateDraft, summary: FreestyleFinishSummary) => Promise<unknown>;
+  finishLoggedWorkoutSave: (
+    draft: WorkoutTemplateDraft,
+    summary: FreestyleFinishSummary,
+    adoptSessionId?: (sessionId: string) => void,
+  ) => Promise<unknown>;
   exerciseLibrary: AppDatabase['exerciseLibrary'];
   /** The lift's logged history by name, for the player's History tab. */
   liftHistory: React.ComponentProps<typeof GuidedPlayerScreen>['liftHistory'];
@@ -1008,7 +1012,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         }
         onOpenSystemSettings={() => void openRestAlertSettings()}
         onBack={() => navigateBack(ROOT_ROUTES.home)}
-        onSave={async (draft, summary) => {
+        onSave={async (draft, summary, adoptSessionId) => {
           try {
             // Freestyle logging is not authoring: the template exists only so
             // the session has something to hang on, so it carries the flag
@@ -1024,6 +1028,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
                 origin: 'freestyle',
               },
               summary,
+              adoptSessionId,
             );
           } catch (error) {
             console.error('Failed to save freestyle workout', error);

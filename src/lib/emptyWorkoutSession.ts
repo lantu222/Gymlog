@@ -7,6 +7,7 @@
  * summary) handed to App.tsx on save.
  */
 import { parseNumberInput } from './format';
+import { createId } from './ids';
 import { REPS_DIAL } from './weightDial';
 import { isLiftableWeight } from './weightLimits';
 import { isExerciseDone } from './sessionTotals';
@@ -19,7 +20,7 @@ import {
 } from './workoutCompletionSummary';
 import { buildPersistedSessionNames } from './workoutEditorNaming';
 import { buildSupersetRuns, isSupersetLinked, normalizeSupersetGroups } from './supersetGrouping';
-import { ExerciseBodyPart, ExerciseLogDraft, WorkoutTemplateDraft } from '../types/models';
+import { AppDatabase, ExerciseBodyPart, ExerciseLogDraft, WorkoutTemplateDraft } from '../types/models';
 
 // ── add-sheet muscle filter ──────────────────────────────────────────────
 
@@ -127,6 +128,141 @@ export interface FreestyleDraftSnapshot {
   startedAtMs: number | null;
   rest: { totalSeconds: number; endsAtMs: number; startedAtMs: number } | null;
   savedAtMs: number;
+  /**
+   * The id the session is saved under, made when the board starts and kept with
+   * the draft. A save that landed while the write clearing the board did not
+   * (a kill, a refused disk) brings the board back, and its second Finish used
+   * to mint a second id and save the same workout twice; with the id kept, the
+   * database's duplicate guard makes it the same session. Null on a draft an
+   * older build wrote.
+   */
+  sessionId: string | null;
+}
+
+/** The session id of a board: its draft's, or a new one when it starts. */
+export function resolveFreestyleSessionId(draft: { sessionId?: string | null } | null | undefined): string {
+  return draft?.sessionId ? draft.sessionId : createId('session');
+}
+
+type CountedSet = { reps?: number; weight?: number; status?: string; outcome?: string | null; orderIndex?: number };
+type CountedLog = { exerciseNameSnapshot: string; orderIndex?: number; sets?: ReadonlyArray<CountedSet> };
+type SavedLift = { name: string; sets: string[] };
+type SavedSessions = Pick<AppDatabase, 'workoutSessions' | 'exerciseLogs'>;
+
+const isDoneSet = (set: CountedSet) => set.status === 'completed' || set.outcome === 'completed';
+
+/**
+ * What a workout did, lift by lift in order: the lift's name and the sets it kept as done, each
+ * as "reps@weight" in set order. A lift with no done set did not happen and is not listed. Two
+ * saves are compared by this and nothing coarser: the same sets pooled across lifts, or the same
+ * lifts in another order, are not the same workout.
+ */
+function liftsOf(logs: ReadonlyArray<CountedLog>): SavedLift[] {
+  const ordered = logs
+    .map((log, position) => ({ log, position }))
+    .sort((a, b) => (a.log.orderIndex ?? a.position) - (b.log.orderIndex ?? b.position) || a.position - b.position);
+  return ordered
+    .map(({ log }) => ({
+      name: log.exerciseNameSnapshot.trim().toLowerCase(),
+      sets: (log.sets ?? [])
+        .map((set, position) => ({ set, position }))
+        .filter(({ set }) => isDoneSet(set))
+        .sort((a, b) => (a.set.orderIndex ?? a.position) - (b.set.orderIndex ?? b.position) || a.position - b.position)
+        .map(({ set }) => `${set.reps}@${set.weight}`),
+    }))
+    .filter((lift) => lift.sets.length > 0);
+}
+
+const sameLifts = (a: SavedLift[], b: SavedLift[]) =>
+  a.length === b.length &&
+  a.every((lift, index) => lift.name === b[index].name && lift.sets.length === b[index].sets.length && lift.sets.every((key, at) => key === b[index].sets[at]));
+
+/** Every set of `inner` is one `outer` also holds, lift by lift (by name, with multiplicity). */
+function liftsContained(inner: SavedLift[], outer: SavedLift[]): boolean {
+  const pool = new Map<string, number>();
+  outer.forEach((lift) => lift.sets.forEach((key) => pool.set(`${lift.name}|${key}`, (pool.get(`${lift.name}|${key}`) ?? 0) + 1)));
+  return inner.every((lift) =>
+    lift.sets.every((key) => {
+      const left = pool.get(`${lift.name}|${key}`) ?? 0;
+      pool.set(`${lift.name}|${key}`, left - 1);
+      return left > 0;
+    }),
+  );
+}
+
+/**
+ * The first id, from `sessionId` on, that does not name another workout: free as it is, or taken
+ * by a session `matches` says is this one. A taken id is walked on by a suffix, deterministically,
+ * so the same board asks the same question every time it is asked.
+ */
+function walkTakenIds(
+  database: SavedSessions,
+  sessionId: string,
+  saving: SavedLift[],
+  matches: (stored: SavedLift[], saving: SavedLift[]) => boolean,
+): { sessionId: string; stored: boolean } {
+  let id = sessionId;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    if (!database.workoutSessions.some((session) => session.id === id)) {
+      return { sessionId: id, stored: false };
+    }
+    if (matches(liftsOf(database.exerciseLogs.filter((log) => log.sessionId === id)), saving)) {
+      return { sessionId: id, stored: true };
+    }
+    id = `${id}_b`;
+  }
+  return { sessionId: createId('session'), stored: false };
+}
+
+/** The logs a board would be saved as: what its Finish compares and writes. */
+export function freestyleLogsOf(exercises: FreestyleExerciseDraft[]): ExerciseLogDraft[] {
+  return buildLogDrafts(
+    exercises.filter((exercise) => exercise.name.trim().length > 0),
+    '',
+  );
+}
+
+/**
+ * A restored draft whose workout is already saved is not a board to come back to.
+ *
+ * Finish saves first and clears the draft with a write nobody awaits; when that write is lost
+ * (a kill, a refused disk) the board returns after launch under an id the database already
+ * holds. If everything the draft holds as done is in that saved session (a draft handed over
+ * before the last tick is a subset of it) it is the same workout and goes. If it holds a set the
+ * session does not, those sets were never saved: the board stays, under an id of its own.
+ */
+export function discardSavedFreestyleDraft(
+  draft: FreestyleDraftSnapshot | null,
+  database: SavedSessions,
+): FreestyleDraftSnapshot | null {
+  if (!draft || !draft.sessionId) {
+    return draft;
+  }
+  const target = walkTakenIds(database, draft.sessionId, liftsOf(freestyleLogsOf(draft.exercises)), (stored, saving) =>
+    liftsContained(saving, stored),
+  );
+  if (target.stored) {
+    return null;
+  }
+  return target.sessionId === draft.sessionId ? draft : { ...draft, sessionId: target.sessionId };
+}
+
+/**
+ * Which session a free workout's Finish saves, and whether there is anything to save.
+ *
+ * Under the board's own id, so a retry of the same finish is the same session - but only a
+ * true retry. A session already stored under that id with exactly these sets, lift by lift, is
+ * the finish that already landed: nothing to write. One stored with other sets is another
+ * workout wearing a stale id, and claiming it saved would drop what was just logged: these sets
+ * get an id of their own, which the caller hands back to the board.
+ */
+export function resolveFreestyleSaveTarget(
+  database: SavedSessions,
+  sessionId: string,
+  logs: ReadonlyArray<CountedLog>,
+): { sessionId: string; alreadySaved: boolean } {
+  const target = walkTakenIds(database, sessionId, liftsOf(logs), sameLifts);
+  return { sessionId: target.sessionId, alreadySaved: target.stored };
 }
 
 /**
@@ -248,6 +384,7 @@ export function normalizeFreestyleDraftSnapshot(input: unknown): FreestyleDraftS
     startedAtMs: typeof raw.startedAtMs === 'number' && Number.isFinite(raw.startedAtMs) ? raw.startedAtMs : null,
     rest,
     savedAtMs: finiteOr(raw.savedAtMs, 0),
+    sessionId: typeof raw.sessionId === 'string' && raw.sessionId ? raw.sessionId : null,
   };
 }
 
@@ -258,6 +395,8 @@ export interface FreestyleFinishInput {
   performedAtIso: string;
   elapsedSeconds: number;
   exercisePrLookup: ExercisePrLookup;
+  /** The board's own session id (see FreestyleDraftSnapshot.sessionId); the save mints one when absent. */
+  sessionId?: string;
 }
 
 /** What a finished freestyle session hands to the save. */
@@ -272,6 +411,8 @@ export interface FreestyleFinishSummary {
   exerciseCards: WorkoutCompletionExerciseCard[];
   prCards: WorkoutCompletionPrCard[];
   logs: ExerciseLogDraft[];
+  /** Carried from the board, so a second Finish of it is the same session. */
+  sessionId?: string;
 }
 
 export interface FreestyleFinishResult {
@@ -542,6 +683,7 @@ export function buildFreestyleFinish({
   performedAtIso,
   elapsedSeconds,
   exercisePrLookup,
+  sessionId,
 }: FreestyleFinishInput): FreestyleFinishResult {
   const named = exercises.filter((exercise) => exercise.name.trim().length > 0);
 
@@ -640,6 +782,7 @@ export function buildFreestyleFinish({
       exerciseCards,
       prCards,
       logs,
+      ...(sessionId ? { sessionId } : {}),
     },
   };
 }

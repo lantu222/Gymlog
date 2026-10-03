@@ -12,6 +12,10 @@ const {
   freestyleVolumeKg,
   matchesMuscleFilter,
   carryForwardFreestyleSet,
+  normalizeFreestyleDraftSnapshot: normalizeDraftForSessionId,
+  resolveFreestyleSessionId,
+  discardSavedFreestyleDraft,
+  resolveFreestyleSaveTarget,
 } = require('../../.test-dist/lib/emptyWorkoutSession.js');
 
 const emptyPrLookup = { byLibraryItemId: {}, byName: {} };
@@ -529,6 +533,72 @@ module.exports = [
         now,
         'a draft saved in the future says nothing about how long ago that was',
       );
+    },
+  },
+  {
+    name: 'a free workout board keeps one session id: kept with the draft, carried into the save, made once for an old draft',
+    run() {
+      const lift = { localKey: 'a', name: 'Bench Press', sets: [{ localKey: 's1', kg: '60', reps: '8', done: true }] };
+      assert.equal(normalizeDraftForSessionId({ exercises: [lift], sessionId: 'session_abc' }).sessionId, 'session_abc', 'the id comes back with the draft');
+      assert.equal(normalizeDraftForSessionId({ exercises: [lift] }).sessionId, null, 'a draft an older build wrote has none');
+      assert.equal(normalizeDraftForSessionId({ exercises: [lift], sessionId: 42 }).sessionId, null, 'a junk id is none');
+      assert.equal(resolveFreestyleSessionId({ sessionId: 'session_abc' }), 'session_abc', 'a board brought back from a draft saves under its id');
+      assert.match(resolveFreestyleSessionId(null), /^session_/, 'a new board makes one');
+      assert.match(resolveFreestyleSessionId({ sessionId: null }), /^session_/, 'an old draft gets one when its board opens');
+      const { summary } = buildFreestyleFinish({
+        exercises: [makeExercise()],
+        workoutName: 'Free workout',
+        startedAtIso: '2026-10-03T10:00:00.000Z',
+        performedAtIso: '2026-10-03T10:30:00.000Z',
+        elapsedSeconds: 1800,
+        exercisePrLookup: emptyPrLookup,
+        sessionId: 'session_abc',
+      });
+      assert.equal(summary.sessionId, 'session_abc', 'the save is handed the id of the board');
+    },
+  },
+  {
+    name: 'a free workout save under a taken id: a true retry writes nothing, other sets (or the same sets in other lifts) get an id of their own; the draft of a saved workout is dropped only when everything in it is saved',
+    run() {
+      const set = (reps, weight, orderIndex = 0) => ({ reps, weight, orderIndex, status: 'completed', outcome: 'completed' });
+      const pending = { reps: 0, weight: 0, orderIndex: 9, status: 'pending', outcome: null };
+      const log = (sessionId, name, orderIndex, sets) => ({ sessionId, exerciseNameSnapshot: name, orderIndex, sets });
+      const database = {
+        workoutSessions: [{ id: 'session_a' }],
+        exerciseLogs: [
+          log('session_a', 'Bench Press', 0, [set(8, 60, 0), set(6, 62.5, 1), pending]),
+          log('session_a', 'Row', 1, [set(10, 50, 0)]),
+          log('session_other', 'Bench Press', 0, [set(1, 1)]),
+        ],
+      };
+      const same = [log('x', 'bench press', 0, [set(8, 60, 0), set(6, 62.5, 1)]), log('x', 'Row', 1, [set(10, 50, 0)])];
+      assert.deepEqual(resolveFreestyleSaveTarget(database, 'session_a', same), { sessionId: 'session_a', alreadySaved: true }, 'the same lifts and sets are the finish that landed');
+      const pooledOnly = [log('x', 'Bench Press', 0, [set(8, 60, 0), set(6, 62.5, 1), set(10, 50, 2)]), log('x', 'Row', 1, [])];
+      const regrouped = resolveFreestyleSaveTarget(database, 'session_a', pooledOnly);
+      assert.equal(regrouped.alreadySaved, false, 'the same sets pooled into other lifts are another workout');
+      assert.equal(regrouped.sessionId, 'session_a_b', 'which gets an id of its own, the same one every time it is asked');
+      const swapped = [log('x', 'Row', 0, [set(10, 50, 0)]), log('x', 'Bench Press', 1, [set(8, 60, 0), set(6, 62.5, 1)])];
+      assert.equal(resolveFreestyleSaveTarget(database, 'session_a', swapped).alreadySaved, false, 'the same lifts in another order are another workout');
+      const more = [...same, log('x', 'Curl', 2, [set(12, 20, 0)])];
+      assert.equal(resolveFreestyleSaveTarget(database, 'session_a', more).alreadySaved, false, 'more sets than were saved are not saved yet');
+      assert.deepEqual(resolveFreestyleSaveTarget(database, 'session_new', more), { sessionId: 'session_new', alreadySaved: false }, 'a free id is used as it is');
+      const taken = { ...database, workoutSessions: [...database.workoutSessions, { id: 'session_a_b' }], exerciseLogs: [...database.exerciseLogs, log('session_a_b', 'Curl', 0, [set(12, 20, 0)])] };
+      assert.deepEqual(resolveFreestyleSaveTarget(taken, 'session_a', [log('x', 'Curl', 0, [set(12, 20, 0)])]), { sessionId: 'session_a_b', alreadySaved: true }, 'a suffixed id that holds exactly these sets is where they are');
+
+      const board = (done) => [
+        { localKey: 'l1', name: 'Bench Press', sets: [{ localKey: 's1', kg: '60', reps: '8', done: done[0] }, { localKey: 's2', kg: '62.5', reps: '6', done: done[1] }] },
+        { localKey: 'l2', name: 'Row', sets: [{ localKey: 's3', kg: '50', reps: '10', done: true }] },
+      ];
+      const draft = (done, sessionId = 'session_a') => ({ exercises: board(done), startedAtMs: null, rest: null, savedAtMs: 1, sessionId });
+      assert.equal(discardSavedFreestyleDraft(draft([true, true]), database), null, 'the leftover of a saved workout is dropped');
+      assert.equal(discardSavedFreestyleDraft(draft([true, false]), database), null, 'a draft handed over before the last tick is a subset of the save, and goes');
+      const extra = { ...draft([true, true]), exercises: [...board([true, true]), { localKey: 'l3', name: 'Curl', sets: [{ localKey: 's4', kg: '20', reps: '12', done: true }] }] };
+      const kept = discardSavedFreestyleDraft(extra, database);
+      assert.ok(kept && kept.exercises.length === 3, 'a draft with a set the saved workout lacks stays');
+      assert.equal(kept.sessionId, 'session_a_b', 'under an id of its own');
+      assert.equal(discardSavedFreestyleDraft(draft([true, true], 'session_b'), database).sessionId, 'session_b', 'a draft of an unsaved workout is untouched');
+      assert.equal(discardSavedFreestyleDraft({ ...draft([true, true]), sessionId: null }, database).sessionId, null, 'an old draft with no id stays');
+      assert.equal(discardSavedFreestyleDraft(null, database), null);
     },
   }
 ];

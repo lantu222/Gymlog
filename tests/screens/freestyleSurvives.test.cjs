@@ -34,7 +34,7 @@ module.exports = [
       const tab = read('src', 'app', 'renderWorkoutTab.tsx');
       assert.match(tab, /<EmptyWorkoutScreen[\s\S]{0,200}freestyleDraft=\{freestyleDraft\}\s+onSaveDraft=\{saveFreestyleDraft\}\s+onClearDraft=\{clearFreestyleDraft\}/);
       const app = read('App.tsx');
-      assert.match(app, /freestyleDraft: workout\.freestyleDraft,\s+saveFreestyleDraft: workout\.saveFreestyleDraft,\s+clearFreestyleDraft: workout\.clearFreestyleDraft,/);
+      assert.match(app, /freestyleDraft: discardSavedFreestyleDraft\(\s*workout\.freestyleDraft,[\s\S]{0,120}\),\s+saveFreestyleDraft: workout\.saveFreestyleDraft,\s+clearFreestyleDraft: workout\.clearFreestyleDraft,/);
 
       const screen = read('src', 'screens', 'EmptyWorkoutScreen.tsx');
       assert.match(screen, /useState<FreestyleExerciseState\[\]>\(\(\) => freestyleDraft\?\.exercises \?\? \[\]\)/, 'the lifts must start from the draft');
@@ -45,7 +45,7 @@ module.exports = [
       // was nothing to lose, so it left without discarding what the chevron
       // discarded in the same state.
       assert.match(screen, /BackHandler\.addEventListener\('hardwareBackPress', \(\) => \{[\s\S]{0,700}guard\.discardDraft\(\);\s*guard\.onBack\(\);\s*return true;[\s\S]{0,60}\}, \[\]\);/, 'one hardware-back listener, registered always, leaving the way the chevron leaves');
-      assert.match(screen, /const timer = setTimeout\(\(\) => \{\s*draftTimerRef\.current = null;\s*sink\.onSaveDraft\?\.\(\{ exercises, startedAtMs, rest, savedAtMs: Date\.now\(\) \}\);\s*\}, 400\);/, 'the draft must be written back, debounced');
+      assert.match(screen, /const timer = setTimeout\(\(\) => \{\s*draftTimerRef\.current = null;\s*sink\.onSaveDraft\?\.\(\{ exercises, startedAtMs, rest, sessionId, savedAtMs: Date\.now\(\) \}\);\s*\}, 400\);/, 'the draft must be written back, debounced');
       // And a discard takes the pending write with it: the clear is urgent,
       // the route change behind it is a transition, and an edit made inside
       // the last 400 ms fired in that gap and wrote the board back (CI
@@ -56,7 +56,7 @@ module.exports = [
         1,
         'every discard goes through discardDraft, which is the one place that clears',
       );
-      assert.match(screen, /await onSave\(draft, summary\);\s*\/\/[^\n]*\n\s*discardDraft\(\);/, 'finishing must clear the draft, after the save');
+      assert.match(screen, /await onSave\(draft, summary, adoptSessionId\);\s*\/\/[^\n]*\n\s*discardDraft\(\);/, 'finishing must clear the draft, after the save');
       assert.match(screen, /setConfirmingLeave\(false\);\s*discardDraft\(\);\s*leaveGuardRef\.current\.onBack\(\);/, 'a confirmed leave must discard the draft');
       // And the app stands down for this route, so the screen's listener is
       // the one that answers. This listener registers once on mount, and
@@ -95,7 +95,7 @@ module.exports = [
     run() {
       const screen = read('src', 'screens', 'EmptyWorkoutScreen.tsx');
       const flushAt = screen.indexOf('const pending = pendingDraftRef.current;');
-      const debounceAt = screen.indexOf('pendingDraftRef.current = { exercises, startedAtMs, rest };');
+      const debounceAt = screen.indexOf('pendingDraftRef.current = { exercises, startedAtMs, rest, sessionId };');
       assert.ok(flushAt > 0 && debounceAt > 0, 'the flush or the pending copy is gone');
       // Its cleanup must run before the debounce's cancels the timer: React
       // runs a component's effect cleanups in the order they were declared.
@@ -106,6 +106,22 @@ module.exports = [
       );
       // A discard still takes the timer first, so there is nothing to flush.
       assert.match(screen, /const discardDraft = \(\) => \{\s*if \(draftTimerRef\.current !== null\) \{\s*clearTimeout\(draftTimerRef\.current\);\s*draftTimerRef\.current = null;/);
+    },
+  },
+  {
+    // Review of the free workout save, 2026-10-03: a set ticked while Finish was saving was in neither the save
+    // nor the board (cleared the moment the save landed), and silently lost.
+    name: 'freestyle: the board is locked while Finish is saving, and the save can hand the board a new session id',
+    run() {
+      const screen = read('src', 'screens', 'EmptyWorkoutScreen.tsx');
+      for (const name of ['addExercises', 'removeExercise', 'patchSet', 'addSet', 'toggleSetDone', 'toggleSupersetLink']) {
+        const at = screen.indexOf(`const ${name} = `);
+        assert.ok(at > 0, `${name} is gone`);
+        const head = screen.slice(at, at + 700);
+        assert.match(head, /if \(finishingRef\.current\) \{\s*return;\s*\}/, `${name} must refuse edits while Finish is saving`);
+      }
+      assert.match(screen, /await onSave\(draft, summary, adoptSessionId\);/, 'the save is handed the way to give the board its new id');
+      assert.match(screen, /const adoptSessionId = \(id: string\) => \{\s*sessionIdRef\.current = id;/, 'the board keeps the id the save filed under');
     },
   },
 ];

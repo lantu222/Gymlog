@@ -8,6 +8,7 @@ import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 
 import { AppShell } from './src/components/AppShell';
+import { discardSavedFreestyleDraft } from './src/lib/emptyWorkoutSession';
 import { formatTime, pluralize } from './src/lib/format';
 import { HistoryScrollMemory } from './src/lib/historyScrollMemory';
 import { formatWorkoutDisplayLabel } from './src/lib/displayLabel';
@@ -205,6 +206,7 @@ function VinhaApp() {
     deleteBodyweightEntry,
     deleteMeasurementEntry,
     saveCompletedWorkoutSession,
+    getDatabase,
     updateCompletedWorkoutSession,
     deleteCompletedWorkoutSession,
     deleteCardioSession,
@@ -742,7 +744,9 @@ function VinhaApp() {
    * overview is what a redirect owes you: the session's name, at the top.
    */
   function navigateToActiveWorkout(options?: { message?: string; resume?: boolean }) {
-    if (!workout.activeSession) {
+    // A finished session still held until its summary clears it is not a workout
+    // to go back to: Start has to start, not open yesterday's player.
+    if (!workout.activeSession || workout.activeSession.status === 'completed') {
       return false;
     }
 
@@ -1789,6 +1793,7 @@ function VinhaApp() {
   const { handleDiscardWorkout, handleConfirmFinishWorkout, finishLoggedWorkoutSave } = createFinishSaves({
     workout,
     database,
+    getDatabase,
     preferences,
     unitPreference,
     exerciseLibrary,
@@ -1946,7 +1951,8 @@ function VinhaApp() {
       unitPreference,
       database,
       workout,
-      freestyleDraft: workout.freestyleDraft,
+      // A draft whose workout is already saved is a lost clear's leftover, not a board to come back to.
+      freestyleDraft: discardSavedFreestyleDraft(workout.freestyleDraft, database),
       saveFreestyleDraft: workout.saveFreestyleDraft,
       clearFreestyleDraft: workout.clearFreestyleDraft,
       customWorkoutRuntimeMap,

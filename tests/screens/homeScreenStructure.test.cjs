@@ -697,7 +697,7 @@ module.exports = [
       assert.match(i18nSource, /'emptyWorkout\.finishWorkout': 'Finish workout'/);
       // Save-truthfulness: the finish handler awaits App's onSave and resets
       // the saving flag on failure instead of showing success early.
-      assert.match(emptyWorkoutScreenSource, /await onSave\(draft, summary\);/);
+      assert.match(emptyWorkoutScreenSource, /await onSave\(draft, summary, adoptSessionId\);/);
       assert.match(emptyWorkoutScreenSource, /setIsSaving\(false\);/);
       // App-side: template + session persist before the summary route swap.
       // Bounded to the save itself, wherever the shell keeps it (it leaves

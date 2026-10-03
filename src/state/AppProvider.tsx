@@ -149,6 +149,8 @@ interface AppContextValue {
     startedAt?: string,
   ) => Promise<SessionSaveSummary>;
   saveCompletedWorkoutSession: (input: PersistCompletedWorkoutInput) => Promise<SessionSaveSummary>;
+  /** The database as it stands this instant (the write queue's own copy), for a decision that must not read a stale render. */
+  getDatabase: () => AppDatabase;
   updateCompletedWorkoutSession: (
     sessionId: string,
     patch: {
@@ -1381,6 +1383,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       deleteWorkoutTemplate,
       saveWorkoutSession,
       saveCompletedWorkoutSession: persistCompletedWorkoutSession,
+      getDatabase: () => databaseRef.current,
       updateCompletedWorkoutSession,
       deleteCompletedWorkoutSession,
       deleteMeasurementEntry,

@@ -1088,7 +1088,31 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
   return settled === next.activeSession ? next : { ...next, activeSession: settled };
 }
 
+/**
+ * The actions that change what a session says it did. A session that has been
+ * finished (and saved) is closed: it stays the activeSession only until the
+ * summary clears it, and a set logged into it afterwards was never in what was
+ * saved, while the history said it was.
+ */
+const CLOSED_SESSION_REFUSES = new Set<WorkoutAction['type']>([
+  'session/pause',
+  'set/updateDraft',
+  'set/complete',
+  'set/editLogged',
+  'set/repeatLast',
+  'set/undo',
+  'exercise/addSet',
+  'exercise/removeSet',
+  'exercise/skip',
+  'exercise/insertAfter',
+  'exercise/swap',
+  'timer/start',
+]);
+
 function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction): WorkoutFeatureState {
+  if (state.activeSession?.status === 'completed' && CLOSED_SESSION_REFUSES.has(action.type)) {
+    return state;
+  }
   switch (action.type) {
     case 'session/hydrate':
       return {
