@@ -351,6 +351,10 @@ const isSkippedLog = (log: Pick<ExerciseLogDraft, 'skipped' | 'status'>) => log.
  *    keeps a row of its own when the finish has none for it, or only a skipped one (a skipped row
  *    counts nowhere, and these sets were done);
  *  - a stored set with no moment (an older save) is matched by its lift and value instead.
+ *
+ * A stored set the session never knew of showed there as open, and a reader who logs it again has
+ * two sets in that place, both kept: the place is not the set (a swap renumbers it), and dropping
+ * either could lose one that was lifted. Rare: it needs the bundle to have missed that set too.
  */
 export function mergeStoredWorkoutLogs(
   stored: ReadonlyArray<ExerciseLog>,
@@ -395,12 +399,17 @@ export function mergeStoredWorkoutLogs(
       if (kept.length === 0) {
         return;
       }
-      const home = merged.find(
-        (log) =>
-          !isSkippedLog(log) &&
-          (log.slotId ?? null) === (storedLog.slotId ?? null) &&
-          sameLiftName(log.exerciseNameSnapshot, storedLog.exerciseNameSnapshot),
-      );
+      const sameLift = (log: ExerciseLogDraft) =>
+        (log.slotId ?? null) === (storedLog.slotId ?? null) && sameLiftName(log.exerciseNameSnapshot, storedLog.exerciseNameSnapshot);
+      // A row skipped with nothing done in it was skipped by a session that did not know these sets were
+      // done: it is done after all, the way a lift skipped after a set is (exercise/skip). A skipped row
+      // that held a done set is not one the player writes, and is left alone.
+      const skippedHome = merged.find((log) => sameLift(log) && isSkippedLog(log) && !log.sets.some((set) => isDoneSet(set)));
+      if (skippedHome) {
+        skippedHome.skipped = false;
+        skippedHome.status = 'completed';
+      }
+      const home = merged.find((log) => sameLift(log) && !isSkippedLog(log));
       if (home) {
         // A kept set takes its place back from a set the finish holds there undone: the returned session
         // showed it open because it never knew it was done.

@@ -126,13 +126,16 @@ module.exports = [
       assert.deepEqual(merge(swapped, afterSwap), ['Bench Press:8@80', 'Bench Press:8@80']);
 
       // Squat's two sets were logged after the bundle the session came back from; there the reader skipped Squat. A
-      // skipped row counts nowhere, so the kept sets take a row of their own instead of disappearing into it.
+      // skipped row counts nowhere: the row is done after all, with the kept sets in it.
       const squat = saved([lift('Squat', 0, [set(5, 100, 0), set(5, 100, 1)]), lift('Row', 1, [set(10, 60, 0, 10)])]);
       const skippedSquat = { ...lift('Squat', 0, [{ ...pending(0), status: 'skipped', outcome: 'skipped' }]), skipped: true, status: 'skipped' };
       const kept = mergeStoredWorkoutLogs(storedLogs(squat), [skippedSquat, lift('Row', 1, [set(10, 60, 0, 10), set(10, 60, 1, 11)])]);
-      const doneSquat = kept.filter((log) => log.exerciseNameSnapshot === 'Squat' && !log.skipped && log.status !== 'skipped');
-      assert.equal(doneSquat.length, 1, 'one row of its own, not skipped');
-      assert.deepEqual(doneSquat[0].sets.map((s) => `${s.reps}@${s.weight}`), ['5@100', '5@100']);
+      const squatRows = kept.filter((log) => log.exerciseNameSnapshot === 'Squat');
+      assert.equal(squatRows.length, 1, 'one squat row, not a skipped one beside a done one');
+      assert.equal(squatRows[0].skipped, false);
+      assert.equal(squatRows[0].status, 'completed');
+      assert.deepEqual(squatRows[0].sets.filter((s) => s.status === 'completed').map((s) => `${s.reps}@${s.weight}`), ['5@100', '5@100']);
+      assert.equal(squatRows[0].sets.length, 2, "the skipped placeholder at a kept set's place goes");
       const written = persistCompletedWorkoutSessionToDatabase(squat, input([skippedSquat, lift('Row', 1, [set(10, 60, 0, 10), set(10, 60, 1, 11)])], { mergeStored: true }));
       assert.equal(written.database.workoutSessions[0].setsCompleted, 4, 'the squat sets still count');
       assert.equal(written.database.workoutSessions[0].totalVolumeKg, 2 * 500 + 2 * 600);
