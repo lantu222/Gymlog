@@ -51,21 +51,14 @@ const { createFakeAsyncStorage } = require('../../storage/fakeAsyncStorage.cjs')
  *  6. No step throws or leaves a promise rejected, and what the hook says
  *     (signed in / out) is what is stored.
  *
- * KNOWN GAPS. The first run of this test failed on main in two places. Both
- * are relaxed below so the suite can guard everything else, and both come back
- * with ACCOUNT_SAFETY_STRICT=1 (which fails today). Fixing one means deleting
- * its relaxation here.
- *  - Invariant 5, strict: a phone that signs itself out because Apple says the
- *    credential was revoked (or because its session has run out) forgets the
- *    account but not the Apple session (useAccountBackup's signed_out branches
- *    call persistAccount(null) and never signOutAccount()).
- *    signIn@A:P2, appleRevoked:P2, deleteAccount@A
- *  - Invariant 3, strict: "account deleted" is said on SESSION_REVOKED by any
- *    phone with a pending-delete record, whether or not that request ever
- *    reached the server. A first try lost on the way (a timeout, a 502) and then
- *    another phone's deletion gives "deleted" on a phone that deleted nothing —
- *    even when that other phone has since signed in again and backed up.
- *    signIn@A:P1, deleteAccount@A+net_before, elsewhere:P1, signIn@B:P1, deleteAccount@A
+ * KNOWN GAPS — none. The first run (2026-10-02) failed on main in two places:
+ *  - 5: a phone signed out by Apple (credential revoked, session run out) kept
+ *    its Apple session (signIn@A:P2, appleRevoked:P2, deleteAccount@A);
+ *  - 3: "account deleted" on any SESSION_REVOKED with a pending-delete record,
+ *    though that request never reached the server and another phone deleted
+ *    (signIn@A:P1, deleteAccount@A+net_before, elsewhere:P1, signIn@B:P1, deleteAccount@A).
+ * Both were fixed in #273 (full sign-out on signed_out; the server names the
+ * deleting request) and their relaxations removed: the run holds both as stated.
  *
  * Reproduce a failure: ACCOUNT_SAFETY_SEED=<seed> ACCOUNT_SAFETY_SEQUENCES=<n>
  * node tests/run-tests.cjs; the failing sequence is printed, already shrunk.
@@ -90,9 +83,6 @@ const START_MS = Date.UTC(2026, 9, 2, 12, 0, 0);
 const SEQUENCES = Number(process.env.ACCOUNT_SAFETY_SEQUENCES) || 2000;
 const SEED = Number(process.env.ACCOUNT_SAFETY_SEED) || 20261002;
 
-// ACCOUNT_SAFETY_STRICT=1 holds the run to invariants 3 and 5 as stated, without the two relaxations
-// the first run of this test made necessary (KNOWN_GAPS below); it fails on main today.
-const STRICT = Boolean(process.env.ACCOUNT_SAFETY_STRICT);
 const IGNORE = new Set(String(process.env.ACCOUNT_SAFETY_IGNORE ?? '').split(',').filter(Boolean));
 // ACCOUNT_SAFETY_STATS=1 prints how often each thing happened, to show the sequences reach what they claim to.
 const STATS = process.env.ACCOUNT_SAFETY_STATS ? new Map() : null;
@@ -922,8 +912,7 @@ function checkAfter(outcome) {
     }
   }
 
-  // 5. A signed-out phone holds nothing of an Apple sign-in. Relaxed (see KNOWN_GAPS): a session the
-  // phone itself no longer trusts (credential revoked, or inside the expiry margin) may be left behind.
+  // 5. A signed-out phone holds nothing of an Apple sign-in, trusted or not.
   for (const each of Object.values(phones)) {
     const session = storedAppleSession(each);
     if (storedAccount(each) || !session) {
@@ -935,7 +924,7 @@ function checkAfter(outcome) {
     if (each.leftBehind?.raw !== raw) {
       each.leftBehind = { raw, trusted: sessionStillTrusted(session) };
     }
-    if (STRICT || each.leftBehind.trusted) {
+    {
       bad(`5: ${each.name} is signed out (no account record) but still holds an Apple session${each.leftBehind.trusted ? '' : ' (one it no longer trusts)'}`);
     }
   }
@@ -950,11 +939,10 @@ function checkAfter(outcome) {
   }
 
   // 3. "Deleted" is said by a phone whose own request deleted, and it is signed out.
-  // Relaxed (KNOWN GAP 1): also fine for a phone that had sent a delete earlier and never got its answer,
-  // which is the client's own rule for "this one was mine". Nothing proves that earlier request reached the
-  // server: a phone whose request was lost before it got there says "deleted" once another phone has deleted.
+  // An earlier request of its own that never got an answer is not proof: only the server naming this
+  // phone's request id is (#273).
   const attempted = Boolean(outcome.startAccount?.deleteAccountPendingAt);
-  if (outcome.deleteResult === 'done' && !phone.deletedByMe && (STRICT || !attempted)) {
+  if (outcome.deleteResult === 'done' && !phone.deletedByMe) {
     const sub = outcome.startAccount?.sub;
     const copy = sub && world.store.body(backupPathOf(sub)) !== null;
     bad(`3: ${phone.name} reported "account deleted" though no request of its own deleted the copy${attempted ? ' (an earlier request of its own never got an answer)' : ''}${copy ? ' and a copy of the account is there' : ''}`);
