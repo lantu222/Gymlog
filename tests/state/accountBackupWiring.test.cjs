@@ -78,7 +78,8 @@ module.exports = [
 
       const client = read('src', 'features', 'account', 'backupApi.ts');
       const del = client.slice(client.indexOf('export async function deleteBackup'));
-      assert.match(del, /return \{ ok: response\.ok && body\?\.ok === true, \.\.\.\(response\.status < 500 \? \{ definite: true \} : \{\}\) \};/);
+      // `definite` only for the server's own JSON, and never a 429 (backupApiDelete.test.cjs runs it).
+      assert.match(del, /ok: response\.ok && body\?\.ok === true,\s*\.\.\.\(response\.status < 500 && response\.status !== 429 && serverJson \? \{ definite: true \} : \{\}\),/);
     },
   },
   {
@@ -112,14 +113,14 @@ module.exports = [
       const hook = read('src', 'features', 'account', 'useAccountBackup.ts');
       const body = hook.slice(hook.indexOf('const deleteAccount = useCallback('), hook.indexOf('// Auto-backup: when signed in'));
       assert.ok(
-        body.indexOf("deleteBackup(token.idToken, { account: true })") > 0 &&
-          body.indexOf("deleteBackup(token.idToken, { account: true })") < body.indexOf('await signOut();'),
+        body.indexOf("deleteBackup(token.idToken, { account: true, requestId })") > 0 &&
+          body.indexOf("deleteBackup(token.idToken, { account: true, requestId })") < body.indexOf('await signOut();'),
         'the phone signs out before the server has deleted',
       );
       assert.match(body, /if \(answer\.ok\) \{\s*await signOut\(\);\s*return 'done';\s*\}/);
       // The pending record is written before the request goes out, never after.
       const marked = body.indexOf('deleteAccountPendingAt: new Date()');
-      assert.ok(marked > 0 && marked < body.indexOf('deleteBackup(token.idToken, { account: true })'), 'the pending record is not written before the request');
+      assert.ok(marked > 0 && marked < body.indexOf('deleteBackup(token.idToken, { account: true, requestId })'), 'the pending record is not written before the request');
       const client = read('src', 'features', 'account', 'backupApi.ts');
       assert.match(client, /options\.account \? \{ 'x-backup-action': 'delete-account' \} : \{\}/);
     },

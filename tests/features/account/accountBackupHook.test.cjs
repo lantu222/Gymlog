@@ -841,7 +841,9 @@ module.exports = [
         env.server.gates.delete.resolve();
         assert.equal(await pending, 'done');
         await env.settle();
-        assert.deepEqual(env.calls.deleteOptions, [{ account: true }], 'the server was not told this is the account');
+        assert.equal(env.calls.deleteOptions.length, 1);
+        assert.equal(env.calls.deleteOptions[0].account, true, 'the server was not told this is the account');
+        assert.match(env.calls.deleteOptions[0].requestId, /^[0-9a-f]{32}$/, 'the request carried no id of its own');
         assert.equal(env.server.blob, null);
         assert.equal(env.store.account, null);
         assert.equal(env.api.state.status, 'signed_out');

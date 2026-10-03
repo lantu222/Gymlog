@@ -342,6 +342,111 @@ export function phoneDataIsInCopy(
   });
 }
 
+/** The shape of a "Delete account" request id: 128 random bits as hex (x-delete-request-id). */
+export function isDeleteRequestId(value: unknown): value is string {
+  return typeof value === 'string' && /^[0-9a-f]{32}$/.test(value);
+}
+
+/**
+ * How a "Delete account" retry that met an ended session reads (the server's
+ * 401 SESSION_REVOKED). 'done': this phone's own delete went through, its
+ * answer lost. 'ended': the account was deleted by someone else.
+ *
+ * The revocation marker carries the id of the request that wrote it, and the
+ * answer hands it back; the phone's own id settles it. An answer without an id
+ * (a server from before) leaves the old guess: a pending record means this
+ * phone sent one.
+ */
+export function revokedDeleteOutcome(input: {
+  pendingBefore: boolean;
+  ownRequestId: string;
+  answerRequestId: string | null | undefined;
+}): 'done' | 'ended' {
+  if (typeof input.answerRequestId === 'string' && input.answerRequestId) {
+    return input.answerRequestId === input.ownRequestId ? 'done' : 'ended';
+  }
+  return input.pendingBefore ? 'done' : 'ended';
+}
+
+/**
+ * Whether everything the cloud copy holds is already on this phone — the
+ * reverse of phoneDataIsInCopy, for a refused upload.
+ *
+ * An upload whose answer was lost left the copy one version ahead of the
+ * phone, and every later one was refused as "another phone wrote since"
+ * (hunt round, 2026-10-03). A copy this phone's own data already contains
+ * lost nothing by being replaced by it. Rows are matched by id, and a row
+ * both sides hold has to read the same: a workout's name, notes and feel, a
+ * programme's `updatedAt`, any other row in full. An edit made on another
+ * phone is therefore a copy this phone has not seen, and is asked about.
+ * Settings are not compared; a copy that differs from the phone only in
+ * those is replaced.
+ */
+export function copyIsInPhoneData(local: AppDatabase, copy: Partial<AppDatabase> | null | undefined): boolean {
+  if (!copy) {
+    return false;
+  }
+  type Row = { id?: unknown } & Record<string, unknown>;
+  const rowsOf = (rows: unknown): Row[] => (Array.isArray(rows) ? (rows as Row[]) : []);
+  const signature: Record<string, (row: Row) => string> = {
+    workoutSessions: (row) => `${row.workoutNameSnapshot}|${row.sessionNotes ?? ''}|${row.feel ?? ''}`,
+    workoutTemplates: (row) => `${row.updatedAt}|${row.name}|${row.origin}`,
+  };
+  const collections = [
+    'workoutSessions',
+    'cardioSessions',
+    'bodyweightEntries',
+    'measurementEntries',
+    'workoutTemplates',
+    'workoutPlans',
+  ] as const;
+  return collections.every((key) => {
+    const describe = signature[key] ?? ((row: Row) => JSON.stringify(row));
+    const mine = new Map<string, string>();
+    for (const row of rowsOf(local[key])) {
+      if (typeof row?.id === 'string') {
+        mine.set(row.id, describe(row));
+      }
+    }
+    return rowsOf(copy[key]).every((row) => typeof row?.id === 'string' && mine.get(row.id) === describe(row));
+  });
+}
+
+/**
+ * Whether a cloud copy that refused this phone's upload is this phone's own
+ * work, so the upload may be retried onto it without asking anyone.
+ *
+ * Two ways to know. The exact one: the copy is what an upload this phone sent
+ * was made of (`inFlightFingerprints`, kept before each request — the answer
+ * may never have come back). The loose one: everything in the copy is already
+ * on the phone, and the copy is not smaller than the one this phone last saw
+ * (a smaller one is something deleted elsewhere, not a phone catching up).
+ */
+export function isCopyPhonesOwnWork(input: {
+  inFlightFingerprints: readonly string[];
+  lastCounts: { itemCount: number | null; historyCount: number | null };
+  local: AppDatabase;
+  copy: AccountBackupPayload;
+}): boolean {
+  const { inFlightFingerprints, lastCounts, local, copy } = input;
+  if (
+    inFlightFingerprints.length > 0 &&
+    inFlightFingerprints.includes(accountBackupFingerprint(copy.database as AppDatabase, copy.workoutHistory))
+  ) {
+    return true;
+  }
+  const counts = countBackup(copy.database, copy.workoutHistory);
+  if (lastCounts.itemCount === null || lastCounts.historyCount === null) {
+    // Nothing to tell a deletion from catching up with.
+    return false;
+  }
+  return (
+    counts.itemCount >= lastCounts.itemCount &&
+    counts.historyCount >= lastCounts.historyCount &&
+    copyIsInPhoneData(local, copy.database as Partial<AppDatabase>)
+  );
+}
+
 export function uploadNeedsConsent(input: {
   signedOutSubs: readonly string[];
   sub: string;
@@ -683,9 +788,23 @@ export type BackupLookResult = ({ kind: 'backup' } & BackupCounts) | { kind: 'no
  * an upload kept the fingerprint of what it sent.
  */
 export function isCloudCopyThisPhones(
-  sync: Pick<BackupSyncState, 'cloudVersion' | 'lastBackupAt'> & { lastBackupFingerprint: string | null },
+  sync: Pick<BackupSyncState, 'cloudVersion' | 'lastBackupAt'> & {
+    lastBackupFingerprint: string | null;
+    /** What the uploads last sent were made of, kept before each request (see isCopyPhonesOwnWork). */
+    uploadInFlightFingerprints?: readonly string[];
+  },
   remote: { version: string | null; payload: AccountBackupPayload },
 ): boolean {
+  // An upload whose answer never came back may have landed, and then the
+  // versions differ although the copy is this phone's own.
+  if (
+    sync.uploadInFlightFingerprints?.length &&
+    sync.uploadInFlightFingerprints.includes(
+      accountBackupFingerprint(remote.payload.database as AppDatabase, remote.payload.workoutHistory),
+    )
+  ) {
+    return true;
+  }
   if (sync.cloudVersion !== null && remote.version !== null) {
     return sync.cloudVersion === remote.version;
   }

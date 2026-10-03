@@ -66,6 +66,12 @@ interface SettingsScreenProps {
     signedIn: boolean;
     email: string | null;
     lastBackupAt: string | null;
+    /**
+     * Why the automatic backup is standing still until the reader decides
+     * (useAccountBackup). A green time over backups that are not happening
+     * was the row saying everything was fine.
+     */
+    backupPaused?: 'other_phone' | 'smaller_phone' | null;
     busy: boolean;
     /** The sign-ins this build offers (accountAuth): Apple on iPhone, Google where configured. */
     providers: SignInProvider[];
@@ -507,14 +513,26 @@ export function SettingsScreen({
                 // last written (user, 2026-08-22). Green only once a backup
                 // exists — "never" is not a success state.
                 subNode={
-                  <Text style={styles.rowSub}>
-                    {account.email ? `${account.email} · ` : ''}
-                    {account.lastBackupAt ? (
-                      <Text style={styles.rowSubOk}>{backupTimeLabel(account.lastBackupAt, language)}</Text>
-                    ) : (
-                      t(language, 'account.noBackupYet')
-                    )}
-                  </Text>
+                  <>
+                    <Text style={styles.rowSub}>
+                      {account.email ? `${account.email} · ` : ''}
+                      {account.lastBackupAt ? (
+                        <Text style={styles.rowSubOk}>{backupTimeLabel(account.lastBackupAt, language)}</Text>
+                      ) : (
+                        t(language, 'account.noBackupYet')
+                      )}
+                    </Text>
+                    {account.backupPaused ? (
+                      <Text style={[styles.rowSub, styles.rowSubWarn]}>
+                        {t(
+                          language,
+                          account.backupPaused === 'other_phone'
+                            ? 'account.backupPaused.otherPhone'
+                            : 'account.backupPaused.smallerPhone',
+                        )}
+                      </Text>
+                    ) : null}
+                  </>
                 }
                 chevron
                 disabled={account.busy}
@@ -861,6 +879,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   rowSubOk: {
     color: theme.greenInk,
+    fontWeight: '700',
+  },
+  rowSubWarn: {
+    color: theme.amberInk,
     fontWeight: '700',
   },
   rowValue: {

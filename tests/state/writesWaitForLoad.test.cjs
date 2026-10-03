@@ -134,7 +134,7 @@ module.exports = [
       // is set aside on its own when it cannot be read, and counting the
       // database alone let its empty stand-in replace the cloud copy
       // (persistence audit, 2026-09-20).
-      assert.match(backup, /const plan = planBackup\(\{\s*interactive,\s*sync: current,\s*local: countBackup\(latestRef\.current\.database, latestRef\.current\.workoutHistory\),\s*\}\);\s*if \(plan === 'skip'\) \{\s*return \{ kind: 'failed' \};/);
+      assert.match(backup, /const plan = planBackup\(\{\s*interactive,\s*sync: current,\s*local: countBackup\(latestRef\.current\.database, latestRef\.current\.workoutHistory\),\s*\}\);\s*if \(plan === 'skip'\) \{[\s\S]*?return \{ kind: 'failed' \};/);
       // The look also asks whether the copy is this phone's own: another
       // phone's copy is asked about, never overwritten (server audit,
       // 2026-09-21; run in tests/features/account).
