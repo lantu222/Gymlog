@@ -7,9 +7,9 @@ const {
   ANALYTICS_EVENTS,
   MAX_APP_ERRORS_PER_BATCH,
   MAX_BATCH_EVENTS,
+  acceptBatch,
   isValidEvent,
   takeBatch,
-  validateBatch,
 } = require('../../.test-dist/lib/analytics.js');
 
 const INSTALL = '12345678-1234-4123-8123-123456789abc';
@@ -93,6 +93,33 @@ module.exports = [
     },
   },
   {
+    name: 'error report: the message lines at the top of a stack are never read as frames',
+    run() {
+      // A message that looks like a JavaScriptCore frame ("name@file:line:col")
+      // sits above the real frames in both engines' stacks.
+      const hermes = [
+        'Error: user john@secret.js:3:4',
+        '    at anonymous (address at index.android.bundle:1:100)',
+      ].join('\n');
+      assert.deepEqual(report.parseStackFrames(hermes), ['index.android.bundle:1:100']);
+
+      const jsc = ['TypeError: bad input from john@secret.js:3:4', 'render@main.jsbundle:5:6'].join('\n');
+      assert.deepEqual(report.parseStackFrames(jsc), ['main.jsbundle:5:6']);
+
+      // A multi-line message, each line shaped like a frame of one engine or the other.
+      const multi = [
+        'Error: first line santeri@secret.js:1:2',
+        'second line: x@other.js:7:8',
+        '    at f (address at index.android.bundle:9:10)',
+      ].join('\n');
+      assert.deepEqual(report.parseStackFrames(multi), ['index.android.bundle:9:10']);
+
+      // The message alone is no stack at all.
+      assert.deepEqual(report.parseStackFrames('Error: user john@secret.js:3:4'), []);
+      assert.deepEqual(report.parseStackFrames('Error john@secret.js:3:4'), []);
+    },
+  },
+  {
     name: 'error report: the name is a class name or "Error", never a sentence; a thrown string is NonError',
     run() {
       assert.equal(report.errorNameOf(new TypeError('x')), 'TypeError');
@@ -105,7 +132,32 @@ module.exports = [
       assert.equal(report.errorNameOf('jussi@example.com'), 'NonError');
       assert.equal(report.errorNameOf(undefined), 'NonError');
       assert.equal(report.errorNameOf(null), 'NonError');
-      assert.equal(report.errorNameOf({}), 'Error');
+      // Only an Error gives a name: any other object's `name` is whatever it was given.
+      assert.equal(report.errorNameOf({}), 'NonError');
+      assert.equal(report.errorNameOf({ name: 'Santeri' }), 'NonError');
+      assert.equal(report.errorNameOf({ name: 'Santeri', stack: 'x' }), 'NonError');
+      assert.equal(report.errorNameOf({ name: 'TypeError' }), 'TypeError', 'another realm\'s built-in class');
+      assert.equal(report.errorNameOf({ name: 'MyOwnError' }), 'NonError');
+      // …and its stack is not read either.
+      const props = report.buildAppErrorProps({
+        kind: 'js_error',
+        error: { name: 'Santeri', stack: '    at f (address at index.android.bundle:1:2)' },
+        screen: 'unknown',
+        appVersion: '1.1.0',
+        platform: 'android',
+      });
+      assert.equal(props.name, 'NonError');
+      assert.deepEqual(props.frames, []);
+    },
+  },
+  {
+    name: 'error report: a sign-in that ended is a known state, not a failure to count',
+    run() {
+      assert.equal(report.isExpectedOperationOutcome('sign_in', 'SESSION_REVOKED'), true);
+      assert.equal(report.isExpectedOperationOutcome('sign_in', 'SESSION_EXPIRED'), true);
+      assert.equal(report.isExpectedOperationOutcome('sign_in', 'UNKNOWN'), false);
+      assert.equal(report.isExpectedOperationOutcome('sign_in', 'NETWORK'), false);
+      assert.equal(report.isExpectedOperationOutcome('backup_upload', 'SESSION_REVOKED'), false);
     },
   },
   {
@@ -289,18 +341,23 @@ module.exports = [
       assert.equal(batch.filter((event) => event.name === 'app_error').length, MAX_APP_ERRORS_PER_BATCH);
       // Order is kept and the cut falls at the first event over the cap.
       assert.equal(batch.length, MAX_APP_ERRORS_PER_BATCH);
-      assert.ok(validateBatch({ installId: INSTALL, sentAt: AT, events: batch }), 'the batch the client builds is one the server takes');
+      assert.equal(
+        acceptBatch({ installId: INSTALL, sentAt: AT, events: batch }).dropped,
+        0,
+        'the batch the client builds is one the server takes whole',
+      );
       const rest = queue.slice(batch.length);
       assert.equal(takeBatch(rest)[0].name, 'app_error', 'the remainder leads the next batch');
 
-      // The server refuses what the client never builds.
-      assert.equal(validateBatch({ installId: INSTALL, sentAt: AT, events: errors }), null, 'over the per-batch error cap');
-      assert.equal(
-        validateBatch({ installId: INSTALL, sentAt: AT, events: Array.from({ length: 41 }, () => failedEvent()) }),
-        null,
-        'over the per-batch failure cap',
-      );
-      assert.ok(validateBatch({ installId: INSTALL, sentAt: AT, events: [appErrorEvent(), failedEvent(), ...funnel] }));
+      // The server drops what the client never builds, and keeps the rest.
+      const overErrors = acceptBatch({ installId: INSTALL, sentAt: AT, events: errors });
+      assert.equal(overErrors.batch.events.length, MAX_APP_ERRORS_PER_BATCH, 'over the per-batch error cap');
+      assert.equal(overErrors.dropped, 10);
+      const overFailures = acceptBatch({ installId: INSTALL, sentAt: AT, events: Array.from({ length: 41 }, () => failedEvent()) });
+      assert.equal(overFailures.batch.events.length, 40, 'over the per-batch failure cap');
+      assert.equal(overFailures.dropped, 1);
+      const mixed = acceptBatch({ installId: INSTALL, sentAt: AT, events: [appErrorEvent(), failedEvent(), ...funnel] });
+      assert.equal(mixed.dropped, 0);
 
       // The ordinary queue still goes a hundred at a time.
       const busy = Array.from({ length: 250 }, () => ({ name: 'app_open', at: AT }));

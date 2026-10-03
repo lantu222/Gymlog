@@ -769,7 +769,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       return await settleWithRemote(result.account.idToken, base, remote, generation);
     } catch (error) {
       if (error instanceof SessionEnded) {
-        reportOperationFailed('sign_in', SESSION_REVOKED);
+        // Not reported: a session that ended is a known account state.
         return { kind: 'ended' };
       }
       if (error instanceof Superseded) {

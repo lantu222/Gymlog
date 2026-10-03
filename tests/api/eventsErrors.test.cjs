@@ -51,7 +51,7 @@ module.exports = [
       const { puts, post } = endpoint();
       const answer = await post([{ name: 'app_open', at: AT }, appError(), failed()]);
       assert.equal(answer.status, 200);
-      assert.deepEqual(answer.body, { ok: true });
+      assert.deepEqual(answer.body, { ok: true, accepted: 3, dropped: 0 });
       assert.equal(puts.length, 1);
       assert.match(puts[0].pathname, /^events\/\d{4}-\d{2}-\d{2}\//, 'the folder the retention prune already reads');
       assert.equal(puts[0].options.access, 'private');
@@ -63,7 +63,7 @@ module.exports = [
     },
   },
   {
-    name: 'events endpoint: a report with a message, a path, a stray field or an unknown code rejects the whole batch',
+    name: 'events endpoint: a report with a message, a path, a stray field or an unknown code is dropped, and the valid events beside it are stored',
     async run() {
       const { puts, post } = endpoint();
       const bad = [
@@ -79,22 +79,49 @@ module.exports = [
         { name: 'operation_failed', at: AT, props: {} },
       ];
       for (const event of bad) {
-        const answer = await post([{ name: 'app_open', at: AT }, event]);
-        assert.equal(answer.status, 400, JSON.stringify(event));
-        assert.deepEqual(answer.body, { ok: false, error: 'BAD_REQUEST' });
+        const before = puts.length;
+        // One event the server refuses must not take the funnel events with it:
+        // a 400 here was retried by the app forever, stalling its whole queue.
+        const answer = await post([{ name: 'app_open', at: AT }, event, { name: 'workout_started', at: AT }]);
+        assert.equal(answer.status, 200, JSON.stringify(event));
+        assert.deepEqual(answer.body, { ok: true, accepted: 2, dropped: 1 }, JSON.stringify(event));
+        assert.equal(puts.length, before + 1);
+        const stored = puts[puts.length - 1].body.events;
+        assert.deepEqual(stored.map((entry) => entry.name), ['app_open', 'workout_started']);
+        assert.ok(!JSON.stringify(stored).includes('Squat') && !JSON.stringify(stored).includes('jussi'));
       }
-      assert.equal(puts.length, 0, 'nothing from a rejected batch is stored');
     },
   },
   {
-    name: 'events endpoint: the per-batch caps on error events hold',
+    name: 'events endpoint: a batch with nothing valid stores nothing and still answers 200; a malformed batch is a 400',
     async run() {
       const { puts, post } = endpoint();
-      assert.equal((await post(Array.from({ length: 20 }, () => appError()))).status, 200);
-      assert.equal((await post(Array.from({ length: 21 }, () => appError()))).status, 400);
-      assert.equal((await post(Array.from({ length: 40 }, () => failed()))).status, 200);
-      assert.equal((await post(Array.from({ length: 41 }, () => failed()))).status, 400);
-      assert.equal(puts.length, 2);
+      const none = await post([appError({ message: 'x' }), { name: 'made_up', at: AT }]);
+      assert.equal(none.status, 200);
+      assert.deepEqual(none.body, { ok: true, accepted: 0, dropped: 2 });
+      assert.equal(puts.length, 0);
+
+      for (const answer of [
+        await post([]),
+        await post(Array.from({ length: 101 }, () => ({ name: 'app_open', at: AT }))),
+        await post([{ name: 'app_open', at: AT }], { installId: 'not-a-uuid' }),
+        await post('events'),
+      ]) {
+        assert.equal(answer.status, 400);
+        assert.deepEqual(answer.body, { ok: false, error: 'BAD_REQUEST' });
+      }
+      assert.equal(puts.length, 0);
+    },
+  },
+  {
+    name: 'events endpoint: error events past the per-batch caps are dropped, the rest kept',
+    async run() {
+      const { puts, post } = endpoint();
+      assert.deepEqual((await post(Array.from({ length: 20 }, () => appError()))).body, { ok: true, accepted: 20, dropped: 0 });
+      assert.deepEqual((await post(Array.from({ length: 21 }, () => appError()))).body, { ok: true, accepted: 20, dropped: 1 });
+      assert.deepEqual((await post(Array.from({ length: 40 }, () => failed()))).body, { ok: true, accepted: 40, dropped: 0 });
+      assert.deepEqual((await post(Array.from({ length: 41 }, () => failed()))).body, { ok: true, accepted: 40, dropped: 1 });
+      assert.equal(puts.length, 4);
     },
   },
 ];

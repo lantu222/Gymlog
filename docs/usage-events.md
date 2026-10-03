@@ -9,10 +9,28 @@ operator's view: where the data sits, how long, and what keeps that promise.
 
 Production failures ride the same pipe and the same switch — no third-party
 crash service. Shapes and validation: `src/lib/errorReport.ts` (client and
-server validate with the same code; a batch with any invalid event is rejected
-whole; per batch at most 20 `app_error` and 40 `operation_failed`, which the
-client's `takeBatch` respects). **No message field exists**: an error message
-is free text that can hold exercise names or an email.
+server validate with the same code; per batch at most 20 `app_error` and 40
+`operation_failed`, which the client's `takeBatch` respects). **No message field
+exists**: an error message is free text that can hold exercise names or an email.
+
+**The server validates per event.** `api/events.ts` stores the valid events of a
+batch, drops the invalid ones and answers `200 { ok, accepted, dropped }`; only a
+batch that is not a batch (no install id, no events, more than 100) is a 400. The
+client drops a batch the server refused for good (a 4xx carrying the server's own
+JSON error, other than 408/425/426/429) and retries only what a later try can
+fix: no network, 5xx, a rate limit, "update the app". Refusing a batch whole and
+retrying the same head forever used to stall every funnel event behind it.
+
+**Deploy order.** A client that sends a new event shape or a new route key must
+not ship before the server that accepts it is live. Merging to `main` deploys the
+server automatically, so merge first and build the APK after; an older server
+would now drop the new events (counted, harmless) rather than stall the queue,
+but they would be lost.
+
+**Play vitals.** A render error the boundary catches no longer ends the process,
+so it no longer reaches Play Console's Android vitals as a native crash; it
+shows up here as `app_error` with kind `render`. Fatal JS errors outside React's
+render still end the process and still count there.
 
 - `app_error`: `kind` (`js_fatal`, `js_error`, `render`, `unhandled_rejection`),
   `name` (class), `signature` (hash of class + top 3 frames), up to 5

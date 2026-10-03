@@ -34,7 +34,7 @@ const LEGAL_TEXT_VERSIONS = [
   // both languages; the entries above hashed the 'both' text only.
   { date: '2026-10-03', fingerprint: 'e5d4d3139906bfd2' },
   // Error reports join the usage statistics (same switch, same retention).
-  { date: '2026-10-04', fingerprint: '583c0b9c42fb4708' },
+  { date: '2026-10-04', fingerprint: '7444fcea5efd63d0' },
 ];
 
 const IDS = ['privacy', 'terms'];

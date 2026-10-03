@@ -149,8 +149,24 @@ export function isValidEvent(value: unknown): value is AnalyticsEvent {
   return true;
 }
 
-/** The whole batch, or null. Partial acceptance would hide a broken client. */
-export function validateBatch(payload: unknown): AnalyticsBatch | null {
+/**
+ * What the server keeps of a batch: the events that are valid, and a count of
+ * the ones it dropped.
+ *
+ * It used to be all or nothing, so one event the server did not know — a new
+ * screen, an event shape from a newer app — got the whole batch a 400, and a
+ * client that retries the head of its queue forever sent that batch forever
+ * behind which no funnel event could leave. Now the valid events are kept and
+ * the rest are counted and dropped; only a batch that is not a batch at all
+ * (the envelope, or more than MAX_BATCH_EVENTS) is refused.
+ */
+export interface AcceptedBatch {
+  batch: AnalyticsBatch;
+  dropped: number;
+}
+
+/** The accepted part of a batch, or null when the batch itself is malformed. */
+export function acceptBatch(payload: unknown): AcceptedBatch | null {
   if (!payload || typeof payload !== 'object') {
     return null;
   }
@@ -164,21 +180,43 @@ export function validateBatch(payload: unknown): AnalyticsBatch | null {
   if (!Array.isArray(candidate.events) || candidate.events.length === 0 || candidate.events.length > MAX_BATCH_EVENTS) {
     return null;
   }
-  if (!candidate.events.every(isValidEvent)) {
-    return null;
-  }
-  // The client composes its batches by takeBatch, which holds the same caps,
-  // so a batch over them is a broken client and not a busy one.
-  const errors = candidate.events.filter((event) => (event as AnalyticsEvent).name === 'app_error').length;
-  const failures = candidate.events.filter((event) => (event as AnalyticsEvent).name === 'operation_failed').length;
-  if (errors > MAX_APP_ERRORS_PER_BATCH || failures > MAX_OPERATION_FAILURES_PER_BATCH) {
-    return null;
+  const events: AnalyticsEvent[] = [];
+  let errors = 0;
+  let failures = 0;
+  for (const event of candidate.events) {
+    if (!isValidEvent(event)) {
+      continue;
+    }
+    // The client composes its batches by takeBatch, which holds the same caps;
+    // an error event past them is dropped, not a reason to refuse the rest.
+    if (event.name === 'app_error') {
+      if (errors >= MAX_APP_ERRORS_PER_BATCH) {
+        continue;
+      }
+      errors += 1;
+    } else if (event.name === 'operation_failed') {
+      if (failures >= MAX_OPERATION_FAILURES_PER_BATCH) {
+        continue;
+      }
+      failures += 1;
+    }
+    events.push(event);
   }
   return {
-    installId: candidate.installId,
-    sentAt: candidate.sentAt,
-    events: candidate.events as AnalyticsEvent[],
+    batch: { installId: candidate.installId, sentAt: candidate.sentAt, events },
+    dropped: candidate.events.length - events.length,
   };
+}
+
+/**
+ * Whether the server's answer to a batch is final: it will say the same to the
+ * same batch tomorrow, so the batch is dropped instead of retried forever. A
+ * 4xx is that — except the answers that are about timing or about this build
+ * (408, 425, 429 rate limit, 426 update required), which keep the batch queued
+ * for a later try. Network failures and 5xx are never final.
+ */
+export function isFinalRefusal(status: number): boolean {
+  return status >= 400 && status < 500 && ![408, 425, 426, 429].includes(status);
 }
 
 /**

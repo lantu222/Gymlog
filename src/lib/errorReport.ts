@@ -170,21 +170,41 @@ export function isValidScreenKey(value: unknown): value is string {
 
 const ERROR_NAME_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 
+/** The engine's own error classes, by name, for an error from another realm. */
+const BUILT_IN_ERROR_NAMES = [
+  'Error',
+  'TypeError',
+  'RangeError',
+  'ReferenceError',
+  'SyntaxError',
+  'EvalError',
+  'URIError',
+  'AggregateError',
+];
+
 /**
- * The error's class name. `name` is a property code can set to any string —
- * even a sentence — so only an identifier-shaped, short one is kept; anything
- * else is plain `Error`. A thrown non-error (a string, a number, undefined)
- * is `NonError`: its content is exactly the free text this module refuses.
+ * The error's class name. Only an actual Error gives one: `name` on any other
+ * object is whatever the code that built it wrote — `{ name: 'Santeri' }` —
+ * so a plain object, a string, a number or nothing at all is `NonError`, its
+ * content exactly the free text this module refuses. (An object from another
+ * realm that carries one of the engine's own class names is that class.)
+ * Of an Error, only an identifier-shaped, short name is kept; anything else
+ * is plain `Error`.
  */
 export function errorNameOf(error: unknown): string {
-  if (error === null || (typeof error !== 'object' && typeof error !== 'function')) {
-    return 'NonError';
+  if (error instanceof Error) {
+    const name = error.name;
+    return typeof name === 'string' && name.length <= MAX_ERROR_NAME_LENGTH && ERROR_NAME_PATTERN.test(name)
+      ? name
+      : 'Error';
   }
-  const name = (error as { name?: unknown }).name;
-  if (typeof name === 'string' && name.length <= MAX_ERROR_NAME_LENGTH && ERROR_NAME_PATTERN.test(name)) {
-    return name;
+  if (error !== null && typeof error === 'object') {
+    const name = (error as { name?: unknown }).name;
+    if (typeof name === 'string' && BUILT_IN_ERROR_NAMES.includes(name)) {
+      return name;
+    }
   }
-  return 'Error';
+  return 'NonError';
 }
 
 /** A bundle or a source file by name — a domain or an address in front of `:1:2` is not one. */
@@ -210,7 +230,11 @@ function parseFrameLine(line: string): string | null {
   if (/^\s*at\s/.test(line)) {
     location = /^\s*at\s+(?:.*?\s\()?(.+):(\d+):(\d+)\)?\s*$/.exec(line);
   } else if (line.includes('@')) {
-    location = /^[^@]*@(.+):(\d+):(\d+)\s*$/.exec(line);
+    // The name in front of the @ is a function name — one token, or one of
+    // JSC's own "global code" kind — never a sentence. A message line such as
+    // "Error: user john@secret.js:3:4" has a colon and spaces there and is
+    // not a frame; only lines of the stack proper are.
+    location = /^(?:(?:global|eval|module|program) code|[A-Za-z0-9_$.<>?/-]*)@(.+):(\d+):(\d+)\s*$/.exec(line);
   }
   if (!location) {
     return null;
@@ -304,8 +328,8 @@ export function buildAppErrorProps(input: {
   platform: string | null | undefined;
 }): AppErrorProps {
   const name = errorNameOf(input.error);
-  const stack =
-    input.error !== null && typeof input.error === 'object' ? (input.error as { stack?: unknown }).stack : undefined;
+  // Only an error's own stack: a plain object's `stack` is whatever it was given.
+  const stack = name !== 'NonError' ? (input.error as { stack?: unknown }).stack : undefined;
   const frames = parseStackFrames(stack);
   return {
     kind: input.kind,
@@ -363,6 +387,15 @@ export function isValidOperationFailedProps(value: unknown): value is OperationF
     (FAILED_OPERATIONS as readonly string[]).includes(props.op as string) &&
     (OPERATION_CODES as readonly string[]).includes(props.code as string)
   );
+}
+
+/**
+ * Outcomes that are a known state of the account, not a fault: a sign-in that
+ * ended because the session was revoked or ran out. The reader signs in
+ * again; counting it would bury the failures that are bugs.
+ */
+export function isExpectedOperationOutcome(op: FailedOperation, code: OperationCode): boolean {
+  return op === 'sign_in' && (code === 'SESSION_REVOKED' || code === 'SESSION_EXPIRED');
 }
 
 /**

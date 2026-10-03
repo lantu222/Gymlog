@@ -373,6 +373,120 @@ module.exports = [
     },
   },
   {
+    name: 'analytics client: a batch the server refuses for good is dropped and the next one flows; a retryable answer keeps it',
+    async run() {
+      const json = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
+      const REFUSED = json(400, { ok: false, error: 'BAD_REQUEST' });
+      const ACCEPTED = json(200, { ok: true, accepted: 1, dropped: 0 });
+
+      /** A client whose timers and network the test drives. */
+      async function drive(answers, work) {
+        const timers = [];
+        const sent = [];
+        const savedTimeout = globalThis.setTimeout;
+        const savedClear = globalThis.clearTimeout;
+        const savedFetch = globalThis.fetch;
+        globalThis.setTimeout = (fn) => {
+          timers.push(fn);
+          return timers.length;
+        };
+        globalThis.clearTimeout = () => undefined;
+        globalThis.fetch = async (url, init) => {
+          sent.push(JSON.parse(init.body).events.map((event) => event.name));
+          const answer = answers[Math.min(sent.length - 1, answers.length - 1)];
+          if (answer instanceof Error) {
+            throw answer;
+          }
+          return answer;
+        };
+        try {
+          const storage = memoryStorage();
+          const client = loadClient(storage);
+          client.setUsageStatisticsEnabled(true);
+          await flush();
+          await work({ client, storage, sent, runTimers: async () => {
+            const due = timers.splice(0);
+            for (const fn of due) fn();
+            await flush();
+            await flush();
+          } });
+          client.setUsageStatisticsEnabled(false);
+        } finally {
+          globalThis.setTimeout = savedTimeout;
+          globalThis.clearTimeout = savedClear;
+          globalThis.fetch = savedFetch;
+        }
+      }
+      const queued = (storage) => JSON.parse(storage.items.get(STORAGE_KEY)).queue.map((event) => event.name);
+
+      // A 400: this batch is dropped, and the event tracked after it is sent.
+      await drive([REFUSED, ACCEPTED], async ({ client, storage, sent, runTimers }) => {
+        client.trackEvent('app_open');
+        await flush();
+        await runTimers();
+        assert.deepEqual(sent, [['app_open']]);
+        assert.deepEqual(queued(storage), [], 'the refused batch is not kept to be refused again');
+        client.trackEvent('workout_started');
+        await flush();
+        await runTimers();
+        assert.deepEqual(sent, [['app_open'], ['workout_started']], 'the next batch flows');
+        assert.deepEqual(queued(storage), []);
+      });
+
+      // Behind a refused batch, the rest of the queue still goes out by itself.
+      await drive([REFUSED, ACCEPTED], async ({ client, storage, sent, runTimers }) => {
+        for (let index = 0; index < 101; index += 1) {
+          client.trackEvent('app_open');
+        }
+        await flush();
+        await flush();
+        await runTimers();
+        assert.equal(sent.length, 1);
+        assert.equal(sent[0].length, 100);
+        assert.equal(queued(storage).length, 1, 'the 101st waits');
+        await runTimers();
+        assert.equal(sent.length, 2, 'and is sent on the next flush');
+        assert.deepEqual(queued(storage), []);
+      });
+
+      // What a later try can fix keeps the batch: a 5xx, no network, a rate
+      // limit, "update the app", and an answer that is not our server's.
+      for (const answer of [
+        json(500, { ok: false, error: 'INTERNAL' }),
+        json(503, { ok: false, error: 'SERVICE_PAUSED' }),
+        json(429, { ok: false, error: 'RATE_LIMIT' }),
+        json(426, { ok: false, error: 'APP_UPDATE_REQUIRED' }),
+        json(403, null),
+        new Error('Network request failed'),
+      ]) {
+        await drive([answer], async ({ client, storage, sent, runTimers }) => {
+          client.trackEvent('app_open');
+          await flush();
+          await runTimers();
+          assert.equal(sent.length, 1);
+          assert.deepEqual(queued(storage), ['app_open'], `kept after ${answer.status ?? answer.message}`);
+        });
+      }
+    },
+  },
+  {
+    name: 'error reporting: a sign-in that ended is not reported, a failed one is',
+    run() {
+      const client = recorder();
+      const reporter = loadReporter(client);
+      reporter.resetErrorReportBudget();
+      reporter.reportOperationFailed('sign_in', 'SESSION_REVOKED');
+      reporter.reportOperationFailed('sign_in', 'SESSION_EXPIRED');
+      assert.equal(client.sent.length, 0);
+      reporter.reportOperationFailed('sign_in');
+      assert.deepEqual(client.sent.map((event) => event.props), [{ op: 'sign_in', code: 'UNKNOWN' }]);
+      reporter.resetErrorReportBudget();
+      // And the hook no longer raises one for the session that ended.
+      const hook = read('src', 'features', 'account', 'useAccountBackup.ts');
+      assert.doesNotMatch(hook, /reportOperationFailed\('sign_in', SESSION_REVOKED\)/);
+    },
+  },
+  {
     name: 'error reporting: a fatal error is written to the queue before the handler returns',
     async run() {
       await withFetch(async () => {

@@ -24,6 +24,7 @@ import {
   AnalyticsEventName,
   AnalyticsEventProps,
   appendToQueue,
+  isFinalRefusal,
   isValidEvent,
   takeBatch,
 } from '../../lib/analytics';
@@ -133,16 +134,25 @@ async function flush(): Promise<void> {
       headers: { 'content-type': 'application/json', ...appVersionHeaders() },
       body: JSON.stringify({ installId: state.installId, sentAt: new Date().toISOString(), events: batch }),
     });
+    const body = response.ok ? null : ((await response.json().catch(() => null)) as { ok?: unknown; error?: unknown } | null);
     if (!response.ok) {
-      noteServerAnswer(response.status, await response.json().catch(() => null));
-    } else {
+      noteServerAnswer(response.status, body);
+    }
+    // Sent, or refused for good: either way this batch leaves the queue. A
+    // final refusal (a 400: the server will say the same tomorrow) kept at the
+    // head was retried forever, and no event behind it ever left the phone.
+    // What stays queued is what a later try can fix: no network, a 5xx, a rate
+    // limit, "update the app" (lib/analytics isFinalRefusal) — and an answer
+    // that is not our server's own JSON (a captive portal's 403 says nothing
+    // about this batch).
+    const ownRefusal = body !== null && body.ok === false && typeof body.error === 'string';
+    if (response.ok || (ownRefusal && isFinalRefusal(response.status))) {
       state.queue = state.queue.slice(batch.length);
       await persist();
       if (state.queue.length > 0) {
         scheduleFlush();
       }
     }
-    // A refused batch stays queued; the next flush retries it.
   } catch {
     // Offline. The queue holds; the next foreground tries again.
   } finally {

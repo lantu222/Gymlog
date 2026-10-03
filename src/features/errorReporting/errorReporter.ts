@@ -16,6 +16,7 @@ import {
   admitOperationFailure,
   buildAppErrorProps,
   emptyErrorBudget,
+  isExpectedOperationOutcome,
   operationFailureCode,
   screenKeyForRoute,
   type AppErrorKind,
@@ -99,6 +100,10 @@ export function reportOperationFailed(op: FailedOperation, source?: unknown): vo
   reporting = true;
   try {
     const code = operationFailureCode(source);
+    if (isExpectedOperationOutcome(op, code)) {
+      // A known account state (a sign-in that ended), not a fault.
+      return;
+    }
     const admitted = admitOperationFailure(budget, op, code);
     budget = admitted.budget;
     if (admitted.admitted) {
