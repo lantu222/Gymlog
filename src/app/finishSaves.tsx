@@ -15,6 +15,7 @@ import { buildMuscleFocus, getVolumeDeltaVsPrevious } from '../lib/workoutComple
 import { ROOT_ROUTES } from '../navigation/routes';
 import type { AppRoute } from '../navigation/routes';
 import type { useAppContext } from '../state/AppProvider';
+import type { SessionSaveSummary } from '../state/completedWorkoutPersistence';
 import type { WorkoutTemplateDraft } from '../types/models';
 import {
   buildCompletionCardsFromAdaptedSession,
@@ -349,9 +350,9 @@ export function createFinishSaves(deps: FinishSavesDeps) {
     }
   }
 
-  // Shared finish path for logged one-off sessions (freestyle + editor):
-  // template first, then the completed session, and only then the summary
-  // screen — a failed save must leave the logger open with its sets intact.
+  // The free workout's finish: template first, then the completed session,
+  // and only then the summary screen — a failed save must leave the board
+  // open with its sets intact.
   const finishLoggedWorkoutSave = async (
     draft: WorkoutTemplateDraft,
     summary: FreestyleFinishSummary,
@@ -370,6 +371,9 @@ export function createFinishSaves(deps: FinishSavesDeps) {
     // Counted at its first save only: a merge, or the same finish found already stored, was counted
     // when it first landed.
     let firstSave = true;
+    // What the stored row says, for the summary screen: after a merge it holds stored sets the board no
+    // longer shows, and the tiles say what History will (the guided finish reads its tiles the same way).
+    let saved: SessionSaveSummary | null = null;
     if (storedRow) {
       const landed = await saveCompletedWorkoutSession({
         sessionId,
@@ -383,6 +387,7 @@ export function createFinishSaves(deps: FinishSavesDeps) {
       });
       landedAs = landed.sessionId ?? sessionId;
       firstSave = landed.wasStored !== true;
+      saved = landed;
     } else {
       const workoutTemplateId = await upsertWorkoutTemplate(draft);
       try {
@@ -396,6 +401,7 @@ export function createFinishSaves(deps: FinishSavesDeps) {
         });
         landedAs = landed.sessionId ?? sessionId;
         firstSave = landed.wasStored !== true;
+        saved = landed;
         if (!firstSave) {
           // Found already stored (a save that appeared between the read above and the write): the
           // template made for it holds nothing.
@@ -452,6 +458,11 @@ export function createFinishSaves(deps: FinishSavesDeps) {
       setCompletionSummary({
         ...summary,
         sessionId: landedAs,
+        // A merge keeps the stored row's name (a rename made since is the reader's).
+        workoutName: storedRow?.workoutNameSnapshot ?? summary.workoutName,
+        ...(saved
+          ? { setsCompleted: saved.setsCompleted, totalVolume: saved.totalVolume, exercisesLogged: saved.exercisesCompleted }
+          : {}),
         // Freestyle sessions have no plan identity: no previous-session
         // comparison, and muscle focus comes from the logged drafts.
         volumeDeltaKg: null,

@@ -90,6 +90,9 @@ module.exports = [
       assert.match(fn, /workoutTemplateId: storedRow\.workoutTemplateId,[\s\S]*?mergeStored: true,\s*mergeBy: 'place',/);
       assert.ok(fn.indexOf('upsertWorkoutTemplate(draft)') > fn.indexOf('if (storedRow) {'), 'a new template only for a first save');
       assert.match(fn, /if \(firstSave\) \{\s*countWorkoutCompleted\(landedAs\);/);
+      // The summary's tiles and name are the stored row's: after a merge it holds stored sets the board no longer shows.
+      assert.match(fn, /workoutName: storedRow\?\.workoutNameSnapshot \?\? summary\.workoutName,/);
+      assert.match(fn, /\{ setsCompleted: saved\.setsCompleted, totalVolume: saved\.totalVolume, exercisesLogged: saved\.exercisesCompleted \}/);
       // After the save landed, a failure is logged and the board is left, never rethrown as a failed save.
       const after = fn.slice(fn.indexOf('// The sets are on disk.'));
       assert.match(after, /\} catch \(error\) \{\s*console\.error\('Failed after the free workout was saved', error\);\s*navigateBack\(getWorkoutLoggerFallbackRoute\(\)\);\s*\}/);
@@ -114,6 +117,25 @@ module.exports = [
       state = workoutReducer(state, record('session_board', 65));
       const entries = state.history.slotHistory['logged:bench press'];
       assert.deepEqual(entries.map((entry) => `${entry.sessionId}:${entry.sets[0].loadKg}`), ['session_board:65', 'session_old:50']);
+      // Two rows of one lift in one session (top sets, then back-off) are both recorded, and both replaced next time.
+      const twoRows = (sessionId, top, backOff) => ({
+        type: 'history/recordLogged',
+        payload: {
+          performedAt: '2026-10-03T10:00:00.000Z',
+          sessionId,
+          templateName: 'Free workout',
+          exercises: [
+            { exerciseName: 'Bench Press', sets: [{ setIndex: 0, loadKg: top, reps: 5 }] },
+            { exerciseName: 'Bench Press', sets: [{ setIndex: 0, loadKg: backOff, reps: 12 }] },
+          ],
+        },
+      });
+      state = workoutReducer(state, twoRows('session_board', 100, 70));
+      state = workoutReducer(state, twoRows('session_board', 102.5, 70));
+      assert.deepEqual(
+        state.history.slotHistory['logged:bench press'].map((entry) => `${entry.sessionId}:${entry.sets[0].loadKg}`),
+        ['session_board:70', 'session_board:102.5', 'session_old:50'],
+      );
     },
   },
 ];

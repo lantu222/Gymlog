@@ -234,9 +234,11 @@ export function freestyleLogsOf(exercises: FreestyleExerciseDraft[]): ExerciseLo
  * (it is written 400 ms behind the board). It came back holding a weight changed just before
  * Finish, and its second Finish saved every set twice (bug hunt 2026-10-03).
  *
- * A draft written after the save is the board carried on after it (a draft that reached the board
- * before the database had loaded): it stays, under its own id, and its Finish merges into the
- * saved workout (mergeStoredBoardLogs). An id held by an older build's walk (`<id>_b`) is followed.
+ * A draft written after the save is the board carried on after it: it stays, under its own id, and
+ * its Finish merges into the saved workout (mergeStoredBoardLogs). Before and after are read off the
+ * device clock; one stepped back between the save and later edits would drop those edits, which also
+ * needs a lost clear and a board carried on past its save. A draft whose sets an older build's walk
+ * saved under `<id>_b` is dropped too.
  */
 export function discardSavedFreestyleDraft(
   draft: FreestyleDraftSnapshot | null,

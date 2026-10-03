@@ -403,7 +403,7 @@ function VinhaApp() {
     }
     const settled = settleSavedCardioRun(activeCardio, cardioSessions);
     if (settled) {
-      settleCardio(settled);
+      settleCardio(settled, activeCardio?.resumedAt ?? null);
     }
   }, [hydrated, workout.hydrated, activeCardio, cardioSessions, settleCardio]);
 

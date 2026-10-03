@@ -187,14 +187,17 @@ module.exports = [
       // The reducer takes it only for the same run.
       let state = { ...workoutInitialState, hydrated: true, activeCardio: lostPause };
       const settled = settleSavedCardioRun(lostPause, sessions);
-      state = workoutReducer(state, { type: 'cardio/settle', payload: { session: settled } });
-      assert.deepEqual(state.activeCardio, settled);
-      const other = workoutReducer(state, { type: 'cardio/settle', payload: { session: { ...settled, startedAt: '2026-10-03T07:00:00.000Z' } } });
+      // A pause or a resume dispatched between the read and the settle is the reader's, and stands.
+      const pausedSince = workoutReducer(state, { type: 'cardio/pause', payload: { nowMs: Date.parse('2026-10-03T17:00:00.000Z') } });
+      assert.equal(workoutReducer(pausedSince, { type: 'cardio/settle', payload: { session: settled, wasResumedAt: startedAt } }), pausedSince);
+      const other = workoutReducer(state, { type: 'cardio/settle', payload: { session: { ...settled, startedAt: '2026-10-03T07:00:00.000Z' }, wasResumedAt: startedAt } });
       assert.equal(other, state, 'another run is not put over this one');
+      state = workoutReducer(state, { type: 'cardio/settle', payload: { session: settled, wasResumedAt: startedAt } });
+      assert.deepEqual(state.activeCardio, settled);
 
       // App settles it once both stores have loaded.
       const app = fs.readFileSync(path.join(ROOT, 'App.tsx'), 'utf8').replace(/\r\n/g, '\n');
-      assert.match(app, /if \(!hydrated \|\| !workout\.hydrated\) \{\s*return;\s*\}\s*const settled = settleSavedCardioRun\(activeCardio, cardioSessions\);\s*if \(settled\) \{\s*settleCardio\(settled\);/);
+      assert.match(app, /if \(!hydrated \|\| !workout\.hydrated\) \{\s*return;\s*\}\s*const settled = settleSavedCardioRun\(activeCardio, cardioSessions\);\s*if \(settled\) \{\s*settleCardio\(settled, activeCardio\?\.resumedAt \?\? null\);/);
     },
   },
 ];
