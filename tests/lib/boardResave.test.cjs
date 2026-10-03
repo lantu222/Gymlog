@@ -181,7 +181,7 @@ module.exports = [
 
       // Wired: the board asks for the lookup for the id it finishes under, and the shell hands it the one that leaves it out.
       const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8');
-      assert.match(read('src', 'screens', 'EmptyWorkoutScreen.tsx'), /exercisePrLookup: exercisePrLookupBefore\(sessionIdRef\.current\),\n\s*sessionId: sessionIdRef\.current \?\? undefined,/);
+      assert.match(read('src', 'screens', 'EmptyWorkoutScreen.tsx'), /exercisePrLookup: exercisePrLookupBefore\(sessionIdRef\.current\),\s*sessionId: sessionIdRef\.current \?\? undefined,/);
       assert.match(read('src', 'app', 'renderWorkoutTab.tsx'), /exercisePrLookupBefore=\{exercisePrLookupBefore\}/);
       assert.match(read('src', 'app', 'useCustomProgramViews.ts'), /buildExercisePrLookupBefore\(\s*\{[^}]*\},\s*sessionId,\s*exercisePrLookup,\s*\)/);
       assert.match(read('src', 'app', 'finishSaves.tsx'), /const priorPrLookup = buildExercisePrLookupBefore\(database, adaptedSession\.sessionId, exercisePrLookup\);/);
